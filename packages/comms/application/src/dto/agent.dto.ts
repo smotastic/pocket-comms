@@ -40,6 +40,8 @@ export type AgentEventDto =
   | { readonly type: 'agent'; readonly agent: AgentDto }
   | {
       readonly type: 'entries';
+      /** The entries replace what the reader holds: the first event of a session. */
+      readonly reset: boolean;
       readonly entries: ReadonlyArray<TranscriptEntry>;
       readonly activity: string;
     };

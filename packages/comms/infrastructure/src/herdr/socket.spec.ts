@@ -229,6 +229,26 @@ describe('Herdr.layerSocket changes', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('waits one interval before it subscribes again after Herdr ends a subscription', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(herdrLists(['w1:p1']));
+      const subscribes = () =>
+        server.requests.filter((request) => request.method === 'events.subscribe').length;
+      yield* HerdrOutbound.use((herdr) => herdr.changes.pipe(Stream.runDrain)).pipe(
+        Effect.provide(layerSocket({ path: server.path, relistInterval: '200 millis' })),
+        Effect.forkChild,
+      );
+      yield* Effect.sleep('100 millis');
+      expect(subscribes()).toBe(1);
+
+      server.closeSubscribers();
+      yield* Effect.sleep('50 millis');
+      expect(subscribes()).toBe(1);
+      yield* Effect.sleep('300 millis');
+      expect(subscribes()).toBe(2);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('emits at least once per re-list interval, also while Herdr is away', () =>
     Effect.gen(function* () {
       const emitted = yield* HerdrOutbound.use((herdr) =>

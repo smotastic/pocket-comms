@@ -108,8 +108,8 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
       return { entries: parser.entries().slice(-maxEntries), modifiedAt: info.mtimeMs };
     });
 
-    // Reads what was appended since `offset`. Only complete lines are parsed; a line still being
-    // written waits in `rest` for its end.
+    // Emits the latest entries, then reads what was appended since `offset`. Only complete lines
+    // are parsed; a line still being written is read again at the next check, once it is whole.
     const follow = (source: TranscriptSource) =>
       Stream.unwrap(
         Effect.gen(function* () {
@@ -146,9 +146,21 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
             catch: failed(source),
           });
 
-          return Stream.tick(pollInterval).pipe(
-            Stream.mapEffect(() => readNew),
-            Stream.filter((entries) => entries.length > 0),
+          // A failed check (a file briefly locked or rotated) is logged and retried at the next one.
+          const check = readNew.pipe(
+            Effect.catchTag('TranscriptUnavailableError', (error) =>
+              Effect.logWarning('The session file cannot be read', { reason: error.reason }).pipe(
+                Effect.as([]),
+              ),
+            ),
+          );
+
+          return Stream.concat(
+            Stream.succeed(parser.entries().slice(-maxEntries)),
+            Stream.tick(pollInterval).pipe(
+              Stream.mapEffect(() => check),
+              Stream.filter((entries) => entries.length > 0),
+            ),
           );
         }),
       );

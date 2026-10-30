@@ -4,6 +4,7 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as PubSub from 'effect/PubSub';
 import * as Queue from 'effect/Queue';
+import type { AgentEventDto } from '../dto/agent.dto.js';
 import { TranscriptUnavailableError } from '../errors.js';
 import { AgentsInbound } from '../ports/agents.inbound.port.js';
 import { fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
@@ -63,7 +64,13 @@ describe('AgentsInbound.transcript', () => {
 });
 
 describe('AgentsInbound.agentEvents', () => {
-  it.effect('emits the agent at once, then new entries and status changes', () =>
+  // The agent and the session snapshot arrive at once, in either order.
+  const firstTwo = (events: Queue.Queue<AgentEventDto>) =>
+    Effect.map(Effect.all([Queue.take(events), Queue.take(events)]), (taken) =>
+      [...taken].sort((a, b) => a.type.localeCompare(b.type)),
+    );
+
+  it.effect('emits the agent and the session at once, then new entries and status changes', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
       state.agents = [fakeAgent({ paneId: 'w1:p1', name: 'kirk', session: 's1' })];
@@ -72,14 +79,15 @@ describe('AgentsInbound.agentEvents', () => {
         yield* AgentsInbound.use((inbound) => inbound.agentEvents('kirk')),
       );
 
-      expect(yield* Queue.take(events)).toEqual({
-        type: 'agent',
-        agent: expect.objectContaining({ ref: 'kirk', status: 'idle' }),
-      });
+      expect(yield* firstTwo(events)).toEqual([
+        { type: 'agent', agent: expect.objectContaining({ ref: 'kirk', status: 'idle' }) },
+        { type: 'entries', reset: true, entries: [prompt], activity: 'Thinking…' },
+      ]);
       yield* settle;
       yield* PubSub.publish(state.transcriptAppends, { session: 's1', entries: [running] });
       expect(yield* Queue.take(events)).toEqual({
         type: 'entries',
+        reset: false,
         entries: [running],
         activity: 'Running pnpm test…',
       });
@@ -90,6 +98,30 @@ describe('AgentsInbound.agentEvents', () => {
       expect(yield* Queue.take(events)).toEqual({
         type: 'agent',
         agent: expect.objectContaining({ ref: 'kirk', status: 'working' }),
+      });
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('follows the new session when the agent starts one', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.agents = [fakeAgent({ paneId: 'w1:p1', name: 'kirk', session: 's1' })];
+      state.transcripts.set('s1', { entries: [prompt], modifiedAt: at });
+      state.transcripts.set('s2', { entries: [running], modifiedAt: at });
+      const events = yield* collect(
+        yield* AgentsInbound.use((inbound) => inbound.agentEvents('kirk')),
+      );
+      yield* firstTwo(events);
+      yield* settle;
+
+      state.agents = [fakeAgent({ paneId: 'w1:p1', name: 'kirk', session: 's2' })];
+      yield* PubSub.publish(state.herdrChanges, undefined);
+
+      expect(yield* Queue.take(events)).toEqual({
+        type: 'entries',
+        reset: true,
+        entries: [running],
+        activity: 'Running pnpm test…',
       });
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );

@@ -121,9 +121,12 @@ const transcripts = (state: FakeState['Service']) => {
         }),
       ),
     follow: (source) =>
-      Stream.fromPubSub(state.transcriptAppends).pipe(
-        Stream.filter((append) => append.session === source.session),
-        Stream.map((append) => append.entries),
+      Stream.concat(
+        Stream.sync(() => state.transcripts.get(source.session)?.entries ?? []),
+        Stream.fromPubSub(state.transcriptAppends).pipe(
+          Stream.filter((append) => append.session === source.session),
+          Stream.map((append) => append.entries),
+        ),
       ),
     modifiedAt: (source) =>
       Effect.sync(() => Option.map(find(source), (transcript) => transcript.modifiedAt)),

@@ -28,8 +28,9 @@ export class TranscriptOutbound extends Context.Service<
       source: TranscriptSource,
     ) => Effect.Effect<Transcript, TranscriptUnavailableError>;
     /**
-     * Emits the entries that are new or changed since the stream started, such as a tool call
-     * whose outcome arrived. A changed entry keeps its id.
+     * Emits the latest entries at once, then the entries that are new or changed, such as a tool
+     * call whose outcome arrived. A changed entry keeps its id. A read that fails is retried at
+     * the next check, so a passing error never ends the stream.
      */
     readonly follow: (
       source: TranscriptSource,

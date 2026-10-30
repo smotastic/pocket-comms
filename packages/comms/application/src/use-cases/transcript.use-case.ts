@@ -5,7 +5,7 @@ import * as Stream from 'effect/Stream';
 import type { AgentDto, AgentEventDto, TranscriptDto } from '../dto/agent.dto.js';
 import { TranscriptUnavailableError } from '../errors.js';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
-import { TranscriptOutbound } from '../ports/transcript.outbound.port.js';
+import { TranscriptOutbound, type TranscriptSource } from '../ports/transcript.outbound.port.js';
 import { makeLoadAgents, sourceOf, type AgentView } from './agents.js';
 
 interface Lookup {
@@ -42,15 +42,18 @@ export const makeTranscript = Effect.gen(function* () {
   });
 
   /**
-   * The updates of one conversation: the agent at once and after each change, and the entries
-   * that are new or changed in its session file. An agent without a session file sends only
-   * agent updates. The stream ends when the agent is gone.
+   * The updates of one conversation: the agent at once and after each change, and its session's
+   * entries. Each session starts with a `reset` event that holds its latest entries, so nothing
+   * written before the stream started is missed; later events hold the entries that are new or
+   * changed. When the agent moves to another session, the stream follows the new one. The stream
+   * ends when the agent is gone.
    */
   const agentEvents = Effect.fn('Transcript.agentEvents')(function* (ref: string) {
-    const first = yield* find(ref);
+    yield* find(ref);
 
-    // A lookup while Herdr is unreachable is skipped; a lookup that finds no agent ends the stream.
-    const agentUpdates = Stream.concat(Stream.succeed(undefined), herdrOutbound.changes).pipe(
+    // The agent at once and after every change Herdr reports. A lookup while Herdr is unreachable
+    // is skipped; a lookup that finds no agent ends the stream.
+    const views = Stream.concat(Stream.succeed(undefined), herdrOutbound.changes).pipe(
       Stream.mapEffect(() =>
         find(ref).pipe(
           Effect.map((view): Lookup => ({ gone: false, view })),
@@ -60,32 +63,49 @@ export const makeTranscript = Effect.gen(function* () {
       ),
       Stream.takeWhile((lookup) => !lookup.gone),
       Stream.flatMap(
-        (lookup): Stream.Stream<AgentDto> =>
-          lookup.view === undefined ? Stream.empty : Stream.succeed(lookup.view.dto),
+        (lookup): Stream.Stream<AgentView> =>
+          lookup.view === undefined ? Stream.empty : Stream.succeed(lookup.view),
       ),
+    );
+
+    const agentUpdates = views.pipe(
+      Stream.map((view) => view.dto),
       Stream.changesWith(sameJson),
       Stream.map((agent): AgentEventDto => ({ type: 'agent', agent })),
     );
 
-    const entryUpdates = Option.match(sourceOf(first.agent), {
-      onNone: () => Stream.empty,
-      onSome: (source) => {
-        // The activity names the latest step of the whole session, so the stream keeps the
-        // last entry it saw.
-        let latest: TranscriptEntry | undefined;
-        return transcriptOutbound.follow(source).pipe(
-          Stream.map((entries): AgentEventDto => {
-            latest = entries.at(-1) ?? latest;
-            return {
-              type: 'entries',
-              entries,
-              activity: activityOf(latest === undefined ? [] : [latest]),
-            };
-          }),
-          Stream.catchTag('TranscriptUnavailableError', () => Stream.empty),
-        );
-      },
-    });
+    const entriesOf = (source: TranscriptSource): Stream.Stream<AgentEventDto> => {
+      // The activity names the latest step of the whole session, so the stream keeps the last
+      // entry it saw.
+      let latest: TranscriptEntry | undefined;
+      let first = true;
+      return transcriptOutbound.follow(source).pipe(
+        Stream.map((entries): AgentEventDto => {
+          latest = entries.at(-1) ?? latest;
+          const reset = first;
+          first = false;
+          return {
+            type: 'entries',
+            reset,
+            entries,
+            activity: activityOf(latest === undefined ? [] : [latest]),
+          };
+        }),
+        Stream.catchTag('TranscriptUnavailableError', (error) =>
+          Stream.fromEffect(
+            Effect.logWarning('The session file cannot be followed', { reason: error.reason }),
+          ).pipe(Stream.drain),
+        ),
+      );
+    };
+
+    const entryUpdates = views.pipe(
+      Stream.map((view) => sourceOf(view.agent)),
+      Stream.changesWith(sameJson),
+      Stream.switchMap((source) =>
+        Option.match(source, { onNone: () => Stream.empty, onSome: entriesOf }),
+      ),
+    );
 
     return Stream.merge(agentUpdates, entryUpdates, { haltStrategy: 'left' });
   });

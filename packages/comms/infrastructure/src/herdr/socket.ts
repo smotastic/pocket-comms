@@ -273,21 +273,27 @@ export const layerSocket = ({
 
   // Subscribes with the current pane set, ends the subscription when the set changes, and starts
   // over; while Herdr is unreachable it waits one interval between attempts.
+  // Subscribes with the current pane set and starts over when the set changes. When Herdr ends
+  // or refuses a subscription, or cannot be reached, it waits one interval before the next try.
+  const pause = Stream.fromEffect(Effect.sleep(relistInterval)).pipe(Stream.drain);
   const events: Stream.Stream<void> = Stream.unwrap(
     paneIds.pipe(
       Effect.map((panes) =>
         Stream.merge(
-          subscription(panes),
+          Stream.concat(subscription(panes), pause),
           Stream.fromEffect(paneSetChanged(panes)).pipe(Stream.drain),
-          {
-            haltStrategy: 'either',
-          },
+          { haltStrategy: 'either' },
         ),
       ),
     ),
   ).pipe(
-    Stream.catchTag('HerdrUnavailableError', () =>
-      Stream.fromEffect(Effect.sleep(relistInterval)).pipe(Stream.drain),
+    Stream.catchTag('HerdrUnavailableError', (error) =>
+      Stream.concat(
+        Stream.fromEffect(
+          Effect.logDebug('Herdr events unavailable', { reason: error.reason }),
+        ).pipe(Stream.drain),
+        pause,
+      ),
     ),
     Stream.forever,
   );

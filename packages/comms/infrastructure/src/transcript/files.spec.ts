@@ -108,13 +108,24 @@ describe('Transcript.layerFiles', () => {
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
+  it.live('starts with the latest entries', () => {
+    const { root } = home();
+    return Effect.gen(function* () {
+      const [first] = yield* TranscriptOutbound.use((port) =>
+        port.follow(claude).pipe(Stream.take(1), Stream.runCollect),
+      );
+
+      expect(first?.map((entry) => entry.id)).toEqual(['a-5:0', 'toolu-build']);
+    }).pipe(Effect.provide(layerFiles({ home: root, maxEntries: 2 })));
+  });
+
   it.live('follows the lines appended to the file, also when one arrives in pieces', () => {
     const { root, claudeFile } = home();
     return Effect.gen(function* () {
       const fiber = yield* TranscriptOutbound.use((port) =>
         Effect.succeed(port.follow(claude)),
       ).pipe(
-        Effect.flatMap((stream) => stream.pipe(Stream.take(2), Stream.runCollect)),
+        Effect.flatMap((stream) => stream.pipe(Stream.drop(1), Stream.take(2), Stream.runCollect)),
         Effect.forkChild,
       );
       yield* Effect.sleep('60 millis');
@@ -140,7 +151,7 @@ describe('Transcript.layerFiles', () => {
       const fiber = yield* TranscriptOutbound.use((port) =>
         Effect.succeed(port.follow(claude)),
       ).pipe(
-        Effect.flatMap((stream) => stream.pipe(Stream.take(1), Stream.runCollect)),
+        Effect.flatMap((stream) => stream.pipe(Stream.drop(1), Stream.take(1), Stream.runCollect)),
         Effect.forkChild,
       );
       yield* Effect.sleep('60 millis');
