@@ -38,6 +38,11 @@ export const ProblemDetails = Schema.Struct({
   instance,
 }).annotate({ identifier: 'ProblemDetails', description: 'An RFC 9457 problem.' });
 
+export class ForbiddenProblem extends Schema.Error<ForbiddenProblem>('ForbiddenProblem')(
+  { type, title, status: status(403), detail, instance },
+  { httpApiStatus: 403, description: 'The caller may not use this service.' },
+) {}
+
 export class NotFoundProblem extends Schema.Error<NotFoundProblem>('NotFoundProblem')(
   { type, title, status: status(404), detail, instance },
   { httpApiStatus: 404, description: 'The resource does not exist.' },
@@ -63,6 +68,16 @@ export class PreconditionRequiredProblem extends Schema.Error<PreconditionRequir
 )(
   { type, title, status: status(428), detail, instance },
   { httpApiStatus: 428, description: 'The request needs an If-Match header.' },
+) {}
+
+export class ServiceUnavailableProblem extends Schema.Error<ServiceUnavailableProblem>(
+  'ServiceUnavailableProblem',
+)(
+  { type, title, status: status(503), detail, instance },
+  {
+    httpApiStatus: 503,
+    description: 'A system the service depends on cannot be reached; try again later.',
+  },
 ) {}
 
 export const FieldError = Schema.Struct({
@@ -95,11 +110,13 @@ const asProblemJson = HttpApiSchema.asJson({ contentType: 'application/problem+j
 
 /** The problem classes as endpoint error schemas, served as `application/problem+json`. */
 export const Problems = {
+  Forbidden: ForbiddenProblem.pipe(asProblemJson),
   NotFound: NotFoundProblem.pipe(asProblemJson),
   Conflict: ConflictProblem.pipe(asProblemJson),
   PreconditionFailed: PreconditionFailedProblem.pipe(asProblemJson),
   PreconditionRequired: PreconditionRequiredProblem.pipe(asProblemJson),
   Validation: ValidationProblem.pipe(asProblemJson),
+  ServiceUnavailable: ServiceUnavailableProblem.pipe(asProblemJson),
 };
 
 /**
