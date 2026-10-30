@@ -26,22 +26,22 @@ in the task's own commit.
 
 ## Adapters
 
-- [ ] **T05** — `Herdr.layerSocket`: one request per connection, `result`/`error` decoding,
+- [x] **T05** — `Herdr.layerSocket`: one request per connection, `result`/`error` decoding,
       unreachable socket as `HerdrUnavailable`; `agent.list`, `workspace.list`, `agent.read`,
       `agent.prompt`, `agent.send_keys`
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T06** — `Herdr.layerSocket` `changes`: `events.subscribe` with per-pane status
+- [x] **T06** — `Herdr.layerSocket` `changes`: `events.subscribe` with per-pane status
       subscriptions, rebuilt when the pane set changes, plus a periodic re-list
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T07** — Claude transcript parser and path resolution, with anonymised fixtures
+- [x] **T07** — Claude transcript parser and path resolution, with anonymised fixtures
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T08** — Pi transcript parser and path resolution, with anonymised fixtures
+- [x] **T08** — Pi transcript parser and path resolution, with anonymised fixtures
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T09** — `Transcript.layerFiles` `read` (latest 300 entries, modification time) and
+- [x] **T09** — `Transcript.layerFiles` `read` (latest 300 entries, modification time) and
       `follow` (appended lines only); `Seen.layerMemory`, `StatusHistory.layerMemory`
   - Gate: `pnpm nx test comms-infrastructure`
 

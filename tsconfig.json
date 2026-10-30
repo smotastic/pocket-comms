@@ -41,6 +41,9 @@
     },
     {
       "path": "./packages/comms/domain"
+    },
+    {
+      "path": "./packages/comms/infrastructure"
     }
   ]
 }

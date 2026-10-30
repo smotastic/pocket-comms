@@ -2,7 +2,7 @@ import { activityOf, type TranscriptEntry } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Stream from 'effect/Stream';
-import type { AgentEventDto, TranscriptDto } from '../dto/agent.dto.js';
+import type { AgentDto, AgentEventDto, TranscriptDto } from '../dto/agent.dto.js';
 import { TranscriptUnavailableError } from '../errors.js';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
 import { TranscriptOutbound } from '../ports/transcript.outbound.port.js';
@@ -13,7 +13,7 @@ interface Lookup {
   readonly view?: AgentView;
 }
 
-const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const sameJson = <A>(a: A, b: A): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 export const makeTranscript = Effect.gen(function* () {
   const herdrOutbound = yield* HerdrOutbound;
@@ -59,8 +59,9 @@ export const makeTranscript = Effect.gen(function* () {
         ),
       ),
       Stream.takeWhile((lookup) => !lookup.gone),
-      Stream.flatMap((lookup) =>
-        lookup.view === undefined ? Stream.empty : Stream.succeed(lookup.view.dto),
+      Stream.flatMap(
+        (lookup): Stream.Stream<AgentDto> =>
+          lookup.view === undefined ? Stream.empty : Stream.succeed(lookup.view.dto),
       ),
       Stream.changesWith(sameJson),
       Stream.map((agent): AgentEventDto => ({ type: 'agent', agent })),

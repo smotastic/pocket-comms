@@ -1,0 +1,8 @@
+{
+  "name": "comms-infrastructure",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/comms/infrastructure/src",
+  "projectType": "library",
+  "tags": ["scope:comms", "layer:infrastructure"],
+  "targets": { "test-typecheck": {} }
+}

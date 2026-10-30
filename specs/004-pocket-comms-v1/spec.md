@@ -38,8 +38,10 @@ states, wording and its dark "Midnight" look (the design kit's dark theme).
    `idle`, `unknown`, labelled "Working", "Needs you", "Done", "Idle", "Unknown"), the terminal
    title, and the time since the agent last changed. A blocked row says "Needs your answer"
    instead of the title.
-5. The time since the last change is the newest of: the modification time of the agent's session
-   file, and the moment the server saw the agent's status change (or first saw the agent).
+5. The time since the last change is the newer of the modification time of the agent's session
+   file and the moment the server saw the agent's status change. An agent the server sees for the
+   first time counts from its session file's modification time, or from that moment when it has
+   no session file.
 6. The overview updates live, without a reload, when an agent appears, disappears, changes status
    or changes its title. A small "live" indicator says whether the live connection is up.
 

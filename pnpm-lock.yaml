@@ -442,6 +442,22 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-rc.118(effect@4.0.0-rc.118)(vitest@5.0.2)
 
+  packages/comms/infrastructure:
+    dependencies:
+      '@pocket-comms/comms-application':
+        specifier: workspace:*
+        version: link:../application
+      '@pocket-comms/comms-domain':
+        specifier: workspace:*
+        version: link:../domain
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118(effect@4.0.0-rc.118)(vitest@5.0.2)
+
   packages/contracts/problem-details:
     dependencies:
       effect:
