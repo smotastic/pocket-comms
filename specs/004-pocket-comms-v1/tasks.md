@@ -15,12 +15,12 @@ in the task's own commit.
       "Thinking…")
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T03** — Application package: ports `HerdrOutbound`, `TranscriptOutbound`, `SeenOutbound`,
-      `ChangeClockOutbound`, DTOs, errors and fakes; `AgentsInbound` with `overview`, `agent`,
+- [x] **T03** — Application package: ports `HerdrOutbound`, `TranscriptOutbound`, `SeenOutbound`,
+      `StatusHistoryOutbound`, DTOs, errors and fakes; `AgentsInbound` with `overview`, `agent`,
       `markSeen`
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
-- [ ] **T04** — Use cases `transcript`, `screen`, `prompt`, `sendKeys`, `overviewChanges`,
+- [x] **T04** — Use cases `transcript`, `screen`, `prompt`, `sendKeys`, `overviewChanges`,
       `transcriptChanges`; the fake Herdr records calls and the tests prove no focus call exists
   - Gate: `pnpm nx test comms-application`
 
@@ -42,7 +42,7 @@ in the task's own commit.
   - Gate: `pnpm nx test comms-infrastructure`
 
 - [ ] **T09** — `Transcript.layerFiles` `read` (latest 300 entries, modification time) and
-      `follow` (appended lines only); `Seen.layerMemory`, `ChangeClock.layerMemory`
+      `follow` (appended lines only); `Seen.layerMemory`, `StatusHistory.layerMemory`
   - Gate: `pnpm nx test comms-infrastructure`
 
 ## API and server

@@ -11,8 +11,8 @@ The service is `comms`. Packages are named `@pocket-comms/comms-…`, service ke
 | Path                             | Change                                                                                                                                                                                                            | Nx tags                               |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | `packages/comms/domain`          | `AgentStatus`, `AgentKind`, `AgentKey`, `Prompt`; `Agent`, `Workspace`; `buildOverview` (groups, Needs you, seen); `TranscriptEntry` and `activityOf`; `isSeen`/completion key                                    | `scope:comms`, `layer:domain`         |
-| `packages/comms/application`     | `AgentsInbound` (one method per use case), outbound ports `HerdrOutbound`, `TranscriptOutbound`, `SeenOutbound`, `ChangeClockOutbound`; DTOs, port errors, fakes in `src/testing`                                 | `scope:comms`, `layer:application`    |
-| `packages/comms/infrastructure`  | `Herdr.layerSocket` (Unix socket client, event subscription with re-subscribe and periodic re-list), `Transcript.layerFiles` (Claude and Pi readers and watchers), `Seen.layerMemory`, `ChangeClock.layerMemory`  | `scope:comms`, `layer:infrastructure` |
+| `packages/comms/application`     | `AgentsInbound` (one method per use case), outbound ports `HerdrOutbound`, `TranscriptOutbound`, `SeenOutbound`, `StatusHistoryOutbound`; DTOs, port errors, fakes in `src/testing`                                 | `scope:comms`, `layer:application`    |
+| `packages/comms/infrastructure`  | `Herdr.layerSocket` (Unix socket client, event subscription with re-subscribe and periodic re-list), `Transcript.layerFiles` (Claude and Pi readers and watchers), `Seen.layerMemory`, `StatusHistory.layerMemory`  | `scope:comms`, `layer:infrastructure` |
 | `packages/comms/contract`        | `CommsApi` (`HttpApi`) at `/api/v1` with wire schemas and the SSE streams                                                                                                                                         | `scope:contracts`                     |
 | `packages/comms/api`             | Handlers, Problem Details mapping, the Tailscale identity middleware, health routes, static web app route, OpenAPI document, acceptance suite                                                                     | `scope:comms`, `layer:infrastructure` |
 | `apps/comms-server`              | Composition root: `main.ts` (listens on `127.0.0.1`), `openapi.ts`, config (`COMMS_PORT`, `COMMS_ALLOWED_LOGIN`, `HERDR_SOCKET_PATH`, `COMMS_WEB_DIST`)                                                           | `scope:comms`, `type:app`             |
@@ -31,7 +31,7 @@ The service is `comms`. Packages are named `@pocket-comms/comms-…`, service ke
   agent or workspace set may have changed). It has no focus method, so no use case can move the
   owner's focus. `TranscriptOutbound`: `read(session)` (latest entries and the file's modification
   time) and `follow(session)` (a `Stream` of new entries). `SeenOutbound` and
-  `ChangeClockOutbound` are in-memory stores.
+  `StatusHistoryOutbound` are in-memory stores.
 - **Use cases** (`AgentsInbound`): `overview`, `overviewChanges` (a `Stream` of overviews, de-duplicated),
   `agent`, `transcript`, `transcriptChanges`, `screen`, `prompt`, `sendKeys`, `markSeen`.
 - **Transcript parsing** lives in the infrastructure adapters (it is file-format mapping): one
