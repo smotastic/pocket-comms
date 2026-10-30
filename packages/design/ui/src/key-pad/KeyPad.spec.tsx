@@ -97,6 +97,17 @@ describe('KeyPad', () => {
     expect(onKey).not.toHaveBeenCalled();
   });
 
+  it('drops a press that is under way when the pad is disabled', () => {
+    vi.useFakeTimers();
+    const onKey = vi.fn();
+    const { rerender } = pad({ onKey });
+    fireEvent.pointerDown(hold());
+    rerender(<KeyPad label="Keys" keys={keys} onKey={onKey} holdKey={holdKey} disabled />);
+    act(() => vi.advanceTimersByTime(HOLD_MS));
+    expect(onKey).not.toHaveBeenCalled();
+    expect(hold().classList).not.toContain(styles.holding);
+  });
+
   it('sends nothing while disabled', async () => {
     const onKey = vi.fn();
     pad({ onKey, disabled: true });

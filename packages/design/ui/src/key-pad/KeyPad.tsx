@@ -74,6 +74,13 @@ const HoldButton = ({
     }, HOLD_MS);
   };
   useEffect(() => () => clearTimeout(timer.current), []);
+  // A disabled button gets no pointerup, so a press under way would still send: drop it.
+  useEffect(() => {
+    if (!disabled) return;
+    clearTimeout(timer.current);
+    timer.current = undefined;
+    setHolding(false);
+  }, [disabled]);
 
   const isPressKey = (event: KeyboardEvent) => event.key === 'Enter' || event.key === ' ';
 
