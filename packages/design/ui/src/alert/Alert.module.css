@@ -1,0 +1,6 @@
+.alert {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-danger-soft);
+  color: var(--color-text-danger);
+}

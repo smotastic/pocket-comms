@@ -1,0 +1,19 @@
+{
+  "name": "@pocket-comms/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "@pocket-comms/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./src/generated/tokens.css",
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "style-dictionary": "catalog:"
+  }
+}

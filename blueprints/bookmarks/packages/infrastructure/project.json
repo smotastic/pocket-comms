@@ -1,0 +1,8 @@
+{
+  "name": "bookmarks-infrastructure",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "blueprints/bookmarks/packages/infrastructure/src",
+  "projectType": "library",
+  "tags": ["scope:bookmarks", "layer:infrastructure"],
+  "targets": { "test-typecheck": {} }
+}

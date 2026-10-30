@@ -1,0 +1,51 @@
+{
+  "name": "design-ui",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/design/ui/src",
+  "projectType": "library",
+  "tags": ["scope:design", "type:ui"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true,
+      "options": {
+        "command": "vite build && tsc -p tsconfig.lib.json --emitDeclarationOnly",
+        "cwd": "{projectRoot}"
+      }
+    },
+    "ladle": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "options": {
+        "command": "ladle serve",
+        "cwd": "{projectRoot}"
+      }
+    },
+    "ladle-build": {
+      "executor": "nx:run-commands",
+      "inputs": ["production", "^production", "{projectRoot}/.ladle/**/*"],
+      "outputs": ["{projectRoot}/ladle-build"],
+      "cache": true,
+      "options": {
+        "command": "ladle build",
+        "cwd": "{projectRoot}"
+      }
+    },
+    "lint": {
+      "dependsOn": ["stylelint"]
+    },
+    "stylelint": {
+      "executor": "nx:run-commands",
+      "inputs": ["{projectRoot}/src/**/*.css", "{workspaceRoot}/stylelint.config.mjs"],
+      "cache": true,
+      "options": {
+        "command": "stylelint \"src/**/*.css\" --max-warnings=0",
+        "cwd": "{projectRoot}"
+      }
+    },
+    "test-typecheck": {}
+  }
+}

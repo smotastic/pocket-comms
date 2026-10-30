@@ -1,0 +1,32 @@
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.item + .item {
+  border-top: var(--border-width-default) solid var(--color-border-default);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.empty {
+  padding: var(--space-2xl) var(--space-lg);
+  color: var(--color-text-muted);
+  text-align: center;
+}

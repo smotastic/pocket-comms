@@ -1,0 +1,31 @@
+.link {
+  border-radius: var(--radius-sm);
+  transition-property: color;
+  transition-duration: var(--motion-duration-fast);
+  transition-timing-function: var(--motion-easing-standard);
+}
+
+.link:focus-visible {
+  outline: var(--border-width-focus) solid var(--color-border-focus);
+  outline-offset: var(--border-width-focus);
+}
+
+.normal {
+  color: var(--color-text-accent);
+}
+
+.normal:hover {
+  text-decoration: none;
+}
+
+.strong {
+  color: var(--color-text-default);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+}
+
+.strong:hover,
+.strong:focus-visible {
+  color: var(--color-text-accent);
+  text-decoration: underline;
+}

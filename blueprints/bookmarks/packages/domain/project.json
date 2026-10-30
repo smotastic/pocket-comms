@@ -1,0 +1,10 @@
+{
+  "name": "bookmarks-domain",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "blueprints/bookmarks/packages/domain/src",
+  "projectType": "library",
+  "tags": ["scope:bookmarks", "layer:domain"],
+  "targets": {
+    "test-typecheck": {}
+  }
+}

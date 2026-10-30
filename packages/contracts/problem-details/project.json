@@ -1,0 +1,8 @@
+{
+  "name": "contracts-problem-details",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/contracts/problem-details/src",
+  "projectType": "library",
+  "tags": ["scope:contracts"],
+  "targets": { "test-typecheck": {} }
+}

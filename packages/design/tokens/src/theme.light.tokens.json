@@ -1,0 +1,83 @@
+{
+  "color": {
+    "$type": "color",
+    "bg": {
+      "canvas": {
+        "$value": "{color.gray.50}"
+      },
+      "surface": {
+        "$value": "{color.white}"
+      },
+      "accent": {
+        "$value": "{color.indigo.600}"
+      },
+      "accent-hover": {
+        "$value": "{color.indigo.700}"
+      },
+      "accent-soft": {
+        "$value": "{color.indigo.50}"
+      },
+      "danger-soft": {
+        "$value": "{color.red.50}"
+      },
+      "sheet": {
+        "$value": "{color.white}",
+        "$description": "A bottom sheet over the screen."
+      },
+      "scrim": {
+        "$value": "{color.navy.950.40}",
+        "$description": "Dims the screen behind a sheet."
+      }
+    },
+    "text": {
+      "default": {
+        "$value": "{color.gray.850}"
+      },
+      "muted": {
+        "$value": "{color.gray.500}"
+      },
+      "accent": {
+        "$value": "{color.indigo.600}"
+      },
+      "on-accent": {
+        "$value": "{color.white}"
+      },
+      "danger": {
+        "$value": "{color.red.600}"
+      }
+    },
+    "border": {
+      "default": {
+        "$value": "{color.gray.200}"
+      },
+      "focus": {
+        "$value": "{color.indigo.600}"
+      },
+      "control": {
+        "$value": "{color.gray.500}",
+        "$description": "The edge of a field that must stand out from its surface."
+      }
+    }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "card": {
+      "$value": [
+        {
+          "color": "{color.navy.950.6}",
+          "offsetX": "{size.0}",
+          "offsetY": "{size.1}",
+          "blur": "{size.2}",
+          "spread": "{size.0}"
+        },
+        {
+          "color": "{color.navy.950.8}",
+          "offsetX": "{size.0}",
+          "offsetY": "{size.1}",
+          "blur": "{size.3}",
+          "spread": "{size.0}"
+        }
+      ]
+    }
+  }
+}

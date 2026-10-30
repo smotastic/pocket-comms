@@ -1,0 +1,9 @@
+echo "✨ Formatting with Prettier (pnpm format)…"
+pnpm format
+if ! git diff --quiet; then
+  echo "❌ Prettier reformatted files — please stage and commit the changes, then push again."
+  exit 1
+fi
+
+echo "🔎 Running local checks before push (see tools/verify-local.sh)…"
+pnpm verify:local

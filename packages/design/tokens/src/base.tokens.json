@@ -1,0 +1,172 @@
+{
+  "space": {
+    "$type": "dimension",
+    "3xs": {
+      "$value": "{size.2}"
+    },
+    "2xs": {
+      "$value": "{size.4}"
+    },
+    "xs": {
+      "$value": "{size.6}"
+    },
+    "sm": {
+      "$value": "{size.8}"
+    },
+    "md": {
+      "$value": "{size.12}"
+    },
+    "lg": {
+      "$value": "{size.16}"
+    },
+    "xl": {
+      "$value": "{size.24}"
+    },
+    "2xl": {
+      "$value": "{size.32}"
+    },
+    "3xl": {
+      "$value": "{size.48}"
+    }
+  },
+  "radius": {
+    "$type": "dimension",
+    "sm": {
+      "$value": "{size.8}"
+    },
+    "md": {
+      "$value": "{size.10}"
+    },
+    "lg": {
+      "$value": "{size.16}"
+    },
+    "full": {
+      "$value": "{size.9999}"
+    }
+  },
+  "border": {
+    "width": {
+      "$type": "dimension",
+      "default": {
+        "$value": "{size.1}"
+      },
+      "focus": {
+        "$value": "{size.2}"
+      }
+    }
+  },
+  "control": {
+    "height": {
+      "$type": "dimension",
+      "md": {
+        "$value": "{size.44}",
+        "$description": "The smallest tap target."
+      }
+    }
+  },
+  "layout": {
+    "width": {
+      "$type": "dimension",
+      "page": {
+        "$value": "{size.720}"
+      }
+    },
+    "height": {
+      "$type": "dimension",
+      "sheet-gap": {
+        "$value": "{size.96}",
+        "$description": "The room above a bottom sheet, where the screen behind it shows."
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "body": {
+        "$value": "{fontFamily.inter}"
+      }
+    },
+    "size": {
+      "$type": "dimension",
+      "xs": {
+        "$value": "{fontSize.12}"
+      },
+      "sm": {
+        "$value": "{fontSize.13}"
+      },
+      "md": {
+        "$value": "{fontSize.14}"
+      },
+      "base": {
+        "$value": "{fontSize.16}"
+      },
+      "lead": {
+        "$value": "{fontSize.17}",
+        "$description": "One step above body, such as a sheet's title."
+      },
+      "lg": {
+        "$value": "{fontSize.20}"
+      },
+      "xl": {
+        "$value": "{fontSize.28}"
+      }
+    },
+    "weight": {
+      "$type": "fontWeight",
+      "regular": {
+        "$value": "{fontWeight.400}"
+      },
+      "medium": {
+        "$value": "{fontWeight.500}"
+      },
+      "bold": {
+        "$value": "{fontWeight.600}"
+      }
+    },
+    "lineHeight": {
+      "$type": "number",
+      "body": {
+        "$value": 1.5
+      },
+      "tight": {
+        "$value": 1.2
+      },
+      "display": {
+        "$value": 1,
+        "$description": "A single line set in a box of its own size, such as an avatar's initials."
+      }
+    },
+    "letterSpacing": {
+      "$type": "dimension",
+      "tight": {
+        "$value": "{letterSpacing.tight}"
+      }
+    }
+  },
+  "motion": {
+    "duration": {
+      "$type": "duration",
+      "fast": {
+        "$value": "{duration.150}"
+      },
+      "medium": {
+        "$value": "{duration.280}",
+        "$description": "Something that moves into place, such as a sheet rising."
+      },
+      "pulse": {
+        "$value": "{duration.1200}",
+        "$description": "One beat of a repeating activity animation."
+      }
+    },
+    "easing": {
+      "$type": "cubicBezier",
+      "standard": {
+        "$value": "{easing.standard}"
+      },
+      "decelerate": {
+        "$value": "{easing.decelerate}",
+        "$description": "Fast then settling, for something that arrives."
+      }
+    }
+  }
+}

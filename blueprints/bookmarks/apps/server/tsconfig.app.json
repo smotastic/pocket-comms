@@ -1,0 +1,31 @@
+{
+  "extends": "../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts"],
+  "references": [
+    {
+      "path": "../../packages/infrastructure/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/contract/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/application/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/api/tsconfig.lib.json"
+    },
+    {
+      "path": "../../../../packages/backend-shared/tsconfig.lib.json"
+    },
+    {
+      "path": "../../../../packages/contracts/problem-details/tsconfig.lib.json"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+.button {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--control-height-md);
+  height: var(--control-height-md);
+  padding: 0;
+  border: var(--border-width-default) solid transparent;
+  font: inherit;
+  cursor: pointer;
+  transition-property: background-color, border-color, color, transform;
+  transition-duration: var(--motion-duration-fast);
+  transition-timing-function: var(--motion-easing-standard);
+}
+
+.button:focus-visible {
+  outline: var(--border-width-focus) solid var(--color-border-focus);
+  outline-offset: var(--border-width-focus);
+}
+
+.button:active:enabled {
+  transform: scale(0.94);
+}
+
+.quiet {
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.quiet:hover:enabled {
+  color: var(--color-text-default);
+}
+
+/* A toggle that is on: the accent, not color alone, since the surface changes too. */
+.quiet[aria-pressed='true'] {
+  background: var(--color-bg-accent-soft);
+  color: var(--color-text-accent);
+}
+
+.primary {
+  border-radius: var(--radius-full);
+  background: var(--color-bg-accent);
+  color: var(--color-text-on-accent);
+}
+
+/* Last, so it wins over both tones. */
+.button:disabled {
+  border-color: var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.icon {
+  width: var(--space-xl);
+  height: var(--space-xl);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition-property: none;
+  }
+
+  .button:active:enabled {
+    transform: none;
+  }
+}

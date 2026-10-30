@@ -1,0 +1,16 @@
+{
+  "name": "design-tokens",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/design/tokens/src",
+  "projectType": "library",
+  "tags": ["scope:design", "type:tokens"],
+  "targets": {
+    "generate": {
+      "executor": "nx:run-commands",
+      "inputs": ["{projectRoot}/src/*.tokens.json", "{projectRoot}/style-dictionary.mjs"],
+      "outputs": ["{projectRoot}/src/generated"],
+      "cache": true,
+      "options": { "command": "node style-dictionary.mjs", "cwd": "{projectRoot}" }
+    }
+  }
+}

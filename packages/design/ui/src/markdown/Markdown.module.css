@@ -1,0 +1,42 @@
+.markdown {
+  display: grid;
+  gap: var(--space-sm);
+  overflow-wrap: anywhere;
+}
+
+.markdown > * {
+  margin: 0;
+}
+
+.markdown :is(h1, h2, h3, h4) {
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+}
+
+.markdown :is(ul, ol) {
+  margin: 0;
+  padding-inline-start: var(--space-lg);
+}
+
+.markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.markdown :is(th, td) {
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--border-width-default) solid var(--color-border-default);
+  text-align: start;
+}
+
+.markdown a {
+  color: var(--color-text-accent);
+}
+
+.markdown code {
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-accent-soft);
+}

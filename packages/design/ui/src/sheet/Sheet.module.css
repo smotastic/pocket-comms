@@ -1,0 +1,110 @@
+/* Covers the screen; its script fits it to the visual viewport, so the footer stays above the
+   on-screen keyboard. Above the floating button, which is the only other layer. */
+.overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* A tall sheet starts below the notch; a full one keeps the room inside itself. */
+.overlayTall {
+  padding-top: env(safe-area-inset-top);
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--color-bg-scrim);
+  animation: fade var(--motion-duration-medium) var(--motion-easing-standard);
+}
+
+.sheet {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--layout-width-page);
+  min-height: 0;
+  margin: 0 auto;
+  background: var(--color-bg-sheet);
+  animation: rise var(--motion-duration-medium) var(--motion-easing-decelerate);
+}
+
+/* Focus lands on the sheet itself so the keyboard does not open; its controls show their rings. */
+.sheet:focus {
+  outline: none;
+}
+
+.tall {
+  margin-top: var(--layout-height-sheet-gap);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.full::before {
+  content: '';
+  flex: none;
+  height: env(safe-area-inset-top);
+}
+
+.grabber {
+  flex: none;
+  width: var(--space-2xl);
+  height: var(--space-2xs);
+  margin: var(--space-sm) auto 0;
+  border-radius: var(--radius-full);
+  background: var(--color-border-control);
+}
+
+.header {
+  flex: none;
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-md) var(--space-lg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.footer {
+  flex: none;
+  padding: var(--space-sm) var(--space-md);
+}
+
+/* Clear of the home indicator, below the footer's own padding. */
+.footer::after {
+  content: '';
+  display: block;
+  height: env(safe-area-inset-bottom);
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrim,
+  .sheet {
+    animation: none;
+  }
+}

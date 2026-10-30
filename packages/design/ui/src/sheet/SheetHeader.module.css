@@ -1,0 +1,34 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-lg);
+}
+
+/* Shrinks before the actions do, so a long subtitle ends in an ellipsis. */
+.text {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lead);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--font-line-height-tight);
+}
+
+.subtitle {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+}

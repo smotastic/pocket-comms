@@ -1,0 +1,81 @@
+.page {
+  max-width: var(--layout-width-page);
+  margin: 0 auto;
+  padding: var(--space-3xl) var(--space-lg);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Lets an inline inside another flex row shrink, so a long child cannot push it out. */
+  min-width: 0;
+}
+
+.nowrap {
+  flex-wrap: nowrap;
+}
+
+.between {
+  justify-content: space-between;
+}
+
+.end {
+  justify-content: flex-end;
+}
+
+/* A page that fills the screen; its script sets the height and top from the visual viewport. */
+.docked {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.dockedHeader,
+.dockedFooter {
+  flex: none;
+}
+
+.dockedHeader {
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+}
+
+/* Clear of the notch. */
+.dockedHeader::before {
+  content: '';
+  display: block;
+  height: env(safe-area-inset-top);
+}
+
+.dockedFooter {
+  border-top: var(--border-width-default) solid var(--color-border-default);
+}
+
+/* Clear of the home indicator. */
+.dockedFooter::after {
+  content: '';
+  display: block;
+  height: env(safe-area-inset-bottom);
+}
+
+.dockedBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dockedInner {
+  max-width: var(--layout-width-page);
+  margin: 0 auto;
+  padding: var(--space-md) var(--space-lg);
+}

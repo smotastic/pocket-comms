@@ -1,0 +1,40 @@
+{
+  // Solution-style root: every project is a reference. `pnpm nx sync` maintains the list.
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    {
+      "path": "./blueprints/bookmarks/packages/infrastructure"
+    },
+    {
+      "path": "./blueprints/bookmarks/packages/application"
+    },
+    {
+      "path": "./blueprints/bookmarks/packages/contract"
+    },
+    {
+      "path": "./blueprints/bookmarks/packages/domain"
+    },
+    {
+      "path": "./packages/contracts/problem-details"
+    },
+    {
+      "path": "./blueprints/bookmarks/packages/api"
+    },
+    {
+      "path": "./blueprints/bookmarks/apps/server"
+    },
+    {
+      "path": "./packages/backend-shared"
+    },
+    {
+      "path": "./blueprints/bookmarks/apps/web"
+    },
+    {
+      "path": "./packages/design/tokens"
+    },
+    {
+      "path": "./packages/design/ui"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "extends": "../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "rootDir": "src",
+    "outDir": "out-tsc/app",
+    "tsBuildInfoFile": "out-tsc/app/tsconfig.app.tsbuildinfo",
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/**/*.spec.ts", "src/**/*.spec.tsx"],
+  "references": [
+    {
+      "path": "../../../../packages/design/ui/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/contract/tsconfig.lib.json"
+    }
+  ]
+}

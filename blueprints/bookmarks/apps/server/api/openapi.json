@@ -1,0 +1,877 @@
+{
+  "components": {
+    "schemas": {
+      "Bookmark": {
+        "additionalProperties": false,
+        "description": "A stored bookmark.",
+        "properties": {
+          "createdAt": {
+            "description": "An RFC 3339 timestamp in UTC.",
+            "examples": ["2026-09-29T08:00:00.000Z"],
+            "type": "string"
+          },
+          "id": {
+            "description": "The id of the bookmark.",
+            "examples": ["0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|[fF]{8}-[fF]{4}-[fF]{4}-[fF]{4}-[fF]{12})$",
+            "type": "string"
+          },
+          "status": {
+            "description": "An archived bookmark can no longer be changed.",
+            "enum": ["active", "archived"],
+            "examples": ["active"],
+            "type": "string"
+          },
+          "tags": {
+            "description": "The unique tags of the bookmark, at most 10.",
+            "examples": [["docs", "effect"]],
+            "items": {
+              "description": "A lowercase kebab-case tag of 1 to 30 characters.",
+              "examples": ["docs"],
+              "maxLength": 30,
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "title": {
+            "description": "The title, 1 to 200 characters after trimming leading and trailing white space.",
+            "examples": ["Effect documentation"],
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "An RFC 3339 timestamp in UTC.",
+            "examples": ["2026-09-29T08:00:00.000Z"],
+            "type": "string"
+          },
+          "url": {
+            "description": "An absolute http or https URL of at most 2,048 characters.",
+            "examples": ["https://effect.website/docs"],
+            "maxLength": 2048,
+            "pattern": "^[hH][tT][tT][pP][sS]?:\\/\\/",
+            "type": "string"
+          },
+          "version": {
+            "description": "Starts at 1 and increases by 1 with every change. The ETag carries it.",
+            "examples": [1],
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": ["id", "url", "title", "tags", "status", "version", "createdAt", "updatedAt"],
+        "type": "object"
+      },
+      "BookmarkPage": {
+        "additionalProperties": false,
+        "description": "One page of bookmarks.",
+        "properties": {
+          "items": {
+            "description": "The bookmarks of this page, newest first.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/Bookmark"
+            },
+            "type": "array"
+          },
+          "next": {
+            "description": "An opaque cursor from `next` of the previous page. Do not build it yourself.",
+            "examples": [
+              "eyJjcmVhdGVkQXQiOiIyMDI2LTA5LTI5VDA4OjAwOjAwLjAwMFoiLCJpZCI6IjAxOTJmM2ExLTdiMmMtN2QzZS04ZjQwLTEyMzQ1Njc4OWFiYyJ9"
+            ],
+            "type": "string"
+          }
+        },
+        "required": ["items"],
+        "type": "object"
+      },
+      "ConflictProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [409],
+            "examples": [409],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "CreateBookmarkRequest": {
+        "additionalProperties": false,
+        "description": "A new bookmark.",
+        "properties": {
+          "tags": {
+            "description": "The unique tags of the bookmark, at most 10.",
+            "examples": [["docs", "effect"]],
+            "items": {
+              "description": "A lowercase kebab-case tag of 1 to 30 characters.",
+              "examples": ["docs"],
+              "maxLength": 30,
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "title": {
+            "description": "The title, 1 to 200 characters after trimming leading and trailing white space.",
+            "examples": ["Effect documentation"],
+            "type": "string"
+          },
+          "url": {
+            "description": "An absolute http or https URL of at most 2,048 characters.",
+            "examples": ["https://effect.website/docs"],
+            "maxLength": 2048,
+            "pattern": "^[hH][tT][tT][pP][sS]?:\\/\\/",
+            "type": "string"
+          }
+        },
+        "required": ["url", "title", "tags"],
+        "type": "object"
+      },
+      "FieldError": {
+        "additionalProperties": false,
+        "description": "One failed input field.",
+        "properties": {
+          "field": {
+            "description": "The name of the failed field, header, query or path parameter.",
+            "examples": ["tags"],
+            "type": "string"
+          },
+          "message": {
+            "description": "Why the value failed.",
+            "examples": ["Expected an array of at most 3 items"],
+            "type": "string"
+          }
+        },
+        "required": ["field", "message"],
+        "type": "object"
+      },
+      "NotFoundProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [404],
+            "examples": [404],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "PreconditionFailedProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [412],
+            "examples": [412],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "PreconditionRequiredProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [428],
+            "examples": [428],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "UpdateBookmarkRequest": {
+        "additionalProperties": false,
+        "description": "The fields to change; a missing field keeps its value.",
+        "properties": {
+          "tags": {
+            "description": "The unique tags of the bookmark, at most 10.",
+            "examples": [["docs", "effect"]],
+            "items": {
+              "description": "A lowercase kebab-case tag of 1 to 30 characters.",
+              "examples": ["docs"],
+              "maxLength": 30,
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "title": {
+            "description": "The title, 1 to 200 characters after trimming leading and trailing white space.",
+            "examples": ["Effect documentation"],
+            "type": "string"
+          },
+          "url": {
+            "description": "An absolute http or https URL of at most 2,048 characters.",
+            "examples": ["https://effect.website/docs"],
+            "maxLength": 2048,
+            "pattern": "^[hH][tT][tT][pP][sS]?:\\/\\/",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ValidationProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "errors": {
+            "description": "Every failed field of the request.",
+            "examples": [
+              [
+                {
+                  "field": "tags",
+                  "message": "Expected an array of at most 3 items"
+                }
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": "array"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [422],
+            "examples": [422],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status", "errors"],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {}
+  },
+  "info": {
+    "description": "The reference service of the template: bookmarks with tags and versions.",
+    "title": "Bookmarks API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/bookmarks": {
+      "get": {
+        "description": "Lists bookmarks newest first, by tag and status, in pages. `next` is present when more bookmarks follow.",
+        "operationId": "bookmarks.list",
+        "parameters": [
+          {
+            "description": "Returns only the bookmarks with this tag.",
+            "example": "docs",
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "description": "Returns only the bookmarks with this tag.",
+              "examples": ["docs"],
+              "maxLength": 30,
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Returns the bookmarks with this status; `active` when missing.",
+            "example": "active",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "description": "Returns the bookmarks with this status; `active` when missing.",
+              "enum": ["active", "archived", "all"],
+              "examples": ["active"],
+              "type": "string"
+            }
+          },
+          {
+            "description": "An opaque cursor from `next` of the previous page. Do not build it yourself.",
+            "example": "eyJjcmVhdGVkQXQiOiIyMDI2LTA5LTI5VDA4OjAwOjAwLjAwMFoiLCJpZCI6IjAxOTJmM2ExLTdiMmMtN2QzZS04ZjQwLTEyMzQ1Njc4OWFiYyJ9",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "description": "An opaque cursor from `next` of the previous page. Do not build it yourself.",
+              "examples": [
+                "eyJjcmVhdGVkQXQiOiIyMDI2LTA5LTI5VDA4OjAwOjAwLjAwMFoiLCJpZCI6IjAxOTJmM2ExLTdiMmMtN2QzZS04ZjQwLTEyMzQ1Njc4OWFiYyJ9"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The page size, 1 to 100; 20 when missing.",
+            "example": "20",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "description": "The page size, 1 to 100; 20 when missing.",
+              "examples": ["20"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkPage"
+                }
+              }
+            },
+            "description": "One page of bookmarks."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "List bookmarks",
+        "tags": ["Bookmarks"]
+      },
+      "post": {
+        "description": "Creates a bookmark at version 1. A URL can belong to one bookmark only.",
+        "operationId": "bookmarks.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookmarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bookmark"
+                }
+              }
+            },
+            "description": "A stored bookmark.",
+            "headers": {
+              "etag": {
+                "required": true,
+                "schema": {
+                  "description": "The version of the returned bookmark as a strong entity tag.",
+                  "examples": ["\"1\""],
+                  "type": "string"
+                }
+              },
+              "location": {
+                "required": true,
+                "schema": {
+                  "description": "The path of the created bookmark.",
+                  "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Create a bookmark",
+        "tags": ["Bookmarks"]
+      }
+    },
+    "/api/v1/bookmarks/{id}": {
+      "delete": {
+        "description": "Deletes a bookmark for good, also an archived one. If-Match is optional.",
+        "operationId": "bookmarks.delete",
+        "parameters": [
+          {
+            "description": "The id of the bookmark.",
+            "example": "0192f3a1-7b2c-7d3e-8f40-123456789abc",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The id of the bookmark.",
+              "examples": ["0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|[fF]{8}-[fF]{4}-[fF]{4}-[fF]{4}-[fF]{12})$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ETag of the version the change is based on. Another current version fails with 412.",
+            "example": "\"1\"",
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "description": "The ETag of the version the change is based on. Another current version fails with 412.",
+              "examples": ["\"1\""],
+              "pattern": "^\"[1-9][0-9]*\"$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreconditionFailedProblemEncoded"
+                }
+              }
+            },
+            "description": "The If-Match header does not match the current version."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Delete a bookmark",
+        "tags": ["Bookmarks"]
+      },
+      "get": {
+        "description": "Returns one bookmark.",
+        "operationId": "bookmarks.get",
+        "parameters": [
+          {
+            "description": "The id of the bookmark.",
+            "example": "0192f3a1-7b2c-7d3e-8f40-123456789abc",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The id of the bookmark.",
+              "examples": ["0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|[fF]{8}-[fF]{4}-[fF]{4}-[fF]{4}-[fF]{12})$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bookmark"
+                }
+              }
+            },
+            "description": "A stored bookmark.",
+            "headers": {
+              "etag": {
+                "required": true,
+                "schema": {
+                  "description": "The version of the returned bookmark as a strong entity tag.",
+                  "examples": ["\"1\""],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Get a bookmark",
+        "tags": ["Bookmarks"]
+      },
+      "patch": {
+        "description": "Changes the URL, the title or the tags. Requires If-Match (428 without it). An archived bookmark cannot change (409).",
+        "operationId": "bookmarks.update",
+        "parameters": [
+          {
+            "description": "The id of the bookmark.",
+            "example": "0192f3a1-7b2c-7d3e-8f40-123456789abc",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The id of the bookmark.",
+              "examples": ["0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|[fF]{8}-[fF]{4}-[fF]{4}-[fF]{4}-[fF]{12})$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ETag of the version the change is based on. Another current version fails with 412.",
+            "example": "\"1\"",
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "description": "The ETag of the version the change is based on. Another current version fails with 412.",
+              "examples": ["\"1\""],
+              "pattern": "^\"[1-9][0-9]*\"$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBookmarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bookmark"
+                }
+              }
+            },
+            "description": "A stored bookmark.",
+            "headers": {
+              "etag": {
+                "required": true,
+                "schema": {
+                  "description": "The version of the returned bookmark as a strong entity tag.",
+                  "examples": ["\"1\""],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreconditionFailedProblemEncoded"
+                }
+              }
+            },
+            "description": "The If-Match header does not match the current version."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "428": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreconditionRequiredProblemEncoded"
+                }
+              }
+            },
+            "description": "The request needs an If-Match header."
+          }
+        },
+        "security": [],
+        "summary": "Change a bookmark",
+        "tags": ["Bookmarks"]
+      }
+    },
+    "/api/v1/bookmarks/{id}/archive": {
+      "post": {
+        "description": "Archives a bookmark. An archived bookmark comes back unchanged. If-Match is optional.",
+        "operationId": "bookmarks.archive",
+        "parameters": [
+          {
+            "description": "The id of the bookmark.",
+            "example": "0192f3a1-7b2c-7d3e-8f40-123456789abc",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The id of the bookmark.",
+              "examples": ["0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|[fF]{8}-[fF]{4}-[fF]{4}-[fF]{4}-[fF]{12})$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ETag of the version the change is based on. Another current version fails with 412.",
+            "example": "\"1\"",
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "description": "The ETag of the version the change is based on. Another current version fails with 412.",
+              "examples": ["\"1\""],
+              "pattern": "^\"[1-9][0-9]*\"$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bookmark"
+                }
+              }
+            },
+            "description": "A stored bookmark.",
+            "headers": {
+              "etag": {
+                "required": true,
+                "schema": {
+                  "description": "The version of the returned bookmark as a strong entity tag.",
+                  "examples": ["\"1\""],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreconditionFailedProblemEncoded"
+                }
+              }
+            },
+            "description": "The If-Match header does not match the current version."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Archive a bookmark",
+        "tags": ["Bookmarks"]
+      }
+    }
+  },
+  "security": [],
+  "tags": [
+    {
+      "description": "Create, read and change bookmarks.",
+      "name": "Bookmarks"
+    }
+  ]
+}

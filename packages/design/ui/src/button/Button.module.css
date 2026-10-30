@@ -1,0 +1,75 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition-property: background-color, color;
+  transition-duration: var(--motion-duration-fast);
+  transition-timing-function: var(--motion-easing-standard);
+}
+
+.button:focus-visible {
+  outline: var(--border-width-focus) solid var(--color-border-focus);
+  outline-offset: var(--border-width-focus);
+}
+
+.md {
+  padding: var(--space-sm) var(--space-lg);
+}
+
+.sm {
+  padding: var(--space-2xs) var(--space-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+}
+
+.primary {
+  background: var(--color-bg-accent);
+  color: var(--color-text-on-accent);
+}
+
+.primary:hover:enabled {
+  background: var(--color-bg-accent-hover);
+}
+
+.secondary {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-default);
+}
+
+.secondary:hover:enabled {
+  background: var(--color-bg-accent-soft);
+}
+
+/* Ghost and danger share the quiet look; danger turns red only on hover, so a list of rows does
+   not shout. */
+.ghost,
+.danger {
+  border-color: var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.ghost:hover:enabled {
+  background: var(--color-bg-accent-soft);
+  color: var(--color-text-default);
+}
+
+.danger:hover:enabled {
+  background: var(--color-bg-danger-soft);
+  color: var(--color-text-danger);
+}
+
+/* Last, so it wins over every variant. */
+.button:disabled {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-canvas);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
