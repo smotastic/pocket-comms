@@ -2,7 +2,7 @@ import { activityOf, type TranscriptEntry } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Stream from 'effect/Stream';
-import type { AgentDto, AgentEventDto, TranscriptDto } from '../dto/agent.dto.js';
+import type { AgentEventDto, TranscriptDto } from '../dto/agent.dto.js';
 import { TranscriptUnavailableError } from '../errors.js';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
 import { TranscriptOutbound, type TranscriptSource } from '../ports/transcript.outbound.port.js';
