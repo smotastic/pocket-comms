@@ -23,7 +23,7 @@
 │   ├── backend-shared/              # FieldIssue, Problem Details helpers, validation middleware
 │   ├── contracts/problem-details/   # the shared error schema
 │   └── design/{tokens,ui}/          # DTCG design tokens and the React UI kit, for web apps
-├── blueprints/bookmarks/            # the runnable Golden Path (server + web)
+├── blueprints/                      # runnable references; the bookmarks blueprint was removed
 ├── tools/                           # boundary tests, ports check, OpenAPI gates, conventions, init
 ├── .dependency-cruiser.cjs
 └── nx.json

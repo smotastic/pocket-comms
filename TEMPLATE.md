@@ -27,7 +27,10 @@ with the `speckit-constitution` skill and an ADR. Do not edit it in passing.
 
 ## 3. Keep or delete the blueprint
 
-[`blueprints/bookmarks/`](blueprints/bookmarks/AGENTS.md) is the Golden Path. Keep it as a
+Done in pocket-comms: the blueprint was deleted with every follow-up below once the comms service
+existed (spec 004, T23). Its shapes live on in `packages/comms/` and `apps/comms-*`.
+
+`blueprints/bookmarks/` was the Golden Path. Keep it as a
 reference, or delete it once your first service exists. When you delete it, also remove its spec
 `specs/001-bookmarks-blueprint/`, its `scope:bookmarks` constraint in `eslint.config.mjs`, and
 point the tests in `tools/boundaries/` and `tools/openapi/` at your own service; then run

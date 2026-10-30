@@ -11,7 +11,7 @@ Write `plan.md` next to a finished `spec.md`.
 
 - Define HOW: affected projects and their Nx tags, contract changes, migrations, test strategy and
   risks. Use `.specify/templates/plan-template.md`.
-- Respect the layer boundaries (ADR 0003) and the blueprint shapes (`blueprints/bookmarks/`).
+- Respect the layer boundaries (ADR 0003) and the shapes of the comms service (`packages/comms/`).
 - An architecture decision the plan depends on needs an ADR; propose it alongside the plan.
 - Name branches, commits and pull requests with the
   [`git-and-pr-conventions`](../../git-and-pr-conventions/SKILL.md) skill.

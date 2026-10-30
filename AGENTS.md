@@ -28,12 +28,12 @@ Use pnpm. Run `pnpm install` before the first build.
   [`specs/README.md`](specs/README.md) and the [Spec Kit skills](.agents/skills/speckit/).
 - For architecture work, read the [decision records](docs/architecture/adr/README.md).
 - For a new service or web app, build from the shapes of the
-  [bookmarks blueprint](blueprints/bookmarks/AGENTS.md); it is the Golden Path, a reference rather
-  than a copy source. The repository has no generators.
+  [comms service](packages/comms/AGENTS.md) and its apps (`apps/comms-server`, `apps/comms-web`); the
+  bookmarks blueprint was removed (TEMPLATE.md step 3). The repository has no generators.
 - For web UI, use `@pocket-comms/design-ui`; change the look in the
   [design system](packages/design/AGENTS.md), never in an app.
 - For a web app's routes and server data, use TanStack Router and TanStack Query as the
-  [bookmarks web app](blueprints/bookmarks/AGENTS.md) does (ADR 0011).
+  comms web app (`apps/comms-web`) does (ADR 0011).
 - For imports across layers or services, check [`.dependency-cruiser.cjs`](.dependency-cruiser.cjs)
   and the Nx tags.
 - For Effect code, use the [`effect` skill](.agents/skills/effect/SKILL.md).

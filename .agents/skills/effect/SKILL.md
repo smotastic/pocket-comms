@@ -5,7 +5,7 @@ description: Write backend code with Effect 4 (4.0.0-rc.118) the way this reposi
 
 # Effect 4 in this repository
 
-The runnable reference is `blueprints/bookmarks/`. Copy its shapes; this skill says why they look
+The runnable reference is the comms service (`packages/comms/`, `apps/comms-server`). Copy its shapes; this skill says why they look
 the way they do and which Effect 4 details trip agents up. ADRs 0002 to 0008 are the decisions
 behind it. Much public Effect material shows Effect 3; where it disagrees with this file, this file
 and the installed sources win. pnpm keeps them in
@@ -91,7 +91,7 @@ and the installed sources win. pnpm keeps them in
 ## HTTP API (ADR 0005)
 
 - One `HttpApi` per service in its contract package (`packages/<service>/contract`, in the
-  blueprint `@pocket-comms/bookmarks-contract`). Server and web app both import it. Annotate it with
+  comms service `@pocket-comms/comms-contract`). Server and web app both import it. Annotate it with
   `HttpApi.ParseOptions` `{ errors: 'all' }`, or a `422` names only the first failed field.
 - Wire schemas repeat every value-object rule, so one decoding pass names every failed field.
 - Errors are the Problem Details classes of `@pocket-comms/contracts-problem-details`, declared through

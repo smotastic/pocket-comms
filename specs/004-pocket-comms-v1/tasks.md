@@ -106,7 +106,7 @@ in the task's own commit.
       `pnpm nx sync`)
   - Gate: `pnpm verify:local`, CI
 
-- [ ] **T24** — README: what it is, `pnpm dev`, `pnpm start`, configuration, `tailscale serve`
+- [x] **T24** — README: what it is, `pnpm dev`, `pnpm start`, configuration, `tailscale serve`
       (HTTPS) instructions; root `AGENTS.md` and `TEMPLATE.md` updated
   - Gate: `pnpm format:check`
 
