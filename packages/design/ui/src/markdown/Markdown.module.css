@@ -1,5 +1,7 @@
 .markdown {
   display: grid;
+  /* One column no wider than the container, so a long code block scrolls instead of widening it. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-sm);
   overflow-wrap: anywhere;
 }
@@ -33,6 +35,11 @@
 
 .markdown a {
   color: var(--color-text-accent);
+}
+
+.markdown pre {
+  margin: 0;
+  overflow-x: auto;
 }
 
 .markdown code {
