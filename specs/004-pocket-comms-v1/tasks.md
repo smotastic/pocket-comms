@@ -58,7 +58,7 @@ in the task's own commit.
       route
   - Gate: `pnpm nx test comms-api`
 
-- [ ] **T13** — `apps/comms-server`: composition root on `127.0.0.1:${COMMS_PORT}`, `openapi`
+- [x] **T13** — `apps/comms-server`: composition root on `127.0.0.1:${COMMS_PORT}`, `openapi`
       target and committed document, `dev` target, static web app route
   - Gate: `pnpm nx test comms-server`, `pnpm openapi:check`, `pnpm openapi:lint`
 

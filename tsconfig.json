@@ -50,6 +50,9 @@
     },
     {
       "path": "./packages/comms/api"
+    },
+    {
+      "path": "./apps/comms-server"
     }
   ]
 }

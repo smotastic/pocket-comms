@@ -1,6 +1,7 @@
 import { AgentsInbound } from '@pocket-comms/comms-application';
 import { CommsApi } from '@pocket-comms/comms-contract';
 import * as Effect from 'effect/Effect';
+import * as Stream from 'effect/Stream';
 import { HttpApiBuilder } from 'effect/http-api';
 import { problems } from './problems.js';
 
@@ -23,7 +24,11 @@ export const agentsHandlers = HttpApiBuilder.group(
           Effect.catchTags({ HerdrUnavailableError: problems.herdrUnavailable }),
         ),
       )
-      .handle('overviewEvents', () => Effect.succeed(agentsInbound.overviewChanges))
+      .handle('overviewEvents', () =>
+        Effect.succeed(
+          agentsInbound.overviewChanges.pipe(Stream.map((data) => ({ event: 'overview', data }))),
+        ),
+      )
       .handle('agent', ({ params }) =>
         agentsInbound.agent(params.agent).pipe(Effect.catchTags(lookup)),
       )
@@ -36,7 +41,12 @@ export const agentsHandlers = HttpApiBuilder.group(
         ),
       )
       .handle('agentEvents', ({ params }) =>
-        agentsInbound.agentEvents(params.agent).pipe(Effect.catchTags(lookup)),
+        agentsInbound
+          .agentEvents(params.agent)
+          .pipe(
+            Effect.map(Stream.map((data) => ({ event: 'agent', data }))),
+            Effect.catchTags(lookup),
+          ),
       )
       .handle('screen', ({ params }) =>
         agentsInbound.screen(params.agent).pipe(

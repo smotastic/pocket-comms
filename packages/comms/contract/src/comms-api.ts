@@ -19,6 +19,12 @@ export const AgentParam = Schema.String.check(
   examples: ['kirk-ingestor-mvp'],
 });
 
+// An optional member: the annotations sit on the member itself, where the document lint looks.
+const optional = <S extends Schema.Top>(
+  schema: S,
+  annotations: { readonly description: string; readonly examples: ReadonlyArray<S['Type']> },
+) => Schema.optionalKey(Schema.UndefinedOr(schema).annotate(annotations));
+
 const Millis = Schema.Int.annotate({
   description: 'A moment in epoch milliseconds.',
   examples: [1793391381245],
@@ -38,32 +44,24 @@ export const AgentStatus = Schema.Literals([
 export const Agent = Schema.Struct({
   ref: AgentParam,
   paneId: Schema.String.annotate({ description: "The agent's Herdr pane.", examples: ['wJ:p1'] }),
-  name: Schema.optional(
-    Schema.String.annotate({ description: "The agent's Herdr name.", examples: ['kirk'] }),
-  ),
-  kind: Schema.optional(
-    Schema.String.annotate({
-      description: 'The agent program Herdr detected.',
-      examples: ['claude'],
-    }),
-  ),
-  format: Schema.optional(
-    Schema.Literals(['claude', 'pi']).annotate({
-      description: 'The session format the app shows as a chat; missing for a screen-only agent.',
-      examples: ['claude'],
-    }),
-  ),
+  name: optional(Schema.String, { description: "The agent's Herdr name.", examples: ['kirk'] }),
+  kind: optional(Schema.String, {
+    description: 'The agent program Herdr detected.',
+    examples: ['claude'],
+  }),
+  format: optional(Schema.Literals(['claude', 'pi']), {
+    description: 'The session format the app shows as a chat; missing for a screen-only agent.',
+    examples: ['claude'],
+  }),
   status: AgentStatus,
   title: Schema.String.annotate({
     description: 'The terminal title, without the status glyph.',
     examples: ['Pocket-home ingestor MVP discussion'],
   }),
-  cwd: Schema.optional(
-    Schema.String.annotate({
-      description: "The agent's working directory.",
-      examples: ['/Users/me/.herdr/worktrees/pocket-home/feat-ingestor-mvp'],
-    }),
-  ),
+  cwd: optional(Schema.String, {
+    description: "The agent's working directory.",
+    examples: ['/Users/me/.herdr/worktrees/pocket-home/feat-ingestor-mvp'],
+  }),
   workspace: Schema.String.annotate({
     description: "The label of the agent's Herdr workspace.",
     examples: ['ingestor-mvp'],
@@ -103,9 +101,18 @@ export const Overview = Schema.Struct({
 }).annotate({ identifier: 'Overview', description: 'Every live agent, sorted for the owner.' });
 
 export const OverviewState = Schema.Union([
-  Schema.Struct({ _tag: Schema.tag('Available'), overview: Overview }),
   Schema.Struct({
-    _tag: Schema.tag('Unavailable'),
+    _tag: Schema.tag('Available').annotate({
+      description: 'Herdr answers.',
+      examples: ['Available'],
+    }),
+    overview: Overview,
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('Unavailable').annotate({
+      description: 'Herdr cannot be reached.',
+      examples: ['Unavailable'],
+    }),
     reason: Schema.String.annotate({
       description: 'Why Herdr cannot be reached.',
       examples: ['connect ENOENT /Users/me/.config/herdr/herdr.sock'],
@@ -121,7 +128,7 @@ const at = Millis.annotate({ description: 'When the entry was written, in epoch 
 
 export const TranscriptEntry = Schema.Union([
   Schema.Struct({
-    type: Schema.tag('user'),
+    type: Schema.tag('user').annotate({ description: "The owner's prompt.", examples: ['user'] }),
     id,
     at,
     text: Schema.String.annotate({
@@ -130,13 +137,16 @@ export const TranscriptEntry = Schema.Union([
     }),
   }),
   Schema.Struct({
-    type: Schema.tag('assistant'),
+    type: Schema.tag('assistant').annotate({
+      description: 'A reply of the agent.',
+      examples: ['assistant'],
+    }),
     id,
     at,
     text: Schema.String.annotate({ description: 'The reply as Markdown.', examples: ['Done.'] }),
   }),
   Schema.Struct({
-    type: Schema.tag('tool'),
+    type: Schema.tag('tool').annotate({ description: 'One tool call.', examples: ['tool'] }),
     id,
     at,
     verb: Schema.Literals([
@@ -149,18 +159,12 @@ export const TranscriptEntry = Schema.Union([
       'Delegated',
       'Used',
     ]).annotate({ description: 'What the tool call did.', examples: ['Ran'] }),
-    target: Schema.optional(
-      Schema.String.annotate({
-        description: 'The file, command or name it worked on.',
-        examples: ['pnpm test'],
-      }),
-    ),
-    added: Schema.optional(
-      Schema.Int.annotate({ description: 'Lines an edit added.', examples: [12] }),
-    ),
-    removed: Schema.optional(
-      Schema.Int.annotate({ description: 'Lines an edit removed.', examples: [3] }),
-    ),
+    target: optional(Schema.String, {
+      description: 'The file, command or name it worked on.',
+      examples: ['pnpm test'],
+    }),
+    added: optional(Schema.Int, { description: 'Lines an edit added.', examples: [12] }),
+    removed: optional(Schema.Int, { description: 'Lines an edit removed.', examples: [3] }),
     outcome: Schema.Literals(['ok', 'error', 'pending']).annotate({
       description: 'How the call ended; `pending` while it runs.',
       examples: ['ok'],
@@ -183,9 +187,15 @@ export const Transcript = Schema.Struct({ entries: Entries, activity: Activity }
 });
 
 export const AgentEvent = Schema.Union([
-  Schema.Struct({ type: Schema.tag('agent'), agent: Agent }),
   Schema.Struct({
-    type: Schema.tag('entries'),
+    type: Schema.tag('agent').annotate({ description: 'The agent changed.', examples: ['agent'] }),
+    agent: Agent,
+  }),
+  Schema.Struct({
+    type: Schema.tag('entries').annotate({
+      description: 'Entries arrived or changed.',
+      examples: ['entries'],
+    }),
     reset: Schema.Boolean.annotate({
       description: 'The entries replace the ones the reader holds: the first event of a session.',
       examples: [true],
@@ -229,6 +239,20 @@ export class TailscaleIdentity extends HttpApiMiddleware.Service<TailscaleIdenti
   { error: Problems.Forbidden },
 ) {}
 
+/**
+ * A server-sent event stream whose events are all named `name` and carry `data` as JSON. The
+ * stream items are `{ event, data }`.
+ */
+const eventStream = <S extends Schema.Top>(name: string, data: S, example: string) =>
+  HttpApiSchema.StreamSse({
+    events: Schema.Struct({
+      event: Schema.Literal(name).annotate({ description: 'The event name.', examples: [name] }),
+      data: Schema.fromJsonString(data).pipe(
+        Schema.annotateEncoded({ description: 'The event as JSON.', examples: [example] }),
+      ),
+    }),
+  });
+
 const agent = { agent: AgentParam };
 const problems = [Problems.NotFound, Problems.ServiceUnavailable];
 
@@ -244,7 +268,11 @@ const group = HttpApiGroup.make('agents')
       }),
     ),
     HttpApiEndpoint.get('overviewEvents', '/events', {
-      success: HttpApiSchema.StreamSse({ data: OverviewState }),
+      success: eventStream(
+        'overview',
+        OverviewState,
+        '{"_tag":"Unavailable","reason":"Herdr is not running."}',
+      ),
       error: Problems.ServiceUnavailable,
     }).annotateMerge(
       OpenApi.annotations({
@@ -273,7 +301,11 @@ const group = HttpApiGroup.make('agents')
     ),
     HttpApiEndpoint.get('agentEvents', '/agents/:agent/events', {
       params: agent,
-      success: HttpApiSchema.StreamSse({ data: AgentEvent }),
+      success: eventStream(
+        'agent',
+        AgentEvent,
+        '{"type":"entries","reset":true,"entries":[],"activity":"Thinking…"}',
+      ),
       error: problems,
     }).annotateMerge(
       OpenApi.annotations({

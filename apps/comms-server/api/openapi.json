@@ -1,0 +1,1402 @@
+{
+  "components": {
+    "schemas": {
+      "Agent": {
+        "additionalProperties": false,
+        "description": "A live agent.",
+        "properties": {
+          "changedAt": {
+            "description": "When the agent last changed, in epoch milliseconds.",
+            "examples": [1793391381245],
+            "type": "integer"
+          },
+          "cwd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The agent's working directory.",
+            "examples": ["/Users/me/.herdr/worktrees/pocket-home/feat-ingestor-mvp"]
+          },
+          "format": {
+            "anyOf": [
+              {
+                "enum": ["claude", "pi"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The session format the app shows as a chat; missing for a screen-only agent.",
+            "examples": ["claude"]
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The agent program Herdr detected.",
+            "examples": ["claude"]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The agent's Herdr name.",
+            "examples": ["kirk"]
+          },
+          "needsYou": {
+            "description": "Blocked, or done with a completion the owner has not seen yet.",
+            "examples": [false],
+            "type": "boolean"
+          },
+          "paneId": {
+            "description": "The agent's Herdr pane.",
+            "examples": ["wJ:p1"],
+            "type": "string"
+          },
+          "ref": {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "examples": ["kirk-ingestor-mvp"],
+            "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+            "type": "string"
+          },
+          "status": {
+            "description": "What the agent is doing, as Herdr reports it. `blocked` waits for an answer.",
+            "enum": ["working", "blocked", "done", "idle", "unknown"],
+            "examples": ["working"],
+            "type": "string"
+          },
+          "title": {
+            "description": "The terminal title, without the status glyph.",
+            "examples": ["Pocket-home ingestor MVP discussion"],
+            "type": "string"
+          },
+          "workspace": {
+            "description": "The label of the agent's Herdr workspace.",
+            "examples": ["ingestor-mvp"],
+            "type": "string"
+          }
+        },
+        "required": ["ref", "paneId", "status", "title", "workspace", "changedAt", "needsYou"],
+        "type": "object"
+      },
+      "AgentEventEncoded": {
+        "contentMediaType": "application/json",
+        "description": "The event as JSON.",
+        "examples": [
+          "{\"type\":\"entries\",\"reset\":true,\"entries\":[],\"activity\":\"Thinking…\"}"
+        ],
+        "type": "string"
+      },
+      "ConflictProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [409],
+            "examples": [409],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "FieldError": {
+        "additionalProperties": false,
+        "description": "One failed input field.",
+        "properties": {
+          "field": {
+            "description": "The name of the failed field, header, query or path parameter.",
+            "examples": ["tags"],
+            "type": "string"
+          },
+          "message": {
+            "description": "Why the value failed.",
+            "examples": ["Expected an array of at most 3 items"],
+            "type": "string"
+          }
+        },
+        "required": ["field", "message"],
+        "type": "object"
+      },
+      "ForbiddenProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [403],
+            "examples": [403],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "KeysRequest": {
+        "additionalProperties": false,
+        "description": "Key presses for the agent.",
+        "properties": {
+          "keys": {
+            "description": "One to eight keys, pressed in order.",
+            "examples": [["1"]],
+            "items": {
+              "description": "One key.",
+              "enum": ["1", "2", "3", "up", "down", "enter", "esc", "ctrl+c"],
+              "examples": ["enter"],
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": ["keys"],
+        "type": "object"
+      },
+      "NotFoundProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [404],
+            "examples": [404],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "Overview": {
+        "additionalProperties": false,
+        "description": "Every live agent, sorted for the owner.",
+        "properties": {
+          "groups": {
+            "description": "Every other agent by repository, in workspace order.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/OverviewGroup"
+            },
+            "type": "array"
+          },
+          "needsYou": {
+            "description": "Blocked agents, then unseen done agents.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/Agent"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["needsYou", "groups"],
+        "type": "object"
+      },
+      "OverviewGroup": {
+        "additionalProperties": false,
+        "description": "The agents of one repository.",
+        "properties": {
+          "agents": {
+            "description": "Agents in Herdr order.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/Agent"
+            },
+            "type": "array"
+          },
+          "key": {
+            "description": "The repository's key, or `ws:<workspace>` for a workspace alone.",
+            "examples": ["/Users/me/projects/pocket-home/.git"],
+            "type": "string"
+          },
+          "name": {
+            "description": "The repository or workspace name.",
+            "examples": ["pocket-home"],
+            "type": "string"
+          }
+        },
+        "required": ["key", "name", "agents"],
+        "type": "object"
+      },
+      "OverviewStateEncoded": {
+        "contentMediaType": "application/json",
+        "description": "The event as JSON.",
+        "examples": ["{\"_tag\":\"Unavailable\",\"reason\":\"Herdr is not running.\"}"],
+        "type": "string"
+      },
+      "PromptRequest": {
+        "additionalProperties": false,
+        "description": "A prompt for the agent.",
+        "properties": {
+          "text": {
+            "description": "The prompt; it is sent trimmed and must not be blank.",
+            "examples": ["Run the tests and fix what fails."],
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": ["text"],
+        "type": "object"
+      },
+      "Screen": {
+        "additionalProperties": false,
+        "description": "The agent's terminal screen.",
+        "properties": {
+          "text": {
+            "description": "The pane's visible screen with its ANSI escape sequences.",
+            "examples": ["\u001b[1mAllow command?\u001b[0m"],
+            "type": "string"
+          }
+        },
+        "required": ["text"],
+        "type": "object"
+      },
+      "ServiceUnavailableProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [503],
+            "examples": [503],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "Transcript": {
+        "additionalProperties": false,
+        "description": "The latest entries of the agent’s session.",
+        "properties": {
+          "activity": {
+            "description": "What a working agent does now.",
+            "examples": ["Running pnpm test…"],
+            "type": "string"
+          },
+          "entries": {
+            "description": "Entries, oldest first.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/TranscriptEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["entries", "activity"],
+        "type": "object"
+      },
+      "TranscriptEntry": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was written, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["u-1"],
+                "type": "string"
+              },
+              "text": {
+                "description": "The owner's prompt.",
+                "examples": ["Run the tests"],
+                "type": "string"
+              },
+              "type": {
+                "description": "The owner's prompt.",
+                "enum": ["user"],
+                "examples": ["user"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "text"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was written, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["u-1"],
+                "type": "string"
+              },
+              "text": {
+                "description": "The reply as Markdown.",
+                "examples": ["Done."],
+                "type": "string"
+              },
+              "type": {
+                "description": "A reply of the agent.",
+                "enum": ["assistant"],
+                "examples": ["assistant"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "text"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Lines an edit added.",
+                "examples": [12]
+              },
+              "at": {
+                "description": "When the entry was written, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["u-1"],
+                "type": "string"
+              },
+              "outcome": {
+                "description": "How the call ended; `pending` while it runs.",
+                "enum": ["ok", "error", "pending"],
+                "examples": ["ok"],
+                "type": "string"
+              },
+              "removed": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Lines an edit removed.",
+                "examples": [3]
+              },
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The file, command or name it worked on.",
+                "examples": ["pnpm test"]
+              },
+              "type": {
+                "description": "One tool call.",
+                "enum": ["tool"],
+                "examples": ["tool"],
+                "type": "string"
+              },
+              "verb": {
+                "description": "What the tool call did.",
+                "enum": [
+                  "Ran",
+                  "Edited",
+                  "Wrote",
+                  "Read",
+                  "Searched",
+                  "Fetched",
+                  "Delegated",
+                  "Used"
+                ],
+                "examples": ["Ran"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "verb", "outcome"],
+            "type": "object"
+          }
+        ],
+        "description": "One entry of the chat."
+      },
+      "ValidationProblemEncoded": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "An explanation of this occurrence of the problem.",
+            "examples": ["No bookmark has the id 0192f3a1-7b2c-7d3e-8f40-123456789abc."],
+            "type": "string"
+          },
+          "errors": {
+            "description": "Every failed field of the request.",
+            "examples": [
+              [
+                {
+                  "field": "tags",
+                  "message": "Expected an array of at most 3 items"
+                }
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": "array"
+          },
+          "instance": {
+            "description": "A URI reference that identifies this occurrence of the problem.",
+            "examples": ["/api/v1/bookmarks/0192f3a1-7b2c-7d3e-8f40-123456789abc"],
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code of this response.",
+            "enum": [422],
+            "examples": [422],
+            "type": "number"
+          },
+          "title": {
+            "description": "A short summary of the problem type. It is the same for every occurrence.",
+            "examples": ["Bookmark not found"],
+            "type": "string"
+          },
+          "type": {
+            "description": "A URN that identifies the problem type. Clients branch on this value.",
+            "examples": ["urn:pocket-comms:problem:bookmark-not-found"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "title", "status", "errors"],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {}
+  },
+  "info": {
+    "description": "Read and drive the owner's Herdr coding agents from the phone.",
+    "title": "pocket-comms API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/agents": {
+      "get": {
+        "description": "Every live agent: Needs you first, then the rest by repository.",
+        "operationId": "agents.overview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description": "Every live agent, sorted for the owner."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "List the agents",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}": {
+      "get": {
+        "description": "Returns one live agent.",
+        "operationId": "agents.agent",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            },
+            "description": "A live agent."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Get an agent",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/events": {
+      "get": {
+        "description": "Server-sent events: the agent after each change, and its session entries, starting with a reset.",
+        "operationId": "agents.agentEvents",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AgentEventEncoded"
+                    },
+                    "event": {
+                      "description": "The event name.",
+                      "enum": ["agent"],
+                      "examples": ["agent"],
+                      "type": "string"
+                    }
+                  },
+                  "required": ["event", "data"],
+                  "type": "object"
+                },
+                "x-effect-stream": {
+                  "causeSchema": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Fail"],
+                              "type": "string"
+                            },
+                            "error": {
+                              "not": {}
+                            }
+                          },
+                          "required": ["_tag", "error"],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Die"],
+                              "type": "string"
+                            },
+                            "defect": {}
+                          },
+                          "required": ["_tag", "defect"],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Interrupt"],
+                              "type": "string"
+                            },
+                            "fiberId": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": ["_tag", "fiberId"],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "type": "array"
+                  },
+                  "encoding": "sse",
+                  "errorSchema": {
+                    "not": {}
+                  },
+                  "failureEvent": "effect/http-api/stream/failure"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Follow a conversation",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/keys": {
+      "post": {
+        "description": "Presses the keys in the agent, such as an approval choice.",
+        "operationId": "agents.keys",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeysRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Press keys",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/prompt": {
+      "post": {
+        "description": "Types the prompt into the agent and submits it, without waiting for a reply.",
+        "operationId": "agents.prompt",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Send a prompt",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/screen": {
+      "get": {
+        "description": "The agent pane's visible screen, with colours. It never moves the focus.",
+        "operationId": "agents.screen",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Screen"
+                }
+              }
+            },
+            "description": "The agent's terminal screen."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read the screen",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/seen": {
+      "post": {
+        "description": "Remembers that the owner saw the current completion of a done agent.",
+        "operationId": "agents.seen",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Mark as seen",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/transcript": {
+      "get": {
+        "description": "The latest entries of a Claude or Pi agent's session. Other agents have none (404).",
+        "operationId": "agents.transcript",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transcript"
+                }
+              }
+            },
+            "description": "The latest entries of the agent’s session."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read the conversation",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/events": {
+      "get": {
+        "description": "Server-sent events: the overview at once and after every change, or why Herdr cannot be reached.",
+        "operationId": "agents.overviewEvents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OverviewStateEncoded"
+                    },
+                    "event": {
+                      "description": "The event name.",
+                      "enum": ["overview"],
+                      "examples": ["overview"],
+                      "type": "string"
+                    }
+                  },
+                  "required": ["event", "data"],
+                  "type": "object"
+                },
+                "x-effect-stream": {
+                  "causeSchema": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Fail"],
+                              "type": "string"
+                            },
+                            "error": {
+                              "not": {}
+                            }
+                          },
+                          "required": ["_tag", "error"],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Die"],
+                              "type": "string"
+                            },
+                            "defect": {}
+                          },
+                          "required": ["_tag", "defect"],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Interrupt"],
+                              "type": "string"
+                            },
+                            "fiberId": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": ["_tag", "fiberId"],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "type": "array"
+                  },
+                  "encoding": "sse",
+                  "errorSchema": {
+                    "not": {}
+                  },
+                  "failureEvent": "effect/http-api/stream/failure"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Follow the overview",
+        "tags": ["Agents"]
+      }
+    }
+  },
+  "security": [],
+  "tags": [
+    {
+      "description": "Read and drive the Herdr agents.",
+      "name": "Agents"
+    }
+  ]
+}
