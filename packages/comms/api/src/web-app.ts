@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize, sep } from 'node:path';
+import { extname, join, normalize, resolve, sep } from 'node:path';
 
 const CONTENT_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -46,7 +46,7 @@ export const webAppLayer = (root: string) =>
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest;
       const urlPath = new URL(request.url, 'http://localhost').pathname;
-      const requested = fileOf(normalize(root), urlPath);
+      const requested = fileOf(resolve(root), urlPath);
       const found = requested !== undefined && (yield* Effect.promise(() => isFile(requested)));
       const path = found ? requested : join(root, 'index.html');
       const body = yield* Effect.promise(() => readFile(path));

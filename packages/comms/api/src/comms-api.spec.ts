@@ -255,11 +255,28 @@ describe('the web app', () => {
     expect(await response.text()).toContain('<title>pocket-comms</title>');
   });
 
-  it('never serves a file outside its folder', async () => {
-    const call = serve({}, webDist());
+  it.each(['/..%2Fsecret.txt', '/assets/..%2F..%2Fsecret.txt', '/../secret.txt'])(
+    'never serves a file outside its folder, such as %s',
+    async (path) => {
+      const parent = mkdtempSync(join(tmpdir(), 'comms-parent-'));
+      writeFileSync(join(parent, 'secret.txt'), 'the secret');
+      const dist = join(parent, 'dist');
+      mkdirSync(dist);
+      writeFileSync(join(dist, 'index.html'), '<title>pocket-comms</title>');
+      const call = serve({}, dist);
 
-    const response = await call('/assets/..%2F..%2F..%2Fetc%2Fpasswd');
+      const body = await (await call(path)).text();
 
-    expect(await response.text()).not.toContain('root:');
+      expect(body).not.toContain('the secret');
+      expect(body).toContain('<title>pocket-comms</title>');
+    },
+  );
+
+  it('serves its files when the folder is given with a trailing slash', async () => {
+    const call = serve({}, `${webDist()}/`);
+
+    const script = await call('/assets/app.js');
+
+    expect(await script.text()).toBe('console.log(1)');
   });
 });
