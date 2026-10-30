@@ -64,7 +64,7 @@ in the task's own commit.
 
 ## Design kit
 
-- [ ] **T14** — Kit components `StatusPill`, `SectionHeader`, `AgentRow`, `TopBar`,
+- [x] **T14** — Kit components `StatusPill`, `SectionHeader`, `AgentRow`, `TopBar`,
       `LiveIndicator`
   - Gate: `pnpm nx test design-ui`, `pnpm nx lint design-ui`
 
