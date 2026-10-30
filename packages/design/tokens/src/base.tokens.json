@@ -164,6 +164,10 @@
       "pulse": {
         "$value": "{duration.1200}",
         "$description": "One beat of a repeating activity animation."
+      },
+      "hold": {
+        "$value": "{duration.600}",
+        "$description": "A long press that confirms a costly action, such as Ctrl-C."
       }
     },
     "easing": {
@@ -174,6 +178,10 @@
       "decelerate": {
         "$value": "{easing.decelerate}",
         "$description": "Fast then settling, for something that arrives."
+      },
+      "linear": {
+        "$value": "{easing.linear}",
+        "$description": "An even pace, for progress that tracks time."
       }
     }
   },

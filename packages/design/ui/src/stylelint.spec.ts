@@ -48,6 +48,14 @@ describe('the UI kit stylesheet rules', () => {
     expect(await problems(code)).toEqual([]);
   });
 
+  it('accept a dashed border, a line style like solid', async () => {
+    expect(
+      await problems(
+        '.a { border: var(--border-width-default) dashed var(--color-border-default); }',
+      ),
+    ).toEqual([]);
+  });
+
   it('accept the safe-area insets of the device but no other environment value', async () => {
     expect(await problems('.a { padding-top: env(safe-area-inset-top); }')).toEqual([]);
     expect(await problems('.a { height: env(keyboard-inset-height); }')).toContainEqual(

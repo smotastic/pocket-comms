@@ -82,8 +82,10 @@
   --motion-duration-fast: 150ms;
   --motion-duration-medium: 280ms;
   --motion-duration-pulse: 1200ms;
+  --motion-duration-hold: 600ms;
   --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   --motion-easing-decelerate: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --motion-easing-linear: cubic-bezier(0, 0, 1, 1);
   --shadow-card: 0px 1px 2px 0px rgba(16, 24, 40, 0.06), 0px 1px 3px 0px rgba(16, 24, 40, 0.08);
 }
 

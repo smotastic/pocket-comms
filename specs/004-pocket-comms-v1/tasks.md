@@ -68,7 +68,7 @@ in the task's own commit.
       `LiveIndicator`
   - Gate: `pnpm nx test design-ui`, `pnpm nx lint design-ui`
 
-- [ ] **T15** — Kit components `Segmented`, `UserMessage`, `ToolLine`, `KeyPad` (long-press key)
+- [x] **T15** — Kit components `Segmented`, `UserMessage`, `ToolLine`, `KeyPad` (long-press key)
   - Gate: `pnpm nx test design-ui`
 
 - [ ] **T16** — Kit component `TerminalScreen`: ANSI SGR colours (16, 256, true colour), bold,

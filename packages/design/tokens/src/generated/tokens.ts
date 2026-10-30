@@ -128,10 +128,12 @@ export const tokens = {
       fast: 'var(--motion-duration-fast)',
       medium: 'var(--motion-duration-medium)',
       pulse: 'var(--motion-duration-pulse)',
+      hold: 'var(--motion-duration-hold)',
     },
     easing: {
       standard: 'var(--motion-easing-standard)',
       decelerate: 'var(--motion-easing-decelerate)',
+      linear: 'var(--motion-easing-linear)',
     },
   },
   shadow: {
