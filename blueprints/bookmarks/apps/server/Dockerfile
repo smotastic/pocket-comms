@@ -14,7 +14,7 @@ COPY . .
 RUN pnpm install --offline --frozen-lockfile
 RUN pnpm nx run bookmarks-server:build
 # Production dependencies only, with the workspace packages and their `dist` copied in.
-RUN pnpm --filter @app/bookmarks-server deploy --legacy --prod /out
+RUN pnpm --filter @pocket-comms/bookmarks-server deploy --legacy --prod /out
 
 FROM node:26.12.0-alpine3.24
 WORKDIR /app
