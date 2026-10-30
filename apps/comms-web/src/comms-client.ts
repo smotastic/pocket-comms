@@ -78,9 +78,14 @@ const statusOf = (error: unknown): number | undefined =>
     ? error.status
     : undefined;
 
+// How long to wait before opening a stream again that the browser gave up on.
+const REOPEN_MS = 3_000;
+
 /**
- * Follows one server-sent event stream with the browser's `EventSource`, which reconnects by
- * itself. Each event decodes with the contract's schema; one that does not is skipped.
+ * Follows one server-sent event stream with the browser's `EventSource`. The browser reconnects
+ * by itself after a dropped connection, but gives up for good when a reconnect gets an error
+ * status, as when the server restarts behind `tailscale serve`; then this opens the stream again.
+ * Each event decodes with the contract's schema; one that does not is skipped.
  */
 const follow = <A>(
   url: string,
@@ -90,14 +95,30 @@ const follow = <A>(
   onLive: OnLive,
 ): Unsubscribe => {
   const decode = Schema.decodeUnknownExit(Schema.fromJsonString(schema));
-  const source = new EventSource(url);
-  source.onopen = () => onLive(true);
-  source.onerror = () => onLive(false);
-  source.addEventListener(name, (event) => {
-    const decoded = decode(event.data);
-    if (Exit.isSuccess(decoded)) onData(decoded.value);
-  });
-  return () => source.close();
+  let source: EventSource | undefined;
+  let reopen: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+  const open = () => {
+    const current = new EventSource(url);
+    source = current;
+    current.onopen = () => onLive(true);
+    current.onerror = () => {
+      onLive(false);
+      if (current.readyState === EventSource.CLOSED && !stopped) {
+        reopen = setTimeout(open, REOPEN_MS);
+      }
+    };
+    current.addEventListener(name, (event) => {
+      const decoded = decode(event.data);
+      if (Exit.isSuccess(decoded)) onData(decoded.value);
+    });
+  };
+  open();
+  return () => {
+    stopped = true;
+    clearTimeout(reopen);
+    source?.close();
+  };
 };
 
 /** The typed client of the comms contract (ADR 0008), served under `baseUrl`. */

@@ -1,4 +1,4 @@
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { TranscriptView } from './comms-client.js';
@@ -127,6 +127,83 @@ describe('the conversation', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Hold to send Control C' }));
 
     expect(fake.calls.keys).toEqual([]);
+  });
+
+  it('sends Ctrl-C after a long press', async () => {
+    const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
+    const ctrlC = await screen.findByRole('button', { name: 'Hold to send Control C' });
+
+    fireEvent.pointerDown(ctrlC);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    fireEvent.pointerUp(ctrlC);
+
+    await waitFor(() => expect(fake.calls.keys).toEqual([['kirk', ['ctrl+c']]]));
+  });
+
+  it('cannot send an empty message', async () => {
+    open(fakeAgent({ status: 'idle' }));
+
+    await screen.findByRole('textbox', { name: 'Message' });
+
+    expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('clears the reason of a failed prompt once a key press works', async () => {
+    const fake = open(fakeAgent({ status: 'idle' }));
+    fake.state.promptFailure = 'agent wJ:p1 is not ready';
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Message' }), 'Hi{Enter}');
+    await screen.findByRole('alert');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Screen' }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Keys' })).getByRole('button', { name: 'Enter' }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
+  it('replaces the composer with the keys for a blocked agent without a chat', async () => {
+    open(fakeAgent({ kind: 'codex', format: undefined, status: 'blocked', needsYou: true }));
+
+    expect(await screen.findByRole('group', { name: 'Keys' })).toBeDefined();
+    expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
+    expect(screen.getByText('Answer with the keys')).toBeDefined();
+  });
+
+  it('offers no keys before it knows the agent', async () => {
+    const fake = open();
+    fake.state.agents.clear();
+    cleanup();
+    let release: () => void = () => undefined;
+    const client = {
+      ...fake.client,
+      agent: () =>
+        new Promise<ReturnType<typeof fakeAgent>>(
+          (resolve) => (release = () => resolve(fakeAgent())),
+        ),
+    };
+    renderApp({ client, path: '/agents/kirk' });
+
+    expect(await screen.findByText('Loading the agent…')).toBeDefined();
+    expect(screen.queryByRole('group', { name: 'Keys' })).toBeNull();
+    act(() => release());
+  });
+
+  it('tries again when marking a done agent as seen fails', async () => {
+    const fake = open(fakeAgent({ status: 'done', needsYou: true }));
+    cleanup();
+    let attempts = 0;
+    const client = {
+      ...fake.client,
+      seen: async (ref: string) => {
+        attempts += 1;
+        if (attempts === 1) throw new Error('Network down');
+        fake.calls.seen.push(ref);
+      },
+    };
+    renderApp({ client, path: '/agents/kirk' });
+
+    await waitFor(() => expect(attempts).toBe(2), { timeout: 4_000 });
   });
 
   it('says when the agent is gone', async () => {

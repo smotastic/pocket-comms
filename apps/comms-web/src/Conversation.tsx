@@ -136,11 +136,13 @@ export const Conversation = ({ client, agentRef, onBack }: ConversationProps) =>
     enabled: agent !== undefined && (view === 'screen' || blocked),
   });
 
-  // Opening a done agent shows its completion, so it leaves Needs you (requirement 11).
+  // Opening a done agent shows its completion, so it leaves Needs you (requirement 11). A failed
+  // attempt is tried again; the overview keeps the agent under Needs you until one succeeds.
   const unseenDone = agent?.status === 'done' && agent.needsYou;
+  const { mutate: markSeen } = useMutation({ mutationFn: () => client.seen(agentRef), retry: 3 });
   useEffect(() => {
-    if (unseenDone) void client.seen(agentRef).catch(() => undefined);
-  }, [client, agentRef, unseenDone]);
+    if (unseenDone) markSeen();
+  }, [markSeen, unseenDone]);
 
   const [draft, setDraft] = useState('');
   const prompt = useMutation({
@@ -148,7 +150,16 @@ export const Conversation = ({ client, agentRef, onBack }: ConversationProps) =>
     onSuccess: () => setDraft(''),
   });
   const keys = useMutation({ mutationFn: (key: Key) => client.keys(agentRef, [key]) });
+  // Only the latest send can fail visibly: a new one clears the reason of the other.
   const failure = prompt.error ?? keys.error;
+  const sendPrompt = (text: string) => {
+    keys.reset();
+    prompt.mutate(text);
+  };
+  const pressKey = (key: Key) => {
+    prompt.reset();
+    keys.mutate(key);
+  };
 
   if (agentResult.error instanceof RequestError && agentResult.error.status === 404) {
     return (
@@ -162,9 +173,25 @@ export const Conversation = ({ client, agentRef, onBack }: ConversationProps) =>
     );
   }
 
+  if (agent === undefined) {
+    return (
+      <DockedPage
+        label="Conversation"
+        header={<Header agent={undefined} view={view} onView={setChosen} onBack={onBack} />}
+        footer={null}
+      >
+        {agentResult.error === null ? (
+          <Text tone="muted">Loading the agent…</Text>
+        ) : (
+          <Alert>{agentResult.error.message}</Alert>
+        )}
+      </DockedPage>
+    );
+  }
+
   const screenText = screen.data ?? '';
-  const name = agent?.ref ?? agentRef;
-  const kindLabel = kindOf(agent?.kind).label;
+  const name = agent.ref;
+  const kindLabel = kindOf(agent.kind).label;
 
   return (
     <DockedPage
@@ -180,20 +207,20 @@ export const Conversation = ({ client, agentRef, onBack }: ConversationProps) =>
               holdKey={CTRL_C}
               disabled={keys.isPending}
               onKey={(value) => {
-                if (isKey(value)) keys.mutate(value);
+                if (isKey(value)) pressKey(value);
               }}
             />
           ) : null}
-          {blocked && view === 'chat' ? (
+          {blocked ? (
             <Text tone="muted" size="sm">
-              Answer above to continue
+              {view === 'chat' ? 'Answer above to continue' : 'Answer with the keys'}
             </Text>
           ) : (
             <Composer
               label="Message"
               value={draft}
               onChange={setDraft}
-              onSend={(text) => prompt.mutate(text)}
+              onSend={sendPrompt}
               placeholder={`Message ${name}`}
               locked={prompt.isPending}
             />
@@ -202,13 +229,12 @@ export const Conversation = ({ client, agentRef, onBack }: ConversationProps) =>
       }
     >
       <Stack gap="md">
-        {agentResult.error !== null ? <Alert>{agentResult.error.message}</Alert> : null}
         {view === 'screen' ? (
           <TerminalScreen label={`Screen of ${name}`} text={screenText} />
         ) : (
           <>
             <Chat transcript={transcript.data} />
-            {agent?.status === 'working' ? (
+            {agent.status === 'working' ? (
               <Activity label={transcript.data?.activity ?? 'Thinking…'} />
             ) : null}
             {blocked ? (
