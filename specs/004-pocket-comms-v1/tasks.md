@@ -101,7 +101,7 @@ in the task's own commit.
 
 ## Wrap-up
 
-- [ ] **T23** — Remove the bookmarks blueprint and spec 001 with every follow-up of TEMPLATE.md
+- [x] **T23** — Remove the bookmarks blueprint and spec 001 with every follow-up of TEMPLATE.md
       step 3 (eslint scope, `tools/boundaries`, `tools/openapi`, CI images job, release workflow,
       `pnpm nx sync`)
   - Gate: `pnpm verify:local`, CI

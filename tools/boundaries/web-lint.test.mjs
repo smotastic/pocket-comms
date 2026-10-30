@@ -16,10 +16,7 @@ const ruleIds = async (code, file) => {
 const inlineStyle = "export const Box = () => <div style={{ color: 'red' }} />;\n";
 
 test('an inline style prop in a web app fails the lint', async () => {
-  const ids = await ruleIds(
-    inlineStyle,
-    'blueprints/bookmarks/apps/web/src/boundary-violation.tsx',
-  );
+  const ids = await ruleIds(inlineStyle, 'apps/comms-web/src/boundary-violation.tsx');
   assert.deepEqual(ids, ['no-restricted-syntax']);
 });
 

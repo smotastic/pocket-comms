@@ -8,7 +8,7 @@ body:
     attributes:
       label: Related spec
       description: The spec whose requirement is not met, if any.
-      placeholder: specs/001-bookmarks-blueprint/spec.md
+      placeholder: specs/004-pocket-comms-v1/spec.md
   - type: textarea
     id: observed
     attributes:

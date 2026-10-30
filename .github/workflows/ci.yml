@@ -13,8 +13,6 @@ env:
 #   policy), test, api-contracts, build and validate-ci-gatekeeper.
 # - test-typecheck waits for build so its test files can resolve dependency declarations from the
 #   uploaded TypeScript build outputs.
-# - images, also in the first stage, builds the bookmarks container images without pushing them
-#   when a change can affect them. release.yml pushes them for a `bookmarks-vX.Y.Z` tag and is not part of this gate.
 # - ci-success always fans in every job. It is the single status check to require on `master`;
 #   tools/validate-ci-gatekeeper.py keeps its `needs` list complete.
 #
@@ -174,41 +172,6 @@ jobs:
       - uses: ./.github/actions/nx-shas
       - run: pnpm nx affected --target=test-typecheck
 
-  # ── Container images ─────────────────────────────────────────────────────────
-  # Builds the bookmarks images on the runner's Docker without pushing, so a broken Dockerfile
-  # shows up in the pull request and not at the first release. Skipped when no change can affect
-  # the images.
-  images:
-    name: Container images build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/nx-shas
-      - name: Detect changes that affect the images
-        id: changes
-        shell: bash
-        run: |
-          if git diff --name-only "$NX_BASE" "$NX_HEAD" \
-            | grep -Eq '^(blueprints/bookmarks/|packages/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|tsconfig\.base\.json$|nx\.json$|\.dockerignore$)'; then
-            echo "affected=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "affected=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Build bookmarks-server
-        if: ${{ steps.changes.outputs.affected == 'true' }}
-        run: docker build -f blueprints/bookmarks/apps/server/Dockerfile -t "bookmarks-server:ci-$GITHUB_SHA" .
-      - name: Build bookmarks-web
-        if: ${{ steps.changes.outputs.affected == 'true' }}
-        run: docker build -f blueprints/bookmarks/apps/web/Dockerfile -t "bookmarks-web:ci-$GITHUB_SHA" .
-      # The runner shares the host's Docker, so drop the throwaway tags.
-      - name: Remove the images
-        if: ${{ always() && steps.changes.outputs.affected == 'true' }}
-        run: docker image rm --force "bookmarks-server:ci-$GITHUB_SHA" "bookmarks-web:ci-$GITHUB_SHA" || true
-
   # ── Validate gatekeeper wiring ────────────────────────────────────────────────
   # Fails the build if a job was added/removed without updating ci-success's
   # `needs` list below, so an out-of-sync gatekeeper is caught in CI instead
@@ -230,8 +193,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs:
-      [lint, checks, test, api-contracts, build, test-typecheck, images, validate-ci-gatekeeper]
+    needs: [lint, checks, test, api-contracts, build, test-typecheck, validate-ci-gatekeeper]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results

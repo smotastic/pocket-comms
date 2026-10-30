@@ -1,5 +1,5 @@
 // Proves that the boundary rules fire: each case writes a file that breaks one rule into the
-// blueprint, runs dependency-cruiser on it, and expects exactly that rule in the result. A rule
+// comms service, runs dependency-cruiser on it, and expects exactly that rule in the result. A rule
 // that silently matches nothing passes `pnpm dep-cruise` too, so only a deliberate violation shows
 // that it works.
 import { execFileSync } from 'node:child_process';
@@ -9,10 +9,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 const root = join(import.meta.dirname, '..', '..');
-const domainSrc = 'blueprints/bookmarks/packages/domain/src';
-const applicationSrc = 'blueprints/bookmarks/packages/application/src';
-const handlersSrc = 'blueprints/bookmarks/packages/api/src';
-const webSrc = 'blueprints/bookmarks/apps/web/src';
+const domainSrc = 'packages/comms/domain/src';
+const applicationSrc = 'packages/comms/application/src';
+const handlersSrc = 'packages/comms/api/src';
+const webSrc = 'apps/comms-web/src';
 
 const cruise = (file) => {
   let output;
@@ -90,7 +90,7 @@ test('no-domain-in-handlers fires for a handler file that imports a domain file'
   const file = `${handlersSrc}/boundary-violation.handlers.ts`;
   withViolation(
     file,
-    "import { Title } from '../../domain/src/index.js';\nexport const x = Title;\n",
+    "import { agentRef } from '../../domain/src/index.js';\nexport const x = agentRef;\n",
     () => assert.deepEqual(cruise(file), ['no-domain-in-handlers']),
   );
 });
@@ -99,7 +99,7 @@ test('no-domain-to-outer-layers fires for a domain file that imports the applica
   const file = `${domainSrc}/boundary-violation.ts`;
   withViolation(
     file,
-    "import { BookmarksInbound } from '../../application/src/index.js';\nexport const x = BookmarksInbound;\n",
+    "import { AgentsInbound } from '../../application/src/index.js';\nexport const x = AgentsInbound;\n",
     () => assert.deepEqual(cruise(file), ['no-domain-to-outer-layers']),
   );
 });
@@ -108,7 +108,7 @@ test('no-application-to-adapters fires for a use case that imports infrastructur
   const file = `${applicationSrc}/boundary-violation.ts`;
   withViolation(
     file,
-    "import { IdGenerator } from '../../infrastructure/src/index.js';\nexport const x = IdGenerator;\n",
+    "import { Herdr } from '../../infrastructure/src/index.js';\nexport const x = Herdr;\n",
     () => assert.deepEqual(cruise(file), ['no-application-to-adapters']),
   );
 });
@@ -117,7 +117,7 @@ test('no-contracts-in-core fires for a use case that imports the contract', () =
   const file = `${applicationSrc}/boundary-violation.ts`;
   withViolation(
     file,
-    "import { MAX_TAGS } from '../../contract/src/index.js';\nexport const x = MAX_TAGS;\n",
+    "import { KEYS } from '../../contract/src/index.js';\nexport const x = KEYS;\n",
     () => assert.deepEqual(cruise(file), ['no-contracts-in-core']),
   );
 });
@@ -126,7 +126,7 @@ test('no-server-code-in-web fires for a web file that imports the domain', () =>
   const file = `${webSrc}/boundary-violation.ts`;
   withViolation(
     file,
-    "import { Title } from '../../../packages/domain/src/index.js';\nexport const x = Title;\n",
+    "import { agentRef } from '../../../packages/comms/domain/src/index.js';\nexport const x = agentRef;\n",
     () => assert.deepEqual(cruise(file), ['no-server-code-in-web']),
   );
 });
@@ -144,12 +144,15 @@ test('no-cross-service fires for a service that imports another service', () => 
 });
 
 test('no-blueprint-imports fires for a package that imports a blueprint', () => {
-  const file = 'packages/boundary-a/domain/src/index.ts';
-  withViolation(
-    file,
-    "import { Title } from '../../../../blueprints/bookmarks/packages/domain/src/index.js';\nexport const x = Title;\n",
-    () => assert.deepEqual(cruise(file), ['no-blueprint-imports']),
-  );
+  const blueprint = 'blueprints/boundary-example/packages/domain/src/index.ts';
+  withViolation(blueprint, "export const a = 'a';\n", () => {
+    const file = 'packages/boundary-a/domain/src/index.ts';
+    withViolation(
+      file,
+      "import { a } from '../../../../blueprints/boundary-example/packages/domain/src/index.js';\nexport const x = a;\n",
+      () => assert.deepEqual(cruise(file), ['no-blueprint-imports']),
+    );
+  });
 });
 
 test('observability-in-servers-only fires for an adapter that imports the observability wiring', () => {
@@ -162,19 +165,19 @@ test('observability-in-servers-only fires for an adapter that imports the observ
 });
 
 test('observability-in-servers-only allows a server composition root', () => {
-  const file = 'blueprints/bookmarks/apps/server/src/boundary-violation.ts';
+  const file = 'apps/comms-server/src/boundary-violation.ts';
   withViolation(
     file,
-    "import { Observability } from '../../../../../packages/backend-shared/src/observability/index.js';\nexport const x = Observability;\n",
+    "import { Observability } from '../../../packages/backend-shared/src/observability/index.js';\nexport const x = Observability;\n",
     () => assert.deepEqual(cruise(file), []),
   );
 });
 
-test('no-design-in-server-code fires for a blueprint server file that imports the tokens', () => {
-  const file = 'blueprints/bookmarks/apps/server/src/boundary-violation.ts';
+test('no-design-in-server-code fires for a server file that imports the tokens', () => {
+  const file = 'apps/comms-server/src/boundary-violation.ts';
   withViolation(
     file,
-    "import { tokens } from '../../../../../packages/design/tokens/src/index.js';\nexport const x = tokens;\n",
+    "import { tokens } from '../../../packages/design/tokens/src/index.js';\nexport const x = tokens;\n",
     () => assert.deepEqual(cruise(file), ['no-design-in-server-code']),
   );
 });
@@ -219,7 +222,7 @@ test('no-tokens-in-web fires for a web file that imports the tokens directly', (
   const file = `${webSrc}/boundary-violation.ts`;
   withViolation(
     file,
-    "import { tokens } from '../../../../../packages/design/tokens/src/index.js';\nexport const x = tokens;\n",
+    "import { tokens } from '../../../packages/design/tokens/src/index.js';\nexport const x = tokens;\n",
     () => assert.deepEqual(cruise(file), ['no-tokens-in-web']),
   );
 });
@@ -228,7 +231,7 @@ test('a web app may import the UI kit', () => {
   const file = `${webSrc}/boundary-violation.ts`;
   withViolation(
     file,
-    "import { tokens } from '../../../../../packages/design/ui/src/index.js';\nexport const x = tokens;\n",
+    "import { tokens } from '../../../packages/design/ui/src/index.js';\nexport const x = tokens;\n",
     () => assert.deepEqual(cruise(file), []),
   );
 });

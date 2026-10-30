@@ -8,9 +8,7 @@ import { join } from 'node:path';
 import { after, test } from 'node:test';
 
 const root = join(import.meta.dirname, '..', '..');
-const valid = JSON.parse(
-  readFileSync(join(root, 'blueprints/bookmarks/apps/server/api/openapi.json'), 'utf8'),
-);
+const valid = JSON.parse(readFileSync(join(root, 'apps/comms-server/api/openapi.json'), 'utf8'));
 const work = mkdtempSync(join(tmpdir(), 'openapi-gates-'));
 after(() => rmSync(work, { recursive: true, force: true }));
 
@@ -36,23 +34,23 @@ const broken = (change) => {
   return document;
 };
 
-const listParameters = (document) => document.paths['/api/v1/bookmarks'].get.parameters;
+const agentParameters = (document) => document.paths['/api/v1/agents/{agent}'].get.parameters;
+const prompt = (document) => document.paths['/api/v1/agents/{agent}/prompt'].post;
 
 test('openapi:lint accepts the committed document', () => {
   assert.equal(lint(valid).status, 0);
 });
 
 const cases = {
-  'operation-description': (document) =>
-    delete document.paths['/api/v1/bookmarks'].post.description,
-  'parameter-description': (document) => delete listParameters(document)[0].description,
-  'rule/parameter-example': (document) => delete listParameters(document)[0].schema.examples,
+  'operation-description': (document) => delete prompt(document).description,
+  'parameter-description': (document) => delete agentParameters(document)[0].description,
+  'rule/parameter-example': (document) => delete agentParameters(document)[0].schema.examples,
   'rule/property-description': (document) =>
-    delete document.components.schemas.Bookmark.properties.title.description,
+    delete document.components.schemas.Screen.properties.text.description,
   'rule/property-example': (document) =>
-    delete document.components.schemas.Bookmark.properties.title.examples,
+    delete document.components.schemas.Screen.properties.text.examples,
   'operation-4xx-response': (document) => {
-    const responses = document.paths['/api/v1/bookmarks'].post.responses;
+    const responses = prompt(document).responses;
     for (const status of Object.keys(responses))
       if (status.startsWith('4')) delete responses[status];
   },
@@ -82,9 +80,9 @@ test('openapi:diff accepts an unchanged document', () => {
 
 test('openapi:diff fails when a response field is removed from /api/v1', () => {
   const revision = broken((document) => {
-    const bookmark = document.components.schemas.Bookmark;
-    delete bookmark.properties.title;
-    bookmark.required = bookmark.required.filter((name) => name !== 'title');
+    const screen = document.components.schemas.Screen;
+    delete screen.properties.text;
+    screen.required = screen.required.filter((name) => name !== 'text');
   });
   const result = oasdiff(valid, revision);
   assert.notEqual(result.status, 0, result.stdout);
@@ -135,7 +133,7 @@ const diff = (base) =>
     env: { ...process.env, OPENAPI_BASE_REF: base },
   });
 
-const server = 'blueprints/bookmarks/apps/server/api/openapi.json';
+const server = 'apps/comms-server/api/openapi.json';
 
 test('openapi:diff fails when the base ref does not exist', () => {
   assert.equal(diff('refs/heads/does-not-exist').status, 2);
@@ -148,15 +146,15 @@ test('openapi:diff accepts documents equal to the base', () => {
 
 test('openapi:diff fails when the branch drops a response field of the base', () => {
   const withExtraField = broken((document) => {
-    document.components.schemas.Bookmark.properties.note = { type: 'string' };
-    document.components.schemas.Bookmark.required.push('note');
+    document.components.schemas.Screen.properties.note = { type: 'string' };
+    document.components.schemas.Screen.required.push('note');
   });
   const result = diff(baseCommit({ [server]: withExtraField }));
   assert.equal(result.status, 1, result.stdout + result.stderr);
 });
 
 test('openapi:diff fails when the branch removes a document of the base', () => {
-  const removed = 'blueprints/bookmarks/apps/gone/api/openapi.json';
+  const removed = 'apps/gone/api/openapi.json';
   const result = diff(baseCommit({ [server]: valid, [removed]: valid }));
   assert.equal(result.status, 1);
   assert.match(result.stderr, /apps\/gone\//);
