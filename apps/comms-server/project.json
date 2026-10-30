@@ -35,6 +35,24 @@
         "cwd": "{projectRoot}"
       }
     },
-    "test-typecheck": {}
+    "test-typecheck": {},
+    "start": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build",
+        {
+          "projects": ["comms-web"],
+          "target": "build"
+        }
+      ],
+      "continuous": true,
+      "options": {
+        "command": "node --enable-source-maps dist/main.js",
+        "cwd": "{projectRoot}",
+        "env": {
+          "COMMS_WEB_DIST": "../comms-web/dist"
+        }
+      }
+    }
   }
 }

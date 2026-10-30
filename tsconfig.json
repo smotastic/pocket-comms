@@ -53,6 +53,9 @@
     },
     {
       "path": "./apps/comms-server"
+    },
+    {
+      "path": "./apps/comms-web"
     }
   ]
 }
