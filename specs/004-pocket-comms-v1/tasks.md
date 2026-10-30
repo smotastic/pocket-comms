@@ -7,11 +7,11 @@ in the task's own commit.
 
 ## Backend core
 
-- [ ] **T01** — Domain package: `AgentStatus`, `AgentKind`, `AgentKey`, `Prompt`, `Agent`,
+- [x] **T01** — Domain package: `AgentStatus`, `AgentKind`, `AgentKey`, `Prompt`, `Agent`,
       `Workspace`, `buildOverview` (repository groups, Needs you, seen completions, ordering)
   - Gate: `pnpm nx test comms-domain`, `pnpm dep-cruise`
 
-- [ ] **T02** — Domain: `TranscriptEntry` and `activityOf` (latest pending tool step or
+- [x] **T02** — Domain: `TranscriptEntry` and `activityOf` (latest pending tool step or
       "Thinking…")
   - Gate: `pnpm nx test comms-domain`
 

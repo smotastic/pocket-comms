@@ -233,6 +233,12 @@ importers:
 
   blueprints/bookmarks/apps/server:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118(effect@4.0.0-rc.118)(redis@6.2.1)
+      '@effect/sql-pg':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118(effect@4.0.0-rc.118)
       '@pocket-comms/backend-shared':
         specifier: workspace:*
         version: link:../../../../packages/backend-shared
@@ -248,22 +254,16 @@ importers:
       '@pocket-comms/bookmarks-infrastructure':
         specifier: workspace:*
         version: link:../../packages/infrastructure
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.118(effect@4.0.0-rc.118)(redis@6.2.1)
-      '@effect/sql-pg':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.118(effect@4.0.0-rc.118)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.118
     devDependencies:
-      '@pocket-comms/contracts-problem-details':
-        specifier: workspace:*
-        version: link:../../../../packages/contracts/problem-details
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0-rc.118(effect@4.0.0-rc.118)(vitest@5.0.2)
+      '@pocket-comms/contracts-problem-details':
+        specifier: workspace:*
+        version: link:../../../../packages/contracts/problem-details
       '@testcontainers/postgresql':
         specifier: 'catalog:'
         version: 12.2.0(supports-color@7.2.0)
@@ -380,15 +380,15 @@ importers:
 
   blueprints/bookmarks/packages/infrastructure:
     dependencies:
+      '@effect/sql-pg':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118(effect@4.0.0-rc.118)
       '@pocket-comms/bookmarks-application':
         specifier: workspace:*
         version: link:../application
       '@pocket-comms/bookmarks-domain':
         specifier: workspace:*
         version: link:../domain
-      '@effect/sql-pg':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.118(effect@4.0.0-rc.118)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.118
@@ -408,6 +408,32 @@ importers:
       '@pocket-comms/contracts-problem-details':
         specifier: workspace:*
         version: link:../contracts/problem-details
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118(effect@4.0.0-rc.118)(vitest@5.0.2)
+
+  packages/comms/application:
+    dependencies:
+      '@pocket-comms/comms-domain':
+        specifier: workspace:*
+        version: link:../domain
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118(effect@4.0.0-rc.118)(vitest@5.0.2)
+
+  packages/comms/domain:
+    dependencies:
+      '@pocket-comms/backend-shared':
+        specifier: workspace:*
+        version: link:../../backend-shared
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.118
