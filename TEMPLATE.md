@@ -33,7 +33,8 @@ existed (spec 004, T23). Its shapes live on in `packages/comms/` and `apps/comms
 `blueprints/bookmarks/` was the Golden Path. Keep it as a
 reference, or delete it once your first service exists. When you delete it, also remove its spec
 `specs/001-bookmarks-blueprint/`, its `scope:bookmarks` constraint in `eslint.config.mjs`, and
-point the tests in `tools/boundaries/` and `tools/openapi/` at your own service; then run
+point the tests in `tools/boundaries/` and `tools/openapi/` at your own service, and list its
+document in `tools/openapi/retired.json` so `pnpm openapi:diff` accepts the removal; then run
 `pnpm nx sync`. The OpenAPI gates need at least one server app with a committed document. The root
 `pnpm dev` scripts name no app and stay: they run the `dev` targets of your own apps (see the
 blueprint's "Run it locally").

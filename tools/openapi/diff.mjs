@@ -1,14 +1,16 @@
 // Fails on a breaking change between each OpenAPI document and its version on the base ref
 // (default `master`), with oasdiff in its pinned image (ADR 0005). A document that the base ref
-// has and the branch lost is breaking too. Needs Docker.
+// has and the branch lost is breaking too, unless `retired.json` lists it with the reason it may
+// go. Needs Docker.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { documents } from './documents.mjs';
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' });
 const isDocument = (path) => path.endsWith('/api/openapi.json');
+const retired = JSON.parse(readFileSync(join(import.meta.dirname, 'retired.json'), 'utf8'));
 
 const base = process.env.OPENAPI_BASE_REF ?? 'master';
 if (spawnSync('git', ['rev-parse', '--verify', '--quiet', `${base}^{commit}`]).status !== 0) {
@@ -27,6 +29,10 @@ const work = mkdtempSync(join(tmpdir(), 'openapi-diff-'));
 let failed = false;
 try {
   for (const document of onBase.filter((path) => !current.includes(path))) {
+    if (Object.hasOwn(retired, document)) {
+      console.log(`• ${document} is retired: ${retired[document]}`);
+      continue;
+    }
     console.error(`✖ ${document} exists on ${base} but not on this branch.`);
     failed = true;
   }

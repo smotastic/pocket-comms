@@ -159,3 +159,10 @@ test('openapi:diff fails when the branch removes a document of the base', () => 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /apps\/gone\//);
 });
+
+test('openapi:diff accepts the removal of a document listed as retired', () => {
+  const retired = 'blueprints/bookmarks/apps/server/api/openapi.json';
+  const result = diff(baseCommit({ [server]: valid, [retired]: valid }));
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /retired/);
+});
