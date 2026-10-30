@@ -1,0 +1,178 @@
+/* A terminal stays dark in both themes, like the terminal it shows. */
+.screen {
+  min-width: 0;
+  overflow-x: auto;
+  padding: var(--space-md);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-terminal-bg);
+  color: var(--color-terminal-fg);
+}
+
+.screen:focus-visible {
+  outline: var(--border-width-focus) solid var(--color-border-focus);
+  outline-offset: var(--border-width-focus);
+}
+
+.text {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-height-body);
+  white-space: pre;
+}
+
+.bold {
+  font-weight: var(--font-weight-bold);
+}
+
+.dim {
+  opacity: 0.6;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.underline {
+  text-decoration: underline;
+}
+
+/* Inverse text without its own colours: the screen's colours swapped. */
+.fgInverse {
+  color: var(--color-terminal-bg);
+}
+
+.bgInverse {
+  background: var(--color-terminal-fg);
+}
+
+/* The 16 terminal colours, by their index: 0–7 normal, 8–15 bright. */
+
+.fg0 {
+  color: var(--color-terminal-ansi-black);
+}
+
+.fg1 {
+  color: var(--color-terminal-ansi-red);
+}
+
+.fg2 {
+  color: var(--color-terminal-ansi-green);
+}
+
+.fg3 {
+  color: var(--color-terminal-ansi-yellow);
+}
+
+.fg4 {
+  color: var(--color-terminal-ansi-blue);
+}
+
+.fg5 {
+  color: var(--color-terminal-ansi-magenta);
+}
+
+.fg6 {
+  color: var(--color-terminal-ansi-cyan);
+}
+
+.fg7 {
+  color: var(--color-terminal-ansi-white);
+}
+
+.fg8 {
+  color: var(--color-terminal-ansi-bright-black);
+}
+
+.fg9 {
+  color: var(--color-terminal-ansi-bright-red);
+}
+
+.fg10 {
+  color: var(--color-terminal-ansi-bright-green);
+}
+
+.fg11 {
+  color: var(--color-terminal-ansi-bright-yellow);
+}
+
+.fg12 {
+  color: var(--color-terminal-ansi-bright-blue);
+}
+
+.fg13 {
+  color: var(--color-terminal-ansi-bright-magenta);
+}
+
+.fg14 {
+  color: var(--color-terminal-ansi-bright-cyan);
+}
+
+.fg15 {
+  color: var(--color-terminal-ansi-bright-white);
+}
+
+.bg0 {
+  background: var(--color-terminal-ansi-black);
+}
+
+.bg1 {
+  background: var(--color-terminal-ansi-red);
+}
+
+.bg2 {
+  background: var(--color-terminal-ansi-green);
+}
+
+.bg3 {
+  background: var(--color-terminal-ansi-yellow);
+}
+
+.bg4 {
+  background: var(--color-terminal-ansi-blue);
+}
+
+.bg5 {
+  background: var(--color-terminal-ansi-magenta);
+}
+
+.bg6 {
+  background: var(--color-terminal-ansi-cyan);
+}
+
+.bg7 {
+  background: var(--color-terminal-ansi-white);
+}
+
+.bg8 {
+  background: var(--color-terminal-ansi-bright-black);
+}
+
+.bg9 {
+  background: var(--color-terminal-ansi-bright-red);
+}
+
+.bg10 {
+  background: var(--color-terminal-ansi-bright-green);
+}
+
+.bg11 {
+  background: var(--color-terminal-ansi-bright-yellow);
+}
+
+.bg12 {
+  background: var(--color-terminal-ansi-bright-blue);
+}
+
+.bg13 {
+  background: var(--color-terminal-ansi-bright-magenta);
+}
+
+.bg14 {
+  background: var(--color-terminal-ansi-bright-cyan);
+}
+
+.bg15 {
+  background: var(--color-terminal-ansi-bright-white);
+}

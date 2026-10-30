@@ -84,6 +84,10 @@
       "$type": "fontFamily",
       "body": {
         "$value": "{fontFamily.inter}"
+      },
+      "mono": {
+        "$value": "{fontFamily.jetbrains-mono}",
+        "$description": "Code, commands, paths and terminal output."
       }
     },
     "size": {
@@ -140,6 +144,10 @@
       "$type": "dimension",
       "tight": {
         "$value": "{letterSpacing.tight}"
+      },
+      "label": {
+        "$value": "{letterSpacing.label}",
+        "$description": "Opens up small uppercase labels."
       }
     }
   },
@@ -156,6 +164,10 @@
       "pulse": {
         "$value": "{duration.1200}",
         "$description": "One beat of a repeating activity animation."
+      },
+      "hold": {
+        "$value": "{duration.600}",
+        "$description": "A long press that confirms a costly action, such as Ctrl-C."
       }
     },
     "easing": {
@@ -166,6 +178,72 @@
       "decelerate": {
         "$value": "{easing.decelerate}",
         "$description": "Fast then settling, for something that arrives."
+      },
+      "linear": {
+        "$value": "{easing.linear}",
+        "$description": "An even pace, for progress that tracks time."
+      }
+    }
+  },
+  "color": {
+    "$type": "color",
+    "terminal": {
+      "$description": "A terminal screen; it stays dark in both themes.",
+      "bg": {
+        "$value": "{color.ink.950}"
+      },
+      "fg": {
+        "$value": "{color.ink.200}"
+      },
+      "ansi": {
+        "black": {
+          "$value": "{color.ansi.0}"
+        },
+        "red": {
+          "$value": "{color.ansi.1}"
+        },
+        "green": {
+          "$value": "{color.ansi.2}"
+        },
+        "yellow": {
+          "$value": "{color.ansi.3}"
+        },
+        "blue": {
+          "$value": "{color.ansi.4}"
+        },
+        "magenta": {
+          "$value": "{color.ansi.5}"
+        },
+        "cyan": {
+          "$value": "{color.ansi.6}"
+        },
+        "white": {
+          "$value": "{color.ansi.7}"
+        },
+        "bright-black": {
+          "$value": "{color.ansi.8}"
+        },
+        "bright-red": {
+          "$value": "{color.ansi.9}"
+        },
+        "bright-green": {
+          "$value": "{color.ansi.10}"
+        },
+        "bright-yellow": {
+          "$value": "{color.ansi.11}"
+        },
+        "bright-blue": {
+          "$value": "{color.ansi.12}"
+        },
+        "bright-magenta": {
+          "$value": "{color.ansi.13}"
+        },
+        "bright-cyan": {
+          "$value": "{color.ansi.14}"
+        },
+        "bright-white": {
+          "$value": "{color.ansi.15}"
+        }
       }
     }
   }
