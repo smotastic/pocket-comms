@@ -71,7 +71,7 @@ in the task's own commit.
 - [x] **T15** — Kit components `Segmented`, `UserMessage`, `ToolLine`, `KeyPad` (long-press key)
   - Gate: `pnpm nx test design-ui`
 
-- [ ] **T16** — Kit component `TerminalScreen`: ANSI SGR colours (16, 256, true colour), bold,
+- [x] **T16** — Kit component `TerminalScreen`: ANSI SGR colours (16, 256, true colour), bold,
       dim, italic, underline, inverse; never interprets HTML
   - Gate: `pnpm nx test design-ui`
 
