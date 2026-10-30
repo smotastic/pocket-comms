@@ -110,6 +110,6 @@ in the task's own commit.
       (HTTPS) instructions; root `AGENTS.md` and `TEMPLATE.md` updated
   - Gate: `pnpm format:check`
 
-- [ ] **T25** — Smoke check against the real Herdr socket at 390 px with `agent-browser`; spec
+- [x] **T25** — Smoke check against the real Herdr socket at 390 px with `agent-browser`; spec
       status `Done`
   - Gate: the check's screenshots and notes in the pull request
