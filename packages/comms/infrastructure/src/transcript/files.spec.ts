@@ -66,6 +66,18 @@ describe('Transcript.layerFiles', () => {
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
+  it.effect('reports the modification time in whole milliseconds', () => {
+    const { root, claudeFile } = home();
+    utimesSync(claudeFile, 5.0004567, 5.0004567);
+    return Effect.gen(function* () {
+      const transcript = yield* TranscriptOutbound.use((port) => port.read(claude));
+      const modified = yield* TranscriptOutbound.use((port) => port.modifiedAt(claude));
+
+      expect(transcript.modifiedAt).toBe(5_000);
+      expect(modified).toEqual(Option.some(5_000));
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
   it.effect('reads a Pi session from its timestamped file', () => {
     const { root } = home();
     return Effect.gen(function* () {

@@ -105,7 +105,7 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
       });
       const parser = parserFor(source);
       for (const line of text.split('\n')) parser.push(line);
-      return { entries: parser.entries().slice(-maxEntries), modifiedAt: info.mtimeMs };
+      return { entries: parser.entries().slice(-maxEntries), modifiedAt: Math.floor(info.mtimeMs) };
     });
 
     // Emits the latest entries, then reads what was appended since `offset`. Only complete lines
@@ -170,7 +170,7 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
         const path = await find(source);
         if (path === undefined) return Option.none<number>();
         return stat(path).then(
-          (info) => Option.some(info.mtimeMs),
+          (info) => Option.some(Math.floor(info.mtimeMs)),
           () => Option.none<number>(),
         );
       });
