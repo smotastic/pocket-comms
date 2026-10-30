@@ -416,11 +416,49 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-rc.118(effect@4.0.0-rc.118)(vitest@5.0.2)
 
+  packages/comms/api:
+    dependencies:
+      '@pocket-comms/backend-shared':
+        specifier: workspace:*
+        version: link:../../backend-shared
+      '@pocket-comms/comms-application':
+        specifier: workspace:*
+        version: link:../application
+      '@pocket-comms/comms-contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@pocket-comms/comms-domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@pocket-comms/contracts-problem-details':
+        specifier: workspace:*
+        version: link:../../contracts/problem-details
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118(effect@4.0.0-rc.118)(vitest@5.0.2)
+
   packages/comms/application:
     dependencies:
       '@pocket-comms/comms-domain':
         specifier: workspace:*
         version: link:../domain
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.118(effect@4.0.0-rc.118)(vitest@5.0.2)
+
+  packages/comms/contract:
+    dependencies:
+      '@pocket-comms/contracts-problem-details':
+        specifier: workspace:*
+        version: link:../../contracts/problem-details
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.118
