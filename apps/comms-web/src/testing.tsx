@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import { render } from '@testing-library/react';
+import { configure, render } from '@testing-library/react';
 import {
   RequestError,
   type AgentEventView,
@@ -12,6 +12,10 @@ import {
   type TranscriptView,
 } from './comms-client.js';
 import { createAppRouter } from './router.js';
+
+// The kit loads its Markdown renderer lazily; on a cold CI runner that first import alone can take
+// longer than the default one second a `findBy` waits.
+configure({ asyncUtilTimeout: 5_000 });
 
 /** An agent with plain defaults: an idle Claude agent named kirk, changed a minute ago. */
 export const fakeAgent = (overrides: Partial<AgentView> = {}): AgentView => ({
