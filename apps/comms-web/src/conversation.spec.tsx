@@ -175,8 +175,14 @@ describe('the conversation', () => {
     fake.state.agents.clear();
     cleanup();
     let release: () => void = () => undefined;
-    fake.client.agent = () => new Promise((resolve) => (release = () => resolve(fakeAgent())));
-    renderApp({ client: fake.client, path: '/agents/kirk' });
+    const client = {
+      ...fake.client,
+      agent: () =>
+        new Promise<ReturnType<typeof fakeAgent>>(
+          (resolve) => (release = () => resolve(fakeAgent())),
+        ),
+    };
+    renderApp({ client, path: '/agents/kirk' });
 
     expect(await screen.findByText('Loading the agent…')).toBeDefined();
     expect(screen.queryByRole('group', { name: 'Keys' })).toBeNull();
@@ -187,12 +193,15 @@ describe('the conversation', () => {
     const fake = open(fakeAgent({ status: 'done', needsYou: true }));
     cleanup();
     let attempts = 0;
-    fake.client.seen = async (ref) => {
-      attempts += 1;
-      if (attempts === 1) throw new Error('Network down');
-      fake.calls.seen.push(ref);
+    const client = {
+      ...fake.client,
+      seen: async (ref: string) => {
+        attempts += 1;
+        if (attempts === 1) throw new Error('Network down');
+        fake.calls.seen.push(ref);
+      },
     };
-    renderApp({ client: fake.client, path: '/agents/kirk' });
+    renderApp({ client, path: '/agents/kirk' });
 
     await waitFor(() => expect(attempts).toBe(2), { timeout: 4_000 });
   });
