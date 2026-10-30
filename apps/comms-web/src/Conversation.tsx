@@ -46,8 +46,19 @@ const CTRL_C = { value: 'ctrl+c', label: 'Ctrl-C', accessibleLabel: 'Hold to sen
 const isKey = (value: string): value is Key =>
   value === CTRL_C.value || KEYS.some((key) => key.value === value);
 
-const Chat = ({ transcript }: { readonly transcript: TranscriptView | undefined }) => {
-  if (transcript === undefined) return <Text tone="muted">Loading the conversation…</Text>;
+const Chat = ({
+  transcript,
+  failed,
+}: {
+  readonly transcript: TranscriptView | undefined;
+  /** The session cannot be read, such as before the agent's first prompt. */
+  readonly failed: boolean;
+}) => {
+  if (transcript === undefined) {
+    return (
+      <Text tone="muted">{failed ? 'No conversation yet.' : 'Loading the conversation…'}</Text>
+    );
+  }
   if (transcript.entries.length === 0) return <Text tone="muted">Nothing was said yet.</Text>;
   return (
     <>
@@ -233,7 +244,7 @@ export const Conversation = ({ client, agentRef, onBack }: ConversationProps) =>
           <TerminalScreen label={`Screen of ${name}`} text={screenText} />
         ) : (
           <>
-            <Chat transcript={transcript.data} />
+            <Chat transcript={transcript.data} failed={transcript.error !== null} />
             {agent.status === 'working' ? (
               <Activity label={transcript.data?.activity ?? 'Thinking…'} />
             ) : null}
