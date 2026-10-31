@@ -1,10 +1,14 @@
 import {
   type Agent,
+  type AGENTS_TO_START,
   AgentEvent,
   CommsApi,
+  type CreateTaskRequest,
   type KEYS,
   OverviewState,
   type Overview,
+  type Project,
+  type TaskCreated,
   type Transcript,
 } from '@pocket-comms/comms-contract';
 import * as Cause from 'effect/Cause';
@@ -20,6 +24,10 @@ export type OverviewStateView = typeof OverviewState.Type;
 export type TranscriptView = typeof Transcript.Type;
 export type AgentEventView = typeof AgentEvent.Type;
 export type Key = (typeof KEYS)[number];
+export type ProjectView = typeof Project.Type;
+export type NewTask = typeof CreateTaskRequest.Type;
+export type TaskCreatedView = typeof TaskCreated.Type;
+export type AgentToStart = (typeof AGENTS_TO_START)[number];
 
 /** Stops a live subscription. */
 export type Unsubscribe = () => void;
@@ -39,6 +47,8 @@ export interface CommsClient {
   readonly prompt: (ref: string, text: string) => Promise<void>;
   readonly keys: (ref: string, keys: ReadonlyArray<Key>) => Promise<void>;
   readonly seen: (ref: string) => Promise<void>;
+  readonly projects: () => Promise<ReadonlyArray<ProjectView>>;
+  readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
   readonly followOverview: (
     onState: (state: OverviewStateView) => void,
     onLive: OnLive,
@@ -60,15 +70,38 @@ const messageOf = (error: unknown): string => {
   return 'The request failed.';
 };
 
-/** A failed request; `status` is the HTTP status of a Problem Details answer. */
+/** One field a validation problem names, such as the branch of a new task. */
+export interface FieldIssue {
+  readonly field: string;
+  readonly message: string;
+}
+
+/**
+ * A failed request; `status` is the HTTP status of a Problem Details answer, `issues` the fields
+ * a validation problem names.
+ */
 export class RequestError extends Error {
   constructor(
     message: string,
     readonly status: number | undefined,
+    readonly issues: ReadonlyArray<FieldIssue> = [],
   ) {
     super(message);
   }
 }
+
+const isFieldIssue = (value: unknown): value is FieldIssue =>
+  typeof value === 'object' &&
+  value !== null &&
+  'field' in value &&
+  typeof value.field === 'string' &&
+  'message' in value &&
+  typeof value.message === 'string';
+
+const issuesOf = (error: unknown): ReadonlyArray<FieldIssue> =>
+  typeof error === 'object' && error !== null && 'errors' in error && Array.isArray(error.errors)
+    ? error.errors.filter(isFieldIssue)
+    : [];
 
 const statusOf = (error: unknown): number | undefined =>
   typeof error === 'object' &&
@@ -132,7 +165,7 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     );
     if (Exit.isSuccess(exit)) return exit.value;
     const error = Cause.squash(exit.cause);
-    throw new RequestError(messageOf(error), statusOf(error));
+    throw new RequestError(messageOf(error), statusOf(error), issuesOf(error));
   };
   const agent = (ref: string) => ({ params: { agent: ref } });
 
@@ -146,6 +179,8 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     keys: (ref, keys) =>
       run((api) => api.agents.keys({ ...agent(ref), payload: { keys } })).then(() => undefined),
     seen: (ref) => run((api) => api.agents.seen(agent(ref))).then(() => undefined),
+    projects: () => run((api) => api.tasks.projects()).then((result) => result.projects),
+    createTask: (task) => run((api) => api.tasks.create({ payload: task })),
     followOverview: (onState, onLive) =>
       follow(`${baseUrl}/api/v1/events`, 'overview', OverviewState, onState, onLive),
     followAgent: (ref, onEvent, onLive) =>

@@ -1,6 +1,7 @@
 import {
   AgentRow,
   Alert,
+  IconButton,
   LiveIndicator,
   Page,
   SectionHeader,
@@ -10,17 +11,27 @@ import {
   TopBar,
 } from '@pocket-comms/design-ui';
 import { useQuery } from '@tanstack/react-query';
-import type { AgentView, CommsClient } from './comms-client.js';
+import { useState } from 'react';
+import type { AgentView, CommsClient, TaskCreatedView } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { overviewQuery } from './comms-queries.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useNow, useOverviewLive } from './live.js';
+import { NewTask } from './NewTask.js';
 import { since } from './since.js';
 
 export interface OverviewProps {
   readonly client: CommsClient;
   readonly onOpen: (ref: string) => void;
+  /** Opens the conversation of an agent the New task sheet started, with a note to show there. */
+  readonly onStarted: (ref: string, note: string | undefined) => void;
 }
+
+/** What the overview says after a task without a running agent was created. */
+const createdNotice = (created: TaskCreatedView) => {
+  const ready = `${created.branch} is ready in a new worktree.`;
+  return created.agent?.note === undefined ? ready : `${ready} ${created.agent.note}`;
+};
 
 const Row = ({
   agent,
@@ -69,8 +80,10 @@ const Section = ({
 );
 
 /** `/`: every live agent, Needs you first, then by repository; it updates live. */
-export const Overview = ({ client, onOpen }: OverviewProps) => {
+export const Overview = ({ client, onOpen, onStarted }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState<string | undefined>(undefined);
   const overview = useQuery(overviewQuery(client));
   const now = useNow();
 
@@ -87,9 +100,34 @@ export const Overview = ({ client, onOpen }: OverviewProps) => {
       <TopBar
         title="pocket-comms"
         subtitle={<LiveIndicator live={live} label={live ? 'Mac mini · live' : 'Connecting…'} />}
+        end={
+          <IconButton
+            icon="plus"
+            label="New task"
+            onClick={() => {
+              setNotice(undefined);
+              setCreating(true);
+            }}
+          />
+        }
+      />
+      <NewTask
+        client={client}
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreated={(created) => {
+          setCreating(false);
+          if (created.agent?.started === true) onStarted(created.agent.ref, created.agent.note);
+          else setNotice(createdNotice(created));
+        }}
       />
       <Page>
         <Stack gap="xl">
+          {notice === undefined ? null : (
+            <div role="status">
+              <Text>{notice}</Text>
+            </div>
+          )}
           {herdrAway === undefined ? null : (
             <Alert>Herdr is not running. The app keeps trying. ({herdrAway})</Alert>
           )}

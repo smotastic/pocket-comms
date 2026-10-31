@@ -39,19 +39,19 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T08** — Client methods `projects` and `createTask`; `suggestBranch`
+- [x] **T08** — Client methods `projects` and `createTask`; `suggestBranch`
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T09** — New task action and sheet: picker, task, branch prefill, agent switch and kind,
+- [x] **T09** — New task action and sheet: picker, task, branch prefill, agent switch and kind,
       progress and errors; navigation to the agent or a confirmation on the overview; the note in
       the conversation
   - Gate: `pnpm nx test comms-web`
 
 ## Wrap-up
 
-- [ ] **T10** — README and comms `AGENTS.md`: settings and the flow
+- [x] **T10** — README and comms `AGENTS.md`: settings and the flow
   - Gate: `pnpm format:check`
 
-- [ ] **T11** — Smoke check: one throwaway worktree in pocket-comms through the built app at
+- [x] **T11** — Smoke check: one throwaway worktree in pocket-comms through the built app at
       390 px with `agent-browser`, then removed; spec status `Done`
   - Gate: the check's notes in the pull request

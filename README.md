@@ -2,10 +2,11 @@
 
 A phone web app to **read and drive the Herdr coding agents** on the Mac mini, over Tailscale. It
 lists every live agent, shows Claude and Pi sessions as a chat, shows any agent's terminal screen,
-and sends prompts and key presses. Install it to the iPhone home screen. It complements the Moshi
+sends prompts and key presses, and starts new tasks in fresh Herdr worktrees. Install it to the iPhone home screen. It complements the Moshi
 terminal app, which keeps push notifications, approvals and the raw terminal.
 
-The behaviour is [spec 004](specs/004-pocket-comms-v1/spec.md); the approved look is its
+The behaviour is [spec 004](specs/004-pocket-comms-v1/spec.md) and, for new tasks,
+[spec 005](specs/005-comms-new-task/spec.md); the approved look is spec 004's
 [mockup](specs/004-pocket-comms-v1/mockup.html).
 
 ## Run it
@@ -30,6 +31,8 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 | `COMMS_ALLOWED_LOGIN`  | `smotastic@`                 | The Tailscale login that may use the app; a value ending in `@` allows that user with any provider |
 | `HERDR_SOCKET_PATH`    | `~/.config/herdr/herdr.sock` | Herdr's API socket                                                                                 |
 | `COMMS_WEB_DIST`       | set by `pnpm start`          | The built web app the server serves; without it the server serves only the API                     |
+| `COMMS_PROJECTS_ROOT`  | `~/Development/projects`     | The folder whose git repositories (direct children) a new task can start in                        |
+| `COMMS_AGENT_ARGS`     | empty                        | Extra arguments for every agent a new task starts, split on spaces; empty keeps the CLI defaults   |
 | `OTEL_EXPORTER_OTLP_*` | off                          | Traces, metrics and logs over OTLP (ADR 0010)                                                      |
 
 The API is documented at `/docs` (the OpenAPI document at `/docs/openapi.json`), behind the same
@@ -59,7 +62,13 @@ the server running after a log-out, add a launch agent for `pnpm start` yourself
 - **Input:** the composer sends a prompt (Enter sends, Shift+Enter is a new line). While the agent
   is blocked, an approval panel with its screen and the keys `1 2 3 ↑ ↓ Enter Esc` replaces the
   composer; Ctrl-C sends only after a long press.
-- Reading never moves the Herdr focus on the desktop. The "seen" state lives in server memory.
+- **New task (`+` on the overview):** pick a project, describe the task and check the branch (it is
+  suggested from the task, `feat/…` or `fix/…`). The server fetches `origin`, creates a Herdr
+  worktree from the default remote branch with the task's first line as its label, and, if asked,
+  starts a Claude or Pi agent there and sends it the task. An agent that shows a dialog first gets
+  nothing; answer it in its conversation, then send the task. Removing worktrees stays on the
+  desktop.
+- Nothing in the app moves the Herdr focus on the desktop. The "seen" state lives in server memory.
 
 ## Structure
 

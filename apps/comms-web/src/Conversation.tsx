@@ -28,6 +28,8 @@ export interface ConversationProps {
   readonly client: CommsClient;
   readonly agentRef: string;
   readonly onBack: () => void;
+  /** What the New task flow could not do for this agent, such as send the task (spec 005). */
+  readonly note?: string | undefined;
 }
 
 type View = 'chat' | 'screen';
@@ -132,7 +134,7 @@ const Header = ({
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
  * the composer, or the approval keys while the agent is blocked. It updates live.
  */
-export const Conversation = ({ client, agentRef, onBack }: ConversationProps) => {
+export const Conversation = ({ client, agentRef, onBack, note }: ConversationProps) => {
   useAgentLive(client, agentRef);
   const agentResult = useQuery(agentQuery(client, agentRef));
   const agent = agentResult.data;
@@ -240,6 +242,11 @@ export const Conversation = ({ client, agentRef, onBack }: ConversationProps) =>
       }
     >
       <Stack gap="md">
+        {note === undefined ? null : (
+          <div role="status">
+            <Text tone="muted">{note}</Text>
+          </div>
+        )}
         {view === 'screen' ? (
           <TerminalScreen label={`Screen of ${name}`} text={screenText} />
         ) : (

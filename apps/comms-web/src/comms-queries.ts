@@ -8,6 +8,7 @@ export const overviewKey = ['overview'] as const;
 export const agentKey = (ref: string) => ['agent', ref] as const;
 export const transcriptKey = (ref: string) => ['transcript', ref] as const;
 export const screenKey = (ref: string) => ['screen', ref] as const;
+export const projectsKey = ['projects'] as const;
 
 export const overviewQuery = (client: CommsClient) =>
   queryOptions({ queryKey: overviewKey, queryFn: () => client.overview() });
@@ -25,3 +26,7 @@ export const screenQuery = (client: CommsClient, ref: string) =>
     queryFn: () => client.screen(ref),
     refetchInterval: 1000,
   });
+
+/** The projects are read again each time the New task sheet opens. */
+export const projectsQuery = (client: CommsClient) =>
+  queryOptions({ queryKey: projectsKey, queryFn: () => client.projects(), staleTime: 0 });

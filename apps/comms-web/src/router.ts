@@ -17,4 +17,8 @@ declare module '@tanstack/react-router' {
   interface Register {
     router: ReturnType<typeof createAppRouter>;
   }
+  interface HistoryState {
+    /** What a new task's agent did not do, shown once its conversation opens (spec 005). */
+    readonly note?: string | undefined;
+  }
 }

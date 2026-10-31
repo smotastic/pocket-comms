@@ -1,25 +1,31 @@
 # comms service
 
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
-them over `CommsApi`. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md). It has
-no database; its only state (seen completions, last status changes) lives in server memory.
+them over `CommsApi`, and it starts new tasks in Herdr worktrees. Its behaviour is
+[spec 004](../../specs/004-pocket-comms-v1/spec.md) and [spec 005](../../specs/005-comms-new-task/spec.md).
+It has no database; its only state (seen completions, last status changes) lives in server memory.
 
 ## Where each file type goes
 
-| What                                                                 | Where                                                       |
-| -------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `CommsApi`, wire schemas (shared by server and web)                  | `contract`                                                  |
-| Agents, the overview rules, input rules, transcript entries, access  | `domain`                                                    |
-| `AgentsInbound`, outbound ports, use cases, DTOs, errors, test fakes | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
-| Herdr socket, Claude and Pi session files, memory stores             | `infrastructure`                                            |
-| HTTP handlers, problems, identity guard, health, web app route       | `api`                                                       |
-| Composition root, config, OpenAPI document                           | `apps/comms-server`                                         |
-| Web app                                                              | `apps/comms-web`                                            |
+| What                                                                | Where                                                       |
+| ------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `CommsApi`, wire schemas (shared by server and web)                 | `contract`                                                  |
+| Agents, the overview rules, input rules, transcript entries, access | `domain`                                                    |
+| New task rules (projects order, branch, task, agent name)           | `domain` (`src/task.ts`)                                    |
+| `AgentsInbound`, `TasksInbound`, outbound ports, use cases, DTOs    | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
+| Herdr socket, git below the projects root, session files, memory    | `infrastructure`                                            |
+| HTTP handlers, problems, identity guard, health, web app route      | `api`                                                       |
+| Composition root, config, OpenAPI document                          | `apps/comms-server`                                         |
+| Web app                                                             | `apps/comms-web`                                            |
 
 ## Rules of this service
 
 - `HerdrOutbound` has no focus method on purpose: the app never moves the owner's Herdr focus
-  (requirement 18). Do not add one.
+  (requirement 18). Do not add one. `worktree.create` always sends `focus: false`.
+- `git` and Herdr run with argument arrays, never through a shell. A project is only ever a folder
+  the projects port lists; never accept a path from a request.
+- A new agent gets its first prompt only while it is idle and ready: the app never answers an
+  agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
 - Every route goes through the Tailscale identity guard (`api/src/identity.ts`), and the server
   listens on `127.0.0.1` only. Do not add a route outside `commsServerLayer`.
 - Session file formats are undocumented. Parsers skip what they do not know; tests use the

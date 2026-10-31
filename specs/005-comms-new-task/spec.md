@@ -1,6 +1,6 @@
 # Spec 005 — pocket-comms v2: start a new task in a Herdr worktree from the phone
 
-- **Status:** `Approved` — approved by the owner in advance (2026-10-31)
+- **Status:** `Done` — approved by the owner in advance (2026-10-31); smoke-checked against the real Herdr on 2026-10-31
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (its "later" item "creating worktrees or
   new tasks from the app")
 - **Issue:** smotastic/pocket-comms#7

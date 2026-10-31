@@ -1,7 +1,7 @@
 # Plan 005 — pocket-comms v2: new task in a Herdr worktree
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner in advance (2026-10-31)
+- **Status:** `Done` — approved by the owner in advance (2026-10-31); smoke-checked against the real Herdr on 2026-10-31
 
 ## 1. Affected projects
 

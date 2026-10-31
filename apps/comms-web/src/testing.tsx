@@ -7,8 +7,11 @@ import {
   type AgentView,
   type CommsClient,
   type Key,
+  type NewTask,
   type OverviewStateView,
   type OverviewView,
+  type ProjectView,
+  type TaskCreatedView,
   type TranscriptView,
 } from './comms-client.js';
 import { createAppRouter } from './router.js';
@@ -40,6 +43,9 @@ export interface FakeState {
   readonly screens: Map<string, string>;
   /** A failure for the next prompt, as the server would report it. */
   promptFailure?: string;
+  projects: ReadonlyArray<ProjectView>;
+  /** What the next task creation answers: the created worktree, or a failure. */
+  created: TaskCreatedView | RequestError;
 }
 
 /**
@@ -52,12 +58,18 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     agents: new Map(),
     transcripts: new Map(),
     screens: new Map(),
+    projects: [
+      { name: 'pocket-comms', open: true },
+      { name: 'pocket-home', open: false },
+    ],
+    created: { workspace: 'wK', branch: 'feat/x', path: '/worktrees/feat-x' },
     ...initial,
   };
   const calls = {
     prompts: [] as Array<[string, string]>,
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
     seen: [] as Array<string>,
+    tasks: [] as Array<NewTask>,
   };
   const overviewFollowers = new Set<(state: OverviewStateView) => void>();
   const agentFollowers = new Map<string, Set<(event: AgentEventView) => void>>();
@@ -82,6 +94,12 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     },
     seen: async (ref) => {
       calls.seen.push(ref);
+    },
+    projects: async () => state.projects,
+    createTask: async (task) => {
+      calls.tasks.push(task);
+      if (state.created instanceof RequestError) throw state.created;
+      return state.created;
     },
     followOverview: (onState, onLive) => {
       overviewFollowers.add(onState);
