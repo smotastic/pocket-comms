@@ -27,6 +27,23 @@
       "scrim": {
         "$value": "{color.navy.950.60}",
         "$description": "Dims the screen behind a sheet."
+      },
+      "success-soft": {
+        "$value": "{color.green.950}"
+      },
+      "neutral-soft": {
+        "$value": "{color.gray.800}",
+        "$description": "A quiet fill, such as an idle status."
+      },
+      "bar": {
+        "$value": "{color.gray.950-80}",
+        "$description": "A bar that stays on top while the page scrolls beneath it."
+      },
+      "kind-claude": {
+        "$value": "{color.orange.950}"
+      },
+      "kind-pi": {
+        "$value": "{color.yellow.950}"
       }
     },
     "text": {
@@ -44,6 +61,15 @@
       },
       "danger": {
         "$value": "{color.red.400}"
+      },
+      "success": {
+        "$value": "{color.green.400}"
+      },
+      "kind-claude": {
+        "$value": "{color.orange.300}"
+      },
+      "kind-pi": {
+        "$value": "{color.yellow.300}"
       }
     },
     "border": {
@@ -56,6 +82,13 @@
       "control": {
         "$value": "{color.gray.500}",
         "$description": "The edge of a field that must stand out from its surface."
+      },
+      "danger": {
+        "$value": "{color.red.400-45}",
+        "$description": "The edge of something that needs the reader, such as a blocked agent."
+      },
+      "success": {
+        "$value": "{color.green.400-35}"
       }
     }
   },

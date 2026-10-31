@@ -64,14 +64,14 @@ in the task's own commit.
 
 ## Design kit
 
-- [ ] **T14** — Kit components `StatusPill`, `SectionHeader`, `AgentRow`, `TopBar`,
+- [x] **T14** — Kit components `StatusPill`, `SectionHeader`, `AgentRow`, `TopBar`,
       `LiveIndicator`
   - Gate: `pnpm nx test design-ui`, `pnpm nx lint design-ui`
 
-- [ ] **T15** — Kit components `Segmented`, `UserMessage`, `ToolLine`, `KeyPad` (long-press key)
+- [x] **T15** — Kit components `Segmented`, `UserMessage`, `ToolLine`, `KeyPad` (long-press key)
   - Gate: `pnpm nx test design-ui`
 
-- [ ] **T16** — Kit component `TerminalScreen`: ANSI SGR colours (16, 256, true colour), bold,
+- [x] **T16** — Kit component `TerminalScreen`: ANSI SGR colours (16, 256, true colour), bold,
       dim, italic, underline, inverse; never interprets HTML
   - Gate: `pnpm nx test design-ui`
 
