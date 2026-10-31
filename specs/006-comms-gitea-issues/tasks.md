@@ -18,7 +18,7 @@ in the task's own commit.
 - [x] **T03** — `Projects.layerGit`: `originUrl`, `worktrees`
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T04** — `Gitea.layerHttp` with the recorded, anonymised fixture: `GET` only, paging, the
+- [x] **T04** — `Gitea.layerHttp` with the recorded, anonymised fixture: `GET` only, paging, the
       cap, errors without the token, no request without a token
   - Gate: `pnpm nx test comms-infrastructure`
 
