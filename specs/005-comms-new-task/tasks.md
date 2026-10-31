@@ -25,7 +25,7 @@ in the task's own commit.
 
 ## API and server
 
-- [ ] **T05** — Contract group `tasks` (`GET /projects`, `POST /tasks`) with descriptions and
+- [x] **T05** — Contract group `tasks` (`GET /projects`, `POST /tasks`) with descriptions and
       examples; handlers and problems; acceptance tests
   - Gate: `pnpm nx test comms-contract`, `pnpm nx test comms-api`
 
