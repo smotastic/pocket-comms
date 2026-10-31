@@ -3,6 +3,28 @@
 /** The CSS custom property of every semantic token, as a `var(--…)` reference. */
 export const tokens = {
   color: {
+    terminal: {
+      bg: 'var(--color-terminal-bg)',
+      fg: 'var(--color-terminal-fg)',
+      ansi: {
+        black: 'var(--color-terminal-ansi-black)',
+        red: 'var(--color-terminal-ansi-red)',
+        green: 'var(--color-terminal-ansi-green)',
+        yellow: 'var(--color-terminal-ansi-yellow)',
+        blue: 'var(--color-terminal-ansi-blue)',
+        magenta: 'var(--color-terminal-ansi-magenta)',
+        cyan: 'var(--color-terminal-ansi-cyan)',
+        white: 'var(--color-terminal-ansi-white)',
+        'bright-black': 'var(--color-terminal-ansi-bright-black)',
+        'bright-red': 'var(--color-terminal-ansi-bright-red)',
+        'bright-green': 'var(--color-terminal-ansi-bright-green)',
+        'bright-yellow': 'var(--color-terminal-ansi-bright-yellow)',
+        'bright-blue': 'var(--color-terminal-ansi-bright-blue)',
+        'bright-magenta': 'var(--color-terminal-ansi-bright-magenta)',
+        'bright-cyan': 'var(--color-terminal-ansi-bright-cyan)',
+        'bright-white': 'var(--color-terminal-ansi-bright-white)',
+      },
+    },
     bg: {
       canvas: 'var(--color-bg-canvas)',
       surface: 'var(--color-bg-surface)',
@@ -12,6 +34,11 @@ export const tokens = {
       'danger-soft': 'var(--color-bg-danger-soft)',
       sheet: 'var(--color-bg-sheet)',
       scrim: 'var(--color-bg-scrim)',
+      'success-soft': 'var(--color-bg-success-soft)',
+      'neutral-soft': 'var(--color-bg-neutral-soft)',
+      bar: 'var(--color-bg-bar)',
+      'kind-claude': 'var(--color-bg-kind-claude)',
+      'kind-pi': 'var(--color-bg-kind-pi)',
     },
     text: {
       default: 'var(--color-text-default)',
@@ -19,11 +46,16 @@ export const tokens = {
       accent: 'var(--color-text-accent)',
       'on-accent': 'var(--color-text-on-accent)',
       danger: 'var(--color-text-danger)',
+      success: 'var(--color-text-success)',
+      'kind-claude': 'var(--color-text-kind-claude)',
+      'kind-pi': 'var(--color-text-kind-pi)',
     },
     border: {
       default: 'var(--color-border-default)',
       focus: 'var(--color-border-focus)',
       control: 'var(--color-border-control)',
+      danger: 'var(--color-border-danger)',
+      success: 'var(--color-border-success)',
     },
   },
   space: {
@@ -65,6 +97,7 @@ export const tokens = {
   font: {
     family: {
       body: 'var(--font-family-body)',
+      mono: 'var(--font-family-mono)',
     },
     size: {
       xs: 'var(--font-size-xs)',
@@ -87,6 +120,7 @@ export const tokens = {
     },
     letterSpacing: {
       tight: 'var(--font-letter-spacing-tight)',
+      label: 'var(--font-letter-spacing-label)',
     },
   },
   motion: {
@@ -94,10 +128,12 @@ export const tokens = {
       fast: 'var(--motion-duration-fast)',
       medium: 'var(--motion-duration-medium)',
       pulse: 'var(--motion-duration-pulse)',
+      hold: 'var(--motion-duration-hold)',
     },
     easing: {
       standard: 'var(--motion-easing-standard)',
       decelerate: 'var(--motion-easing-decelerate)',
+      linear: 'var(--motion-easing-linear)',
     },
   },
   shadow: {

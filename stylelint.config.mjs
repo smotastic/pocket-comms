@@ -38,6 +38,7 @@ const NEUTRAL_KEYWORDS = [
   'currentColor',
   'transparent',
   'solid',
+  'dashed',
   '100%',
   'normal',
   'italic',
