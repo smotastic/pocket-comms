@@ -8,6 +8,7 @@ import {
   type Project,
 } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
+import * as Option from 'effect/Option';
 import * as Result from 'effect/Result';
 import type { CreateTaskInput, TaskAgentDto, TaskCreatedDto } from '../dto/task.dto.js';
 import {
@@ -15,7 +16,11 @@ import {
   type HerdrRejectedError,
   type HerdrUnavailableError,
 } from '../errors.js';
-import { HerdrOutbound, type CreatedWorktree } from '../ports/herdr.outbound.port.js';
+import {
+  HerdrOutbound,
+  type CreatedWorktree,
+  type StartedAgent,
+} from '../ports/herdr.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 
 // Creates a task (spec 005): checks every input before anything changes, creates the worktree
@@ -27,6 +32,18 @@ const issuesOf = <A>(result: Result.Result<A, InvalidInputError>): InvalidInputE
 
 const messageOf = (error: HerdrUnavailableError | HerdrRejectedError): string =>
   error._tag === 'HerdrRejectedError' ? error.message : error.reason;
+
+// Herdr may report a just-started agent before it has detected its status. The use case asks
+// again this often, this many times, before it gives up on sending the task.
+const SETTLE_PAUSE = '500 millis';
+const SETTLE_TRIES = 20;
+
+const NOTES = {
+  blocked:
+    'The agent waits for an answer, so the task was not sent. Answer it, then send the task.',
+  unsettled:
+    'The agent did not report itself ready in time, so the task was not sent. Send it from the conversation.',
+} as const;
 
 export const makeCreateTask = Effect.gen(function* () {
   const projectsOutbound = yield* ProjectsOutbound;
@@ -56,8 +73,24 @@ export const makeCreateTask = Effect.gen(function* () {
     return base;
   });
 
-  // Starts the agent, and sends the task only to an agent that is idle and takes input: any
-  // other agent may show a dialog, and the app never answers one for the owner.
+  // The status that decides whether the task is sent: `idle`, `blocked`, or `unsettled` when
+  // Herdr reports neither within the settle time.
+  const settledStatus = Effect.fnUntraced(function* (paneId: string, started: StartedAgent) {
+    if (started.status === 'blocked') return 'blocked' as const;
+    if (started.status === 'idle' && started.ready) return 'idle' as const;
+    for (let attempt = 0; attempt < SETTLE_TRIES; attempt += 1) {
+      yield* Effect.sleep(SETTLE_PAUSE);
+      const snapshot = yield* herdrOutbound.snapshot.pipe(Effect.option);
+      const status = Option.isSome(snapshot)
+        ? snapshot.value.agents.find((agent) => agent.paneId === paneId)?.status
+        : undefined;
+      if (status === 'idle' || status === 'blocked') return status;
+    }
+    return 'unsettled' as const;
+  });
+
+  // Starts the agent, and sends the task only to an agent that is idle: any other agent may show
+  // a dialog, and the app never answers one for the owner.
   const startAgent = Effect.fnUntraced(function* (
     worktree: CreatedWorktree,
     kind: AgentToStart,
@@ -82,14 +115,16 @@ export const makeCreateTask = Effect.gen(function* () {
     if (Result.isFailure(started)) {
       return notStarted(`The agent did not start: ${messageOf(started.failure)}`);
     }
-    const { status, ready } = started.success;
-    if (status !== 'idle' || !ready) {
-      return {
-        ref,
-        started: true,
-        prompted: false,
-        note: 'The agent waits for an answer, so the task was not sent. Answer it, then send the task.',
-      } satisfies TaskAgentDto;
+    yield* Effect.logInfo('Agent started').pipe(
+      Effect.annotateLogs({
+        agent: ref,
+        status: started.success.status,
+        ready: started.success.ready,
+      }),
+    );
+    const status = yield* settledStatus(worktree.paneId, started.success);
+    if (status !== 'idle') {
+      return { ref, started: true, prompted: false, note: NOTES[status] } satisfies TaskAgentDto;
     }
     const prompted = yield* herdrOutbound.prompt(worktree.paneId, text).pipe(Effect.result);
     return Result.isFailure(prompted)

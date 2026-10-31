@@ -1,7 +1,9 @@
 import { describe, expect, it } from '@effect/vitest';
 import { InvalidInputError } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
+import * as Fiber from 'effect/Fiber';
 import * as Layer from 'effect/Layer';
+import { TestClock } from 'effect/testing';
 import type { CreateTaskInput } from '../dto/task.dto.js';
 import { BranchExistsError, ProjectGitError } from '../errors.js';
 import { TasksInbound } from '../ports/tasks.inbound.port.js';
@@ -193,6 +195,52 @@ describe('TasksInbound.create', () => {
       expect(created.agent?.note).toMatch(/not sent/u);
       expect(herdrMethods(state)).not.toContain('prompt');
       expect(herdrMethods(state)).not.toContain('sendKeys');
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('waits until Herdr reports the started agent idle, then sends the task', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.started = { status: 'unknown', ready: true };
+
+      const fiber = yield* create({ agent: 'claude' }).pipe(Effect.forkChild);
+      yield* TestClock.adjust('1 second');
+      expect(herdrMethods(state)).not.toContain('prompt');
+      state.agents = [fakeAgent({ paneId: 'w-feat/new-task-flow:p1', name: 'feat-new-task-flow' })];
+      yield* TestClock.adjust('1 second');
+      const created = yield* Fiber.join(fiber);
+
+      expect(created.agent).toMatchObject({ started: true, prompted: true });
+      expect(herdrMethods(state).at(-1)).toBe('prompt');
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('sends nothing when the started agent turns out to wait for an answer', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.started = { status: 'unknown', ready: false };
+      state.agents = [fakeAgent({ paneId: 'w-feat/new-task-flow:p1', status: 'blocked' })];
+
+      const fiber = yield* create({ agent: 'claude' }).pipe(Effect.forkChild);
+      yield* TestClock.adjust('1 second');
+      const created = yield* Fiber.join(fiber);
+
+      expect(created.agent?.note).toMatch(/waits for an answer/u);
+      expect(herdrMethods(state)).not.toContain('prompt');
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('gives up on sending after the settle time', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.started = { status: 'unknown', ready: false };
+
+      const fiber = yield* create({ agent: 'pi' }).pipe(Effect.forkChild);
+      yield* TestClock.adjust('1 minute');
+      const created = yield* Fiber.join(fiber);
+
+      expect(created.agent?.note).toMatch(/did not report itself ready/u);
+      expect(herdrMethods(state)).not.toContain('prompt');
     }).pipe(Effect.provide(layer())),
   );
 
