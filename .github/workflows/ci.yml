@@ -148,6 +148,7 @@ jobs:
             apps/**/tsconfig*.tsbuildinfo
             packages/**/tsconfig*.tsbuildinfo
             blueprints/**/tsconfig*.tsbuildinfo
+            !**/node_modules/**
           if-no-files-found: error
           retention-days: 1
 
