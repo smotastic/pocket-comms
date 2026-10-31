@@ -47,7 +47,11 @@ const lists = (request: HerdrRequest) => {
           {
             workspace_id: 'wJ',
             label: 'ingestor-mvp',
-            worktree: { repo_key: '/work/home/.git', repo_name: 'pocket-home' },
+            worktree: {
+              repo_key: '/work/home/.git',
+              repo_name: 'pocket-home',
+              repo_root: '/work/home',
+            },
           },
           { workspace_id: 'w9', label: 'notes' },
         ],
@@ -57,6 +61,26 @@ const lists = (request: HerdrRequest) => {
   if (request.method === 'agent.read') {
     return {
       result: { type: 'pane_read', read: { pane_id: 'wJ:p1', text: '\u001b[1mHi\u001b[0m' } },
+    };
+  }
+  if (request.method === 'worktree.create') {
+    return {
+      result: {
+        type: 'worktree_created',
+        workspace: { workspace_id: 'wK', label: 'New task', focused: false },
+        tab: { tab_id: 'wK:t1' },
+        root_pane: { pane_id: 'wK:p1', workspace_id: 'wK' },
+        worktree: { path: '/worktrees/home/feat-new', branch: 'feat/new', label: 'New task' },
+      },
+    };
+  }
+  if (request.method === 'agent.start') {
+    return {
+      result: {
+        type: 'agent_started',
+        argv: ['claude'],
+        agent: { pane_id: 'wK:p1', agent_status: 'idle', interactive_ready: true },
+      },
     };
   }
   if (request.method === 'agent.prompt' && request.params['text'] === 'refuse') {
@@ -103,6 +127,7 @@ describe('Herdr.layerSocket', () => {
             id: 'wJ',
             label: 'ingestor-mvp',
             group: { key: '/work/home/.git', name: 'pocket-home' },
+            root: '/work/home',
           },
           { id: 'w9', label: 'notes', group: { key: 'ws:w9', name: 'notes' } },
         ],
@@ -135,6 +160,65 @@ describe('Herdr.layerSocket', () => {
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
         ['agent.prompt', { target: 'wJ:p1', text: 'hello' }],
         ['agent.send_keys', { target: 'wJ:p1', keys: ['1', 'enter'] }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('creates a worktree without moving the focus', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      const created = yield* HerdrOutbound.use((herdr) =>
+        herdr.createWorktree({
+          cwd: '/work/home',
+          branch: 'feat/new',
+          base: 'origin/master',
+          label: 'New task',
+        }),
+      ).pipe(Effect.provide(layerSocket({ path: server.path })));
+
+      expect(created).toEqual({
+        workspaceId: 'wK',
+        paneId: 'wK:p1',
+        path: '/worktrees/home/feat-new',
+        branch: 'feat/new',
+      });
+      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
+        [
+          'worktree.create',
+          {
+            cwd: '/work/home',
+            branch: 'feat/new',
+            base: 'origin/master',
+            label: 'New task',
+            focus: false,
+          },
+        ],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('starts an agent with only the configured arguments', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      const start = (kind: 'claude' | 'pi') =>
+        HerdrOutbound.use((herdr) => herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind }));
+      const started = yield* start('claude').pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+      );
+      yield* start('pi').pipe(
+        Effect.provide(layerSocket({ path: server.path, agentArgs: ['--model', 'x'] })),
+      );
+
+      expect(started).toEqual({ status: 'idle', ready: true });
+      expect(server.requests.map((request) => request.params)).toEqual([
+        { name: 'feat-new', kind: 'claude', pane_id: 'wK:p1', args: [], timeout_ms: 30_000 },
+        {
+          name: 'feat-new',
+          kind: 'pi',
+          pane_id: 'wK:p1',
+          args: ['--model', 'x'],
+          timeout_ms: 30_000,
+        },
       ]);
     }).pipe(Effect.scoped),
   );
@@ -275,11 +359,13 @@ describe('Herdr.layerSocket changes', () => {
           herdr.readScreen('wJ:p1'),
           herdr.prompt('wJ:p1', 'hi'),
           herdr.sendKeys('wJ:p1', ['esc']),
+          herdr.createWorktree({ cwd: '/work/home', branch: 'feat/new', base: 'b', label: 'l' }),
+          herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind: 'claude' }),
           herdr.changes.pipe(Stream.take(1), Stream.runDrain),
         ]),
       ).pipe(Effect.provide(layerSocket({ path: server.path, relistInterval: '20 millis' })));
 
-      expect(server.requests.length).toBeGreaterThan(4);
+      expect(server.requests.length).toBeGreaterThan(6);
       expect(server.requests.filter((request) => request.method.endsWith('focus'))).toEqual([]);
     }).pipe(Effect.scoped),
   );

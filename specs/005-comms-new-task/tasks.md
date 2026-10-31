@@ -15,11 +15,11 @@ in the task's own commit.
       errors, fakes; `TasksInbound` with `projects` and `create`
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
-- [ ] **T03** — `Projects.layerGit`: list below the root, default base after fetch, branch exists,
+- [x] **T03** — `Projects.layerGit`: list below the root, default base after fetch, branch exists,
       `check-ref-format`, all through `execFile`
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T04** — `Herdr.layerSocket`: `worktree.create` with `focus: false`, `agent.start`, longer
+- [x] **T04** — `Herdr.layerSocket`: `worktree.create` with `focus: false`, `agent.start`, longer
       timeouts, `worktree.repo_root` read into `Workspace.root`
   - Gate: `pnpm nx test comms-infrastructure`
 
