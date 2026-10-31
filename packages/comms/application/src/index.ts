@@ -6,11 +6,24 @@ export type {
   OverviewStateDto,
   TranscriptDto,
 } from './dto/agent.dto.js';
+export type {
+  ImplementIssueInput,
+  IssueAgentDto,
+  IssueDto,
+  IssueListDto,
+  IssueWorkDto,
+} from './dto/issue.dto.js';
 export type { CreateTaskInput, ProjectDto, TaskAgentDto, TaskCreatedDto } from './dto/task.dto.js';
 export {
   AgentNotFoundError,
   BranchExistsError,
+  GiteaNotConfiguredError,
+  GiteaUnavailableError,
+  IssueClosedError,
+  IssueNotFoundError,
+  NoGiteaRemoteError,
   ProjectGitError,
+  ProjectNotFoundError,
   HerdrRejectedError,
   HerdrUnavailableError,
   TranscriptUnavailableError,
@@ -24,6 +37,8 @@ export {
   type StartedAgent,
   type WorktreeRequest,
 } from './ports/herdr.outbound.port.js';
+export { GiteaOutbound, type LinkedRepository } from './ports/gitea.outbound.port.js';
+export { IssuesInbound } from './ports/issues.inbound.port.js';
 export { ProjectsOutbound } from './ports/projects.outbound.port.js';
 export { TasksInbound } from './ports/tasks.inbound.port.js';
 export {

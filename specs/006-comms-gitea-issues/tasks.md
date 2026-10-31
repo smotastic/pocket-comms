@@ -11,7 +11,7 @@ in the task's own commit.
       `issueNumberOf`, `issueTask`, `workOnIssues`
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application: `GiteaOutbound`, `ProjectsOutbound.originUrl` and `worktrees`, errors,
+- [x] **T02** — Application: `GiteaOutbound`, `ProjectsOutbound.originUrl` and `worktrees`, errors,
       DTOs, fakes; `IssuesInbound` with `issues` and `implement` (on the spec 005 `create`)
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 

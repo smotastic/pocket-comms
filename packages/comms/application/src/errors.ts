@@ -35,3 +35,34 @@ export class ProjectGitError extends Data.TaggedError('ProjectGitError')<{
 export class BranchExistsError extends Data.TaggedError('BranchExistsError')<{
   readonly branch: string;
 }> {}
+
+/** No project of the projects root has this name. */
+export class ProjectNotFoundError extends Data.TaggedError('ProjectNotFoundError')<{
+  readonly project: string;
+}> {}
+
+/** The project's `origin` is not a repository on the app's Gitea. */
+export class NoGiteaRemoteError extends Data.TaggedError('NoGiteaRemoteError')<{
+  readonly project: string;
+}> {}
+
+/** The app has no Gitea token, so it cannot read issues. */
+export class GiteaNotConfiguredError extends Data.TaggedError('GiteaNotConfiguredError') {}
+
+/**
+ * Gitea cannot be reached, answered an error, refused the token or does not know the
+ * repository. `reason` is Gitea's; it never holds the token.
+ */
+export class GiteaUnavailableError extends Data.TaggedError('GiteaUnavailableError')<{
+  readonly reason: string;
+}> {}
+
+/** The repository has no issue with this number; a pull request counts as none. */
+export class IssueNotFoundError extends Data.TaggedError('IssueNotFoundError')<{
+  readonly number: number;
+}> {}
+
+/** The issue is closed, so there is nothing to implement. */
+export class IssueClosedError extends Data.TaggedError('IssueClosedError')<{
+  readonly number: number;
+}> {}
