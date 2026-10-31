@@ -15,7 +15,7 @@ in the task's own commit.
       DTOs, fakes; `IssuesInbound` with `issues` and `implement` (on the spec 005 `create`)
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
-- [ ] **T03** — `Projects.layerGit`: `originUrl`, `worktrees`
+- [x] **T03** — `Projects.layerGit`: `originUrl`, `worktrees`
   - Gate: `pnpm nx test comms-infrastructure`
 
 - [ ] **T04** — `Gitea.layerHttp` with the recorded, anonymised fixture: `GET` only, paging, the
