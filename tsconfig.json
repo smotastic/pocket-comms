@@ -35,6 +35,15 @@
     },
     {
       "path": "./packages/design/ui"
+    },
+    {
+      "path": "./packages/comms/application"
+    },
+    {
+      "path": "./packages/comms/domain"
+    },
+    {
+      "path": "./packages/comms/infrastructure"
     }
   ]
 }

@@ -7,42 +7,42 @@ in the task's own commit.
 
 ## Backend core
 
-- [ ] **T01** — Domain package: `AgentStatus`, `AgentKind`, `AgentKey`, `Prompt`, `Agent`,
+- [x] **T01** — Domain package: `AgentStatus`, `AgentKind`, `AgentKey`, `Prompt`, `Agent`,
       `Workspace`, `buildOverview` (repository groups, Needs you, seen completions, ordering)
   - Gate: `pnpm nx test comms-domain`, `pnpm dep-cruise`
 
-- [ ] **T02** — Domain: `TranscriptEntry` and `activityOf` (latest pending tool step or
+- [x] **T02** — Domain: `TranscriptEntry` and `activityOf` (latest pending tool step or
       "Thinking…")
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T03** — Application package: ports `HerdrOutbound`, `TranscriptOutbound`, `SeenOutbound`,
-      `ChangeClockOutbound`, DTOs, errors and fakes; `AgentsInbound` with `overview`, `agent`,
+- [x] **T03** — Application package: ports `HerdrOutbound`, `TranscriptOutbound`, `SeenOutbound`,
+      `StatusHistoryOutbound`, DTOs, errors and fakes; `AgentsInbound` with `overview`, `agent`,
       `markSeen`
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
-- [ ] **T04** — Use cases `transcript`, `screen`, `prompt`, `sendKeys`, `overviewChanges`,
+- [x] **T04** — Use cases `transcript`, `screen`, `prompt`, `sendKeys`, `overviewChanges`,
       `transcriptChanges`; the fake Herdr records calls and the tests prove no focus call exists
   - Gate: `pnpm nx test comms-application`
 
 ## Adapters
 
-- [ ] **T05** — `Herdr.layerSocket`: one request per connection, `result`/`error` decoding,
+- [x] **T05** — `Herdr.layerSocket`: one request per connection, `result`/`error` decoding,
       unreachable socket as `HerdrUnavailable`; `agent.list`, `workspace.list`, `agent.read`,
       `agent.prompt`, `agent.send_keys`
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T06** — `Herdr.layerSocket` `changes`: `events.subscribe` with per-pane status
+- [x] **T06** — `Herdr.layerSocket` `changes`: `events.subscribe` with per-pane status
       subscriptions, rebuilt when the pane set changes, plus a periodic re-list
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T07** — Claude transcript parser and path resolution, with anonymised fixtures
+- [x] **T07** — Claude transcript parser and path resolution, with anonymised fixtures
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T08** — Pi transcript parser and path resolution, with anonymised fixtures
+- [x] **T08** — Pi transcript parser and path resolution, with anonymised fixtures
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T09** — `Transcript.layerFiles` `read` (latest 300 entries, modification time) and
-      `follow` (appended lines only); `Seen.layerMemory`, `ChangeClock.layerMemory`
+- [x] **T09** — `Transcript.layerFiles` `read` (latest 300 entries, modification time) and
+      `follow` (appended lines only); `Seen.layerMemory`, `StatusHistory.layerMemory`
   - Gate: `pnpm nx test comms-infrastructure`
 
 ## API and server
