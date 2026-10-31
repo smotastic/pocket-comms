@@ -9,6 +9,8 @@ export interface Workspace {
   readonly id: string;
   readonly label: string;
   readonly group: WorkspaceGroup;
+  /** The folder of the workspace's repository (its primary checkout), when it is a git workspace. */
+  readonly root?: string;
 }
 
 /** The group of a workspace that is no worktree of a known repository. */

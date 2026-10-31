@@ -7,29 +7,29 @@ in the task's own commit.
 
 ## Backend
 
-- [ ] **T01** — Domain: `Workspace.root`, `Project` and `orderProjects`, `parseTask`,
+- [x] **T01** — Domain: `Workspace.root`, `Project` and `orderProjects`, `parseTask`,
       `parseBranch`, `AgentToStart`, `agentNameFor`
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application: `ProjectsOutbound`, `HerdrOutbound.createWorktree` and `startAgent`,
+- [x] **T02** — Application: `ProjectsOutbound`, `HerdrOutbound.createWorktree` and `startAgent`,
       errors, fakes; `TasksInbound` with `projects` and `create`
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
-- [ ] **T03** — `Projects.layerGit`: list below the root, default base after fetch, branch exists,
+- [x] **T03** — `Projects.layerGit`: list below the root, default base after fetch, branch exists,
       `check-ref-format`, all through `execFile`
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T04** — `Herdr.layerSocket`: `worktree.create` with `focus: false`, `agent.start`, longer
+- [x] **T04** — `Herdr.layerSocket`: `worktree.create` with `focus: false`, `agent.start`, longer
       timeouts, `worktree.repo_root` read into `Workspace.root`
   - Gate: `pnpm nx test comms-infrastructure`
 
 ## API and server
 
-- [ ] **T05** — Contract group `tasks` (`GET /projects`, `POST /tasks`) with descriptions and
+- [x] **T05** — Contract group `tasks` (`GET /projects`, `POST /tasks`) with descriptions and
       examples; handlers and problems; acceptance tests
   - Gate: `pnpm nx test comms-contract`, `pnpm nx test comms-api`
 
-- [ ] **T06** — Server config `COMMS_PROJECTS_ROOT`, `COMMS_AGENT_ARGS`, wiring, OpenAPI document
+- [x] **T06** — Server config `COMMS_PROJECTS_ROOT`, `COMMS_AGENT_ARGS`, wiring, OpenAPI document
   - Gate: `pnpm nx test comms-server`, `pnpm openapi:check`, `pnpm openapi:lint`
 
 ## Design kit

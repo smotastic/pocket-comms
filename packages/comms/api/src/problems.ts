@@ -50,6 +50,30 @@ export const problems = {
         detail: `${error.message} (${error.code})`,
       }),
     ),
+  branchExists: (error: { readonly branch: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'branch-exists',
+        title: 'The branch exists already',
+        detail: `${error.branch} exists locally or on origin. Choose another name.`,
+      }),
+    ),
+  projectGitFailed: (error: { readonly project: string; readonly reason: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'project-git-failed',
+        title: 'git could not prepare the project',
+        detail: `${error.project}: ${error.reason}`,
+      }),
+    ),
+  worktreeRefused: (error: { readonly code: string; readonly message: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'worktree-refused',
+        title: 'Herdr did not create the worktree',
+        detail: `${error.message} (${error.code})`,
+      }),
+    ),
   invalidInput: (error: { readonly issues: ReadonlyArray<FieldIssue> }) =>
     Effect.fail(validationProblem(error.issues)),
 };

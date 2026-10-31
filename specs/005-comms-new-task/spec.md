@@ -72,8 +72,10 @@ agent then shows up in the overview like every other one.
     passed through a shell). The agent's name is the branch with `/` replaced by `-`; when a live
     agent already has that name, `-2`, `-3`, … is appended.
 13. When the started agent reports itself `idle` and ready for input, the server sends the task text
-    as its first prompt (`agent.prompt`). In any other state, such as a trust or permission dialog
-    (`blocked`), it sends nothing: the app never answers a dialog for the owner.
+    as its first prompt (`agent.prompt`). Herdr may report a just-started agent before it has
+    detected its status, so the server asks again for up to 10 seconds. In any other state, such
+    as a trust or permission dialog (`blocked`), or when no status arrives in time, it sends
+    nothing: the app never answers a dialog for the owner.
 14. When the worktree exists but the agent could not be started or prompted, the request still
     succeeds (`201`) and says what did not happen and why; the worktree is kept.
 15. The answer names the workspace, the worktree's branch and folder, and, when started, the

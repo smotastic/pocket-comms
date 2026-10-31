@@ -2,9 +2,13 @@ import { afterEach, describe, expect, it } from '@effect/vitest';
 import {
   AgentNotFoundError,
   AgentsInbound,
+  BranchExistsError,
   HerdrRejectedError,
   HerdrUnavailableError,
+  ProjectGitError,
+  TasksInbound,
   type AgentDto,
+  type CreateTaskInput,
   type OverviewDto,
 } from '@pocket-comms/comms-application';
 import { InvalidInputError } from '@pocket-comms/comms-domain';
@@ -48,7 +52,11 @@ afterEach(async () => {
 });
 
 /** The whole server on a mock of the use cases; `call` sends the allowed login unless told not to. */
-const serve = (inbound: Partial<AgentsInbound['Service']>, web?: string) => {
+const serve = (
+  inbound: Partial<AgentsInbound['Service']>,
+  web?: string,
+  tasks: Partial<TasksInbound['Service']> = {},
+) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
       allowedLogin: 'smotastic@',
@@ -56,6 +64,7 @@ const serve = (inbound: Partial<AgentsInbound['Service']>, web?: string) => {
       ...(web === undefined ? {} : { webDist: web }),
     }).pipe(
       Layer.provide(Layer.mock(AgentsInbound, inbound)),
+      Layer.provide(Layer.mock(TasksInbound, tasks)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -232,6 +241,106 @@ describe('the agents API', () => {
       _tag: 'Available',
       overview,
     });
+  });
+});
+
+describe('the tasks API', () => {
+  const task = {
+    project: 'pocket-comms',
+    task: 'Add a dark mode toggle',
+    branch: 'feat/dark-mode-toggle',
+  };
+  const created = {
+    workspace: 'wK',
+    branch: 'feat/dark-mode-toggle',
+    path: '/worktrees/feat-dark-mode-toggle',
+    agent: undefined,
+  };
+
+  it('lists the projects', async () => {
+    const call = serve({}, undefined, {
+      projects: Effect.succeed([{ name: 'pocket-comms', open: true }]),
+    });
+
+    const response = await call('/api/v1/projects');
+
+    expect(await response.json()).toEqual({ projects: [{ name: 'pocket-comms', open: true }] });
+  });
+
+  it('answers 503 for the projects while Herdr is away', async () => {
+    const call = serve({}, undefined, {
+      projects: Effect.fail(new HerdrUnavailableError({ reason: 'connect ENOENT' })),
+    });
+
+    expect((await call('/api/v1/projects')).status).toBe(503);
+  });
+
+  it('creates a task with an agent and answers 201', async () => {
+    const asked: Array<CreateTaskInput> = [];
+    const call = serve({}, undefined, {
+      create: (input) =>
+        Effect.sync(() => {
+          asked.push(input);
+          return {
+            ...created,
+            agent: { ref: 'feat-dark-mode-toggle', started: true, prompted: true, note: undefined },
+          };
+        }),
+    });
+
+    const response = await call('/api/v1/tasks', json({ ...task, agent: { kind: 'claude' } }));
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      ...created,
+      agent: { ref: 'feat-dark-mode-toggle', started: true, prompted: true },
+    });
+    expect(asked).toEqual([{ ...task, agent: 'claude' }]);
+  });
+
+  it('creates a task without an agent', async () => {
+    const asked: Array<CreateTaskInput> = [];
+    const call = serve({}, undefined, {
+      create: (input) => Effect.sync(() => (asked.push(input), created)),
+    });
+
+    expect((await call('/api/v1/tasks', json(task))).status).toBe(201);
+    expect(asked).toEqual([{ ...task, agent: undefined }]);
+  });
+
+  it.each([
+    { ...task, agent: { kind: 'codex' } },
+    { ...task, branch: '' },
+    { ...task, extra: true },
+  ])('answers 422 for the request %j', async (body) => {
+    const call = serve({}, undefined, { create: () => Effect.succeed(created) });
+
+    expect((await call('/api/v1/tasks', json(body))).status).toBe(422);
+  });
+
+  it.each([
+    [
+      new InvalidInputError({ issues: [{ field: 'project', message: 'Unknown.' }] }),
+      422,
+      'invalid-request',
+    ],
+    [new BranchExistsError({ branch: 'feat/x' }), 409, 'branch-exists'],
+    [new ProjectGitError({ project: 'p', reason: 'fetch failed' }), 409, 'project-git-failed'],
+    [new HerdrRejectedError({ ref: 'feat/x', code: 'c', message: 'm' }), 409, 'worktree-refused'],
+    [new HerdrUnavailableError({ reason: 'away' }), 503, 'herdr-unavailable'],
+  ] as const)('maps %s to %i', async (error, status, slug) => {
+    const call = serve({}, undefined, { create: () => Effect.fail(error) });
+
+    const response = await call('/api/v1/tasks', json(task));
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
+  });
+
+  it('rejects a request without the allowed login', async () => {
+    const call = serve({}, undefined, { create: () => Effect.succeed(created) });
+
+    expect((await call('/api/v1/tasks', { ...json(task), login: null })).status).toBe(403);
   });
 });
 

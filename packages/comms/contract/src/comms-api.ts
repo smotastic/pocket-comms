@@ -230,6 +230,93 @@ export const KeysRequest = Schema.Struct({
     .annotate({ description: 'One to eight keys, pressed in order.', examples: [['1']] }),
 }).annotate({ identifier: 'KeysRequest', description: 'Key presses for the agent.' });
 
+export const Project = Schema.Struct({
+  name: Schema.String.annotate({
+    description: "The project's folder name below the projects root.",
+    examples: ['pocket-comms'],
+  }),
+  open: Schema.Boolean.annotate({
+    description: 'Herdr has a workspace for the project.',
+    examples: [true],
+  }),
+}).annotate({ identifier: 'Project', description: 'A git repository a task can start in.' });
+
+export const Projects = Schema.Struct({
+  projects: Schema.Array(Project).annotate({
+    description: 'The projects open in Herdr first, in workspace order, then the others by name.',
+    examples: [[{ name: 'pocket-comms', open: true }]],
+  }),
+}).annotate({ identifier: 'Projects', description: 'The projects a task can start in.' });
+
+/** The agents the app can start in a new worktree. */
+export const AGENTS_TO_START = ['claude', 'pi'] as const;
+
+export const CreateTaskRequest = Schema.Struct({
+  project: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200)).annotate({
+    description: 'The name of a project of `GET /projects`.',
+    examples: ['pocket-comms'],
+  }),
+  task: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(20_000)).annotate({
+    description:
+      "The task; it is sent trimmed. Its first line is the workspace label, the whole text the agent's first prompt.",
+    examples: ['Add a dark mode toggle to the settings'],
+  }),
+  branch: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(80)).annotate({
+    description: 'The new branch, `<type>/<kebab-description>`; it must not exist yet.',
+    examples: ['feat/dark-mode-toggle'],
+  }),
+  agent: optional(
+    Schema.Struct({
+      kind: Schema.Literals(AGENTS_TO_START).annotate({
+        description: 'The agent to start.',
+        examples: ['claude'],
+      }),
+    }).annotate({ identifier: 'AgentToStart', description: 'The agent to start.' }),
+    {
+      description: 'The agent to start in the new worktree; none starts no agent.',
+      examples: [{ kind: 'claude' }],
+    },
+  ),
+}).annotate({
+  identifier: 'CreateTaskRequest',
+  description: 'A new task: a worktree on a new branch, optionally with an agent in it.',
+});
+
+export const TaskAgent = Schema.Struct({
+  ref: AgentParam,
+  started: Schema.Boolean.annotate({
+    description: 'The agent started.',
+    examples: [true],
+  }),
+  prompted: Schema.Boolean.annotate({
+    description: 'The agent got the task as its first prompt.',
+    examples: [true],
+  }),
+  note: optional(Schema.String, {
+    description: 'What did not happen, and why.',
+    examples: ['The agent waits for an answer, so the task was not sent.'],
+  }),
+}).annotate({ identifier: 'TaskAgent', description: 'The agent started for a task.' });
+
+export const TaskCreated = Schema.Struct({
+  workspace: Schema.String.annotate({
+    description: "The new worktree's Herdr workspace.",
+    examples: ['wK'],
+  }),
+  branch: Schema.String.annotate({
+    description: 'The branch of the new worktree.',
+    examples: ['feat/dark-mode-toggle'],
+  }),
+  path: Schema.String.annotate({
+    description: "The new worktree's folder.",
+    examples: ['/Users/me/.herdr/worktrees/pocket-comms/feat-dark-mode-toggle'],
+  }),
+  agent: optional(TaskAgent, {
+    description: 'The agent, when one was asked for.',
+    examples: [{ ref: 'feat-dark-mode-toggle', started: true, prompted: true }],
+  }),
+}).annotate({ identifier: 'TaskCreated', description: 'The new worktree, and its agent.' });
+
 /**
  * The Tailscale identity check: `tailscale serve` adds `Tailscale-User-Login`, and only the
  * allowed login may use the service. The server checks every route, also outside this API.
@@ -367,9 +454,43 @@ const group = HttpApiGroup.make('agents')
     }),
   );
 
+const tasks = HttpApiGroup.make('tasks')
+  .add(
+    HttpApiEndpoint.get('projects', '/projects', {
+      success: Projects,
+      error: Problems.ServiceUnavailable,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'List the projects',
+        description: 'The git repositories below the projects root that a task can start in.',
+      }),
+    ),
+    HttpApiEndpoint.post('create', '/tasks', {
+      payload: CreateTaskRequest,
+      success: TaskCreated.pipe(HttpApiSchema.status(201)),
+      error: [Problems.Conflict, Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Start a task',
+        description:
+          "Creates a Herdr worktree on a new branch from the project's default remote branch, without moving the focus, and optionally starts an agent in it with the task as its first prompt.",
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Tasks',
+      description: 'Start new work in a Herdr worktree.',
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
+  .add(tasks)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

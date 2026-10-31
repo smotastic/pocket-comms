@@ -16,4 +16,12 @@ export const serverConfig = Config.all({
     Config.withDefault(join(homedir(), '.config', 'herdr', 'herdr.sock')),
   ),
   webDist: Config.option(Config.String('COMMS_WEB_DIST')),
+  projectsRoot: Config.String('COMMS_PROJECTS_ROOT').pipe(
+    Config.withDefault(join(homedir(), 'Development', 'projects')),
+  ),
+  // Split on whitespace only; the arguments never pass through a shell (spec 005, requirement 12).
+  agentArgs: Config.String('COMMS_AGENT_ARGS').pipe(
+    Config.withDefault(''),
+    Config.map((args) => args.split(/\s+/u).filter((arg) => arg !== '')),
+  ),
 });

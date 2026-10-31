@@ -1,4 +1,4 @@
-import type { Agent, TranscriptEntry, Workspace } from '@pocket-comms/comms-domain';
+import type { Agent, Project, TranscriptEntry, Workspace } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
@@ -8,19 +8,27 @@ import * as Stream from 'effect/Stream';
 import {
   HerdrRejectedError,
   HerdrUnavailableError,
+  ProjectGitError,
   TranscriptUnavailableError,
 } from '../errors.js';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
 import {
   SeenOutbound,
   StatusHistoryOutbound,
   type StatusMark,
 } from '../ports/memory.outbound.port.js';
+import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { TranscriptOutbound, type TranscriptSource } from '../ports/transcript.outbound.port.js';
 
 /** One request the fake Herdr received, so a test can prove what was sent, and what was not. */
 export interface HerdrCall {
-  readonly method: 'snapshot' | 'readScreen' | 'prompt' | 'sendKeys';
+  readonly method:
+    | 'snapshot'
+    | 'readScreen'
+    | 'prompt'
+    | 'sendKeys'
+    | 'createWorktree'
+    | 'startAgent';
   readonly target?: string;
   readonly params?: unknown;
 }
@@ -49,12 +57,23 @@ export class FakeState extends Context.Service<
     readonly seen: Set<string>;
     readonly seenChanges: PubSub.PubSub<void>;
     readonly history: Map<string, StatusMark>;
+    projects: Array<Project>;
+    /** Every git question the fake projects port was asked, as `<method> <project> [<branch>]`. */
+    readonly gitCalls: Array<string>;
+    /** The default branch of every project; a project without one fails `defaultBase`. */
+    readonly bases: Map<string, string>;
+    /** Branches that exist, as `<project>:<branch>`. */
+    readonly branches: Set<string>;
+    /** Branch names git refuses. */
+    readonly badBranchNames: Set<string>;
+    /** What the next `startAgent` reports. */
+    started: StartedAgent;
   }
 >()('comms/application/testing/FakeState') {}
 
 export const fakeWorkspaces: ReadonlyArray<Workspace> = [
-  { id: 'w1', label: 'app', group: { key: '/work/app/.git', name: 'app' } },
-  { id: 'w2', label: 'feature', group: { key: '/work/app/.git', name: 'app' } },
+  { id: 'w1', label: 'app', group: { key: '/work/app/.git', name: 'app' }, root: '/work/app' },
+  { id: 'w2', label: 'feature', group: { key: '/work/app/.git', name: 'app' }, root: '/work/app' },
 ];
 
 /** An agent with plain defaults: an idle, named Claude agent in workspace `w1`. */
@@ -101,6 +120,16 @@ const herdr = (state: FakeState['Service']) => {
     prompt: (target, text) => command({ method: 'prompt', target, params: text }, () => undefined),
     sendKeys: (target, keys) =>
       command({ method: 'sendKeys', target, params: keys }, () => undefined),
+    // A new worktree's workspace is `w-<branch>` and its root pane `w-<branch>:p1`.
+    createWorktree: (request) =>
+      command({ method: 'createWorktree', target: request.branch, params: request }, () => ({
+        workspaceId: `w-${request.branch}`,
+        paneId: `w-${request.branch}:p1`,
+        path: `/worktrees/${request.branch.replaceAll('/', '-')}`,
+        branch: request.branch,
+      })),
+    startAgent: (start) =>
+      command({ method: 'startAgent', target: start.paneId, params: start }, () => state.started),
     changes: Stream.fromPubSub(state.herdrChanges),
   });
 };
@@ -133,6 +162,30 @@ const transcripts = (state: FakeState['Service']) => {
   });
 };
 
+const projects = (state: FakeState['Service']) => {
+  const ask = (call: string) => Effect.sync(() => void state.gitCalls.push(call));
+  return ProjectsOutbound.of({
+    list: Effect.sync(() => [...state.projects]),
+    isValidBranchName: (project, branch) =>
+      Effect.as(
+        ask(`isValidBranchName ${project.name} ${branch}`),
+        !state.badBranchNames.has(branch),
+      ),
+    defaultBase: (project) =>
+      Effect.flatMap(ask(`defaultBase ${project.name}`), () => {
+        const base = state.bases.get(project.name);
+        return base === undefined
+          ? Effect.fail(new ProjectGitError({ project: project.name, reason: 'fetch failed' }))
+          : Effect.succeed(base);
+      }),
+    branchExists: (project, branch) =>
+      Effect.as(
+        ask(`branchExists ${project.name} ${branch}`),
+        state.branches.has(`${project.name}:${branch}`),
+      ),
+  });
+};
+
 /** Every outbound port as a fake, plus `FakeState` to arrange and inspect them. */
 export const fakeLayer = () => {
   const state = Layer.effect(
@@ -154,6 +207,12 @@ export const fakeLayer = () => {
         seen: new Set(),
         seenChanges: yield* PubSub.unbounded<void>(),
         history: new Map(),
+        projects: [{ name: 'app', path: '/work/app' }],
+        gitCalls: [],
+        bases: new Map([['app', 'origin/master']]),
+        branches: new Set(),
+        badBranchNames: new Set(),
+        started: { status: 'idle', ready: true },
       };
     }),
   );
@@ -162,6 +221,7 @@ export const fakeLayer = () => {
       const fake = yield* FakeState;
       return Context.make(HerdrOutbound, herdr(fake)).pipe(
         Context.add(TranscriptOutbound, transcripts(fake)),
+        Context.add(ProjectsOutbound, projects(fake)),
         Context.add(SeenOutbound, {
           seen: Effect.sync(() => new Set(fake.seen)),
           markSeen: (key) =>

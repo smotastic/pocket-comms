@@ -18,6 +18,8 @@ const serve = () => {
       allowedLogin: 'smotastic@',
       socketPath: join(mkdtempSync(join(tmpdir(), 'no-herdr-')), 'herdr.sock'),
       home: mkdtempSync(join(tmpdir(), 'home-')),
+      projectsRoot: mkdtempSync(join(tmpdir(), 'projects-')),
+      agentArgs: [],
     }).pipe(Layer.provide(HttpServer.layerServices)),
     { disableLogger: true },
   );
@@ -35,6 +37,10 @@ describe('the composed server', () => {
     const response = await serve()('/api/v1/agents');
 
     expect(response.status).toBe(503);
+  });
+
+  it('answers 503 for the projects while Herdr is away', async () => {
+    expect((await serve()('/api/v1/projects')).status).toBe(503);
   });
 
   it('is not ready while Herdr is away', async () => {

@@ -1,7 +1,14 @@
 import { describe, expect, it } from '@effect/vitest';
 import * as Schema from 'effect/Schema';
 import { OpenApi } from 'effect/http-api';
-import { AgentEvent, CommsApi, KEYS, OverviewState, TranscriptEntry } from './index.js';
+import {
+  AgentEvent,
+  AGENTS_TO_START,
+  CommsApi,
+  KEYS,
+  OverviewState,
+  TranscriptEntry,
+} from './index.js';
 
 const document = () => OpenApi.fromApi(CommsApi);
 
@@ -15,7 +22,7 @@ const operations = () =>
   );
 
 describe('CommsApi', () => {
-  it('serves the agents under /api/v1', () => {
+  it('serves the agents and the tasks under /api/v1', () => {
     expect(Object.keys(document().paths).sort()).toEqual([
       '/api/v1/agents',
       '/api/v1/agents/{agent}',
@@ -26,6 +33,8 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}/seen',
       '/api/v1/agents/{agent}/transcript',
       '/api/v1/events',
+      '/api/v1/projects',
+      '/api/v1/tasks',
     ]);
   });
 
@@ -46,6 +55,14 @@ describe('CommsApi', () => {
     for (const operation of operations()) {
       expect(Object.keys(operation.responses ?? {})).toContain('503');
     }
+  });
+
+  it('answers a created task with 201', () => {
+    expect(Object.keys(document().paths['/api/v1/tasks']?.post?.responses ?? {})).toContain('201');
+  });
+
+  it('starts only Claude and Pi agents', () => {
+    expect(AGENTS_TO_START).toEqual(['claude', 'pi']);
   });
 
   it('accepts only the keys of the approval panel', () => {

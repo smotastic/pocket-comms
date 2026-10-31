@@ -20,6 +20,8 @@ describe('serverConfig', () => {
         allowedLogin: 'smotastic@',
         socketPath: `${homedir()}/.config/herdr/herdr.sock`,
         webDist: Option.none(),
+        projectsRoot: `${homedir()}/Development/projects`,
+        agentArgs: [],
       });
     }).pipe(withEnv({})),
   );
@@ -33,6 +35,8 @@ describe('serverConfig', () => {
         allowedLogin: 'someone@github',
         socketPath: '/tmp/herdr.sock',
         webDist: Option.some('/srv/web'),
+        projectsRoot: '/srv/projects',
+        agentArgs: ['--model', 'opus'],
       });
     }).pipe(
       withEnv({
@@ -40,6 +44,8 @@ describe('serverConfig', () => {
         COMMS_ALLOWED_LOGIN: 'someone@github',
         HERDR_SOCKET_PATH: '/tmp/herdr.sock',
         COMMS_WEB_DIST: '/srv/web',
+        COMMS_PROJECTS_ROOT: '/srv/projects',
+        COMMS_AGENT_ARGS: ' --model   opus ',
       }),
     ),
   );

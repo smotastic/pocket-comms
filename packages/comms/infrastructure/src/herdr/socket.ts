@@ -16,7 +16,7 @@ import { createConnection } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-// Herdr's socket API (protocol 17): one newline-delimited JSON request per connection, answered
+// Herdr's socket API (protocol 22): one newline-delimited JSON request per connection, answered
 // by one line with `result` or `error`. `events.subscribe` keeps its connection open and streams
 // one event per line.
 
@@ -29,6 +29,11 @@ export interface SocketOptions {
    * new pane set. Default 2 seconds.
    */
   readonly relistInterval?: Duration.Input;
+  /**
+   * Extra arguments for every agent the app starts (`COMMS_AGENT_ARGS`). Default none: the agent
+   * runs in its CLI's default permission mode.
+   */
+  readonly agentArgs?: ReadonlyArray<string>;
 }
 
 /** `$HERDR_SOCKET_PATH`, or `~/.config/herdr/herdr.sock`. */
@@ -58,13 +63,30 @@ const WorkspaceRecord = Schema.Struct({
   workspace_id: Schema.String,
   label: optionalString,
   worktree: Schema.optional(
-    Schema.NullOr(Schema.Struct({ repo_key: optionalString, repo_name: optionalString })),
+    Schema.NullOr(
+      Schema.Struct({
+        repo_key: optionalString,
+        repo_name: optionalString,
+        repo_root: optionalString,
+      }),
+    ),
   ),
 });
 
 const AgentList = Schema.Struct({ agents: Schema.Array(AgentRecord) });
 const WorkspaceList = Schema.Struct({ workspaces: Schema.Array(WorkspaceRecord) });
 const PaneRead = Schema.Struct({ read: Schema.Struct({ text: Schema.String }) });
+const WorktreeCreated = Schema.Struct({
+  workspace: Schema.Struct({ workspace_id: Schema.String }),
+  root_pane: Schema.Struct({ pane_id: Schema.String }),
+  worktree: Schema.Struct({ path: Schema.String, branch: optionalString }),
+});
+const AgentStarted = Schema.Struct({
+  agent: Schema.Struct({
+    agent_status: optionalString,
+    interactive_ready: Schema.optional(Schema.NullOr(Schema.Boolean)),
+  }),
+});
 
 const isStatus = Schema.is(AgentStatus);
 const orUndefined = <A>(value: A | null | undefined): A | undefined => value ?? undefined;
@@ -84,6 +106,7 @@ const toAgent = (record: typeof AgentRecord.Type): Agent => ({
 const toWorkspace = (record: typeof WorkspaceRecord.Type): Workspace => {
   const label = record.label ?? record.workspace_id;
   const key = record.worktree?.repo_key;
+  const root = record.worktree?.repo_root;
   return {
     id: record.workspace_id,
     label,
@@ -91,6 +114,7 @@ const toWorkspace = (record: typeof WorkspaceRecord.Type): Workspace => {
       key === undefined || key === null
         ? ownGroup(record.workspace_id, label)
         : { key, name: record.worktree?.repo_name ?? label },
+    ...(root === undefined || root === null ? {} : { root }),
   };
 };
 
@@ -118,12 +142,17 @@ export const layerSocket = ({
   path,
   timeout = '3 seconds',
   relistInterval = '2 seconds',
+  agentArgs = [],
 }: SocketOptions) => {
   const unavailable = (reason: string) => new HerdrUnavailableError({ reason });
   let nextId = 0;
 
   // Sends one request and reads its one answer line.
-  const exchange = (method: string, params: Record<string, unknown>) =>
+  const exchange = (
+    method: string,
+    params: Record<string, unknown>,
+    wait: Duration.Input = timeout,
+  ) =>
     Effect.callback<string, HerdrUnavailableError>((resume) => {
       const socket = createConnection(path);
       let buffer = '';
@@ -153,7 +182,7 @@ export const layerSocket = ({
       });
     }).pipe(
       Effect.timeoutOrElse({
-        duration: timeout,
+        duration: wait,
         orElse: () => Effect.fail(unavailable(`Herdr did not answer ${method} in time.`)),
       }),
     );
@@ -164,9 +193,10 @@ export const layerSocket = ({
     params: Record<string, unknown>,
     schema: Schema.Decoder<A>,
     ref: string,
+    wait?: Duration.Input,
   ): Effect.Effect<A, HerdrUnavailableError | HerdrRejectedError> =>
     Effect.gen(function* () {
-      const line = yield* exchange(method, params);
+      const line = yield* exchange(method, params, wait);
       const answer = yield* decodeAnswer(line).pipe(
         Effect.mapError(() => unavailable(`Herdr answered ${method} in an unknown shape.`)),
       );
@@ -321,6 +351,39 @@ export const layerSocket = ({
         request('agent.send_keys', { target, keys }, Schema.Unknown, target).pipe(
           Effect.asVoid,
           Effect.withSpan('Herdr.sendKeys'),
+        ),
+      // `focus: false` is sent although it is Herdr's default, so a changed default can never
+      // move the owner's focus (spec 005, requirement 11). `trust_repository` is never sent.
+      createWorktree: ({ cwd, branch, base, label }) =>
+        request(
+          'worktree.create',
+          { cwd, branch, base, label, focus: false },
+          WorktreeCreated,
+          branch,
+          '60 seconds',
+        ).pipe(
+          Effect.map((result) => ({
+            workspaceId: result.workspace.workspace_id,
+            paneId: result.root_pane.pane_id,
+            path: result.worktree.path,
+            branch: result.worktree.branch ?? branch,
+          })),
+          Effect.withSpan('Herdr.createWorktree'),
+        ),
+      // Herdr waits up to `timeout_ms` for the agent to take input; the request waits longer.
+      startAgent: ({ paneId, name, kind }) =>
+        request(
+          'agent.start',
+          { name, kind, pane_id: paneId, args: [...agentArgs], timeout_ms: 30_000 },
+          AgentStarted,
+          name,
+          '40 seconds',
+        ).pipe(
+          Effect.map(({ agent }) => ({
+            status: isStatus(agent.agent_status) ? agent.agent_status : 'unknown',
+            ready: agent.interactive_ready === true,
+          })),
+          Effect.withSpan('Herdr.startAgent'),
         ),
       changes,
     }),
