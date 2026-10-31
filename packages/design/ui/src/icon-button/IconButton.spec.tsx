@@ -63,7 +63,7 @@ describe('IconButton', () => {
         ))}
       </>,
     );
-    expect(ICON_NAMES).toEqual(['history', 'plus', 'expand', 'close', 'send', 'back']);
+    expect(ICON_NAMES).toEqual(['history', 'plus', 'expand', 'close', 'send', 'back', 'issues']);
     for (const name of ICON_NAMES) {
       const path = screen.getByRole('button', { name }).querySelector('path');
       expect(path?.getAttribute('d')).toMatch(/^M/);
