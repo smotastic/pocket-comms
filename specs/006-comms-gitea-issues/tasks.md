@@ -39,10 +39,10 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T08** — Client methods `issues` and `implementIssue`; the Projects action and `/projects`
+- [x] **T08** — Client methods `issues` and `implementIssue`; the Projects action and `/projects`
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T09** — `/projects/$project`: the three states, issue rows with labels, link and work; the
+- [x] **T09** — `/projects/$project`: the three states, issue rows with labels, link and work; the
       Implement sheet with the prefilled branch, progress, errors and navigation
   - Gate: `pnpm nx test comms-web`
 

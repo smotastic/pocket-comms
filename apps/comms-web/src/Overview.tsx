@@ -2,6 +2,7 @@ import {
   AgentRow,
   Alert,
   IconButton,
+  Inline,
   LiveIndicator,
   Page,
   SectionHeader,
@@ -23,6 +24,8 @@ import { since } from './since.js';
 export interface OverviewProps {
   readonly client: CommsClient;
   readonly onOpen: (ref: string) => void;
+  /** Opens the projects and their Gitea issues. */
+  readonly onProjects: () => void;
   /** Opens the conversation of an agent the New task sheet started, with a note to show there. */
   readonly onStarted: (ref: string, note: string | undefined) => void;
 }
@@ -80,7 +83,7 @@ const Section = ({
 );
 
 /** `/`: every live agent, Needs you first, then by repository; it updates live. */
-export const Overview = ({ client, onOpen, onStarted }: OverviewProps) => {
+export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(undefined);
@@ -101,14 +104,17 @@ export const Overview = ({ client, onOpen, onStarted }: OverviewProps) => {
         title="pocket-comms"
         subtitle={<LiveIndicator live={live} label={live ? 'Mac mini · live' : 'Connecting…'} />}
         end={
-          <IconButton
-            icon="plus"
-            label="New task"
-            onClick={() => {
-              setNotice(undefined);
-              setCreating(true);
-            }}
-          />
+          <Inline gap="2xs" wrap={false}>
+            <IconButton icon="issues" label="Projects" onClick={onProjects} />
+            <IconButton
+              icon="plus"
+              label="New task"
+              onClick={() => {
+                setNotice(undefined);
+                setCreating(true);
+              }}
+            />
+          </Inline>
         }
       />
       <NewTask
