@@ -1,0 +1,4 @@
+.textArea {
+  resize: vertical;
+  line-height: var(--font-line-height-body);
+}

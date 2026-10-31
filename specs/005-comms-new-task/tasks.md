@@ -34,7 +34,7 @@ in the task's own commit.
 
 ## Design kit
 
-- [ ] **T07** — Kit form controls `Select`, `TextArea`, `Switch`
+- [x] **T07** — Kit form controls `Select`, `TextArea`, `Switch`
   - Gate: `pnpm nx test design-ui`, `pnpm nx lint design-ui`
 
 ## Web app
