@@ -39,18 +39,18 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T08** — Client methods `issues` and `implementIssue`; the Projects action and `/projects`
+- [x] **T08** — Client methods `issues` and `implementIssue`; the Projects action and `/projects`
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T09** — `/projects/$project`: the three states, issue rows with labels, link and work; the
+- [x] **T09** — `/projects/$project`: the three states, issue rows with labels, link and work; the
       Implement sheet with the prefilled branch, progress, errors and navigation
   - Gate: `pnpm nx test comms-web`
 
 ## Wrap-up
 
-- [ ] **T10** — README and comms `AGENTS.md`: settings, the token, the flow
+- [x] **T10** — README and comms `AGENTS.md`: settings, the token, the flow
   - Gate: `pnpm format:check`
 
-- [ ] **T11** — Local check of the built app at 390 px with `agent-browser` and a fake Gitea, no
+- [x] **T11** — Local check of the built app at 390 px with `agent-browser` and a fake Gitea, no
       agent started on a real issue; spec status `Done`
   - Gate: the check's notes in the pull request

@@ -179,4 +179,36 @@ describe('the tasks requests', () => {
       issues: [{ field: 'branch', message: 'Name the branch <type>/<kebab-description>.' }],
     });
   });
+
+  it("reads a project's issues", async () => {
+    fetch.mockImplementation(async () => answer(200, { _tag: 'NotConfigured' }));
+
+    expect(await makeCommsClient('http://app').issues('pocket comms')).toEqual({
+      _tag: 'NotConfigured',
+    });
+    const [input] = fetch.mock.calls[0] ?? [];
+    expect(String(input instanceof Request ? input.url : input)).toBe(
+      'http://app/api/v1/projects/pocket%20comms/issues',
+    );
+  });
+
+  it('implements an issue on a branch', async () => {
+    fetch.mockImplementation(async () =>
+      answer(201, { workspace: 'wK', branch: 'feat/8-x', path: '/w/feat-8-x' }),
+    );
+
+    const created = await makeCommsClient('http://app').implementIssue(
+      'pocket-comms',
+      8,
+      'feat/8-x',
+    );
+
+    expect(created).toEqual({ workspace: 'wK', branch: 'feat/8-x', path: '/w/feat-8-x' });
+    const [input, init] = fetch.mock.calls[0] ?? [];
+    expect(String(input instanceof Request ? input.url : input)).toBe(
+      'http://app/api/v1/projects/pocket-comms/issues/8/implement',
+    );
+    const body = input instanceof Request ? await input.text() : init?.body;
+    expect(JSON.parse(String(body))).toEqual({ branch: 'feat/8-x' });
+  });
 });

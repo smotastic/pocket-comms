@@ -6,6 +6,7 @@ import {
   type AgentEventView,
   type AgentView,
   type CommsClient,
+  type IssueListView,
   type Key,
   type NewTask,
   type OverviewStateView,
@@ -46,6 +47,10 @@ export interface FakeState {
   projects: ReadonlyArray<ProjectView>;
   /** What the next task creation answers: the created worktree, or a failure. */
   created: TaskCreatedView | RequestError;
+  /** Each project's issues, or a failure; a project without an entry has no Gitea remote. */
+  readonly issues: Map<string, IssueListView | RequestError>;
+  /** What the next Implement with Claude answers. */
+  implemented: TaskCreatedView | RequestError;
 }
 
 /**
@@ -63,6 +68,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       { name: 'pocket-home', open: false },
     ],
     created: { workspace: 'wK', branch: 'feat/x', path: '/worktrees/feat-x' },
+    issues: new Map(),
+    implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
     ...initial,
   };
   const calls = {
@@ -70,6 +77,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
     seen: [] as Array<string>,
     tasks: [] as Array<NewTask>,
+    implemented: [] as Array<[string, number, string]>,
   };
   const overviewFollowers = new Set<(state: OverviewStateView) => void>();
   const agentFollowers = new Map<string, Set<(event: AgentEventView) => void>>();
@@ -100,6 +108,16 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       calls.tasks.push(task);
       if (state.created instanceof RequestError) throw state.created;
       return state.created;
+    },
+    issues: async (project) => {
+      const list = state.issues.get(project) ?? { _tag: 'NoGiteaRemote' };
+      if (list instanceof RequestError) throw list;
+      return list;
+    },
+    implementIssue: async (project, number, branch) => {
+      calls.implemented.push([project, number, branch]);
+      if (state.implemented instanceof RequestError) throw state.implemented;
+      return state.implemented;
     },
     followOverview: (onState, onLive) => {
       overviewFollowers.add(onState);

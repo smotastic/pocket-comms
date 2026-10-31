@@ -4,6 +4,8 @@ import {
   AgentEvent,
   CommsApi,
   type CreateTaskRequest,
+  type Issue,
+  type IssueList,
   type KEYS,
   OverviewState,
   type Overview,
@@ -28,6 +30,8 @@ export type ProjectView = typeof Project.Type;
 export type NewTask = typeof CreateTaskRequest.Type;
 export type TaskCreatedView = typeof TaskCreated.Type;
 export type AgentToStart = (typeof AGENTS_TO_START)[number];
+export type IssueListView = typeof IssueList.Type;
+export type IssueView = typeof Issue.Type;
 
 /** Stops a live subscription. */
 export type Unsubscribe = () => void;
@@ -49,6 +53,12 @@ export interface CommsClient {
   readonly seen: (ref: string) => Promise<void>;
   readonly projects: () => Promise<ReadonlyArray<ProjectView>>;
   readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
+  readonly issues: (project: string) => Promise<IssueListView>;
+  readonly implementIssue: (
+    project: string,
+    number: number,
+    branch: string,
+  ) => Promise<TaskCreatedView>;
   readonly followOverview: (
     onState: (state: OverviewStateView) => void,
     onLive: OnLive,
@@ -181,6 +191,14 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     seen: (ref) => run((api) => api.agents.seen(agent(ref))).then(() => undefined),
     projects: () => run((api) => api.tasks.projects()).then((result) => result.projects),
     createTask: (task) => run((api) => api.tasks.create({ payload: task })),
+    issues: (project) => run((api) => api.issues.list({ params: { project } })),
+    implementIssue: (project, number, branch) =>
+      run((api) =>
+        api.issues.implement({
+          params: { project, number: String(number) },
+          payload: { branch },
+        }),
+      ),
     followOverview: (onState, onLive) =>
       follow(`${baseUrl}/api/v1/events`, 'overview', OverviewState, onState, onLive),
     followAgent: (ref, onEvent, onLive) =>

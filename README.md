@@ -2,11 +2,13 @@
 
 A phone web app to **read and drive the Herdr coding agents** on the Mac mini, over Tailscale. It
 lists every live agent, shows Claude and Pi sessions as a chat, shows any agent's terminal screen,
-sends prompts and key presses, and starts new tasks in fresh Herdr worktrees. Install it to the iPhone home screen. It complements the Moshi
+sends prompts and key presses, starts new tasks in fresh Herdr worktrees, and lists each project's
+open Gitea issues with an "Implement with Claude" action. Install it to the iPhone home screen. It complements the Moshi
 terminal app, which keeps push notifications, approvals and the raw terminal.
 
-The behaviour is [spec 004](specs/004-pocket-comms-v1/spec.md) and, for new tasks,
-[spec 005](specs/005-comms-new-task/spec.md); the approved look is spec 004's
+The behaviour is [spec 004](specs/004-pocket-comms-v1/spec.md), for new tasks
+[spec 005](specs/005-comms-new-task/spec.md) and for Gitea issues
+[spec 006](specs/006-comms-gitea-issues/spec.md); the approved look is spec 004's
 [mockup](specs/004-pocket-comms-v1/mockup.html).
 
 ## Run it
@@ -33,7 +35,14 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 | `COMMS_WEB_DIST`       | set by `pnpm start`          | The built web app the server serves; without it the server serves only the API                     |
 | `COMMS_PROJECTS_ROOT`  | `~/Development/projects`     | The folder whose git repositories (direct children) a new task can start in                        |
 | `COMMS_AGENT_ARGS`     | empty                        | Extra arguments for every agent a new task starts, split on spaces; empty keeps the CLI defaults   |
+| `COMMS_GITEA_URL`      | `http://localhost:3000`      | The Gitea server whose issues the app reads                                                        |
+| `COMMS_GITEA_TOKEN`    | none                         | A Gitea token with `read:issue` and `read:repository`; without it the issue lists say so           |
+| `COMMS_GITEA_HOSTS`    | `gitea`                      | Further host names (such as SSH aliases) of that Gitea in git remotes, comma-separated             |
 | `OTEL_EXPORTER_OTLP_*` | off                          | Traces, metrics and logs over OTLP (ADR 0010)                                                      |
+
+The Gitea token is a secret: put it in the server's environment only. Create it in Gitea under
+**Settings → Applications → Manage Access Tokens** with the scopes `read:issue` and
+`read:repository`; the app only ever sends `GET` requests to Gitea.
 
 The API is documented at `/docs` (the OpenAPI document at `/docs/openapi.json`), behind the same
 login check.
@@ -68,6 +77,12 @@ the server running after a log-out, add a launch agent for `pnpm start` yourself
   starts a Claude or Pi agent there and sends it the task. An agent that shows a dialog first gets
   nothing; answer it in its conversation, then send the task. Removing worktrees stays on the
   desktop.
+- **Projects and issues (the issue icon on the overview):** each project's open Gitea issues (its
+  `origin` names the repository), the most recently updated first, with labels, age, a link to
+  Gitea and the agents working on each issue (worktrees on a `<type>/<number>-…` branch).
+  **Implement with Claude** asks for the branch (suggested as `feat/<number>-<title>`), then starts
+  a New task with a Claude agent and the issue, ending in a `Closes #<number>` line, as its first
+  prompt. The app never writes to Gitea.
 - Nothing in the app moves the Herdr focus on the desktop. The "seen" state lives in server memory.
 
 ## Structure

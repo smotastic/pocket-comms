@@ -1,6 +1,6 @@
 # Spec 006 — pocket-comms: a project's Gitea issues and "Implement with Claude"
 
-- **Status:** `Approved` — approved by the owner in advance (2026-10-31)
+- **Status:** `Done` — approved by the owner in advance (2026-10-31); checked locally at 390 px with a fake Gitea on 2026-10-31
 - **Changes:** [spec 005](../005-comms-new-task/spec.md) (it starts a task from an issue through
   the same flow)
 - **Issue:** smotastic/pocket-comms#8
