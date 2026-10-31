@@ -48,7 +48,7 @@ in the task's own commit.
 
 ## Wrap-up
 
-- [ ] **T10** — README and comms `AGENTS.md`: settings, the token, the flow
+- [x] **T10** — README and comms `AGENTS.md`: settings, the token, the flow
   - Gate: `pnpm format:check`
 
 - [ ] **T11** — Local check of the built app at 390 px with `agent-browser` and a fake Gitea, no
