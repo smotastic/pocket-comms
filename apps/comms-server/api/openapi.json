@@ -103,6 +103,20 @@
         ],
         "type": "string"
       },
+      "AgentToStart": {
+        "additionalProperties": false,
+        "description": "The agent to start.",
+        "properties": {
+          "kind": {
+            "description": "The agent to start.",
+            "enum": ["claude", "pi"],
+            "examples": ["claude"],
+            "type": "string"
+          }
+        },
+        "required": ["kind"],
+        "type": "object"
+      },
       "ConflictProblemEncoded": {
         "additionalProperties": false,
         "properties": {
@@ -134,6 +148,51 @@
           }
         },
         "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "CreateTaskRequest": {
+        "additionalProperties": false,
+        "description": "A new task: a worktree on a new branch, optionally with an agent in it.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentToStart"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The agent to start in the new worktree; none starts no agent.",
+            "examples": [
+              {
+                "kind": "claude"
+              }
+            ]
+          },
+          "branch": {
+            "description": "The new branch, `<type>/<kebab-description>`; it must not exist yet.",
+            "examples": ["feat/dark-mode-toggle"],
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project": {
+            "description": "The name of a project of `GET /projects`.",
+            "examples": ["pocket-comms"],
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "task": {
+            "description": "The task; it is sent trimmed. Its first line is the workspace label, the whole text the agent's first prompt.",
+            "examples": ["Add a dark mode toggle to the settings"],
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": ["project", "task", "branch"],
         "type": "object"
       },
       "FieldError": {
@@ -297,6 +356,47 @@
         "examples": ["{\"_tag\":\"Unavailable\",\"reason\":\"Herdr is not running.\"}"],
         "type": "string"
       },
+      "Project": {
+        "additionalProperties": false,
+        "description": "A git repository a task can start in.",
+        "properties": {
+          "name": {
+            "description": "The project's folder name below the projects root.",
+            "examples": ["pocket-comms"],
+            "type": "string"
+          },
+          "open": {
+            "description": "Herdr has a workspace for the project.",
+            "examples": [true],
+            "type": "boolean"
+          }
+        },
+        "required": ["name", "open"],
+        "type": "object"
+      },
+      "Projects": {
+        "additionalProperties": false,
+        "description": "The projects a task can start in.",
+        "properties": {
+          "projects": {
+            "description": "The projects open in Herdr first, in workspace order, then the others by name.",
+            "examples": [
+              [
+                {
+                  "name": "pocket-comms",
+                  "open": true
+                }
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["projects"],
+        "type": "object"
+      },
       "PromptRequest": {
         "additionalProperties": false,
         "description": "A prompt for the agent.",
@@ -356,6 +456,83 @@
           }
         },
         "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "TaskAgent": {
+        "additionalProperties": false,
+        "description": "The agent started for a task.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What did not happen, and why.",
+            "examples": ["The agent waits for an answer, so the task was not sent."]
+          },
+          "prompted": {
+            "description": "The agent got the task as its first prompt.",
+            "examples": [true],
+            "type": "boolean"
+          },
+          "ref": {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "examples": ["kirk-ingestor-mvp"],
+            "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+            "type": "string"
+          },
+          "started": {
+            "description": "The agent started.",
+            "examples": [true],
+            "type": "boolean"
+          }
+        },
+        "required": ["ref", "started", "prompted"],
+        "type": "object"
+      },
+      "TaskCreated": {
+        "additionalProperties": false,
+        "description": "The new worktree, and its agent.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskAgent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The agent, when one was asked for.",
+            "examples": [
+              {
+                "prompted": true,
+                "ref": "feat-dark-mode-toggle",
+                "started": true
+              }
+            ]
+          },
+          "branch": {
+            "description": "The branch of the new worktree.",
+            "examples": ["feat/dark-mode-toggle"],
+            "type": "string"
+          },
+          "path": {
+            "description": "The new worktree's folder.",
+            "examples": ["/Users/me/.herdr/worktrees/pocket-comms/feat-dark-mode-toggle"],
+            "type": "string"
+          },
+          "workspace": {
+            "description": "The new worktree's Herdr workspace.",
+            "examples": ["wK"],
+            "type": "string"
+          }
+        },
+        "required": ["workspace", "branch", "path"],
         "type": "object"
       },
       "Transcript": {
@@ -1390,6 +1567,130 @@
         "summary": "Follow the overview",
         "tags": ["Agents"]
       }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "description": "The git repositories below the projects root that a task can start in.",
+        "operationId": "tasks.projects",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Projects"
+                }
+              }
+            },
+            "description": "The projects a task can start in."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "List the projects",
+        "tags": ["Tasks"]
+      }
+    },
+    "/api/v1/tasks": {
+      "post": {
+        "description": "Creates a Herdr worktree on a new branch from the project's default remote branch, without moving the focus, and optionally starts an agent in it with the task as its first prompt.",
+        "operationId": "tasks.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreated"
+                }
+              }
+            },
+            "description": "The new worktree, and its agent."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Start a task",
+        "tags": ["Tasks"]
+      }
     }
   },
   "security": [],
@@ -1397,6 +1698,10 @@
     {
       "description": "Read and drive the Herdr agents.",
       "name": "Agents"
+    },
+    {
+      "description": "Start new work in a Herdr worktree.",
+      "name": "Tasks"
     }
   ]
 }

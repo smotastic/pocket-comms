@@ -21,6 +21,8 @@ const main = Layer.unwrap(
         allowedLogin: config.allowedLogin,
         socketPath: config.socketPath,
         home: homedir(),
+        projectsRoot: config.projectsRoot,
+        agentArgs: config.agentArgs,
         ...Option.match(config.webDist, { onNone: () => ({}), onSome: (webDist) => ({ webDist }) }),
       }),
       { serviceName: 'comms-server' },

@@ -29,7 +29,7 @@ in the task's own commit.
       examples; handlers and problems; acceptance tests
   - Gate: `pnpm nx test comms-contract`, `pnpm nx test comms-api`
 
-- [ ] **T06** — Server config `COMMS_PROJECTS_ROOT`, `COMMS_AGENT_ARGS`, wiring, OpenAPI document
+- [x] **T06** — Server config `COMMS_PROJECTS_ROOT`, `COMMS_AGENT_ARGS`, wiring, OpenAPI document
   - Gate: `pnpm nx test comms-server`, `pnpm openapi:check`, `pnpm openapi:lint`
 
 ## Design kit
