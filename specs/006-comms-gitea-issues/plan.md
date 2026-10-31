@@ -1,7 +1,7 @@
 # Plan 006 — pocket-comms: a project's Gitea issues and "Implement with Claude"
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner in advance (2026-10-31)
+- **Status:** `Done` — approved by the owner in advance (2026-10-31); checked locally at 390 px with a fake Gitea on 2026-10-31
 
 ## 1. Affected projects
 
@@ -46,7 +46,7 @@ work: [{ branch, agents: [{ ref, status }] }] }]`), `NoGiteaRemote` or `NotConfi
   conflicts; `422`; `503`.
 - **Web.** The overview's top bar gets an `IconButton` "Projects" (`issues` icon) next to New task.
   `/projects` lists the projects as links; `/projects/$project` has a back button, the issue rows
-  (kit `Card`, `Link`, `Tag`, `Text`, `Button`, `StatusPill`) and an Implement `Sheet` with the
+  (kit `List`, `Link`, `Tag`, `Text`, `Button`, `StatusPill`) and an Implement `Sheet` with the
   branch `Input`. On success it navigates like the New task sheet.
 
 ## 2. Contract changes
