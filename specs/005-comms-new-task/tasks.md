@@ -7,7 +7,7 @@ in the task's own commit.
 
 ## Backend
 
-- [ ] **T01** — Domain: `Workspace.root`, `Project` and `orderProjects`, `parseTask`,
+- [x] **T01** — Domain: `Workspace.root`, `Project` and `orderProjects`, `parseTask`,
       `parseBranch`, `AgentToStart`, `agentNameFor`
   - Gate: `pnpm nx test comms-domain`
 
