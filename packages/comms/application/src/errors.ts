@@ -24,3 +24,14 @@ export class TranscriptUnavailableError extends Data.TaggedError('TranscriptUnav
   readonly ref: string;
   readonly reason: string;
 }> {}
+
+/** Git could not prepare the project, such as a failed fetch or no default remote branch. */
+export class ProjectGitError extends Data.TaggedError('ProjectGitError')<{
+  readonly project: string;
+  readonly reason: string;
+}> {}
+
+/** The branch of a new worktree exists already, locally or on `origin`. */
+export class BranchExistsError extends Data.TaggedError('BranchExistsError')<{
+  readonly branch: string;
+}> {}

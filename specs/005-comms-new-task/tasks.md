@@ -11,7 +11,7 @@ in the task's own commit.
       `parseBranch`, `AgentToStart`, `agentNameFor`
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application: `ProjectsOutbound`, `HerdrOutbound.createWorktree` and `startAgent`,
+- [x] **T02** — Application: `ProjectsOutbound`, `HerdrOutbound.createWorktree` and `startAgent`,
       errors, fakes; `TasksInbound` with `projects` and `create`
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
