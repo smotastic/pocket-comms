@@ -28,7 +28,7 @@ in the task's own commit.
       acceptance tests
   - Gate: `pnpm nx test comms-contract`, `pnpm nx test comms-api`
 
-- [ ] **T06** — Server config `COMMS_GITEA_URL`, `COMMS_GITEA_TOKEN`, `COMMS_GITEA_HOSTS`, wiring,
+- [x] **T06** — Server config `COMMS_GITEA_URL`, `COMMS_GITEA_TOKEN`, `COMMS_GITEA_HOSTS`, wiring,
       OpenAPI document
   - Gate: `pnpm nx test comms-server`, `pnpm openapi:check`, `pnpm openapi:lint`
 

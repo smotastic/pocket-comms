@@ -388,7 +388,17 @@ export const IssueList = Schema.Union([
         description: "The repository's page in Gitea.",
         examples: ['http://localhost:3000/smotastic/pocket-comms'],
       }),
-    }).annotate({ identifier: 'IssueRepository', description: "The project's Gitea repository." }),
+    }).annotate({
+      identifier: 'IssueRepository',
+      description: "The project's Gitea repository.",
+      examples: [
+        {
+          owner: 'smotastic',
+          name: 'pocket-comms',
+          url: 'http://localhost:3000/smotastic/pocket-comms',
+        },
+      ],
+    }),
     issues: Schema.Array(Issue).annotate({
       description: 'The open issues, the most recently updated first, up to 500.',
       examples: [[]],
