@@ -7,7 +7,7 @@ in the task's own commit.
 
 ## Backend
 
-- [ ] **T01** — Domain: `Issue`, `GiteaRepository`, `parseRemote`, `orderIssues`, `issueBranch`,
+- [x] **T01** — Domain: `Issue`, `GiteaRepository`, `parseRemote`, `orderIssues`, `issueBranch`,
       `issueNumberOf`, `issueTask`, `workOnIssues`
   - Gate: `pnpm nx test comms-domain`
 
