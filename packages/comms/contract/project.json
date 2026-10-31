@@ -1,8 +1,0 @@
-{
-  "name": "comms-contract",
-  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "packages/comms/contract/src",
-  "projectType": "library",
-  "tags": ["scope:contracts"],
-  "targets": { "test-typecheck": {} }
-}
