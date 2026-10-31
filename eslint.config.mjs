@@ -72,15 +72,6 @@ export default [
             // `type:ui` is for the service's web app; the layer and app rules below, and
             // `no-design-in-server-code` in `.dependency-cruiser.cjs`, keep the rest off it.
             {
-              sourceTag: 'scope:bookmarks',
-              onlyDependOnLibsWithTags: [
-                'scope:bookmarks',
-                'scope:contracts',
-                'scope:shared',
-                'type:ui',
-              ],
-            },
-            {
               sourceTag: 'scope:comms',
               onlyDependOnLibsWithTags: [
                 'scope:comms',

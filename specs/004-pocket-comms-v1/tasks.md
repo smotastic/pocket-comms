@@ -101,15 +101,15 @@ in the task's own commit.
 
 ## Wrap-up
 
-- [ ] **T23** — Remove the bookmarks blueprint and spec 001 with every follow-up of TEMPLATE.md
+- [x] **T23** — Remove the bookmarks blueprint and spec 001 with every follow-up of TEMPLATE.md
       step 3 (eslint scope, `tools/boundaries`, `tools/openapi`, CI images job, release workflow,
       `pnpm nx sync`)
   - Gate: `pnpm verify:local`, CI
 
-- [ ] **T24** — README: what it is, `pnpm dev`, `pnpm start`, configuration, `tailscale serve`
+- [x] **T24** — README: what it is, `pnpm dev`, `pnpm start`, configuration, `tailscale serve`
       (HTTPS) instructions; root `AGENTS.md` and `TEMPLATE.md` updated
   - Gate: `pnpm format:check`
 
-- [ ] **T25** — Smoke check against the real Herdr socket at 390 px with `agent-browser`; spec
+- [x] **T25** — Smoke check against the real Herdr socket at 390 px with `agent-browser`; spec
       status `Done`
   - Gate: the check's screenshots and notes in the pull request

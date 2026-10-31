@@ -1,6 +1,6 @@
 # Spec 004 — pocket-comms v1: read and drive Herdr agents from the phone
 
-- **Status:** `Approved` — approved by the owner in advance (2026-10-30)
+- **Status:** `Done` — approved by the owner in advance (2026-10-30); smoke-checked against the real Herdr on 2026-10-30
 
 ## 1. Problem / intent (WHY)
 

@@ -39,4 +39,4 @@ templates by hand; there is no generator.
 A spec's status line moves from `Draft` to `Approved` to `Done`. A later change to the same
 feature gets a new spec that names the one it changes.
 
-The example is [`001-bookmarks-blueprint`](001-bookmarks-blueprint/spec.md).
+The example is [`004-pocket-comms-v1`](004-pocket-comms-v1/spec.md).

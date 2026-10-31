@@ -40,7 +40,8 @@ generated one cannot. Clients need one error shape, not one per endpoint (princi
   and property has a description and an example.
 - **Gates.** `pnpm openapi:check` fails on a stale document, `pnpm openapi:lint` on missing
   descriptions, examples or error responses, and `pnpm openapi:diff` on a breaking change against
-  `master`. `pnpm test:openapi` proves each gate fires.
+  `master`, including a removed document unless `tools/openapi/retired.json` lists it with the
+  reason. `pnpm test:openapi` proves each gate fires.
 
 ## Consequences
 

@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { TranscriptView } from './comms-client.js';
+import { RequestError, type TranscriptView } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
@@ -204,6 +204,18 @@ describe('the conversation', () => {
     renderApp({ client, path: '/agents/kirk' });
 
     await waitFor(() => expect(attempts).toBe(2), { timeout: 4_000 });
+  });
+
+  it('says so when the agent has no conversation yet', async () => {
+    const fake = open();
+    cleanup();
+    const client = {
+      ...fake.client,
+      transcript: () => Promise.reject(new RequestError('No session file for session s1.', 404)),
+    };
+    renderApp({ client, path: '/agents/kirk' });
+
+    expect(await screen.findByText('No conversation yet.')).toBeDefined();
   });
 
   it('says when the agent is gone', async () => {

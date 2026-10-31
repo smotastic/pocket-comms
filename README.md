@@ -1,69 +1,83 @@
 # pocket-comms
 
-A template for **spec-driven TypeScript projects built by coding agents** — an "AI dark
-factory" at small scale. Humans define intent, specs and architecture guardrails; agents write the
-code; automated gates judge it.
+A phone web app to **read and drive the Herdr coding agents** on the Mac mini, over Tailscale. It
+lists every live agent, shows Claude and Pi sessions as a chat, shows any agent's terminal screen,
+and sends prompts and key presses. Install it to the iPhone home screen. It complements the Moshi
+terminal app, which keeps push notifications, approvals and the raw terminal.
 
-> **The specification is the truth, and the code must satisfy it.**
+The behaviour is [spec 004](specs/004-pocket-comms-v1/spec.md); the approved look is its
+[mockup](specs/004-pocket-comms-v1/mockup.html).
 
-What you get:
+## Run it
 
-- **A ruleset for agents:** a short [constitution](.specify/memory/constitution.md), an
-  [`AGENTS.md`](AGENTS.md) entry point and skills for specs, test-first work, code review and Git.
-- **Tiered spec-first workflow:** features get a spec, plan and tasks with one human approval;
-  fixes and chores just get a good commit. Architecture decisions are [ADRs](docs/architecture/adr/README.md).
-- **A stack with guardrails:** [Effect](https://effect.website/) 4 backends in hexagonal layers,
-  PostgreSQL, REST APIs with generated OpenAPI, React + Vite web apps with TanStack Router, TanStack
-  Query, a typed API client and a design system (DTCG tokens and a React UI kit), an Nx monorepo on pnpm.
-- **Machine-enforced architecture:** dependency-cruiser and Nx module boundaries, a ports check,
-  OpenAPI lint and breaking-change gates, design-token and token-only stylesheet checks, commit
-  conventions — locally on pre-push and in CI.
-- **A runnable Golden Path:** the [bookmarks blueprint](blueprints/bookmarks/AGENTS.md), a small
-  fullstack app that shows every layer, test and gate once.
-
-## Quick start
-
-Requires Node.js 26+, pnpm 11+ and Docker (for the database tests).
+Requires Node.js 26+, pnpm 11+, a running [Herdr](https://github.com/ogulcancelik/herdr) and, to
+reach it from the phone, Tailscale.
 
 ```bash
 pnpm install
-pnpm template:init --repo <owner>/<name> --scope @<scope>   # rename the @pocket-comms placeholders
-pnpm format
-pnpm verify:local
+pnpm start        # builds the web app and serves app + API on http://127.0.0.1:4410
+pnpm dev          # development: API on 127.0.0.1:4410, web app with hot reload on 127.0.0.1:4200
 ```
 
-Then work through [`TEMPLATE.md`](TEMPLATE.md).
+Both listen on `127.0.0.1` only. The server rejects every request without the allowed
+`Tailscale-User-Login` header with `403`, so open the production server through `tailscale serve`
+(below). The development web server adds that header itself, as `tailscale serve` would, so
+`http://127.0.0.1:4200` works in a local browser.
 
-Run the blueprint, with example data:
+| Variable               | Default                      | Meaning                                                                                            |
+| ---------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `COMMS_PORT`           | `4410`                       | The server's port on `127.0.0.1`                                                                   |
+| `COMMS_ALLOWED_LOGIN`  | `smotastic@`                 | The Tailscale login that may use the app; a value ending in `@` allows that user with any provider |
+| `HERDR_SOCKET_PATH`    | `~/.config/herdr/herdr.sock` | Herdr's API socket                                                                                 |
+| `COMMS_WEB_DIST`       | set by `pnpm start`          | The built web app the server serves; without it the server serves only the API                     |
+| `OTEL_EXPORTER_OTLP_*` | off                          | Traces, metrics and logs over OTLP (ADR 0010)                                                      |
+
+The API is documented at `/docs` (the OpenAPI document at `/docs/openapi.json`), behind the same
+login check.
+
+## Open it on the phone with `tailscale serve`
+
+`tailscale serve` gives the server an HTTPS address on the tailnet and adds the caller's
+`Tailscale-User-Login` header. With `pnpm start` running:
 
 ```bash
-pnpm dev          # PostgreSQL, migrations, seed, API on :3001 (docs at /docs), web app on :4200
-pnpm dev:memory   # the same without Docker; the data lives in the API process
-pnpm dev:down     # stop PostgreSQL and keep its data; pnpm dev:reset wipes it
+tailscale serve --bg 4410     # https://<machine>.<tailnet>.ts.net/ → http://127.0.0.1:4410
+tailscale serve status        # shows the address
+tailscale serve reset         # stops serving
 ```
+
+On the iPhone, open the address in Safari, then **Share → Add to Home Screen**. The app opens full
+screen and dark. The app never changes the machine's Tailscale or launchd configuration; to keep
+the server running after a log-out, add a launch agent for `pnpm start` yourself.
+
+## What it does
+
+- **Overview (`/`):** Needs you first (blocked agents and done agents not yet seen), then every
+  agent by repository, with its kind, status, terminal title and time since the last change. Live.
+- **Conversation (`/agents/<name>`):** a Claude or Pi session as a chat, live; Chat | Screen
+  switches to the pane's coloured screen. Other agent kinds show only the screen.
+- **Input:** the composer sends a prompt (Enter sends, Shift+Enter is a new line). While the agent
+  is blocked, an approval panel with its screen and the keys `1 2 3 ↑ ↓ Enter Esc` replaces the
+  composer; Ctrl-C sends only after a long press.
+- Reading never moves the Herdr focus on the desktop. The "seen" state lives in server memory.
 
 ## Structure
 
 ```text
-.specify/            constitution and spec/plan/tasks templates
-.agents/skills/      agent skills: speckit, code-review, git conventions, TDD, grill-me, effect
-specs/               feature specs: specs/NNN-slug/{spec,plan,tasks}.md
-docs/                ADRs, the workflow, engineering conventions
-apps/                your applications
-packages/            your libraries, plus backend-shared, the Problem Details contract and the
-                     design system (packages/design: tokens and UI kit)
-blueprints/          the runnable reference app (delete when not needed)
-tools/               boundary tests, ports check, OpenAPI gates, design-token check, conventions,
-                     template init
+packages/comms/        the service: domain, application, infrastructure (Herdr socket, session
+                       files), contract (the HttpApi) and api (handlers, identity guard, web route)
+apps/comms-server/     composition root and the committed OpenAPI document
+apps/comms-web/        React + Vite web app (TanStack Router and Query)
+packages/design/       design tokens and the UI kit every screen is built from
+specs/                 feature specs; docs/ ADRs and conventions; tools/ the gates
 ```
 
 ## Working in it
 
-- Work on a branch (`<type>/<kebab-case>`), never on `master`. See the
-  [Git conventions](docs/engineering/git-and-pr-conventions.md).
-- After `pnpm install`, a Husky `pre-push` hook runs `pnpm verify:local`. Agents never use
-  `--no-verify`.
-- The [workflow details](docs/architecture/workflow-details.md) explain the flow and every gate.
+The repository comes from the pocket-factory template: read [`AGENTS.md`](AGENTS.md) and the
+[constitution](.specify/memory/constitution.md). `pnpm verify:local` runs the local gates (also the
+pre-push hook); CI runs the full set. Work on a branch and follow the
+[Git conventions](docs/engineering/git-and-pr-conventions.md).
 
 ## License
 

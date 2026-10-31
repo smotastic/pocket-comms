@@ -1,7 +1,7 @@
 # Plan 004 — pocket-comms v1
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner in advance (2026-10-30)
+- **Status:** `Done` — approved by the owner in advance (2026-10-30); smoke-checked against the real Herdr on 2026-10-30
 
 ## 1. Affected projects
 
