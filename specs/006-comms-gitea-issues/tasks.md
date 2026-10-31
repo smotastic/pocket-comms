@@ -34,7 +34,7 @@ in the task's own commit.
 
 ## Design kit
 
-- [ ] **T07** — Icon `issues`
+- [x] **T07** — Icon `issues`
   - Gate: `pnpm nx test design-ui`
 
 ## Web app
