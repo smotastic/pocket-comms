@@ -29,7 +29,11 @@ interface Seen {
   readonly authorization: string | undefined;
 }
 
-type Route = (url: URL) => { readonly status: number; readonly body: unknown };
+type Route = (url: URL) => {
+  readonly status: number;
+  readonly body: unknown;
+  readonly location?: string;
+};
 
 // A fake Gitea on a free local port; it answers through `route` and records every request.
 const fakeGitea = (route: Route) =>
@@ -43,8 +47,13 @@ const fakeGitea = (route: Route) =>
             url: request.url,
             authorization: request.headers.authorization,
           });
-          const { status, body } = route(new URL(request.url ?? '/', 'http://gitea.test'));
-          response.writeHead(status, { 'content-type': 'application/json' });
+          const { status, body, location } = route(
+            new URL(request.url ?? '/', 'http://gitea.test'),
+          );
+          response.writeHead(status, {
+            'content-type': 'application/json',
+            ...(location === undefined ? {} : { location }),
+          });
           response.end(typeof body === 'string' ? body : JSON.stringify(body));
         });
         server.listen(0, '127.0.0.1', () => {
@@ -221,6 +230,29 @@ describe('Gitea.layerHttp', () => {
       );
 
       expect(error).toEqual(new GiteaUnavailableError({ reason }));
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('follows no redirect, so the token never goes elsewhere', () =>
+    Effect.gen(function* () {
+      const elsewhere = yield* fakeGitea(issueRoute([listed]));
+      const redirecting = yield* fakeGitea((url) => ({
+        status: 302,
+        body: '',
+        location: `${elsewhere.url}${url.pathname}${url.search}`,
+      }));
+
+      const error = yield* withGitea(redirecting.url, (outbound) =>
+        outbound.openIssues(repository).pipe(Effect.flip),
+      );
+
+      expect(error).toEqual(
+        new GiteaUnavailableError({
+          reason:
+            'Gitea answered with a redirect (302); set COMMS_GITEA_URL to the address it names.',
+        }),
+      );
+      expect(elsewhere.seen).toEqual([]);
     }).pipe(Effect.scoped),
   );
 

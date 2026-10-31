@@ -73,7 +73,9 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
         authorization: `token ${Redacted.value(token.value)}`,
       };
       const response = yield* Effect.tryPromise({
-        try: (signal) => fetch(`${base}/api/v1${path}`, { method: 'GET', headers, signal }),
+        // A redirect is not followed, so the token is never sent to another address.
+        try: (signal) =>
+          fetch(`${base}/api/v1${path}`, { method: 'GET', headers, signal, redirect: 'manual' }),
         catch: (error) =>
           unavailable(
             `Gitea cannot be reached at ${base}: ${error instanceof Error ? error.message : 'the request failed'}.`,
@@ -87,6 +89,11 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
       if (response.status === 404) return undefined;
       if (response.status === 401 || response.status === 403) {
         return yield* unavailable(`Gitea refused the token (${response.status}).`);
+      }
+      if (response.status >= 300 && response.status < 400) {
+        return yield* unavailable(
+          `Gitea answered with a redirect (${response.status}); set COMMS_GITEA_URL to the address it names.`,
+        );
       }
       if (!response.ok) return yield* unavailable(`Gitea answered ${response.status}.`);
       return yield* Effect.tryPromise({
