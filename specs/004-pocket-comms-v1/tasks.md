@@ -47,18 +47,18 @@ in the task's own commit.
 
 ## API and server
 
-- [ ] **T10** — Contract `CommsApi`: agents, transcript, screen, prompt, keys, seen, and the two
+- [x] **T10** — Contract `CommsApi`: agents, transcript, screen, prompt, keys, seen, and the two
       SSE streams, with descriptions and examples
   - Gate: `pnpm nx test comms-contract`
 
-- [ ] **T11** — API handlers with Problem Details mapping, health routes, acceptance suite
+- [x] **T11** — API handlers with Problem Details mapping, health routes, acceptance suite
   - Gate: `pnpm nx test comms-api`
 
-- [ ] **T12** — Tailscale identity middleware (`COMMS_ALLOWED_LOGIN`, `@`-suffix rule) on every
+- [x] **T12** — Tailscale identity middleware (`COMMS_ALLOWED_LOGIN`, `@`-suffix rule) on every
       route
   - Gate: `pnpm nx test comms-api`
 
-- [ ] **T13** — `apps/comms-server`: composition root on `127.0.0.1:${COMMS_PORT}`, `openapi`
+- [x] **T13** — `apps/comms-server`: composition root on `127.0.0.1:${COMMS_PORT}`, `openapi`
       target and committed document, `dev` target, static web app route
   - Gate: `pnpm nx test comms-server`, `pnpm openapi:check`, `pnpm openapi:lint`
 

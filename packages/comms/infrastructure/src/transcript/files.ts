@@ -8,6 +8,7 @@ import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
+import * as Schedule from 'effect/Schedule';
 import * as Stream from 'effect/Stream';
 import { existsSync } from 'node:fs';
 import { open, readdir, readFile, stat } from 'node:fs/promises';
@@ -105,20 +106,24 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
       });
       const parser = parserFor(source);
       for (const line of text.split('\n')) parser.push(line);
-      return { entries: parser.entries().slice(-maxEntries), modifiedAt: info.mtimeMs };
+      return { entries: parser.entries().slice(-maxEntries), modifiedAt: Math.floor(info.mtimeMs) };
     });
 
     // Emits the latest entries, then reads what was appended since `offset`. Only complete lines
-    // are parsed; a line still being written is read again at the next check, once it is whole.
+    // are parsed; a line still being written is read again at the next check, once it is whole. A
+    // file that is missing or cannot be read yet is tried again at every check.
     const follow = (source: TranscriptSource) =>
       Stream.unwrap(
         Effect.gen(function* () {
-          const path = yield* locate(source);
+          const { path, initial } = yield* Effect.gen(function* () {
+            const found = yield* locate(source);
+            const content = yield* Effect.tryPromise({
+              try: () => readFile(found),
+              catch: failed(source),
+            });
+            return { path: found, initial: content };
+          }).pipe(Effect.retry({ schedule: Schedule.spaced(pollInterval) }));
           const parser = parserFor(source);
-          const initial = yield* Effect.tryPromise({
-            try: () => readFile(path),
-            catch: failed(source),
-          });
           const end = initial.lastIndexOf(0x0a) + 1;
           for (const line of initial.subarray(0, end).toString('utf8').split('\n'))
             parser.push(line);
@@ -170,7 +175,7 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
         const path = await find(source);
         if (path === undefined) return Option.none<number>();
         return stat(path).then(
-          (info) => Option.some(info.mtimeMs),
+          (info) => Option.some(Math.floor(info.mtimeMs)),
           () => Option.none<number>(),
         );
       });

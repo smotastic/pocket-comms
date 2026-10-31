@@ -3,11 +3,13 @@ import * as Schema from 'effect/Schema';
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from 'effect/http-api';
 import {
   ConflictProblem,
+  ForbiddenProblem,
   NotFoundProblem,
   PreconditionFailedProblem,
   PreconditionRequiredProblem,
   ProblemDetails,
   Problems,
+  ServiceUnavailableProblem,
   ValidationMiddleware,
   ValidationProblem,
 } from './index.js';
@@ -43,6 +45,20 @@ describe('problem classes', () => {
       detail: 'Why it failed',
     });
     expect(Schema.encodeSync(PreconditionRequiredProblem)(problem)).toEqual(expected(428));
+  });
+
+  it('encode an RFC 9457 body for 403', () => {
+    const problem = new ForbiddenProblem({ ...base, status: 403, detail: 'Why it failed' });
+    expect(Schema.encodeSync(ForbiddenProblem)(problem)).toEqual(expected(403));
+  });
+
+  it('encode an RFC 9457 body for 503', () => {
+    const problem = new ServiceUnavailableProblem({
+      ...base,
+      status: 503,
+      detail: 'Why it failed',
+    });
+    expect(Schema.encodeSync(ServiceUnavailableProblem)(problem)).toEqual(expected(503));
   });
 
   it('encode a validation problem with every failed field', () => {

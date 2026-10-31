@@ -66,6 +66,18 @@ describe('Transcript.layerFiles', () => {
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
+  it.effect('reports the modification time in whole milliseconds', () => {
+    const { root, claudeFile } = home();
+    utimesSync(claudeFile, 5.0004567, 5.0004567);
+    return Effect.gen(function* () {
+      const transcript = yield* TranscriptOutbound.use((port) => port.read(claude));
+      const modified = yield* TranscriptOutbound.use((port) => port.modifiedAt(claude));
+
+      expect(transcript.modifiedAt).toBe(5_000);
+      expect(modified).toEqual(Option.some(5_000));
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
   it.effect('reads a Pi session from its timestamped file', () => {
     const { root } = home();
     return Effect.gen(function* () {
@@ -106,6 +118,22 @@ describe('Transcript.layerFiles', () => {
         yield* TranscriptOutbound.use((port) => port.modifiedAt({ ...claude, session: 'gone' })),
       ).toEqual(Option.none());
     }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.live('waits for a session file that does not exist yet', () => {
+    const { root } = home();
+    const later: TranscriptSource = { ...claude, session: 'later' };
+    return Effect.gen(function* () {
+      const fiber = yield* TranscriptOutbound.use((port) =>
+        port.follow(later).pipe(Stream.take(1), Stream.runCollect),
+      ).pipe(Effect.forkChild);
+      yield* Effect.sleep('60 millis');
+
+      writeFileSync(claudeSessionPath(root, '/work/app', 'later'), line('Hello', 'h-1'));
+      const [first] = yield* Fiber.join(fiber);
+
+      expect(first?.map((entry) => entry.id)).toEqual(['h-1:0']);
+    }).pipe(Effect.provide(layerFiles({ home: root, pollInterval: '20 millis' })));
   });
 
   it.live('starts with the latest entries', () => {

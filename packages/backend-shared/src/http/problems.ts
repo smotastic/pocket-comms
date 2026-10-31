@@ -1,8 +1,10 @@
 import {
   ConflictProblem,
+  ForbiddenProblem,
   NotFoundProblem,
   PreconditionFailedProblem,
   PreconditionRequiredProblem,
+  ServiceUnavailableProblem,
   ValidationMiddleware,
   ValidationProblem,
 } from '@pocket-comms/contracts-problem-details';
@@ -39,6 +41,12 @@ export const preconditionFailedProblem = (input: ProblemInput) =>
 
 export const preconditionRequiredProblem = (input: ProblemInput) =>
   new PreconditionRequiredProblem({ ...members(input), status: 428 });
+
+export const forbiddenProblem = (input: ProblemInput) =>
+  new ForbiddenProblem({ ...members(input), status: 403 });
+
+export const serviceUnavailableProblem = (input: ProblemInput) =>
+  new ServiceUnavailableProblem({ ...members(input), status: 503 });
 
 export const validationProblem = (
   issues: ReadonlyArray<FieldIssue>,

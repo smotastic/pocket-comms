@@ -7,10 +7,12 @@ import { HttpRouter, HttpServer } from 'effect/http';
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from 'effect/http-api';
 import {
   conflictProblem,
+  forbiddenProblem,
   notFoundProblem,
   preconditionFailedProblem,
   preconditionRequiredProblem,
   problemType,
+  serviceUnavailableProblem,
   validationMiddlewareLayer,
   validationProblem,
 } from './index.js';
@@ -154,6 +156,8 @@ describe('problem constructors', () => {
     [conflictProblem, 409],
     [preconditionFailedProblem, 412],
     [preconditionRequiredProblem, 428],
+    [forbiddenProblem, 403],
+    [serviceUnavailableProblem, 503],
   ] as const)('set the status of each problem (%#)', (make, status) => {
     expect(make({ slug: 'example', title: 'Example', detail: 'Why' })).toMatchObject({
       type: 'urn:pocket-comms:problem:example',

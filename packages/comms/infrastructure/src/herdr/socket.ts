@@ -271,8 +271,6 @@ export const layerSocket = ({
       }
     });
 
-  // Subscribes with the current pane set, ends the subscription when the set changes, and starts
-  // over; while Herdr is unreachable it waits one interval between attempts.
   // Subscribes with the current pane set and starts over when the set changes. When Herdr ends
   // or refuses a subscription, or cannot be reached, it waits one interval before the next try.
   const pause = Stream.fromEffect(Effect.sleep(relistInterval)).pipe(Stream.drain);

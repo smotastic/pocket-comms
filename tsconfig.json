@@ -44,6 +44,15 @@
     },
     {
       "path": "./packages/comms/infrastructure"
+    },
+    {
+      "path": "./packages/comms/contract"
+    },
+    {
+      "path": "./packages/comms/api"
+    },
+    {
+      "path": "./apps/comms-server"
     }
   ]
 }
