@@ -74,6 +74,54 @@ export const problems = {
         detail: `${error.message} (${error.code})`,
       }),
     ),
+  projectNotFound: (error: { readonly project: string }) =>
+    Effect.fail(
+      notFoundProblem({
+        slug: 'project-not-found',
+        title: 'Project not found',
+        detail: `${error.project} is not a project below the projects root.`,
+      }),
+    ),
+  noGiteaRemote: (error: { readonly project: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'no-gitea-remote',
+        title: 'The project is not on Gitea',
+        detail: `The origin of ${error.project} is not a repository on the app's Gitea.`,
+      }),
+    ),
+  giteaNotConfigured: () =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'gitea-not-configured',
+        title: 'Gitea is not configured',
+        detail: 'Set COMMS_GITEA_TOKEN on the server to read Gitea issues.',
+      }),
+    ),
+  giteaUnavailable: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'gitea-unavailable',
+        title: 'Gitea cannot be read',
+        detail: error.reason,
+      }),
+    ),
+  issueNotFound: (error: { readonly number: number }) =>
+    Effect.fail(
+      notFoundProblem({
+        slug: 'issue-not-found',
+        title: 'Issue not found',
+        detail: `The repository has no issue #${error.number}.`,
+      }),
+    ),
+  issueClosed: (error: { readonly number: number }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'issue-closed',
+        title: 'The issue is closed',
+        detail: `Issue #${error.number} is closed, so there is nothing to implement.`,
+      }),
+    ),
   invalidInput: (error: { readonly issues: ReadonlyArray<FieldIssue> }) =>
     Effect.fail(validationProblem(error.issues)),
 };

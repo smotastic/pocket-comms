@@ -5,8 +5,11 @@ import {
   AgentEvent,
   AGENTS_TO_START,
   CommsApi,
+  IssueList,
+  IssueNumberParam,
   KEYS,
   OverviewState,
+  ProjectParam,
   TranscriptEntry,
 } from './index.js';
 
@@ -22,7 +25,7 @@ const operations = () =>
   );
 
 describe('CommsApi', () => {
-  it('serves the agents and the tasks under /api/v1', () => {
+  it('serves the agents, the tasks and the issues under /api/v1', () => {
     expect(Object.keys(document().paths).sort()).toEqual([
       '/api/v1/agents',
       '/api/v1/agents/{agent}',
@@ -34,8 +37,27 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}/transcript',
       '/api/v1/events',
       '/api/v1/projects',
+      '/api/v1/projects/{project}/issues',
+      '/api/v1/projects/{project}/issues/{number}/implement',
       '/api/v1/tasks',
     ]);
+  });
+
+  it('reads only issue numbers and project names without a slash from the path', () => {
+    const number = Schema.is(IssueNumberParam);
+    const project = Schema.is(ProjectParam);
+
+    expect(['8', '1234'].map(number)).toEqual([true, true]);
+    expect(['0', '08', '-1', '1.5', 'x'].map(number)).toEqual([false, false, false, false, false]);
+    expect(['pocket-comms', '..', 'a/b', ''].map(project)).toEqual([true, true, false, false]);
+  });
+
+  it('tells the three states of an issue list apart', () => {
+    const decode = Schema.decodeUnknownSync(IssueList);
+
+    expect(decode({ _tag: 'NotConfigured' })).toEqual({ _tag: 'NotConfigured' });
+    expect(decode({ _tag: 'NoGiteaRemote' })).toEqual({ _tag: 'NoGiteaRemote' });
+    expect(() => decode({ _tag: 'Listed' })).toThrow();
   });
 
   it('streams the live updates as server-sent events', () => {

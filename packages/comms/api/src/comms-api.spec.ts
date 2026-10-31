@@ -3,10 +3,19 @@ import {
   AgentNotFoundError,
   AgentsInbound,
   BranchExistsError,
+  GiteaNotConfiguredError,
+  GiteaUnavailableError,
   HerdrRejectedError,
   HerdrUnavailableError,
+  IssueClosedError,
+  IssueNotFoundError,
+  IssuesInbound,
+  NoGiteaRemoteError,
   ProjectGitError,
+  ProjectNotFoundError,
   TasksInbound,
+  type ImplementIssueInput,
+  type IssueListDto,
   type AgentDto,
   type CreateTaskInput,
   type OverviewDto,
@@ -56,6 +65,7 @@ const serve = (
   inbound: Partial<AgentsInbound['Service']>,
   web?: string,
   tasks: Partial<TasksInbound['Service']> = {},
+  issues: Partial<IssuesInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -65,6 +75,7 @@ const serve = (
     }).pipe(
       Layer.provide(Layer.mock(AgentsInbound, inbound)),
       Layer.provide(Layer.mock(TasksInbound, tasks)),
+      Layer.provide(Layer.mock(IssuesInbound, issues)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -341,6 +352,131 @@ describe('the tasks API', () => {
     const call = serve({}, undefined, { create: () => Effect.succeed(created) });
 
     expect((await call('/api/v1/tasks', { ...json(task), login: null })).status).toBe(403);
+  });
+});
+
+describe('the issues API', () => {
+  const listed: IssueListDto = {
+    _tag: 'Listed',
+    repository: {
+      owner: 'smotastic',
+      name: 'pocket-comms',
+      url: 'http://gitea.test/smotastic/pocket-comms',
+    },
+    issues: [
+      {
+        number: 8,
+        title: 'feat: issue list',
+        labels: ['enhancement'],
+        updatedAt: 1_000,
+        url: 'http://gitea.test/smotastic/pocket-comms/issues/8',
+        branch: 'feat/8-issue-list',
+        work: [
+          {
+            branch: 'feat/8-issue-list',
+            agents: [{ ref: 'feat-8-issue-list', status: 'working' }],
+          },
+        ],
+      },
+    ],
+  };
+  const created = {
+    workspace: 'wK',
+    branch: 'feat/8-issue-list',
+    path: '/worktrees/feat-8-issue-list',
+    agent: { ref: 'feat-8-issue-list', started: true, prompted: true, note: undefined },
+  };
+  const issues = (inbound: Partial<IssuesInbound['Service']>) => serve({}, undefined, {}, inbound);
+
+  it.each([listed, { _tag: 'NoGiteaRemote' }, { _tag: 'NotConfigured' }] as const)(
+    'lists the issues of a project as %j',
+    async (list) => {
+      const asked: Array<string> = [];
+      const call = issues({ issues: (project) => Effect.sync(() => (asked.push(project), list)) });
+
+      const response = await call('/api/v1/projects/pocket-comms/issues');
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(list);
+      expect(asked).toEqual(['pocket-comms']);
+    },
+  );
+
+  it.each([
+    [new ProjectNotFoundError({ project: 'nope' }), 404, 'project-not-found'],
+    [
+      new GiteaUnavailableError({ reason: 'Gitea refused the token (401).' }),
+      503,
+      'gitea-unavailable',
+    ],
+  ] as const)('maps the list failure %s to %i', async (error, status, slug) => {
+    const call = issues({ issues: () => Effect.fail(error) });
+
+    const response = await call('/api/v1/projects/nope/issues');
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
+  });
+
+  it('implements an issue and answers 201', async () => {
+    const asked: Array<ImplementIssueInput> = [];
+    const call = issues({
+      implement: (input) => Effect.sync(() => (asked.push(input), created)),
+    });
+
+    const response = await call(
+      '/api/v1/projects/pocket-comms/issues/8/implement',
+      json({ branch: 'feat/8-issue-list' }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ ...created, agent: { prompted: true } });
+    expect(asked).toEqual([{ project: 'pocket-comms', number: 8, branch: 'feat/8-issue-list' }]);
+  });
+
+  it.each([
+    ['/api/v1/projects/pocket-comms/issues/0/implement', { branch: 'feat/x' }],
+    ['/api/v1/projects/pocket-comms/issues/x/implement', { branch: 'feat/x' }],
+    ['/api/v1/projects/pocket-comms/issues/8/implement', { branch: '' }],
+    ['/api/v1/projects/pocket-comms/issues/8/implement', { branch: 'feat/x', agent: 'pi' }],
+  ])('answers 422 for %s with %j', async (path, body) => {
+    const call = issues({ implement: () => Effect.succeed(created) });
+
+    expect((await call(path, json(body))).status).toBe(422);
+  });
+
+  it.each([
+    [new ProjectNotFoundError({ project: 'p' }), 404, 'project-not-found'],
+    [new IssueNotFoundError({ number: 8 }), 404, 'issue-not-found'],
+    [new IssueClosedError({ number: 8 }), 409, 'issue-closed'],
+    [new NoGiteaRemoteError({ project: 'p' }), 409, 'no-gitea-remote'],
+    [new GiteaNotConfiguredError(), 409, 'gitea-not-configured'],
+    [new GiteaUnavailableError({ reason: 'away' }), 503, 'gitea-unavailable'],
+    [new BranchExistsError({ branch: 'feat/8-x' }), 409, 'branch-exists'],
+    [
+      new InvalidInputError({ issues: [{ field: 'branch', message: 'Bad.' }] }),
+      422,
+      'invalid-request',
+    ],
+    [new ProjectGitError({ project: 'p', reason: 'fetch failed' }), 409, 'project-git-failed'],
+    [new HerdrRejectedError({ ref: 'feat/x', code: 'c', message: 'm' }), 409, 'worktree-refused'],
+    [new HerdrUnavailableError({ reason: 'away' }), 503, 'herdr-unavailable'],
+  ] as const)('maps the implement failure %s to %i', async (error, status, slug) => {
+    const call = issues({ implement: () => Effect.fail(error) });
+
+    const response = await call(
+      '/api/v1/projects/pocket-comms/issues/8/implement',
+      json({ branch: 'feat/8-x' }),
+    );
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
+  });
+
+  it('rejects a request without the allowed login', async () => {
+    const call = issues({ issues: () => Effect.succeed(listed) });
+
+    expect((await call('/api/v1/projects/pocket-comms/issues', { login: null })).status).toBe(403);
   });
 });
 
