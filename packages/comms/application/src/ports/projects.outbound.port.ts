@@ -1,6 +1,7 @@
-import type { Project } from '@pocket-comms/comms-domain';
+import type { Project, Worktree } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
+import type * as Option from 'effect/Option';
 import type { ProjectGitError } from '../errors.js';
 
 /** The git repositories below the projects root, and the git questions a new worktree asks. */
@@ -21,5 +22,11 @@ export class ProjectsOutbound extends Context.Service<
       project: Project,
       branch: string,
     ) => Effect.Effect<boolean, ProjectGitError>;
+    /** The URL of the `origin` remote, or none when the project has no such remote. */
+    readonly originUrl: (project: Project) => Effect.Effect<Option.Option<string>>;
+    /** Every worktree of the project, the primary checkout first, with its branch. */
+    readonly worktrees: (
+      project: Project,
+    ) => Effect.Effect<ReadonlyArray<Worktree>, ProjectGitError>;
   }
 >()('comms/application/ProjectsOutbound') {}

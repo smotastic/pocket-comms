@@ -317,6 +317,120 @@ export const TaskCreated = Schema.Struct({
   }),
 }).annotate({ identifier: 'TaskCreated', description: 'The new worktree, and its agent.' });
 
+export const ProjectParam = Schema.String.check(Schema.isPattern(/^[^/]{1,200}$/u)).annotate({
+  description: "The project's folder name below the projects root.",
+  examples: ['pocket-comms'],
+});
+
+export const IssueNumberParam = Schema.String.check(
+  Schema.isPattern(/^[1-9][0-9]{0,8}$/u),
+).annotate({ description: "The issue's number in its repository.", examples: ['8'] });
+
+export const IssueWork = Schema.Struct({
+  branch: Schema.String.annotate({
+    description: "The worktree's branch, `<type>/<number>-<description>`.",
+    examples: ['feat/8-per-project-gitea-issue-list'],
+  }),
+  agents: Schema.Array(
+    Schema.Struct({ ref: AgentParam, status: AgentStatus }).annotate({
+      identifier: 'IssueAgent',
+      description: 'A live agent in the worktree.',
+    }),
+  ).annotate({
+    description: 'The live agents in the worktree; none is running when empty.',
+    examples: [[]],
+  }),
+}).annotate({ identifier: 'IssueWork', description: "A worktree on the issue's branch." });
+
+export const Issue = Schema.Struct({
+  number: Schema.Int.annotate({ description: "The issue's number.", examples: [8] }),
+  title: Schema.String.annotate({
+    description: "The issue's title.",
+    examples: ['feat: per-project Gitea issue list'],
+  }),
+  labels: Schema.Array(Schema.String).annotate({
+    description: 'The label names.',
+    examples: [['enhancement']],
+  }),
+  updatedAt: Millis.annotate({
+    description: 'When the issue last changed, in epoch milliseconds.',
+  }),
+  url: Schema.String.annotate({
+    description: "The issue's page in Gitea.",
+    examples: ['http://localhost:3000/smotastic/pocket-comms/issues/8'],
+  }),
+  branch: Schema.String.annotate({
+    description: 'The branch the issue suggests for a new worktree.',
+    examples: ['feat/8-per-project-gitea-issue-list'],
+  }),
+  work: Schema.Array(IssueWork).annotate({
+    description: "The project's worktrees on a branch of this issue.",
+    examples: [[]],
+  }),
+}).annotate({ identifier: 'Issue', description: 'An open issue of the project.' });
+
+export const IssueList = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.tag('Listed').annotate({
+      description: 'The project is on Gitea and the app can read it.',
+      examples: ['Listed'],
+    }),
+    repository: Schema.Struct({
+      owner: Schema.String.annotate({
+        description: "The repository's owner.",
+        examples: ['smotastic'],
+      }),
+      name: Schema.String.annotate({
+        description: "The repository's name.",
+        examples: ['pocket-comms'],
+      }),
+      url: Schema.String.annotate({
+        description: "The repository's page in Gitea.",
+        examples: ['http://localhost:3000/smotastic/pocket-comms'],
+      }),
+    }).annotate({
+      identifier: 'IssueRepository',
+      description: "The project's Gitea repository.",
+      examples: [
+        {
+          owner: 'smotastic',
+          name: 'pocket-comms',
+          url: 'http://localhost:3000/smotastic/pocket-comms',
+        },
+      ],
+    }),
+    issues: Schema.Array(Issue).annotate({
+      description: 'The open issues, the most recently updated first, up to 500.',
+      examples: [[]],
+    }),
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('NoGiteaRemote').annotate({
+      description: "The project's `origin` is not on the app's Gitea.",
+      examples: ['NoGiteaRemote'],
+    }),
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('NotConfigured').annotate({
+      description: 'The server has no Gitea token (`COMMS_GITEA_TOKEN`).',
+      examples: ['NotConfigured'],
+    }),
+  }),
+]).annotate({
+  identifier: 'IssueList',
+  description: "The project's open issues, or why it has none to show.",
+});
+
+export const ImplementIssueRequest = Schema.Struct({
+  branch: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(80)).annotate({
+    description: 'The new branch, `<type>/<kebab-description>`; it must not exist yet.',
+    examples: ['feat/8-per-project-gitea-issue-list'],
+  }),
+}).annotate({
+  identifier: 'ImplementIssueRequest',
+  description: 'Implement the issue with Claude in a new worktree on this branch.',
+});
+
 /**
  * The Tailscale identity check: `tailscale serve` adds `Tailscale-User-Login`, and only the
  * allowed login may use the service. The server checks every route, also outside this API.
@@ -487,10 +601,55 @@ const tasks = HttpApiGroup.make('tasks')
     }),
   );
 
+const project = { project: ProjectParam };
+
+const issues = HttpApiGroup.make('issues')
+  .add(
+    HttpApiEndpoint.get('list', '/projects/:project/issues', {
+      params: project,
+      success: IssueList,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "List a project's issues",
+        description:
+          "The open Gitea issues of the project's `origin` repository, each with its suggested branch and the worktrees and agents that work on it.",
+      }),
+    ),
+    HttpApiEndpoint.post('implement', '/projects/:project/issues/:number/implement', {
+      params: { ...project, number: IssueNumberParam },
+      payload: ImplementIssueRequest,
+      success: TaskCreated.pipe(HttpApiSchema.status(201)),
+      error: [
+        Problems.NotFound,
+        Problems.Conflict,
+        Problems.Validation,
+        Problems.ServiceUnavailable,
+      ],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Implement an issue with Claude',
+        description:
+          'Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt.',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Issues',
+      description:
+        "Read a project's Gitea issues and implement one. The app never writes to Gitea.",
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
   .add(tasks)
+  .add(issues)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

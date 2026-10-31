@@ -4,6 +4,7 @@ import type * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import { HttpApiBuilder, HttpApiScalar } from 'effect/http-api';
 import { agentsHandlers } from './agents.handlers.js';
+import { issuesHandlers } from './issues.handlers.js';
 import { tasksHandlers } from './tasks.handlers.js';
 import { healthLayer } from './health.handlers.js';
 import { identityGuard, tailscaleIdentityLayer } from './identity.js';
@@ -21,7 +22,7 @@ export interface CommsServerOptions<E, R> {
 /** The API routes with the handlers' middleware. The caller provides the inbound ports. */
 export const commsApiLayer = (allowedLogin: string) =>
   HttpApiBuilder.layer(CommsApi, { openapiPath: '/docs/openapi.json' }).pipe(
-    Layer.provide([agentsHandlers, tasksHandlers]),
+    Layer.provide([agentsHandlers, tasksHandlers, issuesHandlers]),
     Layer.provide(tailscaleIdentityLayer(allowedLogin)),
     Layer.provide(validationMiddlewareLayer),
   );

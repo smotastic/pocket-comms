@@ -1,4 +1,12 @@
-import type { Agent, Project, TranscriptEntry, Workspace } from '@pocket-comms/comms-domain';
+import {
+  parseRemote,
+  type Agent,
+  type Issue,
+  type Project,
+  type TranscriptEntry,
+  type Workspace,
+  type Worktree,
+} from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
@@ -6,11 +14,15 @@ import * as Option from 'effect/Option';
 import * as PubSub from 'effect/PubSub';
 import * as Stream from 'effect/Stream';
 import {
+  GiteaNotConfiguredError,
+  GiteaUnavailableError,
   HerdrRejectedError,
+  IssueNotFoundError,
   HerdrUnavailableError,
   ProjectGitError,
   TranscriptUnavailableError,
 } from '../errors.js';
+import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
 import {
   SeenOutbound,
@@ -68,6 +80,18 @@ export class FakeState extends Context.Service<
     readonly badBranchNames: Set<string>;
     /** What the next `startAgent` reports. */
     started: StartedAgent;
+    /** The `origin` URL of every project that has one. */
+    readonly origins: Map<string, string>;
+    /** The worktrees of every project. */
+    readonly worktrees: Map<string, Array<Worktree>>;
+    /** The issues and pull requests of every Gitea repository, by `<owner>/<name>`. */
+    readonly issues: Map<string, Array<Issue>>;
+    /** The fake Gitea has a token. */
+    giteaConfigured: boolean;
+    /** Why the fake Gitea fails, when it does. */
+    giteaFailure: string | undefined;
+    /** Every Gitea request, as `<method> <owner>/<name> [<number>]`. */
+    readonly giteaCalls: Array<string>;
   }
 >()('comms/application/testing/FakeState') {}
 
@@ -178,6 +202,13 @@ const projects = (state: FakeState['Service']) => {
           ? Effect.fail(new ProjectGitError({ project: project.name, reason: 'fetch failed' }))
           : Effect.succeed(base);
       }),
+    originUrl: (project) =>
+      Effect.as(
+        ask(`originUrl ${project.name}`),
+        Option.fromNullishOr(state.origins.get(project.name)),
+      ),
+    worktrees: (project) =>
+      Effect.as(ask(`worktrees ${project.name}`), [...(state.worktrees.get(project.name) ?? [])]),
     branchExists: (project, branch) =>
       Effect.as(
         ask(`branchExists ${project.name} ${branch}`),
@@ -185,6 +216,58 @@ const projects = (state: FakeState['Service']) => {
       ),
   });
 };
+
+// The fake Gitea is the host `gitea`, at `http://gitea.test`.
+const gitea = (state: FakeState['Service']) => {
+  const request = <A, E = never>(
+    call: string,
+    result: () => Effect.Effect<A, E>,
+  ): Effect.Effect<A, E | GiteaNotConfiguredError | GiteaUnavailableError> =>
+    Effect.suspend((): Effect.Effect<A, E | GiteaNotConfiguredError | GiteaUnavailableError> => {
+      if (!state.giteaConfigured) return Effect.fail(new GiteaNotConfiguredError());
+      state.giteaCalls.push(call);
+      return state.giteaFailure === undefined
+        ? result()
+        : Effect.fail(new GiteaUnavailableError({ reason: state.giteaFailure }));
+    });
+  return GiteaOutbound.of({
+    repositoryOf: (remoteUrl) => {
+      const remote = parseRemote(remoteUrl);
+      return remote?.host === 'gitea'
+        ? Option.some({
+            owner: remote.owner,
+            name: remote.name,
+            url: `http://gitea.test/${remote.owner}/${remote.name}`,
+          })
+        : Option.none();
+    },
+    openIssues: ({ owner, name }) =>
+      request(`openIssues ${owner}/${name}`, () =>
+        Effect.succeed([...(state.issues.get(`${owner}/${name}`) ?? [])]),
+      ),
+    issue: ({ owner, name }, number) =>
+      request(`issue ${owner}/${name} ${number}`, () => {
+        const found = state.issues
+          .get(`${owner}/${name}`)
+          ?.find((issue) => issue.number === number);
+        return found === undefined
+          ? Effect.fail(new IssueNotFoundError({ number }))
+          : Effect.succeed<Issue>(found);
+      }),
+  });
+};
+
+/** An open issue of `owner/app` with plain defaults. */
+export const fakeIssue = (overrides: Partial<Issue> & Pick<Issue, 'number'>): Issue => ({
+  title: `Issue ${overrides.number}`,
+  body: '',
+  labels: [],
+  updatedAt: 0,
+  url: `http://gitea.test/owner/app/issues/${overrides.number}`,
+  state: 'open',
+  pull: false,
+  ...overrides,
+});
 
 /** Every outbound port as a fake, plus `FakeState` to arrange and inspect them. */
 export const fakeLayer = () => {
@@ -213,6 +296,12 @@ export const fakeLayer = () => {
         branches: new Set(),
         badBranchNames: new Set(),
         started: { status: 'idle', ready: true },
+        origins: new Map([['app', 'gitea:owner/app.git']]),
+        worktrees: new Map([['app', [{ path: '/work/app', branch: 'master' }]]]),
+        issues: new Map(),
+        giteaConfigured: true,
+        giteaFailure: undefined,
+        giteaCalls: [],
       };
     }),
   );
@@ -222,6 +311,7 @@ export const fakeLayer = () => {
       return Context.make(HerdrOutbound, herdr(fake)).pipe(
         Context.add(TranscriptOutbound, transcripts(fake)),
         Context.add(ProjectsOutbound, projects(fake)),
+        Context.add(GiteaOutbound, gitea(fake)),
         Context.add(SeenOutbound, {
           seen: Effect.sync(() => new Set(fake.seen)),
           markSeen: (key) =>

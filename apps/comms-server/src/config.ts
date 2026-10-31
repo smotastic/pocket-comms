@@ -1,4 +1,6 @@
 import * as Config from 'effect/Config';
+import * as Option from 'effect/Option';
+import * as Redacted from 'effect/Redacted';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -23,5 +25,19 @@ export const serverConfig = Config.all({
   agentArgs: Config.String('COMMS_AGENT_ARGS').pipe(
     Config.withDefault(''),
     Config.map((args) => args.split(/\s+/u).filter((arg) => arg !== '')),
+  ),
+  giteaUrl: Config.String('COMMS_GITEA_URL').pipe(Config.withDefault('http://localhost:3000')),
+  // A secret: it stays redacted, and an empty value counts as none (spec 006, requirement 2).
+  giteaToken: Config.option(Config.Redacted('COMMS_GITEA_TOKEN')).pipe(
+    Config.map(Option.filter((token) => Redacted.value(token).trim() !== '')),
+  ),
+  giteaHosts: Config.String('COMMS_GITEA_HOSTS').pipe(
+    Config.withDefault('gitea'),
+    Config.map((hosts) =>
+      hosts
+        .split(',')
+        .map((host) => host.trim())
+        .filter((host) => host !== ''),
+    ),
   ),
 });

@@ -1,6 +1,12 @@
 import { commsServerLayer } from '@pocket-comms/comms-api';
-import { AgentsInbound, HerdrOutbound, TasksInbound } from '@pocket-comms/comms-application';
 import {
+  AgentsInbound,
+  HerdrOutbound,
+  IssuesInbound,
+  TasksInbound,
+} from '@pocket-comms/comms-application';
+import {
+  Gitea,
   Herdr,
   Projects,
   Seen,
@@ -21,22 +27,26 @@ export interface ServerOptions {
   readonly projectsRoot: string;
   /** Extra arguments for every agent the app starts. */
   readonly agentArgs: ReadonlyArray<string>;
+  /** The Gitea server whose issues the app reads (spec 006). */
+  readonly gitea: Gitea.HttpOptions;
   readonly webDist?: string;
 }
 
 /**
- * The adapters: Herdr over its socket, session files below `home`, git below `projectsRoot`, and
- * memory for the rest.
+ * The adapters: Herdr over its socket, session files below `home`, git below `projectsRoot`,
+ * Gitea over HTTP, and memory for the rest.
  */
 export const services = ({
   socketPath,
   home,
   projectsRoot,
   agentArgs,
+  gitea,
 }: Omit<ServerOptions, 'allowedLogin' | 'webDist'>) =>
   Layer.mergeAll(
     Herdr.layerSocket({ path: socketPath, agentArgs }),
     Projects.layerGit({ root: projectsRoot }),
+    Gitea.layerHttp(gitea),
     Transcript.layerFiles({ home }),
     Seen.layerMemory,
     StatusHistory.layerMemory,
@@ -54,6 +64,6 @@ export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
     readiness: herdrReadiness,
     ...(webDist === undefined ? {} : { webDist }),
   }).pipe(
-    Layer.provide([AgentsInbound.layer, TasksInbound.layer]),
+    Layer.provide([AgentsInbound.layer, TasksInbound.layer, IssuesInbound.layer]),
     Layer.provideMerge(services(adapters)),
   );

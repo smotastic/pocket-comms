@@ -1,1 +1,1 @@
-export { layerGit, type GitOptions } from './git.js';
+export { gitEnvironment, layerGit, type GitOptions } from './git.js';

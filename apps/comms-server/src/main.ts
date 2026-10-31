@@ -14,7 +14,12 @@ const main = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* serverConfig;
     yield* Effect.logInfo('pocket-comms listens').pipe(
-      Effect.annotateLogs({ url: `http://${HOST}:${config.port}`, herdr: config.socketPath }),
+      Effect.annotateLogs({
+        url: `http://${HOST}:${config.port}`,
+        herdr: config.socketPath,
+        gitea: config.giteaUrl,
+        giteaToken: Option.isSome(config.giteaToken) ? 'set' : 'not set',
+      }),
     );
     return Observability.serve(
       server({
@@ -23,6 +28,7 @@ const main = Layer.unwrap(
         home: homedir(),
         projectsRoot: config.projectsRoot,
         agentArgs: config.agentArgs,
+        gitea: { url: config.giteaUrl, token: config.giteaToken, hosts: config.giteaHosts },
         ...Option.match(config.webDist, { onNone: () => ({}), onSome: (webDist) => ({ webDist }) }),
       }),
       { serviceName: 'comms-server' },

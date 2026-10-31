@@ -1,7 +1,8 @@
 import { ProjectGitError, ProjectsOutbound } from '@pocket-comms/comms-application';
-import type { Project } from '@pocket-comms/comms-domain';
+import type { Project, Worktree } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import * as Option from 'effect/Option';
 import { execFile } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { readdir, realpath } from 'node:fs/promises';
@@ -66,6 +67,25 @@ const git = (cwd: string, args: ReadonlyArray<string>, timeout: number) =>
 const isDirectory = (path: string) => existsSync(path) && statSync(path).isDirectory();
 
 const lastLine = (text: string) => text.trim().split('\n').at(-1)?.trim() ?? '';
+
+// `git worktree list --porcelain`: one block per worktree, separated by a blank line, with a
+// `worktree <path>` line and a `branch refs/heads/<name>` line unless it is detached.
+const parseWorktrees = (porcelain: string): ReadonlyArray<Worktree> =>
+  porcelain
+    .split(/\n\s*\n/u)
+    .map((block) => block.split('\n'))
+    .flatMap((lines) => {
+      const path = lines.find((line) => line.startsWith('worktree '))?.slice('worktree '.length);
+      const ref = lines.find((line) => line.startsWith('branch '))?.slice('branch '.length);
+      if (path === undefined) return [];
+      return [
+        {
+          path,
+          branch:
+            ref?.startsWith('refs/heads/') === true ? ref.slice('refs/heads/'.length) : undefined,
+        },
+      ];
+    });
 
 /** The git repositories directly below `root`, and git run in them with argument arrays. */
 export const layerGit = ({ root, fetchTimeoutMs = 60_000 }: GitOptions) => {
@@ -134,8 +154,34 @@ export const layerGit = ({ root, fetchTimeoutMs = 60_000 }: GitOptions) => {
       return yield* exists(project, `refs/remotes/origin/${branch}`);
     }).pipe(Effect.withSpan('Projects.branchExists'));
 
+  const originUrl = (project: Project) =>
+    run(project, ['remote', 'get-url', 'origin']).pipe(
+      Effect.map((result) =>
+        result.code === 0 && result.stdout.trim() !== ''
+          ? Option.some(result.stdout.trim())
+          : Option.none(),
+      ),
+      Effect.withSpan('Projects.originUrl'),
+    );
+
+  const worktrees = (project: Project) =>
+    Effect.gen(function* () {
+      const listed = yield* run(project, ['worktree', 'list', '--porcelain']);
+      if (listed.code !== 0) {
+        return yield* failed(project, `git worktree list failed: ${lastLine(listed.stderr)}`);
+      }
+      return parseWorktrees(listed.stdout);
+    }).pipe(Effect.withSpan('Projects.worktrees'));
+
   return Layer.succeed(
     ProjectsOutbound,
-    ProjectsOutbound.of({ list, isValidBranchName, defaultBase, branchExists }),
+    ProjectsOutbound.of({
+      list,
+      isValidBranchName,
+      defaultBase,
+      branchExists,
+      originUrl,
+      worktrees,
+    }),
   );
 };

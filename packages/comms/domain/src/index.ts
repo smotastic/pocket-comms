@@ -27,3 +27,17 @@ export {
   type ProjectChoice,
   type Task,
 } from './task.js';
+export {
+  issueBranch,
+  issueNumberOf,
+  issueTask,
+  MAX_ISSUE_DESCRIPTION,
+  orderIssues,
+  parseRemote,
+  workOnIssues,
+  type GiteaRepository,
+  type Issue,
+  type IssueWork,
+  type RemoteRepository,
+  type Worktree,
+} from './issue.js';

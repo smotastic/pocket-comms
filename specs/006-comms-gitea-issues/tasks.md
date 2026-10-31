@@ -7,28 +7,28 @@ in the task's own commit.
 
 ## Backend
 
-- [ ] **T01** — Domain: `Issue`, `GiteaRepository`, `parseRemote`, `orderIssues`, `issueBranch`,
+- [x] **T01** — Domain: `Issue`, `GiteaRepository`, `parseRemote`, `orderIssues`, `issueBranch`,
       `issueNumberOf`, `issueTask`, `workOnIssues`
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application: `GiteaOutbound`, `ProjectsOutbound.originUrl` and `worktrees`, errors,
+- [x] **T02** — Application: `GiteaOutbound`, `ProjectsOutbound.originUrl` and `worktrees`, errors,
       DTOs, fakes; `IssuesInbound` with `issues` and `implement` (on the spec 005 `create`)
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
-- [ ] **T03** — `Projects.layerGit`: `originUrl`, `worktrees`
+- [x] **T03** — `Projects.layerGit`: `originUrl`, `worktrees`
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T04** — `Gitea.layerHttp` with the recorded, anonymised fixture: `GET` only, paging, the
+- [x] **T04** — `Gitea.layerHttp` with the recorded, anonymised fixture: `GET` only, paging, the
       cap, errors without the token, no request without a token
   - Gate: `pnpm nx test comms-infrastructure`
 
 ## API and server
 
-- [ ] **T05** — Contract group `issues` with descriptions and examples; handlers and problems;
+- [x] **T05** — Contract group `issues` with descriptions and examples; handlers and problems;
       acceptance tests
   - Gate: `pnpm nx test comms-contract`, `pnpm nx test comms-api`
 
-- [ ] **T06** — Server config `COMMS_GITEA_URL`, `COMMS_GITEA_TOKEN`, `COMMS_GITEA_HOSTS`, wiring,
+- [x] **T06** — Server config `COMMS_GITEA_URL`, `COMMS_GITEA_TOKEN`, `COMMS_GITEA_HOSTS`, wiring,
       OpenAPI document
   - Gate: `pnpm nx test comms-server`, `pnpm openapi:check`, `pnpm openapi:lint`
 

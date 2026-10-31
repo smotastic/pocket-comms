@@ -1,3 +1,4 @@
+export * as Gitea from './gitea/index.js';
 export * as Herdr from './herdr/index.js';
 export * as Projects from './projects/index.js';
 export * as Seen from './memory/seen.js';

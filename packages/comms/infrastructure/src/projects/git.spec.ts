@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@effect/vitest';
 import { ProjectGitError, ProjectsOutbound } from '@pocket-comms/comms-application';
 import * as Effect from 'effect/Effect';
+import * as Option from 'effect/Option';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -184,6 +185,54 @@ describe('Projects.layerGit', () => {
       ).pipe(Effect.provide(layerGit({ root })));
 
       expect(valid).toEqual([true, false, false]);
+    }),
+  );
+});
+
+describe('Projects.layerGit for issues', () => {
+  const project = (root: string, name: string) => ({ name, path: join(root, name) });
+
+  it.live('reads the origin URL, and none without a remote', () =>
+    Effect.gen(function* () {
+      const { root, origin } = projectsRoot();
+
+      const urls = yield* ProjectsOutbound.use((outbound) =>
+        Effect.all([
+          outbound.originUrl(project(root, 'alpha')),
+          outbound.originUrl(project(root, 'beta')),
+        ]),
+      ).pipe(Effect.provide(layerGit({ root })));
+
+      expect(urls).toEqual([Option.some(origin), Option.none()]);
+    }),
+  );
+
+  it.live('lists the worktrees with their branches, the primary checkout first', () =>
+    Effect.gen(function* () {
+      const { root } = projectsRoot();
+      run(join(root, 'alpha'), 'worktree', 'add', '--quiet', '--detach', join(root, 'detached'));
+
+      const worktrees = yield* ProjectsOutbound.use((outbound) =>
+        outbound.worktrees(project(root, 'alpha')),
+      ).pipe(Effect.provide(layerGit({ root })));
+
+      expect(worktrees).toEqual([
+        { path: join(root, 'alpha'), branch: 'main' },
+        { path: join(root, 'detached'), branch: undefined },
+        { path: join(root, 'linked'), branch: 'feat/linked' },
+      ]);
+    }),
+  );
+
+  it.live('fails to list the worktrees of a folder that is no repository', () =>
+    Effect.gen(function* () {
+      const { root } = projectsRoot();
+
+      const error = yield* ProjectsOutbound.use((outbound) =>
+        outbound.worktrees(project(root, 'notes')),
+      ).pipe(Effect.provide(layerGit({ root })), Effect.flip);
+
+      expect(error).toBeInstanceOf(ProjectGitError);
     }),
   );
 });
