@@ -80,6 +80,15 @@ export default [
                 'type:ui',
               ],
             },
+            {
+              sourceTag: 'scope:comms',
+              onlyDependOnLibsWithTags: [
+                'scope:comms',
+                'scope:contracts',
+                'scope:shared',
+                'type:ui',
+              ],
+            },
             // A contract may build on another contract (the shared Problem Details schema), never
             // on service or shared code.
             { sourceTag: 'scope:contracts', onlyDependOnLibsWithTags: ['scope:contracts'] },
