@@ -130,7 +130,7 @@ the issue, and the issue row then shows which agent works on it.
 - Given Implement with Claude on #8 with an idle ready agent, then Herdr receives
   `worktree.create` with `focus: false` and the issue title as label, `agent.start` with kind
   `claude`, and `agent.prompt` with the text of requirement 13 ending in the `Closes #8` line.
-- Given a closed issue, then starting answers `409` and neither git nor Herdr is called.
+- Given a closed issue, then starting answers `409`, git fetches nothing and Herdr is not called.
 - Given a worktree on `feat/8-per-project-gitea-issue-list` with a live agent in it, then the row
   of #8 shows that agent and its status; given the worktree without an agent, then it shows the
   branch with "no agent running"; given a worktree on `feat/80-other`, then #8 shows nothing.
