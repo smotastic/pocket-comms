@@ -77,26 +77,26 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T17** — `apps/comms-web` skeleton: client, queries, router, `renderApp`, dark theme,
+- [x] **T17** — `apps/comms-web` skeleton: client, queries, router, `renderApp`, dark theme,
       `dev` target with the header-adding proxy on `127.0.0.1`
   - Gate: `pnpm nx test comms-web`, `pnpm nx lint comms-web`
 
-- [ ] **T18** — Overview route: groups, Needs you, rows, Herdr-unavailable state, live updates from
+- [x] **T18** — Overview route: groups, Needs you, rows, Herdr-unavailable state, live updates from
       `/api/v1/events`
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T19** — Conversation route: header, chat entries, Activity, live entries, mark seen;
+- [x] **T19** — Conversation route: header, chat entries, Activity, live entries, mark seen;
       other agent kinds open on the screen
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T20** — Terminal view: Chat | Screen toggle, polled ANSI screen, key row
+- [x] **T20** — Terminal view: Chat | Screen toggle, polled ANSI screen, key row
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T21** — Input: composer sends prompts; approval panel with screen and keys replaces it while
+- [x] **T21** — Input: composer sends prompts; approval panel with screen and keys replaces it while
       blocked; long-press Ctrl-C; errors keep the draft
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T22** — Installable: manifest, icons, theme colour, `viewport-fit=cover`, safe areas
+- [x] **T22** — Installable: manifest, icons, theme colour, `viewport-fit=cover`, safe areas
   - Gate: `pnpm nx test comms-web`, `pnpm nx build comms-web`
 
 ## Wrap-up

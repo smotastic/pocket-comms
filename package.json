@@ -10,6 +10,7 @@
   "scripts": {
     "prepare": "husky",
     "dev": "nx run-many -t dev --output-style=stream",
+    "start": "nx run comms-server:start --output-style=stream",
     "dev:memory": "nx run-many -t dev-memory --output-style=stream",
     "dev:down": "nx run-many -t db-down",
     "dev:reset": "nx run-many -t db-reset",
