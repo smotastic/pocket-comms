@@ -48,6 +48,29 @@ describe('AgentsInbound.overview', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('names the project and worktree of each agent', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.agents = [
+        fakeAgent({ paneId: 'w1:p1', name: 'kirk' }),
+        fakeAgent({ paneId: 'w2:p1', name: 'spock', workspaceId: 'w2' }),
+        fakeAgent({ paneId: 'w3:p1', name: 'scotty', workspaceId: 'w3' }),
+      ];
+
+      const overview = yield* AgentsInbound.use((inbound) => inbound.overview);
+
+      expect(
+        overview.groups.flatMap((group) =>
+          group.agents.map((agent) => [group.key, agent.ref, agent.project, agent.worktree]),
+        ),
+      ).toEqual([
+        ['/work/app/.git', 'kirk', 'app', undefined],
+        ['/work/app/.git', 'spock', 'app', 'feature'],
+        ['other', 'scotty', undefined, undefined],
+      ]);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('dates an agent by its session file when that changed last', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

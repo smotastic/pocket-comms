@@ -13,6 +13,10 @@ export interface AgentDto {
   readonly title: string;
   readonly cwd: string | undefined;
   readonly workspace: string;
+  /** The repository of the agent's workspace; none puts the agent into the Other group. */
+  readonly project: string | undefined;
+  /** The workspace's label when it is a linked worktree; a main checkout has none. */
+  readonly worktree: string | undefined;
   /** When the agent last changed, in epoch milliseconds. */
   readonly changedAt: number;
   readonly needsYou: boolean;

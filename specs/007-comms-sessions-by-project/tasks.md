@@ -15,12 +15,12 @@ in the task's own commit.
       `workspace.list` fixture gains a linked worktree, a main checkout and a plain workspace
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T03** — Application: `AgentDto.project` and `worktree`, set wherever an agent is sent
+- [x] **T03** — Application: `AgentDto.project` and `worktree`, set wherever an agent is sent
   - Gate: `pnpm nx test comms-application`
 
 ## API and server
 
-- [ ] **T04** — Contract: optional `project` and `worktree` on `Agent`, the `other` group key;
+- [x] **T04** — Contract: optional `project` and `worktree` on `Agent`, the `other` group key;
       acceptance tests; OpenAPI document
   - Gate: `pnpm nx test comms-contract`, `pnpm nx test comms-api`, `pnpm openapi:check`,
     `pnpm openapi:lint`
