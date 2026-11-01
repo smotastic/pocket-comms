@@ -1,7 +1,7 @@
 # Plan 007 — pocket-comms: the overview by project
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner with the spec (2026-11-01)
+- **Status:** `Done` — approved by the owner with the spec (2026-11-01); checked locally at 390 px against the live Herdr on 2026-11-01
 
 ## 1. Affected projects
 

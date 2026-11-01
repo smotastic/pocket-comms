@@ -48,6 +48,6 @@ in the task's own commit.
 - [x] **T09** — Spec 004 pointer to this spec; comms `AGENTS.md` if a rule changed
   - Gate: `pnpm format:check`
 
-- [ ] **T10** — Local check of the built app at 390 px with `agent-browser` against live Herdr;
+- [x] **T10** — Local check of the built app at 390 px with `agent-browser` against live Herdr;
       spec status `Done`
   - Gate: the check's notes in the pull request

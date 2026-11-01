@@ -1,6 +1,6 @@
 # Spec 007 — pocket-comms: the overview by project
 
-- **Status:** `Approved` — approved by the owner (2026-11-01)
+- **Status:** `Done` — approved by the owner (2026-11-01); checked locally at 390 px against the live Herdr on 2026-11-01
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (requirements 2, 3 and 4 of the
   overview)
 - **Prototype:** branch `chore/prototype-group-sessions-by-project` (variant E won, 2026-11-01)
