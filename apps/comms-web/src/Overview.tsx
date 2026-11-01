@@ -1,6 +1,7 @@
 import {
   AgentRow,
   Alert,
+  Card,
   IconButton,
   Inline,
   LiveIndicator,
@@ -80,17 +81,19 @@ const Section = ({
   readonly now: number;
   readonly onOpen: (ref: string) => void;
 }) => (
-  <section aria-label={title}>
-    <Stack gap="xs">
-      <SectionHeader title={title} count={agents.length} />
-      {agents.map((agent) => (
-        <Row key={agent.paneId} agent={agent} section={section} now={now} onOpen={onOpen} />
-      ))}
-    </Stack>
-  </section>
+  <Card>
+    <section aria-label={title}>
+      <Stack gap="xs">
+        <SectionHeader title={title} count={agents.length} />
+        {agents.map((agent) => (
+          <Row key={agent.paneId} agent={agent} section={section} now={now} onOpen={onOpen} />
+        ))}
+      </Stack>
+    </section>
+  </Card>
 );
 
-/** `/`: every live agent, Needs you first, then by repository; it updates live. */
+/** `/`: every live agent, Needs you first, then a card per project and Other; it updates live. */
 export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
   const [creating, setCreating] = useState(false);
@@ -136,7 +139,7 @@ export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProp
         }}
       />
       <Page>
-        <Stack gap="xl">
+        <Stack gap="md">
           {notice === undefined ? null : (
             <div role="status">
               <Text>{notice}</Text>

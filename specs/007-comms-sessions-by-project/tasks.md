@@ -36,7 +36,7 @@ in the task's own commit.
       rules of requirement 7
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T07** — Overview as cards: Needs you card, a card per project, Other last
+- [x] **T07** — Overview as cards: Needs you card, a card per project, Other last
   - Gate: `pnpm nx test comms-web`
 
 - [ ] **T08** — Project filter: `filterOverview`, the menu button with its mark, the sheet with

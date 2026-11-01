@@ -59,6 +59,18 @@ describe('the overview', () => {
     expect(within(screen.getByRole('region', { name: 'Other' })).getByText('notes')).toBeDefined();
   });
 
+  it('shows Needs you, then a card per project, then Other, each headed by its name and count', async () => {
+    renderApp({ client: fakeClient({ overview }).client });
+
+    await screen.findByRole('region', { name: 'Needs you' });
+    expect(
+      screen.getAllByRole('region').map((region) => region.getAttribute('aria-label')),
+    ).toEqual(['Needs you', 'app', 'Other']);
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(['Needs you 2', 'app 1', 'Other 1']);
+  });
+
   it('names an agent without a Herdr name by its workspace, never by its pane id', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
