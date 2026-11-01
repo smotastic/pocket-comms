@@ -1,7 +1,16 @@
 import styles from './IconButton.module.css';
 
 /** The names of the kit's icons. */
-export const ICON_NAMES = ['history', 'plus', 'expand', 'close', 'send', 'back', 'issues'] as const;
+export const ICON_NAMES = [
+  'history',
+  'plus',
+  'expand',
+  'close',
+  'send',
+  'back',
+  'issues',
+  'menu',
+] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -15,6 +24,7 @@ const PATHS: Readonly<Record<IconName, string>> = {
   back: 'M15 18l-6-6 6-6',
   // An open issue: a ring with a dot, as forges draw it.
   issues: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 12h.01',
+  menu: 'M4 6h16M4 12h16M4 18h16',
 };
 
 /** An icon that only decorates: its button or link carries the name. */

@@ -1,4 +1,5 @@
 import type { MouseEvent, ReactNode } from 'react';
+import { Tag } from '../tag/Tag.js';
 import hidden from '../visually-hidden.module.css';
 import styles from './AgentRow.module.css';
 
@@ -18,6 +19,8 @@ export type AgentRowProps = {
   readonly status: ReactNode;
   /** The second line, such as the agent's current task. */
   readonly detail: ReactNode;
+  /** A short label before the detail, such as the agent's worktree; cut at half the line. */
+  readonly tag?: string;
   /** How long ago the agent last changed, such as "4m". */
   readonly since: string;
   /** Tints the row for something that needs the reader. */
@@ -36,6 +39,7 @@ export const AgentRow = ({
   name,
   status,
   detail,
+  tag,
   since,
   attention,
 }: AgentRowProps) => (
@@ -54,8 +58,17 @@ export const AgentRow = ({
     {/* The spaces keep the words apart in the link's name; the grid ignores them. */}
     <span className={hidden.visuallyHidden}>{kind.label}</span>{' '}
     <span className={styles.name}>{name}</span> <span className={styles.status}>{status}</span>{' '}
-    <span className={styles.detail}>
-      {detail} · {since}
+    <span className={tag === undefined ? styles.detail : `${styles.detail} ${styles.tagged}`}>
+      {tag === undefined ? null : (
+        <>
+          <span className={styles.tag}>
+            <Tag>{tag}</Tag>
+          </span>{' '}
+        </>
+      )}
+      <span className={styles.text}>
+        {detail} · {since}
+      </span>
     </span>
   </a>
 );

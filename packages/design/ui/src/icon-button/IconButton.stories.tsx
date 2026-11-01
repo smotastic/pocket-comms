@@ -23,3 +23,10 @@ export const Primary: Story = () => (
     <IconButton icon="send" label="Send" tone="primary" disabled />
   </Inline>
 );
+
+export const Marked: Story = () => (
+  <Inline gap="2xs">
+    <IconButton icon="menu" label="Filter by project" marked />
+    <IconButton icon="menu" label="Filter by project" />
+  </Inline>
+);

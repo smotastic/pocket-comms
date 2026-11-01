@@ -73,11 +73,28 @@
 }
 
 .detail {
+  display: grid;
   grid-column: 2 / 4;
+  align-items: center;
+  gap: var(--space-xs);
   min-width: 0;
-  overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+}
+
+/* The tag never takes more than half the line, so the detail always shows. */
+.tagged {
+  grid-template-columns: fit-content(50%) minmax(0, 1fr);
+}
+
+.tag {
+  display: flex;
+  min-width: 0;
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

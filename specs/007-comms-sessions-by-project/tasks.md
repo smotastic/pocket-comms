@@ -27,7 +27,7 @@ in the task's own commit.
 
 ## Design kit
 
-- [ ] **T05** — Icon `menu`; `IconButton` `marked`; `AgentRow` `tag`, cut at half the line; stories
+- [x] **T05** — Icon `menu`; `IconButton` `marked`; `AgentRow` `tag`, cut at half the line; stories
   - Gate: `pnpm nx test design-ui`
 
 ## Web app
