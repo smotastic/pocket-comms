@@ -11,7 +11,7 @@ in the task's own commit.
       unlisted workspace lands in Other
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Adapter: `toWorkspace` reads `repo_name` and `is_linked_worktree`; the
+- [x] **T02** — Adapter: `toWorkspace` reads `repo_name` and `is_linked_worktree`; the
       `workspace.list` fixture gains a linked worktree, a main checkout and a plain workspace
   - Gate: `pnpm nx test comms-infrastructure`
 
