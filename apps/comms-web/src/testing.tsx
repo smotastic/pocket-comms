@@ -32,6 +32,7 @@ export const fakeAgent = (overrides: Partial<AgentView> = {}): AgentView => ({
   title: 'Fix the build',
   cwd: '/work/app',
   workspace: 'app',
+  project: 'app',
   changedAt: Date.now() - 60_000,
   needsYou: false,
   ...overrides,

@@ -32,7 +32,7 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T06** — `rowTag` and the row name: the workspace label instead of the pane id, the tag
+- [x] **T06** — `rowTag` and the row name: the workspace label instead of the pane id, the tag
       rules of requirement 7
   - Gate: `pnpm nx test comms-web`
 

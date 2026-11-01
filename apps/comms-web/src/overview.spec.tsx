@@ -7,6 +7,7 @@ afterEach(cleanup);
 
 const blocked = fakeAgent({
   ref: 'picard',
+  name: 'picard',
   paneId: 'w2:p1',
   kind: 'pi',
   format: 'pi',
@@ -15,6 +16,7 @@ const blocked = fakeAgent({
 });
 const done = fakeAgent({
   ref: 'data',
+  name: 'data',
   paneId: 'w3:p1',
   status: 'done',
   needsYou: true,
@@ -28,13 +30,15 @@ const other = fakeAgent({
   kind: 'codex',
   format: undefined,
   title: 'codex',
+  workspace: 'notes',
+  project: undefined,
 });
 
 const overview = {
   needsYou: [blocked, done],
   groups: [
     { key: '/work/app/.git', name: 'app', agents: [working] },
-    { key: 'ws:w4', name: 'notes', agents: [other] },
+    { key: 'other', name: 'Other', agents: [other] },
   ],
 };
 
@@ -52,7 +56,67 @@ describe('the overview', () => {
     expect(
       within(screen.getByRole('region', { name: 'app' })).getByText(/Fix the build/),
     ).toBeDefined();
-    expect(within(screen.getByRole('region', { name: 'notes' })).getByText('w4:p1')).toBeDefined();
+    expect(within(screen.getByRole('region', { name: 'Other' })).getByText('notes')).toBeDefined();
+  });
+
+  it('names an agent without a Herdr name by its workspace, never by its pane id', async () => {
+    renderApp({ client: fakeClient({ overview }).client });
+
+    await screen.findByRole('link', { name: /notes/ });
+    expect(screen.queryByText('w4:p1')).toBeNull();
+  });
+
+  it('tags each row with its project and worktree as its card needs', async () => {
+    const linked = fakeAgent({
+      ref: 'spock',
+      paneId: 'w2:p2',
+      name: 'spock',
+      workspace: 'ingestor-mvp',
+      project: 'pocket-home',
+      worktree: 'ingestor-mvp',
+    });
+    const loose = fakeAgent({
+      ref: 'burnham',
+      paneId: 'w5:p1',
+      name: 'burnham',
+      workspace: 'G registry cleanup',
+      project: undefined,
+    });
+    renderApp({
+      client: fakeClient({
+        overview: {
+          needsYou: [
+            {
+              ...linked,
+              ref: 'uhura',
+              paneId: 'w2:p3',
+              name: 'uhura',
+              status: 'blocked',
+              needsYou: true,
+            },
+          ],
+          groups: [
+            {
+              key: '/work/home/.git',
+              name: 'pocket-home',
+              agents: [linked, fakeAgent({ project: 'pocket-home' })],
+            },
+            { key: 'other', name: 'Other', agents: [loose] },
+          ],
+        },
+      }).client,
+    });
+
+    const needsYou = await screen.findByRole('region', { name: 'Needs you' });
+    expect(within(needsYou).getByText('pocket-home · ingestor-mvp')).toBeDefined();
+    const home = screen.getByRole('region', { name: 'pocket-home' });
+    expect(within(home).getByRole('link', { name: /spock/ }).textContent).toContain('ingestor-mvp');
+    expect(within(home).getByRole('link', { name: /kirk/ }).textContent).not.toContain(
+      'pocket-home',
+    );
+    expect(
+      within(screen.getByRole('region', { name: 'Other' })).getByText('G registry cleanup'),
+    ).toBeDefined();
   });
 
   it('shows the kind, the status and the time since the last change', async () => {
@@ -83,7 +147,11 @@ describe('the overview', () => {
         overview: {
           needsYou: [],
           groups: [
-            { key: 'k', name: 'app', agents: [fakeAgent({ ref: 'sisko', paneId: 'w9:p1' })] },
+            {
+              key: 'k',
+              name: 'app',
+              agents: [fakeAgent({ ref: 'sisko', name: 'sisko', paneId: 'w9:p1' })],
+            },
           ],
         },
       }),

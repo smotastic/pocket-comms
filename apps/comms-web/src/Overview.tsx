@@ -19,6 +19,7 @@ import { overviewQuery } from './comms-queries.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useNow, useOverviewLive } from './live.js';
 import { NewTask } from './NewTask.js';
+import { OTHER_KEY, rowName, rowTag, type RowSection } from './rows.js';
 import { since } from './since.js';
 
 export interface OverviewProps {
@@ -36,12 +37,16 @@ const createdNotice = (created: TaskCreatedView) => {
   return created.agent?.note === undefined ? ready : `${ready} ${created.agent.note}`;
 };
 
+const withTag = (tag: string | undefined) => (tag === undefined ? {} : { tag });
+
 const Row = ({
   agent,
+  section,
   now,
   onOpen,
 }: {
   readonly agent: AgentView;
+  readonly section: RowSection;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
 }) => (
@@ -49,9 +54,10 @@ const Row = ({
     href={`/agents/${encodeURIComponent(agent.ref)}`}
     onNavigate={() => onOpen(agent.ref)}
     kind={kindOf(agent.kind)}
-    name={agent.ref}
+    name={rowName(agent)}
     status={<StatusPill tone={agent.status} label={STATUS_LABELS[agent.status]} />}
     detail={agent.status === 'blocked' ? 'Needs your answer' : agent.title}
+    {...withTag(rowTag(agent, section))}
     since={since(agent.changedAt, now)}
     {...(agent.status === 'blocked'
       ? { attention: 'blocked' as const }
@@ -63,11 +69,13 @@ const Row = ({
 
 const Section = ({
   title,
+  section,
   agents,
   now,
   onOpen,
 }: {
   readonly title: string;
+  readonly section: RowSection;
   readonly agents: ReadonlyArray<AgentView>;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
@@ -76,7 +84,7 @@ const Section = ({
     <Stack gap="xs">
       <SectionHeader title={title} count={agents.length} />
       {agents.map((agent) => (
-        <Row key={agent.paneId} agent={agent} now={now} onOpen={onOpen} />
+        <Row key={agent.paneId} agent={agent} section={section} now={now} onOpen={onOpen} />
       ))}
     </Stack>
   </section>
@@ -147,12 +155,19 @@ export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProp
           ) : (
             <>
               {data.needsYou.length === 0 ? null : (
-                <Section title="Needs you" agents={data.needsYou} now={now} onOpen={onOpen} />
+                <Section
+                  title="Needs you"
+                  section="needsYou"
+                  agents={data.needsYou}
+                  now={now}
+                  onOpen={onOpen}
+                />
               )}
               {data.groups.map((group) => (
                 <Section
                   key={group.key}
                   title={group.name}
+                  section={group.key === OTHER_KEY ? 'other' : 'project'}
                   agents={group.agents}
                   now={now}
                   onOpen={onOpen}
