@@ -7,8 +7,9 @@ open Gitea issues with an "Implement with Claude" action. Install it to the iPho
 terminal app, which keeps push notifications, approvals and the raw terminal.
 
 The behaviour is [spec 004](specs/004-pocket-comms-v1/spec.md), for new tasks
-[spec 005](specs/005-comms-new-task/spec.md) and for Gitea issues
-[spec 006](specs/006-comms-gitea-issues/spec.md); the approved look is spec 004's
+[spec 005](specs/005-comms-new-task/spec.md), for Gitea issues
+[spec 006](specs/006-comms-gitea-issues/spec.md) and for the overview by project
+[spec 007](specs/007-comms-sessions-by-project/spec.md); the approved look is spec 004's
 [mockup](specs/004-pocket-comms-v1/mockup.html).
 
 ## Run it
