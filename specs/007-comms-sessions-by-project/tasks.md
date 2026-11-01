@@ -39,7 +39,7 @@ in the task's own commit.
 - [x] **T07** — Overview as cards: Needs you card, a card per project, Other last
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T08** — Project filter: `filterOverview`, the menu button with its mark, the sheet with
+- [x] **T08** — Project filter: `filterOverview`, the menu button with its mark, the sheet with
       counts and the Needs-you mark, reset on reload
   - Gate: `pnpm nx test comms-web`
 
