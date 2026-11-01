@@ -1,6 +1,7 @@
 import {
   AgentRow,
   Alert,
+  Card,
   IconButton,
   Inline,
   LiveIndicator,
@@ -19,6 +20,9 @@ import { overviewQuery } from './comms-queries.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useNow, useOverviewLive } from './live.js';
 import { NewTask } from './NewTask.js';
+import { filterOverview, projectChoices } from './project-filter.js';
+import { ProjectFilter } from './ProjectFilter.js';
+import { OTHER_KEY, rowName, rowTag, type RowSection } from './rows.js';
 import { since } from './since.js';
 
 export interface OverviewProps {
@@ -36,12 +40,16 @@ const createdNotice = (created: TaskCreatedView) => {
   return created.agent?.note === undefined ? ready : `${ready} ${created.agent.note}`;
 };
 
+const withTag = (tag: string | undefined) => (tag === undefined ? {} : { tag });
+
 const Row = ({
   agent,
+  section,
   now,
   onOpen,
 }: {
   readonly agent: AgentView;
+  readonly section: RowSection;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
 }) => (
@@ -49,9 +57,10 @@ const Row = ({
     href={`/agents/${encodeURIComponent(agent.ref)}`}
     onNavigate={() => onOpen(agent.ref)}
     kind={kindOf(agent.kind)}
-    name={agent.ref}
+    name={rowName(agent)}
     status={<StatusPill tone={agent.status} label={STATUS_LABELS[agent.status]} />}
     detail={agent.status === 'blocked' ? 'Needs your answer' : agent.title}
+    {...withTag(rowTag(agent, section))}
     since={since(agent.changedAt, now)}
     {...(agent.status === 'blocked'
       ? { attention: 'blocked' as const }
@@ -63,30 +72,36 @@ const Row = ({
 
 const Section = ({
   title,
+  section,
   agents,
   now,
   onOpen,
 }: {
   readonly title: string;
+  readonly section: RowSection;
   readonly agents: ReadonlyArray<AgentView>;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
 }) => (
-  <section aria-label={title}>
-    <Stack gap="xs">
-      <SectionHeader title={title} count={agents.length} />
-      {agents.map((agent) => (
-        <Row key={agent.paneId} agent={agent} now={now} onOpen={onOpen} />
-      ))}
-    </Stack>
-  </section>
+  <Card>
+    <section aria-label={title}>
+      <Stack gap="xs">
+        <SectionHeader title={title} count={agents.length} />
+        {agents.map((agent) => (
+          <Row key={agent.paneId} agent={agent} section={section} now={now} onOpen={onOpen} />
+        ))}
+      </Stack>
+    </section>
+  </Card>
 );
 
-/** `/`: every live agent, Needs you first, then by repository; it updates live. */
+/** `/`: every live agent, Needs you first, then a card per project and Other; it updates live. */
 export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(undefined);
+  // The chosen project lives only as long as the page: a reload shows all projects again.
+  const [project, setProject] = useState<string | undefined>(undefined);
   const overview = useQuery(overviewQuery(client));
   const now = useNow();
 
@@ -95,7 +110,10 @@ export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProp
     (overview.error instanceof RequestError && overview.error.status === 503
       ? overview.error.message
       : undefined);
-  const data = overview.data;
+  const choices = overview.data === undefined ? [] : projectChoices(overview.data);
+  // A project whose last agent is gone can no longer be chosen; the page shows all projects then.
+  const chosen = choices.some((choice) => choice.value === project) ? project : undefined;
+  const data = overview.data === undefined ? undefined : filterOverview(overview.data, chosen);
   const empty = data !== undefined && data.needsYou.length === 0 && data.groups.length === 0;
 
   return (
@@ -105,6 +123,7 @@ export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProp
         subtitle={<LiveIndicator live={live} label={live ? 'Mac mini · live' : 'Connecting…'} />}
         end={
           <Inline gap="2xs" wrap={false}>
+            <ProjectFilter choices={choices} value={chosen} onChange={setProject} />
             <IconButton icon="issues" label="Projects" onClick={onProjects} />
             <IconButton
               icon="plus"
@@ -128,7 +147,7 @@ export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProp
         }}
       />
       <Page>
-        <Stack gap="xl">
+        <Stack gap="md">
           {notice === undefined ? null : (
             <div role="status">
               <Text>{notice}</Text>
@@ -147,12 +166,19 @@ export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProp
           ) : (
             <>
               {data.needsYou.length === 0 ? null : (
-                <Section title="Needs you" agents={data.needsYou} now={now} onOpen={onOpen} />
+                <Section
+                  title="Needs you"
+                  section="needsYou"
+                  agents={data.needsYou}
+                  now={now}
+                  onOpen={onOpen}
+                />
               )}
               {data.groups.map((group) => (
                 <Section
                   key={group.key}
                   title={group.name}
+                  section={group.key === OTHER_KEY ? 'other' : 'project'}
                   agents={group.agents}
                   now={now}
                   onOpen={onOpen}

@@ -39,7 +39,9 @@ const kirk: AgentDto = {
   status: 'blocked',
   title: 'Fix the build',
   cwd: '/work/app',
-  workspace: 'app',
+  workspace: 'feature',
+  project: 'app',
+  worktree: 'feature',
   changedAt: 1_000,
   needsYou: true,
 };

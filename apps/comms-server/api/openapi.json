@@ -69,6 +69,18 @@
             "examples": ["wJ:p1"],
             "type": "string"
           },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The repository of the agent's workspace; missing puts the agent under Other.",
+            "examples": ["pocket-home"]
+          },
           "ref": {
             "description": "The agent's Herdr name, or its pane id when it has none.",
             "examples": ["kirk-ingestor-mvp"],
@@ -90,6 +102,18 @@
             "description": "The label of the agent's Herdr workspace.",
             "examples": ["ingestor-mvp"],
             "type": "string"
+          },
+          "worktree": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The workspace label of a linked worktree; missing for a main checkout.",
+            "examples": ["ingestor-mvp"]
           }
         },
         "required": ["ref", "paneId", "status", "title", "workspace", "changedAt", "needsYou"],
@@ -527,7 +551,7 @@
             "type": "array"
           },
           "key": {
-            "description": "The repository's key, or `ws:<workspace>` for a workspace alone.",
+            "description": "The repository's key, or `other` for every workspace without a project.",
             "examples": ["/Users/me/projects/pocket-home/.git"],
             "type": "string"
           },

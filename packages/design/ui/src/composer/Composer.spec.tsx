@@ -102,9 +102,7 @@ describe('Composer', () => {
   it('shows the context above the text and is described by its hint', () => {
     render(
       <Controlled
-        context={
-          <Tag>notes.md</Tag>
-        }
+        context={<Tag>notes.md</Tag>}
         hint="Files change only when you approve it."
         placeholder="Write a message…"
       />,
@@ -126,9 +124,7 @@ describe('Composer', () => {
     const { container } = render(
       <Controlled
         initial="Hello"
-        context={
-          <Tag>notes.md</Tag>
-        }
+        context={<Tag>notes.md</Tag>}
         hint="Files change only when you approve it."
       />,
     );

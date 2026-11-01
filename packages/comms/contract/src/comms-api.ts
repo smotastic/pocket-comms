@@ -66,6 +66,14 @@ export const Agent = Schema.Struct({
     description: "The label of the agent's Herdr workspace.",
     examples: ['ingestor-mvp'],
   }),
+  project: optional(Schema.String, {
+    description: "The repository of the agent's workspace; missing puts the agent under Other.",
+    examples: ['pocket-home'],
+  }),
+  worktree: optional(Schema.String, {
+    description: 'The workspace label of a linked worktree; missing for a main checkout.',
+    examples: ['ingestor-mvp'],
+  }),
   changedAt: Millis.annotate({
     description: 'When the agent last changed, in epoch milliseconds.',
   }),
@@ -85,7 +93,7 @@ export const Overview = Schema.Struct({
   groups: Schema.Array(
     Schema.Struct({
       key: Schema.String.annotate({
-        description: "The repository's key, or `ws:<workspace>` for a workspace alone.",
+        description: "The repository's key, or `other` for every workspace without a project.",
         examples: ['/Users/me/projects/pocket-home/.git'],
       }),
       name: Schema.String.annotate({

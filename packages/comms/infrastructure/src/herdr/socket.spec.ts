@@ -48,6 +48,17 @@ const lists = (request: HerdrRequest) => {
             workspace_id: 'wJ',
             label: 'ingestor-mvp',
             worktree: {
+              is_linked_worktree: true,
+              repo_key: '/work/home/.git',
+              repo_name: 'pocket-home',
+              repo_root: '/work/home',
+            },
+          },
+          {
+            workspace_id: 'wH',
+            label: 'pocket-home',
+            worktree: {
+              is_linked_worktree: false,
               repo_key: '/work/home/.git',
               repo_name: 'pocket-home',
               repo_root: '/work/home',
@@ -128,8 +139,17 @@ describe('Herdr.layerSocket', () => {
             label: 'ingestor-mvp',
             group: { key: '/work/home/.git', name: 'pocket-home' },
             root: '/work/home',
+            project: 'pocket-home',
+            worktree: 'ingestor-mvp',
           },
-          { id: 'w9', label: 'notes', group: { key: 'ws:w9', name: 'notes' } },
+          {
+            id: 'wH',
+            label: 'pocket-home',
+            group: { key: '/work/home/.git', name: 'pocket-home' },
+            root: '/work/home',
+            project: 'pocket-home',
+          },
+          { id: 'w9', label: 'notes', group: { key: 'other', name: 'Other' } },
         ],
       });
     }).pipe(Effect.scoped),

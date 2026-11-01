@@ -28,12 +28,14 @@ states, wording and its dark "Midnight" look (the design kit's dark theme).
 ### Overview (`/`)
 
 1. The overview lists every live agent that Herdr reports.
-2. Agents are grouped by Herdr workspace. A repository and its worktree workspaces form one group:
+2. _Changed by [spec 007](../007-comms-sessions-by-project/spec.md): one card per project and one
+   Other card._ Agents are grouped by Herdr workspace. A repository and its worktree workspaces form one group:
    the group key is the workspace's `worktree.repo_key`, its name `worktree.repo_name`; a workspace
    without a worktree is its own group, named by its label. Groups keep Herdr's workspace order.
 3. A **Needs you** section on top holds every `blocked` agent and every `done` agent whose current
    completion the app has not shown yet. An agent listed there is not listed in its group again.
-4. Each row shows the agent kind (Claude, Pi or the raw kind for others), the agent's name (its
+4. _Changed by [spec 007](../007-comms-sessions-by-project/spec.md): the row's name and tag._ Each
+   row shows the agent kind (Claude, Pi or the raw kind for others), the agent's name (its
    Herdr name, or its pane id when it has none), a status pill (`working`, `blocked`, `done`,
    `idle`, `unknown`, labelled "Working", "Needs you", "Done", "Idle", "Unknown"), the terminal
    title, and the time since the agent last changed. A blocked row says "Needs your answer"

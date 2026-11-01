@@ -71,13 +71,25 @@ describe('AgentRow', () => {
     expect(link().classList).toContain(styles[attention]);
   });
 
+  it('shows a tag before the detail, in its own box', () => {
+    row({ tag: 'pocket-home · ingestor-mvp' });
+    const tag = screen.getByText('pocket-home · ingestor-mvp');
+    expect(tag.closest(`.${styles.tag}`)).not.toBe(null);
+    expect(link().textContent).toMatch(/pocket-home · ingestor-mvp.*Ingestor MVP discussion · 2h/);
+  });
+
+  it('shows no tag box without a tag', () => {
+    row();
+    expect(link().querySelector(`.${styles.tag}`)).toBe(null);
+  });
+
   it('takes the tone of its kind', () => {
     row({ kind: { mark: 'X', label: 'codex', tone: 'other' } });
     expect(screen.getByText('X').classList).toContain(styles.other);
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = row({ attention: 'blocked' });
+    const { container } = row({ attention: 'blocked', tag: 'ingestor-mvp' });
     expect(await axeViolations(container)).toEqual([]);
   });
 });

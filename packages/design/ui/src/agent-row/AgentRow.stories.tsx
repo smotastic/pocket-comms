@@ -47,3 +47,29 @@ export const Rows: Story = () => (
     />
   </Stack>
 );
+
+export const Tagged: Story = () => (
+  <Stack gap="sm">
+    <AgentRow
+      href="#kirk"
+      onNavigate={navigate}
+      kind={{ mark: 'C', label: 'Claude', tone: 'claude' }}
+      name="kirk-ingestor-mvp"
+      status={<StatusPill tone="idle" label="Idle" />}
+      detail="Pocket-home ingestor MVP discussion"
+      tag="ingestor-mvp"
+      since="2h"
+    />
+    <AgentRow
+      href="#w25"
+      onNavigate={navigate}
+      kind={{ mark: 'C', label: 'Claude', tone: 'claude' }}
+      name="feat-multiple-learnings"
+      status={<StatusPill tone="done" label="Done" />}
+      detail="Multi-topic learning beyond Tulu"
+      tag="pocket-learning · feat-multiple-learnings"
+      since="30m"
+      attention="done"
+    />
+  </Stack>
+);

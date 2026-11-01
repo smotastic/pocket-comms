@@ -1,4 +1,5 @@
 .button {
+  position: relative;
   display: inline-grid;
   flex: none;
   place-items: center;
@@ -50,6 +51,17 @@
   background: transparent;
   color: var(--color-text-muted);
   cursor: not-allowed;
+}
+
+/* A dot at the icon's top right corner. */
+.mark {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  width: var(--space-sm);
+  height: var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-accent);
 }
 
 .icon {

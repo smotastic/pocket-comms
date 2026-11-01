@@ -4,7 +4,7 @@ import {
   HerdrUnavailableError,
   type HerdrSnapshot,
 } from '@pocket-comms/comms-application';
-import { AgentStatus, ownGroup, type Agent, type Workspace } from '@pocket-comms/comms-domain';
+import { AgentStatus, OTHER_GROUP, type Agent, type Workspace } from '@pocket-comms/comms-domain';
 import * as Cause from 'effect/Cause';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -65,6 +65,7 @@ const WorkspaceRecord = Schema.Struct({
   worktree: Schema.optional(
     Schema.NullOr(
       Schema.Struct({
+        is_linked_worktree: Schema.optional(Schema.NullOr(Schema.Boolean)),
         repo_key: optionalString,
         repo_name: optionalString,
         repo_root: optionalString,
@@ -103,18 +104,23 @@ const toAgent = (record: typeof AgentRecord.Type): Agent => ({
   completion: orUndefined(record.completion_seq),
 });
 
+// A workspace's project is its repository; a workspace without one belongs to the Other group.
 const toWorkspace = (record: typeof WorkspaceRecord.Type): Workspace => {
   const label = record.label ?? record.workspace_id;
   const key = record.worktree?.repo_key;
   const root = record.worktree?.repo_root;
-  return {
+  const base = {
     id: record.workspace_id,
     label,
-    group:
-      key === undefined || key === null
-        ? ownGroup(record.workspace_id, label)
-        : { key, name: record.worktree?.repo_name ?? label },
     ...(root === undefined || root === null ? {} : { root }),
+  };
+  if (key === undefined || key === null) return { ...base, group: OTHER_GROUP };
+  const project = record.worktree?.repo_name ?? label;
+  return {
+    ...base,
+    group: { key, name: project },
+    project,
+    ...(record.worktree?.is_linked_worktree === true ? { worktree: label } : {}),
   };
 };
 

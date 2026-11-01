@@ -62,11 +62,11 @@ export const makeLoadAgents = Effect.gen(function* () {
   const load = Effect.fn('AgentsInbound.loadAgents')(function* () {
     const snapshot = yield* herdrOutbound.snapshot;
     const seen = yield* seenOutbound.seen;
-    const labels = new Map(snapshot.workspaces.map((workspace) => [workspace.id, workspace.label]));
+    const workspaces = new Map(snapshot.workspaces.map((workspace) => [workspace.id, workspace]));
     const views = yield* Effect.forEach(snapshot.agents, (agent) =>
-      Effect.map(
-        changedAt(agent),
-        (at): AgentView => ({
+      Effect.map(changedAt(agent), (at): AgentView => {
+        const workspace = workspaces.get(agent.workspaceId);
+        return {
           agent,
           dto: {
             ref: agentRef(agent),
@@ -77,12 +77,14 @@ export const makeLoadAgents = Effect.gen(function* () {
             status: agent.status,
             title: agent.title,
             cwd: agent.cwd,
-            workspace: labels.get(agent.workspaceId) ?? agent.workspaceId,
+            workspace: workspace?.label ?? agent.workspaceId,
+            project: workspace?.project,
+            worktree: workspace?.worktree,
             changedAt: at,
             needsYou: needsYou(agent, seen),
           },
-        }),
-      ),
+        };
+      }),
     );
     return {
       views,

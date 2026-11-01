@@ -1,4 +1,5 @@
 import {
+  OTHER_GROUP,
   parseRemote,
   type Agent,
   type Issue,
@@ -96,8 +97,22 @@ export class FakeState extends Context.Service<
 >()('comms/application/testing/FakeState') {}
 
 export const fakeWorkspaces: ReadonlyArray<Workspace> = [
-  { id: 'w1', label: 'app', group: { key: '/work/app/.git', name: 'app' }, root: '/work/app' },
-  { id: 'w2', label: 'feature', group: { key: '/work/app/.git', name: 'app' }, root: '/work/app' },
+  {
+    id: 'w1',
+    label: 'app',
+    group: { key: '/work/app/.git', name: 'app' },
+    root: '/work/app',
+    project: 'app',
+  },
+  {
+    id: 'w2',
+    label: 'feature',
+    group: { key: '/work/app/.git', name: 'app' },
+    root: '/work/app',
+    project: 'app',
+    worktree: 'feature',
+  },
+  { id: 'w3', label: 'notes', group: OTHER_GROUP },
 ];
 
 /** An agent with plain defaults: an idle, named Claude agent in workspace `w1`. */

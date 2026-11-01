@@ -3,8 +3,9 @@
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
 them over `CommsApi`, it starts new tasks in Herdr worktrees, and it reads the projects' Gitea
 issues. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
-[spec 005](../../specs/005-comms-new-task/spec.md) and
-[spec 006](../../specs/006-comms-gitea-issues/spec.md).
+[spec 005](../../specs/005-comms-new-task/spec.md),
+[spec 006](../../specs/006-comms-gitea-issues/spec.md) and
+[spec 007](../../specs/007-comms-sessions-by-project/spec.md).
 It has no database; its only state (seen completions, last status changes) lives in server memory.
 
 ## Where each file type goes

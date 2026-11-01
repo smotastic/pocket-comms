@@ -1,5 +1,5 @@
 import { completionKey, type Agent } from './agent.js';
-import { ownGroup, type Workspace, type WorkspaceGroup } from './workspace.js';
+import { OTHER_GROUP, type Workspace, type WorkspaceGroup } from './workspace.js';
 
 export interface OverviewGroup<A extends Agent = Agent> extends WorkspaceGroup {
   readonly agents: ReadonlyArray<A>;
@@ -8,7 +8,10 @@ export interface OverviewGroup<A extends Agent = Agent> extends WorkspaceGroup {
 export interface Overview<A extends Agent = Agent> {
   /** Blocked agents, then done agents whose completion the owner has not seen. */
   readonly needsYou: ReadonlyArray<A>;
-  /** Every other agent, by repository group in Herdr's workspace order; no group is empty. */
+  /**
+   * Every other agent, by repository group in Herdr's workspace order, then the Other group of
+   * every workspace without a project; no group is empty.
+   */
   readonly groups: ReadonlyArray<OverviewGroup<A>>;
 }
 
@@ -18,7 +21,7 @@ export const needsYou = (agent: Agent, seen: ReadonlySet<string>): boolean =>
 
 /**
  * Sorts the agents for the overview. Agents keep Herdr's order within a section; an agent in a
- * workspace Herdr did not list gets a group of its own after the known ones.
+ * workspace Herdr did not list belongs to the Other group.
  */
 export const buildOverview = <A extends Agent>(
   agents: ReadonlyArray<A>,
@@ -36,7 +39,7 @@ export const buildOverview = <A extends Agent>(
     }
   }
   for (const agent of rest) {
-    const group = groupOf.get(agent.workspaceId) ?? ownGroup(agent.workspaceId, agent.workspaceId);
+    const group = groupOf.get(agent.workspaceId) ?? OTHER_GROUP;
     const entry = groups.get(group.key) ?? { group, agents: [] };
     entry.agents.push(agent);
     groups.set(group.key, entry);
@@ -49,6 +52,9 @@ export const buildOverview = <A extends Agent>(
     ],
     groups: [...groups.values()]
       .filter((entry) => entry.agents.length > 0)
+      .sort(
+        (a, b) => Number(a.group.key === OTHER_GROUP.key) - Number(b.group.key === OTHER_GROUP.key),
+      )
       .map((entry) => ({ ...entry.group, agents: entry.agents })),
   };
 };

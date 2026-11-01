@@ -45,6 +45,20 @@ describe('IconButton', () => {
     expect(screen.getByRole('button', { name: 'Expand' }).hasAttribute('aria-pressed')).toBe(false);
   });
 
+  it('shows a mark, such as a filter that is on, without changing its name', () => {
+    render(
+      <>
+        <IconButton icon="menu" label="Filter by project" marked />
+        <IconButton icon="plus" label="New task" />
+      </>,
+    );
+    const marked = screen.getByRole('button', { name: 'Filter by project' });
+    expect(marked.querySelector(`.${styles.mark}`)?.getAttribute('aria-hidden')).toBe('true');
+    expect(screen.getByRole('button', { name: 'New task' }).querySelector(`.${styles.mark}`)).toBe(
+      null,
+    );
+  });
+
   it('is round and in the accent for the primary action, and can be disabled', async () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
@@ -63,7 +77,16 @@ describe('IconButton', () => {
         ))}
       </>,
     );
-    expect(ICON_NAMES).toEqual(['history', 'plus', 'expand', 'close', 'send', 'back', 'issues']);
+    expect(ICON_NAMES).toEqual([
+      'history',
+      'plus',
+      'expand',
+      'close',
+      'send',
+      'back',
+      'issues',
+      'menu',
+    ]);
     for (const name of ICON_NAMES) {
       const path = screen.getByRole('button', { name }).querySelector('path');
       expect(path?.getAttribute('d')).toMatch(/^M/);

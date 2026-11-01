@@ -13,6 +13,8 @@ export type IconButtonProps = Omit<
   readonly pressed?: boolean;
   /** `primary` for the one main action, such as Send: round and in the accent. Default `quiet`. */
   readonly tone?: 'quiet' | 'primary';
+  /** Shows a dot on the icon for a state the reader should notice, such as a filter that is on. */
+  readonly marked?: boolean;
 };
 
 /** A button that shows only an icon, such as an action in a sheet's header. */
@@ -21,6 +23,7 @@ export const IconButton = ({
   label,
   pressed,
   tone = 'quiet',
+  marked = false,
   type = 'button',
   ...props
 }: IconButtonProps) => (
@@ -32,5 +35,6 @@ export const IconButton = ({
     className={`${styles.button} ${styles[tone]}`}
   >
     <Icon name={icon} />
+    {marked ? <span className={styles.mark} aria-hidden="true" /> : null}
   </button>
 );
