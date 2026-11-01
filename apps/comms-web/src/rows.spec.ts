@@ -32,6 +32,15 @@ describe('rowTag', () => {
     expect(rowTag(agent, 'needsYou')).toBe(tag);
   });
 
+  it('names only the project under Needs you when the worktree is the row name', () => {
+    expect(
+      rowTag(
+        fakeAgent({ name: undefined, workspace: 'feat-x', project: 'app', worktree: 'feat-x' }),
+        'needsYou',
+      ),
+    ).toBe('app');
+  });
+
   it('names only the worktree in a project card', () => {
     expect(rowTag(linked, 'project')).toBe('ingestor-mvp');
     expect(rowTag(main, 'project')).toBeUndefined();

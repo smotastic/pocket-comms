@@ -12,7 +12,9 @@ export const rowName = (agent: AgentView) => agent.name ?? agent.workspace;
 const tagOf = (agent: AgentView, section: RowSection) => {
   if (section === 'other' || agent.project === undefined) return agent.workspace;
   if (section === 'project') return agent.worktree;
-  return agent.worktree === undefined ? agent.project : `${agent.project} · ${agent.worktree}`;
+  return agent.worktree === undefined || agent.worktree === rowName(agent)
+    ? agent.project
+    : `${agent.project} · ${agent.worktree}`;
 };
 
 /** The tag before a row's title (spec 007, requirement 7); never one that repeats the name. */

@@ -48,8 +48,8 @@ takes no room on the page.
 6. A row's name is the agent's Herdr name, or its workspace label when it has none (no longer its
    pane id).
 7. A row shows a **tag** before its title:
-   - in Needs you: `<project> · <worktree>`, or `<project>` for a main checkout, or the workspace
-     label for an agent without a project;
+   - in Needs you: `<project> · <worktree>`, or `<project>` for a main checkout or a worktree that
+     equals the row's name, or the workspace label for an agent without a project;
    - in a project's card: the worktree, or no tag for a main checkout;
    - in the Other card: the workspace label;
    - never when it equals the row's name.
