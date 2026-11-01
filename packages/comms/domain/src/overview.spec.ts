@@ -2,7 +2,7 @@ import { describe, expect, it } from '@effect/vitest';
 import type { Agent } from './agent.js';
 import { agentRef, completionKey, transcriptFormatOf } from './agent.js';
 import { buildOverview } from './overview.js';
-import type { Workspace } from './workspace.js';
+import { OTHER_GROUP, type Workspace } from './workspace.js';
 
 const agent = (overrides: Partial<Agent> & Pick<Agent, 'paneId'>): Agent => ({
   name: undefined,
@@ -17,9 +17,17 @@ const agent = (overrides: Partial<Agent> & Pick<Agent, 'paneId'>): Agent => ({
 });
 
 const workspaces: ReadonlyArray<Workspace> = [
-  { id: 'w1', label: 'app', group: { key: '/work/app/.git', name: 'app' } },
-  { id: 'w2', label: 'feature', group: { key: '/work/app/.git', name: 'app' } },
-  { id: 'w3', label: 'notes', group: { key: 'ws:w3', name: 'notes' } },
+  { id: 'w1', label: 'app', group: { key: '/work/app/.git', name: 'app' }, project: 'app' },
+  {
+    id: 'w2',
+    label: 'feature',
+    group: { key: '/work/app/.git', name: 'app' },
+    project: 'app',
+    worktree: 'feature',
+  },
+  { id: 'w3', label: 'notes', group: OTHER_GROUP },
+  { id: 'w4', label: 'setup', group: OTHER_GROUP },
+  { id: 'w5', label: 'site', group: { key: '/work/site/.git', name: 'site' }, project: 'site' },
 ];
 
 const none = new Set<string>();
@@ -49,9 +57,28 @@ describe('buildOverview', () => {
     expect(overview.groups.map((group) => [group.name, group.agents.map((a) => a.paneId)])).toEqual(
       [
         ['app', ['w1:p1', 'w2:p1']],
-        ['notes', ['w3:p1']],
+        ['Other', ['w3:p1']],
       ],
     );
+  });
+
+  it('puts the agents of every workspace without a project into one Other group, last', () => {
+    const overview = buildOverview(
+      [
+        agent({ paneId: 'w3:p1', workspaceId: 'w3' }),
+        agent({ paneId: 'w4:p1', workspaceId: 'w4' }),
+        agent({ paneId: 'w5:p1', workspaceId: 'w5' }),
+        agent({ paneId: 'w1:p1' }),
+      ],
+      workspaces,
+      none,
+    );
+
+    expect(overview.groups.map((group) => [group.key, group.agents.map((a) => a.paneId)])).toEqual([
+      ['/work/app/.git', ['w1:p1']],
+      ['/work/site/.git', ['w5:p1']],
+      ['other', ['w3:p1', 'w4:p1']],
+    ]);
   });
 
   it('keeps the workspace order of Herdr for the groups', () => {
@@ -61,19 +88,23 @@ describe('buildOverview', () => {
       none,
     );
 
-    expect(overview.groups.map((group) => group.name)).toEqual(['app', 'notes']);
+    expect(overview.groups.map((group) => group.name)).toEqual(['app', 'Other']);
   });
 
-  it('puts an agent of an unknown workspace into a group of its own, after the known ones', () => {
+  it('puts an agent of a workspace Herdr did not list into the Other group', () => {
     const overview = buildOverview(
-      [agent({ paneId: 'w9:p1', workspaceId: 'w9' }), agent({ paneId: 'w1:p1' })],
+      [
+        agent({ paneId: 'w9:p1', workspaceId: 'w9' }),
+        agent({ paneId: 'w3:p1', workspaceId: 'w3' }),
+        agent({ paneId: 'w1:p1' }),
+      ],
       workspaces,
       none,
     );
 
-    expect(overview.groups.map((group) => [group.key, group.name])).toEqual([
-      ['/work/app/.git', 'app'],
-      ['ws:w9', 'w9'],
+    expect(overview.groups.map((group) => [group.key, group.agents.map((a) => a.paneId)])).toEqual([
+      ['/work/app/.git', ['w1:p1']],
+      ['other', ['w9:p1', 'w3:p1']],
     ]);
   });
 

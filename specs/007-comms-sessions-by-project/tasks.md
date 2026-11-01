@@ -7,7 +7,7 @@ in the task's own commit.
 
 ## Backend
 
-- [ ] **T01** — Domain: `Workspace.project` and `worktree`; the shared Other group, last; an
+- [x] **T01** — Domain: `Workspace.project` and `worktree`; the shared Other group, last; an
       unlisted workspace lands in Other
   - Gate: `pnpm nx test comms-domain`
 

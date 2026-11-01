@@ -129,7 +129,7 @@ describe('Herdr.layerSocket', () => {
             group: { key: '/work/home/.git', name: 'pocket-home' },
             root: '/work/home',
           },
-          { id: 'w9', label: 'notes', group: { key: 'ws:w9', name: 'notes' } },
+          { id: 'w9', label: 'notes', group: { key: 'other', name: 'Other' } },
         ],
       });
     }).pipe(Effect.scoped),

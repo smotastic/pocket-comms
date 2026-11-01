@@ -4,7 +4,7 @@ import {
   HerdrUnavailableError,
   type HerdrSnapshot,
 } from '@pocket-comms/comms-application';
-import { AgentStatus, ownGroup, type Agent, type Workspace } from '@pocket-comms/comms-domain';
+import { AgentStatus, OTHER_GROUP, type Agent, type Workspace } from '@pocket-comms/comms-domain';
 import * as Cause from 'effect/Cause';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -112,7 +112,7 @@ const toWorkspace = (record: typeof WorkspaceRecord.Type): Workspace => {
     label,
     group:
       key === undefined || key === null
-        ? ownGroup(record.workspace_id, label)
+        ? OTHER_GROUP
         : { key, name: record.worktree?.repo_name ?? label },
     ...(root === undefined || root === null ? {} : { root }),
   };
