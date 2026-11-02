@@ -38,10 +38,13 @@ import { useNow, useOverviewLive } from './live.js';
 import { NewTask } from './NewTask.js';
 import { filterOverview } from './project-agents.js';
 import { since } from './since.js';
+import { startedNotice } from './started.js';
 
 export interface ProjectPageProps {
   readonly client: CommsClient;
   readonly project: string;
+  /** Shown when the page opens, such as what a start from the projects sheet left to say. */
+  readonly notice?: string | undefined;
   readonly onBack: () => void;
   readonly onOpenAgent: (ref: string) => void;
   /** Opens the conversation of an agent New task or Implement with Claude started, with a note. */
@@ -51,12 +54,6 @@ export interface ProjectPageProps {
 const updated = (at: number, now: number) => {
   const ago = since(at, now);
   return ago === 'now' ? 'Updated just now' : `Updated ${ago} ago`;
-};
-
-/** What the screen says after a start without a running agent. */
-const startedNotice = (created: TaskCreatedView) => {
-  const ready = `${created.branch} is ready in a new worktree.`;
-  return created.agent?.note === undefined ? ready : `${ready} ${created.agent.note}`;
 };
 
 const IssueRow = ({
@@ -204,6 +201,7 @@ const Agents = ({
 export const ProjectPage = ({
   client,
   project,
+  notice: initialNotice,
   onBack,
   onOpenAgent,
   onStarted,
@@ -216,7 +214,7 @@ export const ProjectPage = ({
   const [implementing, setImplementing] = useState<IssueView | undefined>(undefined);
   const [closing, setClosing] = useState<IssueView | undefined>(undefined);
   const [creating, setCreating] = useState(false);
-  const [notice, setNotice] = useState<string | undefined>(undefined);
+  const [notice, setNotice] = useState(initialNotice);
   const now = useNow();
   const repository = issues.data?._tag === 'Listed' ? issues.data.repository : undefined;
   const unknown =

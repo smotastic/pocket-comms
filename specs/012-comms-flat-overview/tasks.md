@@ -27,7 +27,7 @@ in the task's own commit.
 - [x] **T04** — Design kit: `Sheet` with `side="end"`, `Disclosure` and `IssueCard`
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 
-- [ ] **T05** — Web: the Projects action and sheet (counts, one entry open, issue cards and
+- [x] **T05** — Web: the Projects action and sheet (counts, one entry open, issue cards and
       their states, Implement, New task, Project page); the overview's Projects list goes
   - Gate: `pnpm nx test comms-web`
 

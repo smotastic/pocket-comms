@@ -20,5 +20,7 @@ declare module '@tanstack/react-router' {
   interface HistoryState {
     /** What a new task's agent did not do, shown once its conversation opens (spec 005). */
     readonly note?: string | undefined;
+    /** What a start without a running agent left to say, shown when the project page opens. */
+    readonly notice?: string | undefined;
   }
 }

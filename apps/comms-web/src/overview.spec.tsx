@@ -61,16 +61,16 @@ describe('the overview', () => {
     ).toEqual(['/agents/kirk', '/agents/w4%3Ap1']);
   });
 
-  it('shows the two groups and the idle projects, each with its count, and no project cards', async () => {
+  it('shows the two groups, each with its count, and no project cards or projects list', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
-    await screen.findByRole('region', { name: 'Projects' });
+    await screen.findByRole('region', { name: 'Everything else' });
     expect(
       screen.getAllByRole('region').map((region) => region.getAttribute('aria-label')),
-    ).toEqual(['Needs you', 'Everything else', 'Projects']);
+    ).toEqual(['Needs you', 'Everything else']);
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Needs you 2', 'Everything else 2', 'Projects 2']);
+    ).toEqual(['Needs you 2', 'Everything else 2']);
   });
 
   it('leaves out an empty group', async () => {
@@ -208,58 +208,13 @@ describe('the overview', () => {
 });
 
 describe('the projects on the overview', () => {
-  const projects = [
-    { name: 'app', open: true },
-    { name: 'pocket-home', open: false },
-    { name: 'pocket-learning', open: false },
-  ];
-
-  it('has no filter, projects or new task action in the top bar', async () => {
-    renderApp({ client: fakeClient({ overview, projects }).client });
+  it('has only the Projects action in the top bar', async () => {
+    renderApp({ client: fakeClient({ overview }).client });
 
     const banner = await screen.findByRole('banner');
-    expect(within(banner).queryAllByRole('button')).toEqual([]);
-  });
-
-  it('lists the projects without agents last, each opening its page', async () => {
-    const { router } = renderApp({ client: fakeClient({ overview, projects }).client });
-
-    const list = await screen.findByRole('list', { name: 'Projects without agents' });
-    expect(
-      within(list)
-        .getAllByRole('link')
-        .map((link) => link.textContent),
-    ).toEqual(['pocket-home', 'pocket-learning']);
-
-    await userEvent.click(within(list).getByRole('link', { name: 'pocket-home' }));
-    expect(router.state.location.pathname).toBe('/projects/pocket-home');
-  });
-
-  it('leaves out a project whose only agent is in Needs you', async () => {
-    const waiting = fakeAgent({
-      ref: 'w9:p1',
-      paneId: 'w9:p1',
-      project: 'pocket-home',
-      status: 'blocked',
-      needsYou: true,
-    });
-    renderApp({
-      client: fakeClient({ overview: { needsYou: [waiting], groups: [] }, projects }).client,
-    });
-
-    const list = await screen.findByRole('list', { name: 'Projects without agents' });
-    expect(
-      within(list)
-        .getAllByRole('link')
-        .map((link) => link.textContent),
-    ).toEqual(['app', 'pocket-learning']);
-  });
-
-  it('shows no projects list when every project has an agent', async () => {
-    renderApp({ client: fakeClient({ overview, projects: [{ name: 'app', open: true }] }).client });
-
-    await screen.findByRole('region', { name: 'Everything else' });
-    expect(screen.queryByRole('region', { name: 'Projects' })).toBeNull();
+    expect(within(banner).getAllByRole('button')).toEqual([
+      within(banner).getByRole('button', { name: 'Projects' }),
+    ]);
   });
 
   it('leads the old projects address to the overview', async () => {
