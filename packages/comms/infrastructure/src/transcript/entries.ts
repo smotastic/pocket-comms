@@ -13,6 +13,7 @@ export interface ToolSummary {
   readonly verb: ToolVerb;
   readonly target?: string | undefined;
   readonly added?: number | undefined;
+  readonly questions?: ToolEntry['questions'];
 }
 
 // A command in the one-line summary is cut to its first line and this many characters.
@@ -71,16 +72,29 @@ export const entryLog = () => {
       entries.push(entry);
       return entry;
     },
-    /** Sets the outcome of a tool call, and the line counts a result reports; none for an unknown id. */
+    /**
+     * Sets the outcome of a tool call, the line counts a result reports and the answers to its
+     * questions, each found by the question's text; none for an unknown id.
+     */
     finish: (
       id: string,
       outcome: ToolOutcome,
       counts?: { readonly added: number; readonly removed: number },
+      answerOf: (question: string) => string | undefined = () => undefined,
     ): TranscriptEntry | undefined => {
       const index = tools.get(id);
       const entry = index === undefined ? undefined : entries[index];
       if (index === undefined || entry?.type !== 'tool') return undefined;
-      const finished: ToolEntry = { ...entry, outcome, ...counts };
+      const questions = entry.questions?.map((question) => {
+        const answer = answerOf(question.text);
+        return answer === undefined ? question : { ...question, answer };
+      });
+      const finished: ToolEntry = {
+        ...entry,
+        outcome,
+        ...counts,
+        ...(questions === undefined ? {} : { questions }),
+      };
       entries[index] = finished;
       return finished;
     },

@@ -20,7 +20,7 @@ This feature shows each question and the chosen answer in the chat.
 
 ## 3. Requirements (WHAT)
 
-1. A Claude `AskUserQuestion` call is a **question entry** in the transcript instead of a tool
+1. The chat shows a Claude `AskUserQuestion` call as a **question card** instead of a tool
    line. It holds each question of the call, in order, with its short header and its text.
 2. Once answered, each question shows the chosen answer: the option's label, several labels joined
    with ", " for a multiple choice, or the text the owner typed for "Other".
@@ -29,8 +29,9 @@ This feature shows each question and the chosen answer in the chat.
    "Not answered".
 5. While a working agent's latest entry is a waiting question, the activity line says
    "Waiting for your answer…".
-6. The API's transcript carries the question entry with its questions, their headers and their
-   answers; the OpenAPI document describes it.
+6. The API's transcript carries the questions, their headers and their answers on the call's
+   entry, compatibly: a client that does not know them still shows the tool line. The OpenAPI
+   document describes them.
 7. A question or an answer is shown as plain text, never as Markdown, and wraps instead of being
    cut.
 

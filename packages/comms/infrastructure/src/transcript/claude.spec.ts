@@ -108,6 +108,119 @@ describe('createClaudeParser', () => {
   });
 });
 
+describe('createClaudeParser with AskUserQuestion', () => {
+  const questions = [
+    {
+      question: 'Keep Effect?',
+      header: 'Stack',
+      options: [{ label: 'Keep Effect' }, { label: 'Drop it' }],
+      multiSelect: false,
+    },
+    {
+      question: 'Which projects?',
+      header: 'Projects',
+      options: [{ label: 'Backend' }, { label: 'Web' }],
+      multiSelect: true,
+    },
+  ];
+  const asked = JSON.stringify({
+    type: 'assistant',
+    uuid: 'a-q',
+    timestamp: '2026-10-30T15:17:01Z',
+    message: {
+      role: 'assistant',
+      content: [{ type: 'tool_use', id: 'toolu-q', name: 'AskUserQuestion', input: { questions } }],
+    },
+  });
+  const result = (block: Record<string, unknown>, toolUseResult?: unknown) =>
+    JSON.stringify({
+      type: 'user',
+      uuid: 'u-q',
+      timestamp: '2026-10-30T15:17:09Z',
+      message: {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'toolu-q', ...block }],
+      },
+      ...(toolUseResult === undefined ? {} : { toolUseResult }),
+    });
+  const waiting = [
+    { header: 'Stack', text: 'Keep Effect?' },
+    { header: 'Projects', text: 'Which projects?' },
+  ];
+
+  it('carries the questions while the owner has not answered', () => {
+    const parser = createClaudeParser('/work/app');
+
+    expect(parser.push(asked)).toEqual([
+      {
+        type: 'tool',
+        id: 'toolu-q',
+        at: Date.parse('2026-10-30T15:17:01Z'),
+        verb: 'Used',
+        target: 'AskUserQuestion',
+        questions: waiting,
+        outcome: 'pending',
+      },
+    ]);
+  });
+
+  it('carries each chosen answer, several joined and typed ones as typed', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(asked);
+
+    const changed = parser.push(
+      result(
+        { content: 'The user answered: …' },
+        {
+          questions,
+          answers: { 'Keep Effect?': 'my own idea', 'Which projects?': 'Backend, Web' },
+        },
+      ),
+    );
+
+    expect(changed).toEqual([
+      expect.objectContaining({
+        outcome: 'ok',
+        questions: [
+          { header: 'Stack', text: 'Keep Effect?', answer: 'my own idea' },
+          { header: 'Projects', text: 'Which projects?', answer: 'Backend, Web' },
+        ],
+      }),
+    ]);
+  });
+
+  it('fails the call without answers when the owner declines', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(asked);
+
+    parser.push(result({ content: 'The user declined.', is_error: true }));
+
+    expect(parser.entries()).toEqual([
+      expect.objectContaining({ outcome: 'error', questions: waiting }),
+    ]);
+  });
+
+  it('is a plain tool line when no question can be read', () => {
+    const parser = createClaudeParser('/work/app');
+
+    const [entry] = parser.push(asked.replace('"questions":', '"other":'));
+
+    expect(entry).toEqual(expect.not.objectContaining({ questions: expect.anything() }));
+    expect(entry).toMatchObject({ verb: 'Used', target: 'AskUserQuestion' });
+  });
+
+  it('finishes a call whose result names no answers', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(asked);
+
+    parser.push(result({ content: 'Answered.' }));
+
+    expect(parser.entries()).toEqual([
+      expect.objectContaining({ outcome: 'ok', questions: waiting }),
+    ]);
+  });
+});
+
 describe('claudeSessionPath', () => {
   it('names the session file under the project folder of the working directory', () => {
     expect(claudeSessionPath('/home/me', '/Users/me/.herdr/worktrees/app', 'abc')).toBe(

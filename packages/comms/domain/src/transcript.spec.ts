@@ -37,6 +37,20 @@ describe('activityOf', () => {
     expect(activityOf([user, tool('Ran', 'ok', 'pnpm test')])).toBe('Thinking…');
   });
 
+  it('waits for the owner while a question has no answer', () => {
+    const question = (outcome: 'pending' | 'ok'): TranscriptEntry => ({
+      type: 'tool',
+      id: 'q1',
+      at,
+      verb: 'Used',
+      target: 'AskUserQuestion',
+      questions: [{ header: 'Stack', text: 'Keep Effect?' }],
+      outcome,
+    });
+    expect(activityOf([question('pending')])).toBe('Waiting for your answer…');
+    expect(activityOf([question('ok')])).toBe('Thinking…');
+  });
+
   it('is thinking when nothing was written yet', () => {
     expect(activityOf([])).toBe('Thinking…');
   });

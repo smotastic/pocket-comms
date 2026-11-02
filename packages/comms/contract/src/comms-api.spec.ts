@@ -107,6 +107,18 @@ describe('wire schemas', () => {
         removed: 1,
         outcome: 'ok',
       },
+      {
+        type: 'tool',
+        id: 'q1',
+        at: 4,
+        verb: 'Used',
+        target: 'AskUserQuestion',
+        questions: [
+          { header: 'Stack', text: 'Keep Effect?', answer: 'Keep Effect' },
+          { text: 'Keep Nx?' },
+        ],
+        outcome: 'ok',
+      },
     ];
     const codec = Schema.Array(TranscriptEntry);
     expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(entries))).toEqual(entries);

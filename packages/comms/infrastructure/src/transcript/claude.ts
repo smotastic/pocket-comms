@@ -20,6 +20,24 @@ import {
 export const claudeSessionPath = (home: string, cwd: string, session: string): string =>
   join(home, '.claude', 'projects', cwd.replace(/[/.]/g, '-'), `${session}.jsonl`);
 
+// The questions of an `AskUserQuestion` call, each with its text and short header.
+const questionsOf = (input: unknown) => {
+  const questions = isRecord(input) ? input['questions'] : undefined;
+  if (!Array.isArray(questions)) return [];
+  return questions.flatMap((question: unknown) => {
+    const text = stringField(question, 'question');
+    if (text === undefined) return [];
+    const header = stringField(question, 'header');
+    return [header === undefined ? { text } : { header, text }];
+  });
+};
+
+// The result of an `AskUserQuestion` call names each answer by its question's text.
+const answersOf =
+  (result: unknown) =>
+  (question: string): string | undefined =>
+    stringField(isRecord(result) ? result['answers'] : undefined, question);
+
 const summarise = (cwd: string | undefined, name: string, input: unknown): ToolSummary => {
   const field = (key: string) => stringField(input, key);
   const path = (key: string) => {
@@ -50,6 +68,11 @@ const summarise = (cwd: string | undefined, name: string, input: unknown): ToolS
       return { verb: 'Delegated', target: field('description') };
     case 'Skill':
       return { verb: 'Used', target: field('skill') };
+    case 'AskUserQuestion': {
+      // A call whose questions cannot be read stays a plain tool line.
+      const questions = questionsOf(input);
+      return { verb: 'Used', target: name, ...(questions.length === 0 ? {} : { questions }) };
+    }
     default:
       return { verb: 'Used', target: name };
   }
@@ -114,6 +137,7 @@ export const createClaudeParser = (cwd: string | undefined): TranscriptParser =>
           stringField(block, 'tool_use_id') ?? '',
           block['is_error'] === true ? 'error' : 'ok',
           patchCounts(line['toolUseResult']),
+          answersOf(line['toolUseResult']),
         );
         if (finished !== undefined) changed.push(finished);
       }
