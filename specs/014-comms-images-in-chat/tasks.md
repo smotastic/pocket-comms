@@ -12,7 +12,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       image ids on `prompt` and on task `create`
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T03** — Infrastructure: the image folder store, and the transcript adapter with the images
+- [x] **T03** — Infrastructure: the image folder store, and the transcript adapter with the images
       folder
   - Gate: `pnpm nx test comms-infrastructure`
 
