@@ -7,7 +7,7 @@ import { TestClock } from 'effect/testing';
 import type { CreateTaskInput } from '../dto/task.dto.js';
 import { BranchExistsError, ProjectGitError } from '../errors.js';
 import { TasksInbound } from '../ports/tasks.inbound.port.js';
-import { fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
+import { FAKE_IMAGES_FOLDER, fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
 
 const layer = () => TasksInbound.layer.pipe(Layer.provideMerge(fakeLayer()));
 
@@ -142,6 +142,51 @@ describe('TasksInbound.create', () => {
       const error = yield* create().pipe(Effect.flip);
 
       expect(error).toBeInstanceOf(ProjectGitError);
+      expect(state.calls).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect("sends the attached images' paths after the task", () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const id = 'a'.repeat(26);
+      state.images.set(id, { kind: 'jpeg', bytes: new Uint8Array(), savedAt: 0 });
+
+      yield* create({ agent: 'claude', imageIds: [id] });
+
+      expect(state.calls.at(-1)).toMatchObject({
+        method: 'prompt',
+        params: `Add the new task flow\nWith a sheet.\n\n${FAKE_IMAGES_FOLDER}/${id}.jpg`,
+      });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('refuses images without an agent, before anything is created', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const id = 'a'.repeat(26);
+      state.images.set(id, { kind: 'jpeg', bytes: new Uint8Array(), savedAt: 0 });
+
+      const error = yield* create({ imageIds: [id] }).pipe(Effect.flip);
+
+      expect(error).toEqual(
+        new InvalidInputError({
+          issues: [{ field: 'imageIds', message: 'Images need an agent to start.' }],
+        }),
+      );
+      expect(state.calls).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('refuses an unknown image, before anything is created', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+
+      const error = yield* create({ agent: 'claude', imageIds: ['c'.repeat(26)] }).pipe(
+        Effect.flip,
+      );
+
+      expect(error).toBeInstanceOf(InvalidInputError);
       expect(state.calls).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );

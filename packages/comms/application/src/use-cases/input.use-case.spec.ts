@@ -4,7 +4,7 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import { AgentNotFoundError, HerdrRejectedError } from '../errors.js';
 import { AgentsInbound } from '../ports/agents.inbound.port.js';
-import { fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
+import { FAKE_IMAGES_FOLDER, fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
 
 const layer = () => AgentsInbound.layer.pipe(Layer.provideMerge(fakeLayer()));
 
@@ -35,6 +35,51 @@ describe('AgentsInbound.prompt', () => {
       yield* AgentsInbound.use((inbound) => inbound.prompt('kirk', '  hello\n'));
 
       expect(state.calls.at(-1)).toEqual({ method: 'prompt', target: 'w1:p1', params: 'hello' });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('sends the paths of the attached images after the text', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+      const bytes = new Uint8Array([0xff, 0xd8, 0xff]);
+      state.images.set('a'.repeat(26), { kind: 'jpeg', bytes, savedAt: 0 });
+      state.images.set('b'.repeat(26), { kind: 'png', bytes, savedAt: 0 });
+
+      yield* AgentsInbound.use((inbound) =>
+        inbound.prompt('kirk', ' Why? ', ['a'.repeat(26), 'b'.repeat(26)]),
+      );
+
+      expect(state.calls.at(-1)?.params).toBe(
+        `Why?\n\n${FAKE_IMAGES_FOLDER}/${'a'.repeat(26)}.jpg\n${FAKE_IMAGES_FOLDER}/${'b'.repeat(26)}.png`,
+      );
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('sends only the paths when there is no text', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+      state.images.set('a'.repeat(26), { kind: 'jpeg', bytes: new Uint8Array(), savedAt: 0 });
+
+      yield* AgentsInbound.use((inbound) => inbound.prompt('kirk', '', ['a'.repeat(26)]));
+
+      expect(state.calls.at(-1)?.params).toBe(`${FAKE_IMAGES_FOLDER}/${'a'.repeat(26)}.jpg`);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('sends nothing when an image is unknown', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+
+      const error = yield* AgentsInbound.use((inbound) =>
+        inbound.prompt('kirk', 'hi', ['c'.repeat(26)]),
+      ).pipe(Effect.flip);
+
+      expect(error).toEqual(
+        new InvalidInputError({
+          issues: [{ field: 'imageIds', message: `${'c'.repeat(26)} is not an attached image.` }],
+        }),
+      );
+      expect(state.calls.some((call) => call.method === 'prompt')).toBe(false);
     }).pipe(Effect.provide(layer())),
   );
 

@@ -8,7 +8,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       rule with images, and the images of a transcript `user` entry
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application: `ImagesOutbound` and its fake, `ImagesInbound` (upload, read, sweep),
+- [x] **T02** — Application: `ImagesOutbound` and its fake, `ImagesInbound` (upload, read, sweep),
       image ids on `prompt` and on task `create`
   - Gate: `pnpm nx test comms-application`
 

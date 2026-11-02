@@ -99,3 +99,8 @@ export class ProposalNotFoundError extends Data.TaggedError('ProposalNotFoundErr
 export class ProposalDecidedError extends Data.TaggedError('ProposalDecidedError')<{
   readonly id: string;
 }> {}
+
+/** The server keeps no image with this id: it never existed or was removed (spec 014). */
+export class ImageNotFoundError extends Data.TaggedError('ImageNotFoundError')<{
+  readonly id: string;
+}> {}
