@@ -1,6 +1,6 @@
 # Spec 008 — pocket-comms: one home, one page per project
 
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02); checked locally at 390 px against the live Herdr on 2026-11-02
 - **Changes:** [spec 005](../005-comms-new-task/spec.md) (the New task sheet's project picker and
   its place on the overview), [spec 006](../006-comms-gitea-issues/spec.md) (requirement 4, the
   Projects screen) and [spec 007](../007-comms-sessions-by-project/spec.md) (requirements 4 and

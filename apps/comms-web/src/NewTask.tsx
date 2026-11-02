@@ -5,15 +5,13 @@ import {
   IconButton,
   Input,
   Segmented,
-  Select,
   Sheet,
   SheetHeader,
   Stack,
   Switch,
-  Text,
   TextArea,
 } from '@pocket-comms/design-ui';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { suggestBranch } from './branch.js';
 import {
@@ -22,10 +20,11 @@ import {
   type CommsClient,
   type TaskCreatedView,
 } from './comms-client.js';
-import { projectsQuery } from './comms-queries.js';
 
 export interface NewTaskProps {
   readonly client: CommsClient;
+  /** The project the task starts in (spec 008, requirement 11). */
+  readonly project: string;
   readonly open: boolean;
   readonly onClose: () => void;
   readonly onCreated: (created: TaskCreatedView) => void;
@@ -39,9 +38,11 @@ const AGENT_OPTIONS = [
 const isAgentToStart = (value: string): value is AgentToStart =>
   AGENT_OPTIONS.some((option) => option.value === value);
 
-const NewTaskForm = ({ client, onCreated }: Pick<NewTaskProps, 'client' | 'onCreated'>) => {
-  const projects = useQuery(projectsQuery(client));
-  const [chosenProject, setProject] = useState<string | undefined>(undefined);
+const NewTaskForm = ({
+  client,
+  project,
+  onCreated,
+}: Pick<NewTaskProps, 'client' | 'project' | 'onCreated'>) => {
   const [task, setTask] = useState('');
   // The branch follows the task until the owner edits it (spec 005, requirement 6).
   const [editedBranch, setBranch] = useState<string | undefined>(undefined);
@@ -49,19 +50,10 @@ const NewTaskForm = ({ client, onCreated }: Pick<NewTaskProps, 'client' | 'onCre
   const [kind, setKind] = useState<AgentToStart>('claude');
   const create = useMutation({ mutationFn: client.createTask, onSuccess: onCreated });
 
-  const project = chosenProject ?? projects.data?.[0]?.name ?? '';
   const branch = editedBranch ?? (task.trim() === '' ? '' : suggestBranch(task));
   const issues = create.error instanceof RequestError ? create.error.issues : [];
   const issueOf = (field: string) => issues.find((issue) => issue.field === field)?.message;
-  const unplaced = issues.filter(
-    (issue) => !['project', 'task', 'branch', 'agent'].includes(issue.field),
-  );
-
-  if (projects.error !== null) return <Alert>{projects.error.message}</Alert>;
-  if (projects.data === undefined) return <Text tone="muted">Loading the projects…</Text>;
-  if (projects.data.length === 0) {
-    return <Text tone="muted">No git repositories were found in the projects folder.</Text>;
-  }
+  const unplaced = issues.filter((issue) => !['task', 'branch', 'agent'].includes(issue.field));
 
   return (
     <Form
@@ -82,16 +74,6 @@ const NewTaskForm = ({ client, onCreated }: Pick<NewTaskProps, 'client' | 'onCre
         </Button>
       }
     >
-      <Select
-        label="Project"
-        value={project}
-        onChange={(event) => setProject(event.target.value)}
-        options={projects.data.map(({ name, open }) => ({
-          value: name,
-          label: open ? `${name} · open in Herdr` : name,
-        }))}
-        error={issueOf('project')}
-      />
       <TextArea
         label="Task"
         placeholder="What should be done? The first line becomes the title."
@@ -141,21 +123,21 @@ const NewTaskForm = ({ client, onCreated }: Pick<NewTaskProps, 'client' | 'onCre
 };
 
 /**
- * The New task sheet (spec 005): a project, the task, its branch and optionally an agent. A
- * closed sheet forgets what was typed; a failed create keeps it.
+ * The New task sheet (spec 005) of one project (spec 008): the task, its branch and optionally an
+ * agent. A closed sheet forgets what was typed; a failed create keeps it.
  */
-export const NewTask = ({ client, open, onClose, onCreated }: NewTaskProps) => (
+export const NewTask = ({ client, project, open, onClose, onCreated }: NewTaskProps) => (
   <Sheet
     open={open}
     label="New task"
     bodyLabel="New task form"
     onClose={onClose}
     header={
-      <SheetHeader title="New task" subtitle="A new worktree in Herdr">
+      <SheetHeader title="New task" subtitle={`${project} · a new worktree in Herdr`}>
         <IconButton icon="close" label="Close" onClick={onClose} />
       </SheetHeader>
     }
   >
-    <NewTaskForm client={client} onCreated={onCreated} />
+    <NewTaskForm client={client} project={project} onCreated={onCreated} />
   </Sheet>
 );

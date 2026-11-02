@@ -1,74 +1,33 @@
 import {
-  AgentRow,
   Alert,
   Card,
-  IconButton,
-  Inline,
+  Link,
+  List,
+  ListItem,
   LiveIndicator,
   Page,
   SectionHeader,
   Stack,
-  StatusPill,
   Text,
   TopBar,
 } from '@pocket-comms/design-ui';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import type { AgentView, CommsClient, TaskCreatedView } from './comms-client.js';
+import { AgentItem } from './AgentItem.js';
+import type { AgentView, CommsClient, OverviewView } from './comms-client.js';
 import { RequestError } from './comms-client.js';
-import { overviewQuery } from './comms-queries.js';
-import { kindOf, STATUS_LABELS } from './labels.js';
+import { overviewQuery, projectsQuery } from './comms-queries.js';
+import { navigateOnPlainClick } from './links.js';
 import { useNow, useOverviewLive } from './live.js';
-import { NewTask } from './NewTask.js';
-import { filterOverview, projectChoices } from './project-filter.js';
-import { ProjectFilter } from './ProjectFilter.js';
-import { OTHER_KEY, rowName, rowTag, type RowSection } from './rows.js';
-import { since } from './since.js';
+import { OTHER_KEY, type RowSection } from './rows.js';
 
 export interface OverviewProps {
   readonly client: CommsClient;
   readonly onOpen: (ref: string) => void;
-  /** Opens the projects and their Gitea issues. */
-  readonly onProjects: () => void;
-  /** Opens the conversation of an agent the New task sheet started, with a note to show there. */
-  readonly onStarted: (ref: string, note: string | undefined) => void;
+  /** Opens a project's page. */
+  readonly onProject: (project: string) => void;
 }
 
-/** What the overview says after a task without a running agent was created. */
-const createdNotice = (created: TaskCreatedView) => {
-  const ready = `${created.branch} is ready in a new worktree.`;
-  return created.agent?.note === undefined ? ready : `${ready} ${created.agent.note}`;
-};
-
-const withTag = (tag: string | undefined) => (tag === undefined ? {} : { tag });
-
-const Row = ({
-  agent,
-  section,
-  now,
-  onOpen,
-}: {
-  readonly agent: AgentView;
-  readonly section: RowSection;
-  readonly now: number;
-  readonly onOpen: (ref: string) => void;
-}) => (
-  <AgentRow
-    href={`/agents/${encodeURIComponent(agent.ref)}`}
-    onNavigate={() => onOpen(agent.ref)}
-    kind={kindOf(agent.kind)}
-    name={rowName(agent)}
-    status={<StatusPill tone={agent.status} label={STATUS_LABELS[agent.status]} />}
-    detail={agent.status === 'blocked' ? 'Needs your answer' : agent.title}
-    {...withTag(rowTag(agent, section))}
-    since={since(agent.changedAt, now)}
-    {...(agent.status === 'blocked'
-      ? { attention: 'blocked' as const }
-      : agent.needsYou
-        ? { attention: 'done' as const }
-        : {})}
-  />
-);
+const projectHref = (project: string) => `/projects/${encodeURIComponent(project)}`;
 
 const Section = ({
   title,
@@ -76,33 +35,79 @@ const Section = ({
   agents,
   now,
   onOpen,
+  onTitle,
 }: {
   readonly title: string;
   readonly section: RowSection;
   readonly agents: ReadonlyArray<AgentView>;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
+  /** Makes the title a link to the project's page. */
+  readonly onTitle?: (() => void) | undefined;
 }) => (
   <Card>
     <section aria-label={title}>
       <Stack gap="xs">
-        <SectionHeader title={title} count={agents.length} />
+        <SectionHeader
+          title={title}
+          count={agents.length}
+          {...(onTitle === undefined
+            ? {}
+            : { link: { href: projectHref(title), label: `Open ${title}`, onNavigate: onTitle } })}
+        />
         {agents.map((agent) => (
-          <Row key={agent.paneId} agent={agent} section={section} now={now} onOpen={onOpen} />
+          <AgentItem key={agent.paneId} agent={agent} section={section} now={now} onOpen={onOpen} />
         ))}
       </Stack>
     </section>
   </Card>
 );
 
-/** `/`: every live agent, Needs you first, then a card per project and Other; it updates live. */
-export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProps) => {
+/** Every project that has an agent on the overview, in a card or in Needs you. */
+const busyProjects = (overview: OverviewView) =>
+  new Set([
+    ...overview.groups.filter((group) => group.key !== OTHER_KEY).map((group) => group.name),
+    ...overview.needsYou.flatMap((agent) => (agent.project === undefined ? [] : [agent.project])),
+  ]);
+
+/** The projects without an agent, each a link to its page (spec 008, requirement 5). */
+const IdleProjects = ({
+  names,
+  onProject,
+}: {
+  readonly names: ReadonlyArray<string>;
+  readonly onProject: (project: string) => void;
+}) => (
+  <Card>
+    <section aria-label="Projects">
+      <Stack gap="xs">
+        <SectionHeader title="Projects" count={names.length} />
+        <List aria-label="Projects without agents">
+          {names.map((name) => (
+            <ListItem key={name}>
+              <Link
+                emphasis="strong"
+                href={projectHref(name)}
+                onClick={navigateOnPlainClick(() => onProject(name))}
+              >
+                {name}
+              </Link>
+            </ListItem>
+          ))}
+        </List>
+      </Stack>
+    </section>
+  </Card>
+);
+
+/**
+ * `/`: every live agent, Needs you first, then a card per project and Other, then the projects
+ * without agents. A project's card or row opens its page. It updates live.
+ */
+export const Overview = ({ client, onOpen, onProject }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
-  const [creating, setCreating] = useState(false);
-  const [notice, setNotice] = useState<string | undefined>(undefined);
-  // The chosen project lives only as long as the page: a reload shows all projects again.
-  const [project, setProject] = useState<string | undefined>(undefined);
   const overview = useQuery(overviewQuery(client));
+  const projects = useQuery(projectsQuery(client));
   const now = useNow();
 
   const herdrAway =
@@ -110,10 +115,13 @@ export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProp
     (overview.error instanceof RequestError && overview.error.status === 503
       ? overview.error.message
       : undefined);
-  const choices = overview.data === undefined ? [] : projectChoices(overview.data);
-  // A project whose last agent is gone can no longer be chosen; the page shows all projects then.
-  const chosen = choices.some((choice) => choice.value === project) ? project : undefined;
-  const data = overview.data === undefined ? undefined : filterOverview(overview.data, chosen);
+  const data = overview.data;
+  const known = new Set(projects.data?.map(({ name }) => name));
+  const busy = data === undefined ? undefined : busyProjects(data);
+  const idle =
+    busy === undefined || projects.data === undefined
+      ? []
+      : projects.data.map(({ name }) => name).filter((name) => !busy.has(name));
   const empty = data !== undefined && data.needsYou.length === 0 && data.groups.length === 0;
 
   return (
@@ -121,44 +129,16 @@ export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProp
       <TopBar
         title="pocket-comms"
         subtitle={<LiveIndicator live={live} label={live ? 'Mac mini · live' : 'Connecting…'} />}
-        end={
-          <Inline gap="2xs" wrap={false}>
-            <ProjectFilter choices={choices} value={chosen} onChange={setProject} />
-            <IconButton icon="issues" label="Projects" onClick={onProjects} />
-            <IconButton
-              icon="plus"
-              label="New task"
-              onClick={() => {
-                setNotice(undefined);
-                setCreating(true);
-              }}
-            />
-          </Inline>
-        }
-      />
-      <NewTask
-        client={client}
-        open={creating}
-        onClose={() => setCreating(false)}
-        onCreated={(created) => {
-          setCreating(false);
-          if (created.agent?.started === true) onStarted(created.agent.ref, created.agent.note);
-          else setNotice(createdNotice(created));
-        }}
       />
       <Page>
         <Stack gap="md">
-          {notice === undefined ? null : (
-            <div role="status">
-              <Text>{notice}</Text>
-            </div>
-          )}
           {herdrAway === undefined ? null : (
             <Alert>Herdr is not running. The app keeps trying. ({herdrAway})</Alert>
           )}
           {overview.error !== null && herdrAway === undefined ? (
             <Alert>{overview.error.message}</Alert>
           ) : null}
+          {projects.error === null ? null : <Alert>{projects.error.message}</Alert>}
           {data === undefined ? (
             overview.isPending ? (
               <Text tone="muted">Loading the agents…</Text>
@@ -182,9 +162,15 @@ export const Overview = ({ client, onOpen, onProjects, onStarted }: OverviewProp
                   agents={group.agents}
                   now={now}
                   onOpen={onOpen}
+                  onTitle={
+                    group.key !== OTHER_KEY && known.has(group.name)
+                      ? () => onProject(group.name)
+                      : undefined
+                  }
                 />
               ))}
               {empty ? <Text tone="muted">No agents are running.</Text> : null}
+              {idle.length === 0 ? null : <IdleProjects names={idle} onProject={onProject} />}
             </>
           )}
         </Stack>

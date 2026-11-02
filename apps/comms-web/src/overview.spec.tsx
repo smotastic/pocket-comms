@@ -1,4 +1,4 @@
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
@@ -59,16 +59,16 @@ describe('the overview', () => {
     expect(within(screen.getByRole('region', { name: 'Other' })).getByText('notes')).toBeDefined();
   });
 
-  it('shows Needs you, then a card per project, then Other, each headed by its name and count', async () => {
+  it('shows Needs you, a card per project, Other, then the idle projects, each with its count', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
-    await screen.findByRole('region', { name: 'Needs you' });
+    await screen.findByRole('region', { name: 'Projects' });
     expect(
       screen.getAllByRole('region').map((region) => region.getAttribute('aria-label')),
-    ).toEqual(['Needs you', 'app', 'Other']);
+    ).toEqual(['Needs you', 'app', 'Other', 'Projects']);
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Needs you 2', 'app 1', 'Other 1']);
+    ).toEqual(['Needs you 2', 'app 1', 'Other 1', 'Projects 2']);
   });
 
   it('names an agent without a Herdr name by its workspace, never by its pane id', async () => {
@@ -196,108 +196,81 @@ describe('the overview', () => {
   });
 });
 
-describe('the project filter', () => {
-  const home = fakeAgent({ ref: 'spock', paneId: 'w5:p1', name: 'spock', project: 'pocket-home' });
-  const waitingHome = fakeAgent({
-    ref: 'uhura',
-    paneId: 'w5:p2',
-    name: 'uhura',
-    project: 'pocket-home',
-    status: 'blocked',
-    needsYou: true,
-  });
-  const filtered = {
-    needsYou: [blocked, waitingHome],
-    groups: [
-      { key: '/work/app/.git', name: 'app', agents: [working] },
-      { key: '/work/home/.git', name: 'pocket-home', agents: [home] },
-      { key: 'other', name: 'Other', agents: [other] },
-    ],
-  };
-  const menu = () => screen.findByRole('button', { name: 'Filter by project' });
-  const marked = (button: HTMLElement) => button.querySelector('span[aria-hidden="true"]') !== null;
-  const choose = async (name: RegExp) => {
-    await userEvent.click(await menu());
-    const sheet = await screen.findByRole('dialog', { name: 'Filter by project' });
-    await userEvent.click(within(sheet).getByRole('button', { name }));
-  };
-  const regions = () =>
-    screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'));
+describe('the projects on the overview', () => {
+  const projects = [
+    { name: 'app', open: true },
+    { name: 'pocket-home', open: false },
+    { name: 'pocket-learning', open: false },
+  ];
 
-  it('takes no room on the page: a menu button in the top bar, unmarked', async () => {
-    renderApp({ client: fakeClient({ overview: filtered }).client });
+  it('has no filter, projects or new task action in the top bar', async () => {
+    renderApp({ client: fakeClient({ overview, projects }).client });
 
-    await screen.findByRole('region', { name: 'Needs you' });
-    expect(marked(await menu())).toBe(false);
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(regions()).toEqual(['Needs you', 'app', 'pocket-home', 'Other']);
+    const banner = await screen.findByRole('banner');
+    expect(within(banner).queryAllByRole('button')).toEqual([]);
   });
 
-  it('lists all projects and each project with its count and whether one of its agents waits', async () => {
-    renderApp({ client: fakeClient({ overview: filtered }).client });
+  it("opens a project's page from its card", async () => {
+    const { router } = renderApp({ client: fakeClient({ overview, projects }).client });
 
-    await userEvent.click(await menu());
-    const sheet = await screen.findByRole('dialog', { name: 'Filter by project' });
-    const items = within(sheet)
-      .getAllByRole('listitem')
-      .map((item) => item.textContent);
-    expect(items).toEqual([
-      expect.stringMatching(/^All projects.*5.*Needs you/),
-      expect.stringMatching(/^app.*2.*Needs you/),
-      expect.stringMatching(/^pocket-home.*2.*Needs you/),
-      expect.stringMatching(/^Other.*1$/),
-    ]);
+    await userEvent.click(await screen.findByRole('link', { name: 'Open app' }));
+
+    expect(router.state.location.pathname).toBe('/projects/app');
+  });
+
+  it('opens nothing from the Other card or a project outside the projects folder', async () => {
+    renderApp({ client: fakeClient({ overview, projects: [] }).client });
+
+    await screen.findByRole('region', { name: 'app' });
+    expect(screen.queryByRole('link', { name: 'Open app' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Open Other' })).toBeNull();
+  });
+
+  it('lists the projects without agents last, each opening its page', async () => {
+    const { router } = renderApp({ client: fakeClient({ overview, projects }).client });
+
+    const list = await screen.findByRole('list', { name: 'Projects without agents' });
     expect(
-      within(sheet).getByRole('button', { name: /All projects/, pressed: true }),
-    ).toBeDefined();
-  });
-
-  it("shows only the chosen project's card and its agents in Needs you, and marks the button", async () => {
-    renderApp({ client: fakeClient({ overview: filtered }).client });
-
-    await choose(/^pocket-home/);
-
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(regions()).toEqual(['Needs you', 'pocket-home']);
-    expect(
-      within(screen.getByRole('region', { name: 'Needs you' }))
+      within(list)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual([expect.stringContaining('uhura')]);
-    expect(marked(await menu())).toBe(true);
+    ).toEqual(['pocket-home', 'pocket-learning']);
 
-    await choose(/^All projects/);
-
-    expect(regions()).toEqual(['Needs you', 'app', 'pocket-home', 'Other']);
-    expect(marked(await menu())).toBe(false);
+    await userEvent.click(within(list).getByRole('link', { name: 'pocket-home' }));
+    expect(router.state.location.pathname).toBe('/projects/pocket-home');
   });
 
-  it('shows all projects again once the chosen project has no agent left', async () => {
-    const fake = fakeClient({ overview: filtered });
-    renderApp({ client: fake.client });
-    await choose(/^Other/);
+  it('leaves out a project whose only agent is in Needs you', async () => {
+    const waiting = fakeAgent({
+      ref: 'w9:p1',
+      paneId: 'w9:p1',
+      project: 'pocket-home',
+      status: 'blocked',
+      needsYou: true,
+    });
+    renderApp({
+      client: fakeClient({ overview: { needsYou: [waiting], groups: [] }, projects }).client,
+    });
 
-    act(() =>
-      fake.emitOverview({
-        _tag: 'Available',
-        overview: { ...filtered, groups: filtered.groups.filter((group) => group.key !== 'other') },
-      }),
-    );
-
-    await waitFor(() => expect(regions()).toEqual(['Needs you', 'app', 'pocket-home']));
-    expect(marked(await menu())).toBe(false);
+    const list = await screen.findByRole('list', { name: 'Projects without agents' });
+    expect(
+      within(list)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['app', 'pocket-learning']);
   });
 
-  it('starts with all projects again after a reload', async () => {
-    const fake = fakeClient({ overview: filtered });
-    renderApp({ client: fake.client });
-    await choose(/^Other/);
-    expect(regions()).toEqual(['Other']);
+  it('shows no projects list when every project has an agent', async () => {
+    renderApp({ client: fakeClient({ overview, projects: [{ name: 'app', open: true }] }).client });
 
-    cleanup();
-    renderApp({ client: fake.client });
+    await screen.findByRole('region', { name: 'app' });
+    expect(screen.queryByRole('region', { name: 'Projects' })).toBeNull();
+  });
+
+  it('leads the old projects address to the overview', async () => {
+    const { router } = renderApp({ client: fakeClient({ overview }).client, path: '/projects' });
 
     await screen.findByRole('region', { name: 'Needs you' });
-    expect(regions()).toEqual(['Needs you', 'app', 'pocket-home', 'Other']);
+    expect(router.state.location.pathname).toBe('/');
   });
 });

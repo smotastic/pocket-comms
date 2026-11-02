@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ProjectIssues } from '../ProjectIssues.js';
+import { ProjectPage } from '../ProjectPage.js';
 
-/** `/projects/$project` shows a project's open Gitea issues. */
+/** `/projects/$project` shows a project's agents and open Gitea issues. */
 export const Route = createFileRoute('/projects/$project')({
-  component: function ProjectIssueList() {
+  component: function Project() {
     const { client } = Route.useRouteContext();
     const { project } = Route.useParams();
     const navigate = Route.useNavigate();
@@ -14,11 +14,11 @@ export const Route = createFileRoute('/projects/$project')({
         state: (previous) => ({ ...previous, note }),
       });
     return (
-      <ProjectIssues
+      <ProjectPage
         key={project}
         client={client}
         project={project}
-        onBack={() => void navigate({ to: '/projects' })}
+        onBack={() => void navigate({ to: '/' })}
         onOpenAgent={(agent) => openAgent(agent)}
         onStarted={openAgent}
       />

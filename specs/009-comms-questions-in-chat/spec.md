@@ -1,6 +1,6 @@
 # Spec 009 — pocket-comms: an agent's questions in the chat
 
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02); checked locally at 390 px against the live Herdr on 2026-11-02
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (the chat's tool lines)
 
 ## 1. Problem / intent (WHY)

@@ -1,7 +1,7 @@
 # Plan 008 — pocket-comms: one home, one page per project
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner with the spec (2026-11-02)
+- **Status:** `Done` — approved by the owner with the spec (2026-11-02); checked locally at 390 px against the live Herdr on 2026-11-02
 
 ## 1. Affected projects
 

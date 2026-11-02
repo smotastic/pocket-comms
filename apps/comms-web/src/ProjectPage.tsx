@@ -1,12 +1,14 @@
 import {
   Alert,
   Button,
+  Card,
   IconButton,
   Inline,
   Link,
   List,
   ListItem,
   Page,
+  SectionHeader,
   Stack,
   StatusPill,
   Tag,
@@ -15,20 +17,30 @@ import {
 } from '@pocket-comms/design-ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { CommsClient, IssueListView, IssueView, TaskCreatedView } from './comms-client.js';
-import { issuesKey, issuesQuery } from './comms-queries.js';
+import { AgentItem } from './AgentItem.js';
+import type {
+  AgentView,
+  CommsClient,
+  IssueListView,
+  IssueView,
+  OverviewView,
+  TaskCreatedView,
+} from './comms-client.js';
+import { issuesKey, issuesQuery, overviewQuery, projectsQuery } from './comms-queries.js';
 import { ImplementIssue } from './ImplementIssue.js';
 import { STATUS_LABELS } from './labels.js';
 import { navigateOnPlainClick } from './links.js';
-import { useNow } from './live.js';
+import { useNow, useOverviewLive } from './live.js';
+import { NewTask } from './NewTask.js';
+import { filterOverview } from './project-agents.js';
 import { since } from './since.js';
 
-export interface ProjectIssuesProps {
+export interface ProjectPageProps {
   readonly client: CommsClient;
   readonly project: string;
   readonly onBack: () => void;
   readonly onOpenAgent: (ref: string) => void;
-  /** Opens the conversation of an agent Implement with Claude started, with a note to show. */
+  /** Opens the conversation of an agent New task or Implement with Claude started, with a note. */
   readonly onStarted: (ref: string, note: string | undefined) => void;
 }
 
@@ -132,29 +144,103 @@ const Issues = ({
   );
 };
 
-/** `/projects/$project`: the project's open Gitea issues and Implement with Claude (spec 006). */
-export const ProjectIssues = ({
+/** The project's agents from the overview: those in Needs you first, then the others. */
+const agentsOf = (overview: OverviewView, project: string) => {
+  const mine = filterOverview(overview, project);
+  return [...mine.needsYou, ...mine.groups.flatMap((group) => group.agents)];
+};
+
+const Agents = ({
+  agents,
+  now,
+  onOpen,
+}: {
+  readonly agents: ReadonlyArray<AgentView>;
+  readonly now: number;
+  readonly onOpen: (ref: string) => void;
+}) => (
+  <Card>
+    <section aria-label="Agents">
+      <Stack gap="xs">
+        <SectionHeader title="Agents" count={agents.length} />
+        {agents.length === 0 ? <Text tone="muted">No agents are running.</Text> : null}
+        {agents.map((agent) => (
+          <AgentItem key={agent.paneId} agent={agent} section="project" now={now} onOpen={onOpen} />
+        ))}
+      </Stack>
+    </section>
+  </Card>
+);
+
+/**
+ * `/projects/$project`: the project's agents, its open Gitea issues with Implement with Claude
+ * (spec 006) and a new task in it (spec 008). The agents update live.
+ */
+export const ProjectPage = ({
   client,
   project,
   onBack,
   onOpenAgent,
   onStarted,
-}: ProjectIssuesProps) => {
+}: ProjectPageProps) => {
+  useOverviewLive(client);
+  const overview = useQuery(overviewQuery(client));
+  const projects = useQuery(projectsQuery(client));
   const issues = useQuery(issuesQuery(client, project));
   const queryClient = useQueryClient();
   const [implementing, setImplementing] = useState<IssueView | undefined>(undefined);
+  const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const now = useNow();
   const repository = issues.data?._tag === 'Listed' ? issues.data.repository : undefined;
+  const unknown =
+    projects.data !== undefined && !projects.data.some(({ name }) => name === project);
+  const back = <IconButton icon="back" label="Back to all agents" onClick={onBack} />;
+  // A start without a running agent says so here; a running one opens its conversation.
+  const started = (created: TaskCreatedView) => {
+    if (created.agent?.started === true) onStarted(created.agent.ref, created.agent.note);
+    else setNotice(startedNotice(created));
+  };
+
+  if (unknown) {
+    return (
+      <>
+        <TopBar start={back} title={project} />
+        <Page>
+          <Text>{project} is not a project.</Text>
+        </Page>
+      </>
+    );
+  }
 
   return (
     <>
       <TopBar
-        start={<IconButton icon="back" label="Back to the projects" onClick={onBack} />}
+        start={back}
         title={project}
         {...(repository === undefined
           ? {}
           : { subtitle: `${repository.owner}/${repository.name} on Gitea` })}
+        end={
+          <IconButton
+            icon="plus"
+            label="New task"
+            onClick={() => {
+              setNotice(undefined);
+              setCreating(true);
+            }}
+          />
+        }
+      />
+      <NewTask
+        client={client}
+        project={project}
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreated={(created) => {
+          setCreating(false);
+          started(created);
+        }}
       />
       <ImplementIssue
         client={client}
@@ -164,8 +250,7 @@ export const ProjectIssues = ({
         onStarted={(created) => {
           setImplementing(undefined);
           void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
-          if (created.agent?.started === true) onStarted(created.agent.ref, created.agent.note);
-          else setNotice(startedNotice(created));
+          started(created);
         }}
       />
       <Page>
@@ -175,19 +260,32 @@ export const ProjectIssues = ({
               <Text>{notice}</Text>
             </div>
           )}
-          {issues.error === null ? null : <Alert>{issues.error.message}</Alert>}
-          {issues.isPending ? <Text tone="muted">Loading the issues…</Text> : null}
-          {issues.data === undefined ? null : (
-            <Issues
-              list={issues.data}
-              now={now}
-              onOpenAgent={onOpenAgent}
-              onImplement={(issue) => {
-                setNotice(undefined);
-                setImplementing(issue);
-              }}
-            />
+          {overview.error === null ? null : <Alert>{overview.error.message}</Alert>}
+          {overview.data === undefined ? (
+            overview.isPending ? (
+              <Text tone="muted">Loading the agents…</Text>
+            ) : null
+          ) : (
+            <Agents agents={agentsOf(overview.data, project)} now={now} onOpen={onOpenAgent} />
           )}
+          <section aria-label="Issues">
+            <Stack gap="xs">
+              <SectionHeader title="Issues" />
+              {issues.error === null ? null : <Alert>{issues.error.message}</Alert>}
+              {issues.isPending ? <Text tone="muted">Loading the issues…</Text> : null}
+              {issues.data === undefined ? null : (
+                <Issues
+                  list={issues.data}
+                  now={now}
+                  onOpenAgent={onOpenAgent}
+                  onImplement={(issue) => {
+                    setNotice(undefined);
+                    setImplementing(issue);
+                  }}
+                />
+              )}
+            </Stack>
+          </section>
         </Stack>
       </Page>
     </>
