@@ -4,7 +4,7 @@
 
 Each task is small and independently testable. Tick its checkbox in the task's own commit.
 
-- [ ] **T01** — Design kit: icon `forward`, `SectionHeader` with a title link; story and spec
+- [x] **T01** — Design kit: `SectionHeader` with a title link; story and spec
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 
 - [ ] **T02** — Web: the project page with Agents, Issues and New task for its project; New task
