@@ -18,7 +18,7 @@ in the task's own commit.
 
 ## API and server
 
-- [ ] **T03** — Contract endpoint `close` and the group description; handler with the existing
+- [x] **T03** — Contract endpoint `close` and the group description; handler with the existing
       problems; acceptance tests; OpenAPI document
   - Gate: `pnpm nx test comms-contract`, `pnpm nx test comms-api`, `pnpm openapi:check`,
     `pnpm openapi:lint`

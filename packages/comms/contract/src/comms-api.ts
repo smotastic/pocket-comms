@@ -664,6 +664,17 @@ const issues = HttpApiGroup.make('issues')
           'Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt.',
       }),
     ),
+    HttpApiEndpoint.post('close', '/projects/:project/issues/:number/close', {
+      params: { ...project, number: IssueNumberParam },
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.Conflict, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Close an issue',
+        description:
+          "Reads the issue from Gitea again and sets its state to closed; nothing else of the issue changes. An issue that is closed already answers 204 without a write. The project's worktrees and agents stay as they are.",
+      }),
+    ),
   )
   .middleware(TailscaleIdentity)
   .middleware(ValidationMiddleware)
@@ -672,7 +683,7 @@ const issues = HttpApiGroup.make('issues')
     OpenApi.annotations({
       title: 'Issues',
       description:
-        "Read a project's Gitea issues and implement one. The app never writes to Gitea.",
+        "Read a project's Gitea issues, implement one or close one. Closing is the app's only write to Gitea.",
     }),
   );
 
