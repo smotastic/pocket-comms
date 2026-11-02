@@ -1,6 +1,6 @@
 # Spec 012 — pocket-comms: a flat list of agents and a projects sheet
 
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02); checked locally at 390 px against the live Herdr and Gitea on 2026-11-02
 - **Changes:** [spec 007](../007-comms-sessions-by-project/spec.md) (requirements 4 and 7, the
   cards per project and the row tags) and [spec 008](../008-comms-project-home/spec.md)
   (requirement 1, the top bar without actions; requirements 3–5, the cards, their linked headers

@@ -36,6 +36,6 @@ in the task's own commit.
 
 ## Wrap-up
 
-- [ ] **T07** — The built app at 390 px against the live Herdr and Gitea, compared with prototype
+- [x] **T07** — The built app at 390 px against the live Herdr and Gitea, compared with prototype
       variant I; `pnpm verify:local`
   - Gate: `pnpm verify:local`
