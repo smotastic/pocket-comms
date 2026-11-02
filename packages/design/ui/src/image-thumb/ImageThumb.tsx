@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { Icon } from '../icon-button/Icon.js';
 import styles from './ImageThumb.module.css';
 
@@ -9,7 +9,8 @@ export type ImageThumbProps = {
   readonly src?: string;
   /**
    * `ready` shows the picture, `uploading` dims it while it is sent, `failed` names `reason`, and
-   * `missing` says that the image is no longer there. Default `ready`.
+   * `missing` says that the image is no longer there, as does a picture that does not load.
+   * Default `ready`.
    */
   readonly state?: 'ready' | 'uploading' | 'failed' | 'missing';
   /** Why the image failed. */
@@ -28,7 +29,7 @@ const STATE_TEXT = { uploading: 'Uploading…', failed: 'Failed', missing: 'Remo
 export const ImageThumb = ({
   label,
   src,
-  state = 'ready',
+  state: given = 'ready',
   reason,
   href,
   onRemove,
@@ -36,8 +37,13 @@ export const ImageThumb = ({
 }: ImageThumbProps) => {
   const id = useId();
   const stateId = `${id}-state`;
+  // The source that did not load, so a new source is tried again.
+  const [broken, setBroken] = useState<string | undefined>(undefined);
+  const state = broken !== undefined && broken === src ? 'missing' : given;
   const shown = state !== 'missing' && src !== undefined;
-  const picture = shown ? <img className={styles.picture} src={src} alt={label} /> : null;
+  const picture = shown ? (
+    <img className={styles.picture} src={src} alt={label} onError={() => setBroken(src)} />
+  ) : null;
   return (
     <figure className={`${styles.thumb} ${styles[state]}`} aria-describedby={stateId}>
       {href === undefined || !shown ? (

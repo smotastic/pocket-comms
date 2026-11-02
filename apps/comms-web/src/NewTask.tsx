@@ -1,18 +1,23 @@
 import {
   Alert,
+  AttachButton,
   Button,
   Form,
   IconButton,
+  Inline,
   Input,
   Segmented,
   Sheet,
   SheetHeader,
   Stack,
   Switch,
+  Text,
   TextArea,
 } from '@pocket-comms/design-ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { AttachedImages } from './AttachedImages.js';
+import { useAttachments } from './attachments.js';
 import { suggestBranch } from './branch.js';
 import {
   RequestError,
@@ -49,27 +54,33 @@ const NewTaskForm = ({
   const [startAgent, setStartAgent] = useState(true);
   const [kind, setKind] = useState<AgentToStart>('claude');
   const create = useMutation({ mutationFn: client.createTask, onSuccess: onCreated });
+  // Images go with the agent's first prompt, so only a task with an agent takes them (spec 014).
+  const images = useAttachments(client);
+  const busy = create.isPending || (startAgent && images.pending);
 
   const branch = editedBranch ?? (task.trim() === '' ? '' : suggestBranch(task));
   const issues = create.error instanceof RequestError ? create.error.issues : [];
   const issueOf = (field: string) => issues.find((issue) => issue.field === field)?.message;
-  const unplaced = issues.filter((issue) => !['task', 'branch', 'agent'].includes(issue.field));
+  const unplaced = issues.filter(
+    (issue) => !['task', 'branch', 'agent', 'imageIds'].includes(issue.field),
+  );
 
   return (
     <Form
       aria-label="New task"
       onSubmit={(event) => {
         event.preventDefault();
-        if (create.isPending) return;
+        if (busy) return;
         create.mutate({
           project,
           task,
           branch,
           ...(startAgent ? { agent: { kind } } : {}),
+          ...(startAgent && images.ids.length > 0 ? { imageIds: images.ids } : {}),
         });
       }}
       actions={
-        <Button type="submit" disabled={create.isPending}>
+        <Button type="submit" disabled={busy}>
           {create.isPending ? 'Creating…' : 'Create'}
         </Button>
       }
@@ -109,6 +120,23 @@ const NewTaskForm = ({
             }}
           />
           {issueOf('agent') === undefined ? null : <Alert>{issueOf('agent')}</Alert>}
+          <Text size="sm" tone="muted">
+            Images for the first prompt
+          </Text>
+          <Inline gap="xs">
+            <AttachButton
+              label="Attach image"
+              onFiles={(files) => void images.add(files)}
+              disabled={images.full}
+            />
+            <AttachedImages
+              attachments={images.attachments}
+              onRemove={images.remove}
+              onRetry={images.retry}
+            />
+          </Inline>
+          {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
+          {issueOf('imageIds') === undefined ? null : <Alert>{issueOf('imageIds')}</Alert>}
         </Stack>
       ) : null}
       {create.error !== null && (issues.length === 0 || unplaced.length > 0) ? (

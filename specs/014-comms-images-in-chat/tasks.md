@@ -29,7 +29,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       button and `sendable`
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 
-- [ ] **T07** — Web: attachments (pick, shrink, upload) in the conversation and the New task form,
+- [x] **T07** — Web: attachments (pick, shrink, upload) in the conversation and the New task form,
       and thumbnails in the "You" card
   - Gate: `pnpm nx test comms-web`, `pnpm verify:local`
 

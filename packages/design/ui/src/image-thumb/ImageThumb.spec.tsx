@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axeViolations } from '../testing/a11y.js';
@@ -39,6 +39,14 @@ describe('ImageThumb', () => {
     expect(screen.getByText('Removed')).toBeDefined();
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('says that an image is no longer there when it does not load', () => {
+    render(<ImageThumb label="Image 1" src="/gone.png" />);
+
+    fireEvent.error(screen.getByRole('img', { name: 'Image 1' }));
+
+    expect(screen.getByText('Removed')).toBeDefined();
   });
 
   it('is removed with its remove button', async () => {
