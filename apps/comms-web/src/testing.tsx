@@ -9,6 +9,7 @@ import {
   type BrainstormStateView,
   type CommsClient,
   type IssueListView,
+  type IssueTaskCreatedView,
   type Key,
   type NewTask,
   type OverviewStateView,
@@ -54,7 +55,7 @@ export interface FakeState {
   /** Each project's issues, or a failure; a project without an entry has no Gitea remote. */
   readonly issues: Map<string, IssueListView | RequestError>;
   /** What the next Implement with Claude answers. */
-  implemented: TaskCreatedView | RequestError;
+  implemented: IssueTaskCreatedView | RequestError;
   /** A failure for the next close; without one the issue leaves its project's list. */
   closeFailure?: RequestError;
   /** The failures of the next agent closes, in order; a close without one succeeds. */

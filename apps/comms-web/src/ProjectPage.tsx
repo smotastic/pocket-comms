@@ -32,6 +32,7 @@ import type {
 import { issuesKey, issuesQuery, overviewQuery, projectsQuery } from './comms-queries.js';
 import { CloseIssue } from './CloseIssue.js';
 import { ImplementIssue } from './ImplementIssue.js';
+import { groupIssues, shownLabels } from './issue-groups.js';
 import { STATUS_LABELS } from './labels.js';
 import { navigateOnPlainClick } from './links.js';
 import { useNow, useOverviewLive } from './live.js';
@@ -75,7 +76,7 @@ const IssueRow = ({
         #{issue.number} {issue.title}
       </Link>
       <Inline gap="xs">
-        {issue.labels.map((label) => (
+        {shownLabels(issue).map((label) => (
           <Tag key={label}>{label}</Tag>
         ))}
         <Text as="span" tone="muted" size="sm">
@@ -137,19 +138,32 @@ const Issues = ({
   if (list._tag === 'NoGiteaRemote') {
     return <Text tone="muted">This project has no Gitea remote, so it has no issues to show.</Text>;
   }
+  if (list.issues.length === 0) return <Text tone="muted">No open issues.</Text>;
+  const { inProgress, open } = groupIssues(list.issues);
+  const group = (title: string, label: string, issues: ReadonlyArray<IssueView>) =>
+    issues.length === 0 ? null : (
+      <Stack gap="xs">
+        <SectionHeader title={title} count={issues.length} level={3} />
+        <List aria-label={label}>
+          {issues.map((issue) => (
+            <IssueRow
+              key={issue.number}
+              issue={issue}
+              now={now}
+              onOpenAgent={onOpenAgent}
+              onImplement={() => onImplement(issue)}
+              onClose={() => onClose(issue)}
+            />
+          ))}
+        </List>
+      </Stack>
+    );
+  // The issues being worked on first (spec 015), then the others.
   return (
-    <List aria-label="Open issues" empty={<Text tone="muted">No open issues.</Text>}>
-      {list.issues.map((issue) => (
-        <IssueRow
-          key={issue.number}
-          issue={issue}
-          now={now}
-          onOpenAgent={onOpenAgent}
-          onImplement={() => onImplement(issue)}
-          onClose={() => onClose(issue)}
-        />
-      ))}
-    </List>
+    <Stack gap="md">
+      {group('In progress', 'Issues in progress', inProgress)}
+      {group('Open', 'Open issues', open)}
+    </Stack>
   );
 };
 

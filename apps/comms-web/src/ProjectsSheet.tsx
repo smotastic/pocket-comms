@@ -6,6 +6,7 @@ import {
   Inline,
   IssueCard,
   Link,
+  SectionHeader,
   Sheet,
   SheetHeader,
   Stack,
@@ -23,6 +24,7 @@ import type {
 import { issuesKey, issuesQuery } from './comms-queries.js';
 import { stillWorking, useCloseIssue } from './CloseIssue.js';
 import { ImplementIssue } from './ImplementIssue.js';
+import { groupIssues, shownLabels } from './issue-groups.js';
 import { navigateOnPlainClick } from './links.js';
 import { NewTask } from './NewTask.js';
 import { projectHue } from './rows.js';
@@ -95,7 +97,7 @@ const IssueItem = ({
       title={issue.title}
       meta={
         busy.length === 0
-          ? issue.labels.join(' · ')
+          ? shownLabels(issue).join(' · ')
           : `● ${busy.join(', ')} ${busy.length === 1 ? 'is' : 'are'} on it`
       }
       actions={
@@ -192,23 +194,35 @@ const IssueList = ({
     return <Text tone="muted">This project has no Gitea remote, so it has no issues to show.</Text>;
   }
   if (list.issues.length === 0) return <Text tone="muted">No open issues.</Text>;
+  const { inProgress, open } = groupIssues(list.issues);
+  const group = (title: string, issues: ReadonlyArray<IssueView>) =>
+    issues.length === 0 ? null : (
+      <section aria-label={title}>
+        <Stack gap="sm">
+          <SectionHeader title={title} count={issues.length} level={3} />
+          {issues.map((issue) => (
+            <IssueItem
+              key={issue.number}
+              client={client}
+              project={project}
+              issue={issue}
+              asking={asking === issue.number}
+              onAsk={(ask) => setAsking(ask ? issue.number : undefined)}
+              onImplement={() => onImplement(issue)}
+              onClosed={(number) => {
+                setAsking(undefined);
+                onClosed(number);
+              }}
+            />
+          ))}
+        </Stack>
+      </section>
+    );
+  // The issues being worked on first (spec 015), then the others.
   return (
-    <Stack gap="sm">
-      {list.issues.map((issue) => (
-        <IssueItem
-          key={issue.number}
-          client={client}
-          project={project}
-          issue={issue}
-          asking={asking === issue.number}
-          onAsk={(ask) => setAsking(ask ? issue.number : undefined)}
-          onImplement={() => onImplement(issue)}
-          onClosed={(number) => {
-            setAsking(undefined);
-            onClosed(number);
-          }}
-        />
-      ))}
+    <Stack gap="md">
+      {group('In progress', inProgress)}
+      {group('Open', open)}
     </Stack>
   );
 };

@@ -14,6 +14,7 @@ export {
   Issue,
   IssueDraft,
   IssueList,
+  IssueTaskCreated,
   IssueNumberParam,
   IssueWork,
   KEYS,

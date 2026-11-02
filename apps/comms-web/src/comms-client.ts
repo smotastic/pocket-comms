@@ -9,6 +9,7 @@ import {
   type Issue,
   type IssueDraft,
   type IssueList,
+  type IssueTaskCreated,
   type KEYS,
   OverviewState,
   type Overview,
@@ -36,6 +37,7 @@ export type TaskCreatedView = typeof TaskCreated.Type;
 export type AgentToStart = (typeof AGENTS_TO_START)[number];
 export type IssueListView = typeof IssueList.Type;
 export type IssueView = typeof Issue.Type;
+export type IssueTaskCreatedView = typeof IssueTaskCreated.Type;
 export type BrainstormStateView = typeof BrainstormState.Type;
 export type BrainstormEventView = typeof BrainstormEvent.Type;
 export type BrainstormEntryView = Extract<
@@ -72,7 +74,7 @@ export interface CommsClient {
     project: string,
     number: number,
     branch: string,
-  ) => Promise<TaskCreatedView>;
+  ) => Promise<IssueTaskCreatedView>;
   readonly closeIssue: (project: string, number: number) => Promise<void>;
   /** The brainstorm chat (spec 013). */
   readonly brainstorm: () => Promise<BrainstormStateView>;

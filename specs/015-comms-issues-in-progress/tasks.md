@@ -30,7 +30,7 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T05** — `groupIssues`; In progress and Open groups with counts on the project screen and
+- [x] **T05** — `groupIssues`; In progress and Open groups with counts on the project screen and
       in the projects sheet; the label tag hidden; `markNote` shown after a start
   - Gate: `pnpm nx test comms-web`
 
