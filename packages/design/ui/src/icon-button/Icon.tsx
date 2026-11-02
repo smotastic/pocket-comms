@@ -10,6 +10,7 @@ export const ICON_NAMES = [
   'back',
   'issues',
   'menu',
+  'trash',
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -25,6 +26,8 @@ const PATHS: Readonly<Record<IconName, string>> = {
   // An open issue: a ring with a dot, as forges draw it.
   issues: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 12h.01',
   menu: 'M4 6h16M4 12h16M4 18h16',
+  // A bin with a lid and a handle, for removing something for good.
+  trash: 'M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6',
 };
 
 /** An icon that only decorates: its button or link carries the name. */

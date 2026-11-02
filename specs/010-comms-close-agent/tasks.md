@@ -8,7 +8,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       case, the endpoint, its problems and the OpenAPI document
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`
 
-- [ ] **T02** — Design kit: the `trash` icon
+- [x] **T02** — Design kit: the `trash` icon
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 
 - [ ] **T03** — Web: the conversation's Close action and its confirmation sheet
