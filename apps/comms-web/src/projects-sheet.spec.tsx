@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RequestError, type IssueListView, type IssueView } from './comms-client.js';
@@ -263,5 +263,96 @@ describe('the projects sheet', () => {
       'feat/x is ready in a new worktree.',
     );
     expect(router.state.location.pathname).toBe('/projects/beta');
+  });
+});
+
+describe('closing an issue from the projects sheet', () => {
+  const expandBeta = async () => {
+    const sheet = await openSheet();
+    await userEvent.click(entry(sheet, 'beta'));
+    return sheet;
+  };
+
+  it('asks in the card first, and Cancel closes nothing', async () => {
+    const { calls } = open();
+    const sheet = await expandBeta();
+    const eight = await within(sheet).findByRole('article', { name: '#8 feat: issue list' });
+
+    await userEvent.click(within(eight).getByRole('button', { name: 'Close #8' }));
+
+    expect(within(eight).getByText('Close #8 in Gitea?')).toBeDefined();
+    expect(within(eight).queryByText('enhancement · ui')).toBeNull();
+    expect(calls.closed).toEqual([]);
+    await userEvent.click(within(eight).getByRole('button', { name: 'Cancel' }));
+    expect(within(eight).getByText('enhancement · ui')).toBeDefined();
+    expect(calls.closed).toEqual([]);
+  });
+
+  it('closes the issue, takes it off the list and says so', async () => {
+    const { calls } = open();
+    const sheet = await expandBeta();
+    const eight = await within(sheet).findByRole('article', { name: '#8 feat: issue list' });
+
+    await userEvent.click(within(eight).getByRole('button', { name: 'Close #8' }));
+    await userEvent.click(within(eight).getByRole('button', { name: 'Close issue' }));
+
+    expect(calls.closed).toEqual([['beta', 8]]);
+    const panel = within(sheet).getByRole('region', { name: 'beta' });
+    expect((await within(panel).findByRole('status')).textContent).toBe('#8 closed.');
+    await waitFor(() =>
+      expect(within(panel).queryByRole('article', { name: '#8 feat: issue list' })).toBeNull(),
+    );
+    expect(entry(sheet, 'beta').textContent).toContain('2 issues');
+  });
+
+  it('names the agents that keep running on the issue', async () => {
+    open();
+    const sheet = await expandBeta();
+    const seven = await within(sheet).findByRole('article', { name: '#7 Login breaks' });
+
+    await userEvent.click(within(seven).getByRole('button', { name: 'Close #7' }));
+
+    expect(within(seven).getByText('Close #7 in Gitea? beta-7 keeps running.')).toBeDefined();
+  });
+
+  it('shows why closing failed and keeps the issue', async () => {
+    const { state } = open();
+    state.closeFailure = new RequestError('Gitea refused the token (403).', 503);
+    const sheet = await expandBeta();
+    const eight = await within(sheet).findByRole('article', { name: '#8 feat: issue list' });
+
+    await userEvent.click(within(eight).getByRole('button', { name: 'Close #8' }));
+    await userEvent.click(within(eight).getByRole('button', { name: 'Close issue' }));
+
+    expect(await within(eight).findByText('Gitea refused the token (403).')).toBeDefined();
+    expect(within(sheet).getByRole('article', { name: '#8 feat: issue list' })).toBe(eight);
+  });
+
+  it('asks afresh after a failed attempt was cancelled', async () => {
+    const { state } = open();
+    state.closeFailure = new RequestError('Gitea refused the token (403).', 503);
+    const sheet = await expandBeta();
+    const eight = await within(sheet).findByRole('article', { name: '#8 feat: issue list' });
+    await userEvent.click(within(eight).getByRole('button', { name: 'Close #8' }));
+    await userEvent.click(within(eight).getByRole('button', { name: 'Close issue' }));
+    await within(eight).findByText('Gitea refused the token (403).');
+
+    await userEvent.click(within(eight).getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(within(eight).getByRole('button', { name: 'Close #8' }));
+
+    expect(within(eight).queryByText('Gitea refused the token (403).')).toBeNull();
+  });
+
+  it('forgets an open question when the project collapses', async () => {
+    open();
+    const sheet = await expandBeta();
+    const eight = await within(sheet).findByRole('article', { name: '#8 feat: issue list' });
+    await userEvent.click(within(eight).getByRole('button', { name: 'Close #8' }));
+
+    await userEvent.click(entry(sheet, 'beta'));
+    await userEvent.click(entry(sheet, 'beta'));
+
+    const again = await within(sheet).findByRole('article', { name: '#8 feat: issue list' });
+    expect(within(again).queryByText('Close #8 in Gitea?')).toBeNull();
   });
 });

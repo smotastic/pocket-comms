@@ -21,6 +21,7 @@ import type {
   TaskCreatedView,
 } from './comms-client.js';
 import { issuesKey, issuesQuery } from './comms-queries.js';
+import { stillWorking, useCloseIssue } from './CloseIssue.js';
 import { ImplementIssue } from './ImplementIssue.js';
 import { navigateOnPlainClick } from './links.js';
 import { NewTask } from './NewTask.js';
@@ -65,13 +66,120 @@ const detailOf = (
 const agentsOn = (issue: IssueView) =>
   issue.work.flatMap((work) => work.agents.map((agent) => agent.ref));
 
+/** One issue as a card whose Close asks in place before it closes the issue. */
+const IssueItem = ({
+  client,
+  project,
+  issue,
+  asking,
+  onAsk,
+  onImplement,
+  onClosed,
+}: {
+  readonly client: CommsClient;
+  readonly project: string;
+  readonly issue: IssueView;
+  /** Whether the card asks to close the issue. */
+  readonly asking: boolean;
+  /** Starts or cancels the question. */
+  readonly onAsk: (asking: boolean) => void;
+  readonly onImplement: () => void;
+  readonly onClosed: (number: number) => void;
+}) => {
+  const close = useCloseIssue(client, project, issue.number, onClosed);
+  const busy = agentsOn(issue);
+  const working = stillWorking(issue);
+  return (
+    <IssueCard
+      number={issue.number}
+      title={issue.title}
+      meta={
+        busy.length === 0
+          ? issue.labels.join(' · ')
+          : `● ${busy.join(', ')} ${busy.length === 1 ? 'is' : 'are'} on it`
+      }
+      actions={
+        <>
+          {busy.length === 0 ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              aria-label={`Implement #${issue.number}`}
+              onClick={onImplement}
+            >
+              Implement
+            </Button>
+          ) : null}
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label={`Close #${issue.number}`}
+            onClick={() => {
+              close.reset();
+              onAsk(true);
+            }}
+          >
+            Close
+          </Button>
+        </>
+      }
+      {...(asking
+        ? {
+            question: {
+              text: (
+                <Stack gap="xs">
+                  <Text as="span" size="sm">
+                    {`Close #${issue.number} in Gitea?`}
+                    {working.length === 0
+                      ? ''
+                      : ` ${working.join(', ')} ${working.length === 1 ? 'keeps' : 'keep'} running.`}
+                  </Text>
+                  {close.error === null ? null : <Alert>{close.error.message}</Alert>}
+                </Stack>
+              ),
+              actions: (
+                <>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    disabled={close.isPending}
+                    onClick={() => close.mutate()}
+                  >
+                    {close.isPending ? 'Closing…' : 'Close issue'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      close.reset();
+                      onAsk(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ),
+            },
+          }
+        : {})}
+    />
+  );
+};
+
 const IssueList = ({
+  client,
+  project,
   issues,
   onImplement,
+  onClosed,
 }: {
+  readonly client: CommsClient;
+  readonly project: string;
   readonly issues: UseQueryResult<IssueListView>;
   readonly onImplement: (issue: IssueView) => void;
+  readonly onClosed: (number: number) => void;
 }) => {
+  const [asking, setAsking] = useState<number | undefined>(undefined);
   if (issues.error !== null) return <Alert>{issues.error.message}</Alert>;
   if (issues.data === undefined) return <Text tone="muted">Loading the issues…</Text>;
   const list = issues.data;
@@ -86,33 +194,21 @@ const IssueList = ({
   if (list.issues.length === 0) return <Text tone="muted">No open issues.</Text>;
   return (
     <Stack gap="sm">
-      {list.issues.map((issue) => {
-        const busy = agentsOn(issue);
-        return (
-          <IssueCard
-            key={issue.number}
-            number={issue.number}
-            title={issue.title}
-            meta={
-              busy.length === 0
-                ? issue.labels.join(' · ')
-                : `● ${busy.join(', ')} ${busy.length === 1 ? 'is' : 'are'} on it`
-            }
-            actions={
-              busy.length === 0 ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  aria-label={`Implement #${issue.number}`}
-                  onClick={() => onImplement(issue)}
-                >
-                  Implement
-                </Button>
-              ) : undefined
-            }
-          />
-        );
-      })}
+      {list.issues.map((issue) => (
+        <IssueItem
+          key={issue.number}
+          client={client}
+          project={project}
+          issue={issue}
+          asking={asking === issue.number}
+          onAsk={(ask) => setAsking(ask ? issue.number : undefined)}
+          onImplement={() => onImplement(issue)}
+          onClosed={(number) => {
+            setAsking(undefined);
+            onClosed(number);
+          }}
+        />
+      ))}
     </Stack>
   );
 };
@@ -134,6 +230,10 @@ const ProjectList = ({
     { readonly project: string; readonly issue: IssueView } | undefined
   >(undefined);
   const [creating, setCreating] = useState<string | undefined>(undefined);
+  // Tied to its project, so a close that finishes after the owner moved on says so only there.
+  const [notice, setNotice] = useState<
+    { readonly project: string; readonly text: string } | undefined
+  >(undefined);
 
   return (
     <>
@@ -146,12 +246,26 @@ const ProjectList = ({
             detail={detailOf(project, overview, list?.data)}
             hue={projectHue(project, projects)}
             expanded={expanded === project}
-            onToggle={() => setExpanded(expanded === project ? undefined : project)}
+            onToggle={() => {
+              setExpanded(expanded === project ? undefined : project);
+              setNotice(undefined);
+            }}
           >
+            {notice?.project !== project ? null : (
+              <div role="status">
+                <Text size="sm">{notice.text}</Text>
+              </div>
+            )}
             {list === undefined ? null : (
               <IssueList
+                client={client}
+                project={project}
                 issues={list}
                 onImplement={(issue) => setImplementing({ project, issue })}
+                onClosed={(number) => {
+                  setNotice({ project, text: `#${number} closed.` });
+                  void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
+                }}
               />
             )}
             <Inline gap="md">

@@ -31,7 +31,7 @@ in the task's own commit.
       their states, Implement, New task, Project page); the overview's Projects list goes
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T06** — Web: Close in place on an issue card, sharing spec 010's close mutation
+- [x] **T06** — Web: Close in place on an issue card, sharing spec 010's close mutation
   - Gate: `pnpm nx test comms-web`
 
 ## Wrap-up
