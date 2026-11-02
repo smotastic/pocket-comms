@@ -16,7 +16,7 @@ in the task's own commit.
       marks nothing when `create` fails; `IssueDto.inProgress`
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
-- [ ] **T03** — `Gitea.layerHttp.markInProgress`: paged label lookup in any case, create when
+- [x] **T03** — `Gitea.layerHttp.markInProgress`: paged label lookup in any case, create when
       missing (exact body), add with `POST …/issues/{n}/labels`, `403`/`404` mapping, no token in
       reasons, only `GET`/`PATCH`/`POST` sent
   - Gate: `pnpm nx test comms-infrastructure`
