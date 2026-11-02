@@ -13,8 +13,10 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import * as PubSub from 'effect/PubSub';
+import type * as Schema from 'effect/Schema';
 import * as Stream from 'effect/Stream';
 import {
+  AgentRuntimeError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
   HerdrRejectedError,
@@ -23,6 +25,15 @@ import {
   ProjectGitError,
   TranscriptUnavailableError,
 } from '../errors.js';
+import {
+  AgentRuntimeOutbound,
+  type RuntimeEvent,
+  type TurnInput,
+} from '../ports/agent-runtime.outbound.port.js';
+import {
+  BrainstormStoreOutbound,
+  type StoredChat,
+} from '../ports/brainstorm-store.outbound.port.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
 import {
@@ -46,6 +57,14 @@ export interface HerdrCall {
   readonly target?: string;
   readonly params?: unknown;
 }
+
+/** One step of a scripted turn of the agent runtime. */
+export type ScriptStep =
+  | { readonly text: string }
+  /** Waits for the effect before the next step, so a test can hold a turn open. */
+  | { readonly until: Effect.Effect<void> }
+  | { readonly tool: string; readonly input: unknown }
+  | { readonly fail: string };
 
 /**
  * The state behind the fakes of the outbound ports. A test changes it directly and publishes on
@@ -96,6 +115,16 @@ export class FakeState extends Context.Service<
     giteaFailure: string | undefined;
     /** Every Gitea request, as `<method> <owner>/<name> [<number>]`. */
     readonly giteaCalls: Array<string>;
+    /** The top-level docs of every project, by `<project>/<file>`. */
+    readonly docs: Map<string, string>;
+    /** Why the runtime is not set up, when it is not. */
+    notSetUp: string | undefined;
+    /** The turns the scripted runtime plays, in order, and what it was given. */
+    readonly script: Array<ReadonlyArray<ScriptStep>>;
+    readonly turns: Array<TurnInput>;
+    /** The stored brainstorm chat, and how often it was saved. */
+    storedChat: StoredChat | undefined;
+    saves: number;
   }
 >()('comms/application/testing/FakeState') {}
 
@@ -234,6 +263,8 @@ const projects = (state: FakeState['Service']) => {
       ),
     worktrees: (project) =>
       Effect.as(ask(`worktrees ${project.name}`), [...(state.worktrees.get(project.name) ?? [])]),
+    readDoc: (project, doc) =>
+      Effect.sync(() => Option.fromNullishOr(state.docs.get(`${project.name}/${doc}`))),
     hasChanges: (project, path) =>
       Effect.as(ask(`hasChanges ${project.name} ${path}`), state.changed.has(path)),
     branchExists: (project, branch) =>
@@ -290,8 +321,93 @@ const gitea = (state: FakeState['Service']) => {
         issues[index] = { ...found, state: 'closed' };
         return Effect.void;
       }),
+    createIssue: ({ owner, name }, { title, body }) =>
+      request(`createIssue ${owner}/${name} ${JSON.stringify({ title, body })}`, () =>
+        Effect.sync(() => {
+          const key = `${owner}/${name}`;
+          const issues = state.issues.get(key) ?? [];
+          const number = Math.max(0, ...issues.map((issue) => issue.number)) + 1;
+          const url = `http://gitea.test/${key}/issues/${number}`;
+          state.issues.set(key, [
+            ...issues,
+            { number, title, body, labels: [], updatedAt: 0, url, state: 'open', pull: false },
+          ]);
+          return { number, url };
+        }),
+      ),
   });
 };
+
+/**
+ * Plays the next scripted turn. Each step runs only when the consumer pulls its events, as a real
+ * runtime streams them: a tool runs after its call event was taken, and nothing after a pausing
+ * tool runs. A `fail` step ends the stream with the failure and no `ended`.
+ */
+const scriptedTurn = (
+  state: FakeState['Service'],
+  turn: TurnInput,
+): Stream.Stream<RuntimeEvent, AgentRuntimeError> =>
+  Stream.suspend(() => {
+    state.turns.push(turn);
+    const steps = state.script.shift() ?? [{ text: 'Scripted Pi has nothing more to say.' }];
+    let paused = false;
+    const play = (
+      step: ScriptStep,
+      index: number,
+    ): Stream.Stream<RuntimeEvent, AgentRuntimeError> => {
+      if (paused) return Stream.empty;
+      if ('fail' in step) return Stream.fail(new AgentRuntimeError({ reason: step.fail }));
+      if ('until' in step) return Stream.drain(Stream.fromEffect(step.until));
+      if ('text' in step) {
+        return Stream.make<Array<RuntimeEvent>>(
+          { _tag: 'textDelta', text: step.text },
+          { _tag: 'message', text: step.text },
+        );
+      }
+      const callId = `call-${index + 1}`;
+      const tool = turn.tools.find((candidate) => candidate.name === step.tool);
+      const result = Stream.fromEffect(
+        Effect.map(
+          tool === undefined
+            ? Effect.succeed({ output: `Unknown tool ${step.tool}`, isError: true, pause: false })
+            : tool.run(step.input),
+          (outcome): RuntimeEvent => {
+            paused = outcome.pause;
+            return {
+              _tag: 'toolResult',
+              callId,
+              tool: step.tool,
+              output: outcome.output,
+              isError: outcome.isError,
+            };
+          },
+        ),
+      );
+      return Stream.concat(
+        Stream.make<Array<RuntimeEvent>>({
+          _tag: 'toolCall',
+          callId,
+          tool: step.tool,
+          input: step.input as Schema.Json,
+        }),
+        result,
+      );
+    };
+    const previous = Option.match(turn.state, {
+      onNone: () => 0,
+      onSome: (stored) => Number(stored.state),
+    });
+    return Stream.concat(
+      Stream.flatMap(
+        Stream.fromIterable(steps.map((step, index) => [step, index] as const)),
+        ([step, index]) => play(step, index),
+      ),
+      Stream.make<Array<RuntimeEvent>>({
+        _tag: 'ended',
+        state: { adapter: 'scripted', state: previous + 1 },
+      }),
+    );
+  });
 
 /** An open issue of `owner/app` with plain defaults. */
 export const fakeIssue = (overrides: Partial<Issue> & Pick<Issue, 'number'>): Issue => ({
@@ -339,6 +455,12 @@ export const fakeLayer = () => {
         giteaConfigured: true,
         giteaFailure: undefined,
         giteaCalls: [],
+        docs: new Map(),
+        notSetUp: undefined,
+        script: [],
+        turns: [],
+        storedChat: undefined,
+        saves: 0,
       };
     }),
   );
@@ -349,6 +471,20 @@ export const fakeLayer = () => {
         Context.add(TranscriptOutbound, transcripts(fake)),
         Context.add(ProjectsOutbound, projects(fake)),
         Context.add(GiteaOutbound, gitea(fake)),
+        Context.add(AgentRuntimeOutbound, {
+          get notSetUp() {
+            return Option.fromNullishOr(fake.notSetUp);
+          },
+          runTurn: (turn) => scriptedTurn(fake, turn),
+        }),
+        Context.add(BrainstormStoreOutbound, {
+          load: Effect.sync(() => Option.fromNullishOr(fake.storedChat)),
+          save: (chat) =>
+            Effect.sync(() => {
+              fake.storedChat = chat;
+              fake.saves += 1;
+            }),
+        }),
         Context.add(SeenOutbound, {
           seen: Effect.sync(() => new Set(fake.seen)),
           markSeen: (key) =>

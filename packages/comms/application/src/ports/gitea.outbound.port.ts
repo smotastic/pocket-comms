@@ -15,7 +15,16 @@ export interface LinkedRepository extends GiteaRepository {
 
 type Failure = GiteaNotConfiguredError | GiteaUnavailableError;
 
-/** The app's Gitea server. It reads, and closes issues; no other method writes (spec 010). */
+/** A new issue: its number and its page in Gitea. */
+export interface CreatedIssue {
+  readonly number: number;
+  readonly url: string;
+}
+
+/**
+ * The app's Gitea server. It reads, closes issues (spec 010) and creates them (spec 013); no
+ * other method writes.
+ */
 export class GiteaOutbound extends Context.Service<
   GiteaOutbound,
   {
@@ -34,5 +43,10 @@ export class GiteaOutbound extends Context.Service<
       repository: GiteaRepository,
       number: number,
     ) => Effect.Effect<void, Failure | IssueNotFoundError>;
+    /** Creates an open issue with exactly this title and body, and nothing else. */
+    readonly createIssue: (
+      repository: GiteaRepository,
+      issue: { readonly title: string; readonly body: string },
+    ) => Effect.Effect<CreatedIssue, Failure>;
   }
 >()('comms/application/GiteaOutbound') {}

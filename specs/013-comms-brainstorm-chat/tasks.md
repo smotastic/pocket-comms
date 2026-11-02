@@ -7,7 +7,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
 - [x] **T01** — Domain: brainstorm entries, proposals, decisions and the issue draft rules
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application: the runtime, store, Gitea and projects port changes, the brainstorm
+- [x] **T02** — Application: the runtime, store, Gitea and projects port changes, the brainstorm
       tools, the turn runner and `BrainstormInbound`, with fakes
   - Gate: `pnpm nx test comms-application`
 

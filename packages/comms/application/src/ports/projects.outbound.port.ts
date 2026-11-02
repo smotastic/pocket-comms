@@ -1,10 +1,13 @@
-import type { Project, Worktree } from '@pocket-comms/comms-domain';
+import type { Project, ProjectDoc, Worktree } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
 import type { ProjectGitError } from '../errors.js';
 
-/** The git repositories below the projects root, and the git questions a new or closing worktree asks. */
+/**
+ * The git repositories below the projects root, the git questions a new or closing worktree asks,
+ * and the top-level docs the brainstorm chat reads.
+ */
 export class ProjectsOutbound extends Context.Service<
   ProjectsOutbound,
   {
@@ -33,5 +36,10 @@ export class ProjectsOutbound extends Context.Service<
       project: Project,
       path: string,
     ) => Effect.Effect<boolean, ProjectGitError>;
+    /**
+     * The text of a doc at the project's top level; none when it is missing, unreadable or not a
+     * regular file (a symlink counts as none).
+     */
+    readonly readDoc: (project: Project, doc: ProjectDoc) => Effect.Effect<Option.Option<string>>;
   }
 >()('comms/application/ProjectsOutbound') {}
