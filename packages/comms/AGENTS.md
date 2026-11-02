@@ -30,8 +30,9 @@ It has no database; its only state (seen completions, last status changes) lives
   the projects port lists; never accept a path from a request.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
-- `GiteaOutbound` only reads: the app never writes to Gitea, and the HTTP adapter sends only
-  `GET` and follows no redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
+- `GiteaOutbound` reads, and its one write is `closeIssue` (spec 010): the HTTP adapter sends
+  `GET`, plus a `PATCH` with exactly `{"state":"closed"}`, never a `DELETE`, and follows no
+  redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
   header; never log it, put it in an error or send it to the browser. Tests use the anonymised
   fixtures in `infrastructure/src/testing/fixtures` and a local fake server, never a real token.
 - Implementing an issue goes through the spec 005 `create` use case; do not copy its rules.

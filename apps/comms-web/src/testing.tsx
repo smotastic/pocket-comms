@@ -52,6 +52,8 @@ export interface FakeState {
   readonly issues: Map<string, IssueListView | RequestError>;
   /** What the next Implement with Claude answers. */
   implemented: TaskCreatedView | RequestError;
+  /** A failure for the next close; without one the issue leaves its project's list. */
+  closeFailure?: RequestError;
 }
 
 /**
@@ -79,6 +81,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     seen: [] as Array<string>,
     tasks: [] as Array<NewTask>,
     implemented: [] as Array<[string, number, string]>,
+    closed: [] as Array<[string, number]>,
   };
   const overviewFollowers = new Set<(state: OverviewStateView) => void>();
   const agentFollowers = new Map<string, Set<(event: AgentEventView) => void>>();
@@ -119,6 +122,17 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       calls.implemented.push([project, number, branch]);
       if (state.implemented instanceof RequestError) throw state.implemented;
       return state.implemented;
+    },
+    closeIssue: async (project, number) => {
+      calls.closed.push([project, number]);
+      if (state.closeFailure !== undefined) throw state.closeFailure;
+      const list = state.issues.get(project);
+      if (list !== undefined && !(list instanceof RequestError) && list._tag === 'Listed') {
+        state.issues.set(project, {
+          ...list,
+          issues: list.issues.filter((issue) => issue.number !== number),
+        });
+      }
     },
     followOverview: (onState, onLive) => {
       overviewFollowers.add(onState);

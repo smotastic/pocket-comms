@@ -7,6 +7,7 @@ export type {
   TranscriptDto,
 } from './dto/agent.dto.js';
 export type {
+  CloseIssueInput,
   ImplementIssueInput,
   IssueAgentDto,
   IssueDto,

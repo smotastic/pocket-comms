@@ -42,6 +42,17 @@ export const issuesHandlers = HttpApiBuilder.group(
               HerdrRejectedError: problems.worktreeRefused,
             }),
           ),
+      )
+      .handle('close', ({ params }) =>
+        issuesInbound.close({ project: params.project, number: Number(params.number) }).pipe(
+          Effect.catchTags({
+            ProjectNotFoundError: problems.projectNotFound,
+            NoGiteaRemoteError: problems.noGiteaRemote,
+            GiteaNotConfiguredError: problems.giteaNotConfigured,
+            GiteaUnavailableError: problems.giteaUnavailable,
+            IssueNotFoundError: problems.issueNotFound,
+          }),
+        ),
       );
   }),
 );

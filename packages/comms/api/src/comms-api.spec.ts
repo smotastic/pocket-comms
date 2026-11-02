@@ -14,6 +14,7 @@ import {
   ProjectGitError,
   ProjectNotFoundError,
   TasksInbound,
+  type CloseIssueInput,
   type ImplementIssueInput,
   type IssueListDto,
   type AgentDto,
@@ -475,10 +476,57 @@ describe('the issues API', () => {
     expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
   });
 
+  it('closes an issue and answers 204', async () => {
+    const asked: Array<CloseIssueInput> = [];
+    const call = issues({ close: (input) => Effect.sync(() => void asked.push(input)) });
+
+    const response = await call('/api/v1/projects/pocket-comms/issues/8/close', {
+      method: 'POST',
+    });
+
+    expect(response.status).toBe(204);
+    expect(asked).toEqual([{ project: 'pocket-comms', number: 8 }]);
+  });
+
+  it('answers 422 for an issue number that is not one', async () => {
+    const call = issues({ close: () => Effect.void });
+
+    const response = await call('/api/v1/projects/pocket-comms/issues/0/close', {
+      method: 'POST',
+    });
+
+    expect(response.status).toBe(422);
+  });
+
+  it.each([
+    [new ProjectNotFoundError({ project: 'p' }), 404, 'project-not-found'],
+    [new IssueNotFoundError({ number: 8 }), 404, 'issue-not-found'],
+    [new NoGiteaRemoteError({ project: 'p' }), 409, 'no-gitea-remote'],
+    [new GiteaNotConfiguredError(), 409, 'gitea-not-configured'],
+    [
+      new GiteaUnavailableError({ reason: 'Gitea refused the token (403).' }),
+      503,
+      'gitea-unavailable',
+    ],
+  ] as const)('maps the close failure %s to %i', async (error, status, slug) => {
+    const call = issues({ close: () => Effect.fail(error) });
+
+    const response = await call('/api/v1/projects/pocket-comms/issues/8/close', {
+      method: 'POST',
+    });
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
+  });
+
   it('rejects a request without the allowed login', async () => {
-    const call = issues({ issues: () => Effect.succeed(listed) });
+    const call = issues({ issues: () => Effect.succeed(listed), close: () => Effect.void });
 
     expect((await call('/api/v1/projects/pocket-comms/issues', { login: null })).status).toBe(403);
+    expect(
+      (await call('/api/v1/projects/pocket-comms/issues/8/close', { method: 'POST', login: null }))
+        .status,
+    ).toBe(403);
   });
 });
 

@@ -23,6 +23,9 @@ const implement = (input: Partial<ImplementIssueInput> = {}) =>
     inbound.implement({ project: 'app', number: 8, branch: 'feat/8-issue-list', ...input }),
   );
 
+const close = (number = 8, project = 'app') =>
+  IssuesInbound.use((inbound) => inbound.close({ project, number }));
+
 describe('IssuesInbound.issues', () => {
   it.effect('lists the open issues, newest activity first, with their suggested branch', () =>
     Effect.gen(function* () {
@@ -229,6 +232,78 @@ describe('IssuesInbound.implement', () => {
 
       expect(error._tag).toBe('InvalidInputError');
       expect(state.calls).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+});
+
+describe('IssuesInbound.close', () => {
+  it.effect('reads the issue again and closes it in Gitea', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8 })]);
+
+      yield* close();
+
+      expect(state.giteaCalls).toEqual(['issue owner/app 8', 'closeIssue owner/app 8']);
+      expect(state.issues.get('owner/app')?.[0]?.state).toBe('closed');
+      expect(state.calls).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('succeeds for a closed issue without closing it again', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8, state: 'closed' })]);
+
+      yield* close();
+
+      expect(state.giteaCalls).toEqual(['issue owner/app 8']);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('treats a pull request and an unknown number as no issue and closes nothing', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8, pull: true })]);
+
+      expect(yield* Effect.flip(close())).toEqual(new IssueNotFoundError({ number: 8 }));
+      expect(yield* Effect.flip(close(9))).toEqual(new IssueNotFoundError({ number: 9 }));
+      expect(state.giteaCalls).toEqual(['issue owner/app 8', 'issue owner/app 9']);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('closes nothing without a token or a Gitea remote', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8 })]);
+      state.giteaConfigured = false;
+
+      expect(yield* Effect.flip(close())).toEqual(new GiteaNotConfiguredError());
+      state.origins.set('app', '/elsewhere/app');
+      expect(yield* Effect.flip(close())).toEqual(new NoGiteaRemoteError({ project: 'app' }));
+      expect(state.giteaCalls).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('fails for a project the app does not offer', () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(close(8, 'nope'));
+
+      expect(error).toEqual(new ProjectNotFoundError({ project: 'nope' }));
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('passes on why Gitea fails', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8 })]);
+      state.giteaFailure = 'Gitea refused the token (403).';
+
+      const error = yield* Effect.flip(close());
+
+      expect(error).toEqual(
+        new GiteaUnavailableError({ reason: 'Gitea refused the token (403).' }),
+      );
     }).pipe(Effect.provide(layer())),
   );
 });
