@@ -52,11 +52,13 @@ describe('the overview', () => {
         .getAllByRole('link')
         .map((link) => link.textContent),
     ).toEqual([expect.stringContaining('picard'), expect.stringContaining('data')]);
-    expect(within(needsYou).getByText(/Needs your answer/)).toBeDefined();
+    expect(within(needsYou).getByText(blocked.title)).toBeDefined();
     expect(
       within(screen.getByRole('region', { name: 'app' })).getByText(/Fix the build/),
     ).toBeDefined();
-    expect(within(screen.getByRole('region', { name: 'Other' })).getByText('notes')).toBeDefined();
+    expect(
+      within(screen.getByRole('region', { name: 'Other' })).getByRole('link', { name: /^notes/ }),
+    ).toBeDefined();
   });
 
   it('shows Needs you, a card per project, Other, then the idle projects, each with its count', async () => {
@@ -78,7 +80,7 @@ describe('the overview', () => {
     expect(screen.queryByText('w4:p1')).toBeNull();
   });
 
-  it('tags each row with its project and worktree as its card needs', async () => {
+  it("shows each row's worktree, and its project outside a project's card", async () => {
     const linked = fakeAgent({
       ref: 'spock',
       paneId: 'w2:p2',
@@ -120,7 +122,9 @@ describe('the overview', () => {
     });
 
     const needsYou = await screen.findByRole('region', { name: 'Needs you' });
-    expect(within(needsYou).getByText('pocket-home · ingestor-mvp')).toBeDefined();
+    const uhura = within(needsYou).getByRole('link', { name: /uhura/ });
+    expect(within(uhura).getByText('pocket-home')).toBeDefined();
+    expect(within(uhura).getByText('· ingestor-mvp')).toBeDefined();
     const home = screen.getByRole('region', { name: 'pocket-home' });
     expect(within(home).getByRole('link', { name: /spock/ }).textContent).toContain('ingestor-mvp');
     expect(within(home).getByRole('link', { name: /kirk/ }).textContent).not.toContain(
@@ -131,7 +135,7 @@ describe('the overview', () => {
     ).toBeDefined();
   });
 
-  it('shows the kind, the status and the time since the last change', async () => {
+  it('shows the status and the time since the last change', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
     const row = await screen.findByRole('link', { name: /kirk/ });

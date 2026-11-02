@@ -37,8 +37,6 @@ export const tokens = {
       'success-soft': 'var(--color-bg-success-soft)',
       'neutral-soft': 'var(--color-bg-neutral-soft)',
       bar: 'var(--color-bg-bar)',
-      'kind-claude': 'var(--color-bg-kind-claude)',
-      'kind-pi': 'var(--color-bg-kind-pi)',
     },
     text: {
       default: 'var(--color-text-default)',
@@ -47,8 +45,6 @@ export const tokens = {
       'on-accent': 'var(--color-text-on-accent)',
       danger: 'var(--color-text-danger)',
       success: 'var(--color-text-success)',
-      'kind-claude': 'var(--color-text-kind-claude)',
-      'kind-pi': 'var(--color-text-kind-pi)',
     },
     border: {
       default: 'var(--color-border-default)',
@@ -87,6 +83,7 @@ export const tokens = {
     width: {
       default: 'var(--border-width-default)',
       focus: 'var(--border-width-focus)',
+      stripe: 'var(--border-width-stripe)',
     },
   },
   control: {

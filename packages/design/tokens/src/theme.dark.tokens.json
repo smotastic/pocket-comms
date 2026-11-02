@@ -38,12 +38,6 @@
       "bar": {
         "$value": "{color.gray.950-80}",
         "$description": "A bar that stays on top while the page scrolls beneath it."
-      },
-      "kind-claude": {
-        "$value": "{color.orange.950}"
-      },
-      "kind-pi": {
-        "$value": "{color.yellow.950}"
       }
     },
     "text": {
@@ -64,12 +58,6 @@
       },
       "success": {
         "$value": "{color.green.400}"
-      },
-      "kind-claude": {
-        "$value": "{color.orange.300}"
-      },
-      "kind-pi": {
-        "$value": "{color.yellow.300}"
       }
     },
     "border": {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rowName, rowTag } from './rows.js';
+import { projectHue, projectLabel, rowName, rowWorktree } from './rows.js';
 import { fakeAgent } from './testing.js';
 
 const main = fakeAgent({ name: 'kirk', workspace: 'pocket-home', project: 'pocket-home' });
@@ -23,42 +23,46 @@ describe('rowName', () => {
   });
 });
 
-describe('rowTag', () => {
-  it.each([
-    ['a linked worktree', linked, 'pocket-home · ingestor-mvp'],
-    ['a main checkout', main, 'pocket-home'],
-    ['an agent without a project', loose, 'G registry cleanup'],
-  ])('names the project and worktree of %s under Needs you', (_, agent, tag) => {
-    expect(rowTag(agent, 'needsYou')).toBe(tag);
+describe('rowWorktree', () => {
+  it('is the worktree of a linked worktree', () => {
+    expect(rowWorktree(linked)).toBe('ingestor-mvp');
   });
 
-  it('names only the project under Needs you when the worktree is the row name', () => {
+  it('is none for a main checkout', () => {
+    expect(rowWorktree(main)).toBeUndefined();
+  });
+
+  it('is none when it repeats the row name', () => {
     expect(
-      rowTag(
-        fakeAgent({ name: undefined, workspace: 'feat-x', project: 'app', worktree: 'feat-x' }),
-        'needsYou',
-      ),
-    ).toBe('app');
-  });
-
-  it('names only the worktree in a project card', () => {
-    expect(rowTag(linked, 'project')).toBe('ingestor-mvp');
-    expect(rowTag(main, 'project')).toBeUndefined();
-  });
-
-  it('names the workspace in the Other card', () => {
-    expect(rowTag(loose, 'other')).toBe('G registry cleanup');
-  });
-
-  it('shows no tag that repeats the row name', () => {
-    const unnamed = fakeAgent({ name: undefined, workspace: 'setup', project: undefined });
-    expect(rowTag(unnamed, 'other')).toBeUndefined();
-    expect(rowTag(unnamed, 'needsYou')).toBeUndefined();
-    expect(
-      rowTag(
-        fakeAgent({ name: undefined, workspace: 'feat-x', project: 'app', worktree: 'feat-x' }),
-        'project',
-      ),
+      rowWorktree(fakeAgent({ name: undefined, workspace: 'feat-x', worktree: 'feat-x' })),
     ).toBeUndefined();
+  });
+});
+
+describe('projectLabel', () => {
+  it('is the project of an agent', () => {
+    expect(projectLabel(linked)).toBe('pocket-home');
+  });
+
+  it('is the workspace of an agent without a project', () => {
+    expect(projectLabel(loose)).toBe('G registry cleanup');
+  });
+});
+
+describe('projectHue', () => {
+  const projects = ['a', 'b', 'c', 'd', 'e', 'f'];
+
+  it('takes the colours in the order of the projects', () => {
+    expect(projectHue('a', projects)).toBe(1);
+    expect(projectHue('e', projects)).toBe(5);
+  });
+
+  it('starts again after the last colour', () => {
+    expect(projectHue('f', projects)).toBe(1);
+  });
+
+  it('is neutral for a project outside the list and for no project', () => {
+    expect(projectHue('elsewhere', projects)).toBe('neutral');
+    expect(projectHue(undefined, projects)).toBe('neutral');
   });
 });

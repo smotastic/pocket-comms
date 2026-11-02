@@ -10,7 +10,7 @@ in the task's own commit.
 - [x] **T01** — Tokens: the project palette (`color.project.1`–`5`, `neutral`) in both themes
   - Gate: `pnpm tokens:check`, `pnpm nx run-many -t lint test -p design-tokens design-ui`
 
-- [ ] **T02** — Design kit `AgentRow` as the new two-line row (status dot with its wording,
+- [x] **T02** — Design kit `AgentRow` as the new two-line row (status dot with its wording,
       worktree, project label and hue, tints); the web app maps agents to it on the overview and
       the project page, with the project colour from the projects list and no label on the
       project page

@@ -1,75 +1,86 @@
 import type { Story } from '@ladle/react';
 import { Stack } from '../layout/Stack.js';
-import { StatusPill } from '../status-pill/StatusPill.js';
+import { AgentList } from './AgentList.js';
 import { AgentRow } from './AgentRow.js';
 
 const navigate = () => undefined;
 
 export const Rows: Story = () => (
-  <Stack gap="sm">
-    <AgentRow
-      href="#picard"
-      onNavigate={navigate}
-      kind={{ mark: 'π', label: 'Pi', tone: 'pi' }}
-      name="picard-tanstack"
-      status={<StatusPill tone="blocked" label="Needs you" />}
-      detail="Needs your answer"
-      since="now"
-      attention="blocked"
-    />
-    <AgentRow
-      href="#nebula"
-      onNavigate={navigate}
-      kind={{ mark: 'C', label: 'Claude', tone: 'claude' }}
-      name="nebula-ux-research"
-      status={<StatusPill tone="done" label="Done" />}
-      detail="App UX research and improvements"
-      since="4m"
-      attention="done"
-    />
-    <AgentRow
-      href="#spock"
-      onNavigate={navigate}
-      kind={{ mark: 'C', label: 'Claude', tone: 'claude' }}
-      name="spock-chat-kit-with-a-very-long-name-that-truncates"
-      status={<StatusPill tone="working" label="Working" />}
-      detail="Port chat components into the UI kit and check every story at phone width"
-      since="12s"
-    />
-    <AgentRow
-      href="#w1p2"
-      onNavigate={navigate}
-      kind={{ mark: 'co', label: 'codex', tone: 'other' }}
-      name="w1:p2"
-      status={<StatusPill tone="idle" label="Idle" />}
-      detail="zsh"
-      since="2h"
-    />
+  <Stack gap="md">
+    <AgentList label="Needs you">
+      <AgentRow
+        href="#picard"
+        onNavigate={navigate}
+        status={{ tone: 'blocked', label: 'Needs you' }}
+        name="picard-tanstack"
+        worktree="feat-router"
+        project="pocket-comms"
+        hue={1}
+        title="Which router should the web app use?"
+        since="now"
+        attention="blocked"
+      />
+      <AgentRow
+        href="#nebula"
+        onNavigate={navigate}
+        status={{ tone: 'done', label: 'Done' }}
+        name="nebula-ux-research"
+        project="pocket-home"
+        hue={2}
+        title="App UX research and improvements"
+        since="4m"
+        attention="done"
+      />
+    </AgentList>
+    <AgentList label="Everything else">
+      <AgentRow
+        href="#spock"
+        onNavigate={navigate}
+        status={{ tone: 'working', label: 'Working' }}
+        name="spock-chat-kit-with-a-very-long-name-that-truncates"
+        worktree="feat-chat-kit-with-a-long-branch"
+        project="pocket-comms"
+        hue={1}
+        title="Port chat components into the UI kit and check every story at phone width"
+        since="12s"
+      />
+      <AgentRow
+        href="#kirk"
+        onNavigate={navigate}
+        status={{ tone: 'idle', label: 'Idle' }}
+        name="kirk"
+        project="pocket-learning"
+        hue={3}
+        title="Multi-topic learning beyond Tulu"
+        since="2h"
+      />
+      <AgentRow
+        href="#w1p2"
+        onNavigate={navigate}
+        status={{ tone: 'unknown', label: 'Unknown' }}
+        name="scratch"
+        project="scratch"
+        title="zsh"
+        since="1d"
+      />
+    </AgentList>
   </Stack>
 );
 
-export const Tagged: Story = () => (
-  <Stack gap="sm">
-    <AgentRow
-      href="#kirk"
-      onNavigate={navigate}
-      kind={{ mark: 'C', label: 'Claude', tone: 'claude' }}
-      name="kirk-ingestor-mvp"
-      status={<StatusPill tone="idle" label="Idle" />}
-      detail="Pocket-home ingestor MVP discussion"
-      tag="ingestor-mvp"
-      since="2h"
-    />
-    <AgentRow
-      href="#w25"
-      onNavigate={navigate}
-      kind={{ mark: 'C', label: 'Claude', tone: 'claude' }}
-      name="feat-multiple-learnings"
-      status={<StatusPill tone="done" label="Done" />}
-      detail="Multi-topic learning beyond Tulu"
-      tag="pocket-learning · feat-multiple-learnings"
-      since="30m"
-      attention="done"
-    />
-  </Stack>
+export const Hues: Story = () => (
+  <AgentList label="Hues">
+    {([1, 2, 3, 4, 5, 'neutral'] as const).map((hue) => (
+      <AgentRow
+        key={hue}
+        href={`#${hue}`}
+        onNavigate={navigate}
+        status={{ tone: 'idle', label: 'Idle' }}
+        name={`hue-${hue}`}
+        project={`project ${hue}`}
+        hue={hue}
+        title="A row in this project's colour"
+        since="1m"
+      />
+    ))}
+  </AgentList>
 );

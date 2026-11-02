@@ -52,6 +52,10 @@
       },
       "focus": {
         "$value": "{size.2}"
+      },
+      "stripe": {
+        "$value": "{size.4}",
+        "$description": "A coloured edge that marks what a row belongs to, such as an agent's project."
       }
     }
   },

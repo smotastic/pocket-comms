@@ -1,4 +1,5 @@
 import {
+  AgentList,
   Alert,
   Card,
   Link,
@@ -18,7 +19,7 @@ import { RequestError } from './comms-client.js';
 import { overviewQuery, projectsQuery } from './comms-queries.js';
 import { navigateOnPlainClick } from './links.js';
 import { useNow, useOverviewLive } from './live.js';
-import { OTHER_KEY, type RowSection } from './rows.js';
+import { OTHER_KEY, projectHue } from './rows.js';
 
 export interface OverviewProps {
   readonly client: CommsClient;
@@ -31,14 +32,17 @@ const projectHref = (project: string) => `/projects/${encodeURIComponent(project
 
 const Section = ({
   title,
-  section,
+  withProject,
+  projects,
   agents,
   now,
   onOpen,
   onTitle,
 }: {
   readonly title: string;
-  readonly section: RowSection;
+  readonly withProject: boolean;
+  /** Every project's name, in the order that gives each its colour. */
+  readonly projects: ReadonlyArray<string>;
   readonly agents: ReadonlyArray<AgentView>;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
@@ -55,9 +59,18 @@ const Section = ({
             ? {}
             : { link: { href: projectHref(title), label: `Open ${title}`, onNavigate: onTitle } })}
         />
-        {agents.map((agent) => (
-          <AgentItem key={agent.paneId} agent={agent} section={section} now={now} onOpen={onOpen} />
-        ))}
+        <AgentList label={title}>
+          {agents.map((agent) => (
+            <AgentItem
+              key={agent.paneId}
+              agent={agent}
+              hue={projectHue(agent.project, projects)}
+              withProject={withProject}
+              now={now}
+              onOpen={onOpen}
+            />
+          ))}
+        </AgentList>
       </Stack>
     </section>
   </Card>
@@ -116,7 +129,8 @@ export const Overview = ({ client, onOpen, onProject }: OverviewProps) => {
       ? overview.error.message
       : undefined);
   const data = overview.data;
-  const known = new Set(projects.data?.map(({ name }) => name));
+  const names = projects.data?.map(({ name }) => name) ?? [];
+  const known = new Set(names);
   const busy = data === undefined ? undefined : busyProjects(data);
   const idle =
     busy === undefined || projects.data === undefined
@@ -148,7 +162,8 @@ export const Overview = ({ client, onOpen, onProject }: OverviewProps) => {
               {data.needsYou.length === 0 ? null : (
                 <Section
                   title="Needs you"
-                  section="needsYou"
+                  withProject
+                  projects={names}
                   agents={data.needsYou}
                   now={now}
                   onOpen={onOpen}
@@ -158,7 +173,8 @@ export const Overview = ({ client, onOpen, onProject }: OverviewProps) => {
                 <Section
                   key={group.key}
                   title={group.name}
-                  section={group.key === OTHER_KEY ? 'other' : 'project'}
+                  withProject={group.key === OTHER_KEY}
+                  projects={names}
                   agents={group.agents}
                   now={now}
                   onOpen={onOpen}

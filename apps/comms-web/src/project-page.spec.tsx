@@ -38,8 +38,9 @@ describe('the project page', () => {
       '/agents/w2%3Ap1',
       '/agents/kirk',
     ]);
-    expect(within(section).getByText('feat-login')).toBeDefined();
+    expect(within(section).getByText('· feat-login')).toBeDefined();
     expect(within(section).queryByText('uhura')).toBeNull();
+    expect(within(section).queryByText('pocket-home')).toBeNull();
   });
 
   it('updates its agents live', async () => {

@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { StatusPill } from '../status-pill/StatusPill.js';
 import { axeViolations } from '../testing/a11y.js';
+import { AgentList } from './AgentList.js';
 import { AgentRow, type AgentRowProps } from './AgentRow.js';
 import styles from './AgentRow.module.css';
 
@@ -13,10 +13,9 @@ const row = (props: Partial<AgentRowProps> = {}) =>
     <AgentRow
       href="/agents/kirk"
       onNavigate={() => undefined}
-      kind={{ mark: 'C', label: 'Claude', tone: 'claude' }}
+      status={{ tone: 'idle', label: 'Idle' }}
       name="kirk"
-      status={<StatusPill tone="idle" label="Idle" />}
-      detail="Ingestor MVP discussion"
+      title="Ingestor MVP discussion"
       since="2h"
       {...props}
     />,
@@ -25,18 +24,46 @@ const row = (props: Partial<AgentRowProps> = {}) =>
 const link = () => screen.getByRole('link');
 
 describe('AgentRow', () => {
-  it('is a link to the agent whose name starts with the kind and the agent name', () => {
+  it('is a link to the agent named by its name, status, title and last change', () => {
     row();
     expect(link().getAttribute('href')).toBe('/agents/kirk');
-    expect(link().textContent).toContain('kirk');
-    expect(link().textContent).toContain('Ingestor MVP discussion · 2h');
-    expect(screen.getByRole('link', { name: /^Claude kirk Idle/ })).toBeDefined();
+    expect(
+      screen.getByRole('link', { name: 'kirk Idle Ingestor MVP discussion 2h' }),
+    ).toBeDefined();
   });
 
-  it('hides the kind mark and names the kind instead', () => {
-    row({ kind: { mark: 'π', label: 'Pi', tone: 'pi' } });
-    expect(screen.getByText('π').getAttribute('aria-hidden')).toBe('true');
-    expect(screen.getByText('Pi')).toBeDefined();
+  it('shows the worktree after the name', () => {
+    row({ worktree: 'fix-pwa-notch' });
+    expect(link().textContent).toMatch(/kirk.*· fix-pwa-notch.*Idle/);
+  });
+
+  it('shows the project label before the title', () => {
+    row({ project: 'pocket-comms' });
+    expect(link().textContent).toMatch(/pocket-comms.*Ingestor MVP discussion/);
+    expect(screen.getByText('pocket-comms').classList).toContain(styles.project);
+  });
+
+  it('says its status in words and hides the dot', () => {
+    row({ status: { tone: 'working', label: 'Working' } });
+    const dot = link().querySelector(`.${styles.dot}`);
+    expect(dot?.getAttribute('aria-hidden')).toBe('true');
+    expect(dot?.classList).toContain(styles.dotWorking);
+    expect(screen.getByText('Working')).toBeDefined();
+  });
+
+  it.each([
+    [1, 'hue1'],
+    [5, 'hue5'],
+    ['neutral', 'hueNeutral'],
+  ] as const)('takes the colour of hue %s', (hue, name) => {
+    row({ hue });
+    expect(styles[name]).toMatch(/\w/);
+    expect(link().classList).toContain(styles[name]);
+  });
+
+  it('is neutral without a hue', () => {
+    row();
+    expect(link().classList).toContain(styles.hueNeutral);
   });
 
   it('navigates in the app on a plain click', async () => {
@@ -65,31 +92,85 @@ describe('AgentRow', () => {
     expect(onNavigate).not.toHaveBeenCalled();
   });
 
-  it.each(['blocked', 'done'] as const)('marks the %s attention', (attention) => {
+  it.each(['blocked', 'done'] as const)('tints the %s attention', (attention) => {
     row({ attention });
     expect(styles[attention]).toMatch(/\w/);
     expect(link().classList).toContain(styles[attention]);
   });
 
-  it('shows a tag before the detail, in its own box', () => {
-    row({ tag: 'pocket-home · ingestor-mvp' });
-    const tag = screen.getByText('pocket-home · ingestor-mvp');
-    expect(tag.closest(`.${styles.tag}`)).not.toBe(null);
-    expect(link().textContent).toMatch(/pocket-home · ingestor-mvp.*Ingestor MVP discussion · 2h/);
+  it('has no accessibility violations', async () => {
+    const { container } = row({
+      attention: 'blocked',
+      worktree: 'ingestor-mvp',
+      project: 'pocket-home',
+      hue: 2,
+    });
+    expect(await axeViolations(container)).toEqual([]);
+  });
+});
+
+const listOf = (names: ReadonlyArray<string>) => (
+  <AgentList label="Agents">
+    {names.map((name) => (
+      <AgentRow
+        key={name}
+        href={`/agents/${name}`}
+        onNavigate={() => undefined}
+        status={{ tone: 'idle', label: 'Idle' }}
+        name={name}
+        title={name}
+        since="now"
+      />
+    ))}
+  </AgentList>
+);
+
+describe('AgentList', () => {
+  it('keeps a row when the list reorders', () => {
+    const { rerender } = render(listOf(['a', 'b']));
+    const b = screen.getByRole('link', { name: /^b/ });
+    rerender(listOf(['b', 'a']));
+    expect(screen.getByRole('link', { name: /^b/ })).toBe(b);
   });
 
-  it('shows no tag box without a tag', () => {
-    row();
-    expect(link().querySelector(`.${styles.tag}`)).toBe(null);
-  });
-
-  it('takes the tone of its kind', () => {
-    row({ kind: { mark: 'X', label: 'codex', tone: 'other' } });
-    expect(screen.getByText('X').classList).toContain(styles.other);
+  it('is a named list with one item per row', () => {
+    render(
+      <AgentList label="Needs you">
+        <AgentRow
+          href="/agents/a"
+          onNavigate={() => undefined}
+          status={{ tone: 'blocked', label: 'Needs you' }}
+          name="a"
+          title="A"
+          since="now"
+        />
+        <AgentRow
+          href="/agents/b"
+          onNavigate={() => undefined}
+          status={{ tone: 'done', label: 'Done' }}
+          name="b"
+          title="B"
+          since="4m"
+        />
+      </AgentList>,
+    );
+    const list = screen.getByRole('list', { name: 'Needs you' });
+    expect(list.querySelectorAll('li')).toHaveLength(2);
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = row({ attention: 'blocked', tag: 'ingestor-mvp' });
+    const { container } = render(
+      <AgentList label="Agents">
+        <AgentRow
+          href="/agents/a"
+          onNavigate={() => undefined}
+          status={{ tone: 'idle', label: 'Idle' }}
+          name="a"
+          title="A"
+          since="now"
+        />
+      </AgentList>,
+    );
     expect(await axeViolations(container)).toEqual([]);
   });
 });

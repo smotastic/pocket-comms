@@ -1,4 +1,5 @@
 import {
+  AgentList,
   Alert,
   Button,
   Card,
@@ -14,10 +15,12 @@ import {
   Tag,
   Text,
   TopBar,
+  type Hue,
 } from '@pocket-comms/design-ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AgentItem } from './AgentItem.js';
+import { projectHue } from './rows.js';
 import type {
   AgentView,
   CommsClient,
@@ -161,10 +164,12 @@ const agentsOf = (overview: OverviewView, project: string) => {
 
 const Agents = ({
   agents,
+  hue,
   now,
   onOpen,
 }: {
   readonly agents: ReadonlyArray<AgentView>;
+  readonly hue: Hue;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
 }) => (
@@ -173,9 +178,20 @@ const Agents = ({
       <Stack gap="xs">
         <SectionHeader title="Agents" count={agents.length} />
         {agents.length === 0 ? <Text tone="muted">No agents are running.</Text> : null}
-        {agents.map((agent) => (
-          <AgentItem key={agent.paneId} agent={agent} section="project" now={now} onOpen={onOpen} />
-        ))}
+        {agents.length === 0 ? null : (
+          <AgentList label="Agents of the project">
+            {agents.map((agent) => (
+              <AgentItem
+                key={agent.paneId}
+                agent={agent}
+                hue={hue}
+                withProject={false}
+                now={now}
+                onOpen={onOpen}
+              />
+            ))}
+          </AgentList>
+        )}
       </Stack>
     </section>
   </Card>
@@ -287,7 +303,15 @@ export const ProjectPage = ({
               <Text tone="muted">Loading the agents…</Text>
             ) : null
           ) : (
-            <Agents agents={agentsOf(overview.data, project)} now={now} onOpen={onOpenAgent} />
+            <Agents
+              agents={agentsOf(overview.data, project)}
+              hue={projectHue(
+                project,
+                (projects.data ?? []).map(({ name }) => name),
+              )}
+              now={now}
+              onOpen={onOpenAgent}
+            />
           )}
           <section aria-label="Issues">
             <Stack gap="xs">
