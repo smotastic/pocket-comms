@@ -1,9 +1,8 @@
 import {
+  AgentList,
   Alert,
-  Card,
-  Link,
-  List,
-  ListItem,
+  FilterChips,
+  IconButton,
   LiveIndicator,
   Page,
   SectionHeader,
@@ -12,103 +11,75 @@ import {
   TopBar,
 } from '@pocket-comms/design-ui';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AgentItem } from './AgentItem.js';
-import type { AgentView, CommsClient, OverviewView } from './comms-client.js';
+import type { AgentView, CommsClient } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { overviewQuery, projectsQuery } from './comms-queries.js';
-import { navigateOnPlainClick } from './links.js';
+import { activeFilter, agentsOf, ALL } from './everything-else.js';
 import { useNow, useOverviewLive } from './live.js';
-import { OTHER_KEY, type RowSection } from './rows.js';
+import { ProjectsSheet } from './ProjectsSheet.js';
+import { OTHER_KEY, projectHue } from './rows.js';
+import { startedNotice } from './started.js';
 
 export interface OverviewProps {
   readonly client: CommsClient;
   readonly onOpen: (ref: string) => void;
-  /** Opens a project's page. */
-  readonly onProject: (project: string) => void;
+  /** Opens a project's page, with a notice to show there. */
+  readonly onProject: (project: string, notice?: string) => void;
+  /** Opens the conversation of an agent the projects sheet started, with its note. */
+  readonly onStarted: (ref: string, note: string | undefined) => void;
 }
 
-const projectHref = (project: string) => `/projects/${encodeURIComponent(project)}`;
-
-const Section = ({
+const Group = ({
   title,
-  section,
   agents,
+  projects,
   now,
   onOpen,
-  onTitle,
+  filter,
 }: {
   readonly title: string;
-  readonly section: RowSection;
   readonly agents: ReadonlyArray<AgentView>;
+  /** Every project's name, in the order that gives each its colour. */
+  readonly projects: ReadonlyArray<string>;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
-  /** Makes the title a link to the project's page. */
-  readonly onTitle?: (() => void) | undefined;
+  /** Shown under the heading, such as the project filter. */
+  readonly filter?: ReactNode;
 }) => (
-  <Card>
-    <section aria-label={title}>
-      <Stack gap="xs">
-        <SectionHeader
-          title={title}
-          count={agents.length}
-          {...(onTitle === undefined
-            ? {}
-            : { link: { href: projectHref(title), label: `Open ${title}`, onNavigate: onTitle } })}
-        />
+  <section aria-label={title}>
+    <Stack gap="xs">
+      <SectionHeader title={title} count={agents.length} />
+      {filter}
+      <AgentList label={title}>
         {agents.map((agent) => (
-          <AgentItem key={agent.paneId} agent={agent} section={section} now={now} onOpen={onOpen} />
+          <AgentItem
+            key={agent.paneId}
+            agent={agent}
+            hue={projectHue(agent.project, projects)}
+            withProject
+            now={now}
+            onOpen={onOpen}
+          />
         ))}
-      </Stack>
-    </section>
-  </Card>
-);
-
-/** Every project that has an agent on the overview, in a card or in Needs you. */
-const busyProjects = (overview: OverviewView) =>
-  new Set([
-    ...overview.groups.filter((group) => group.key !== OTHER_KEY).map((group) => group.name),
-    ...overview.needsYou.flatMap((agent) => (agent.project === undefined ? [] : [agent.project])),
-  ]);
-
-/** The projects without an agent, each a link to its page (spec 008, requirement 5). */
-const IdleProjects = ({
-  names,
-  onProject,
-}: {
-  readonly names: ReadonlyArray<string>;
-  readonly onProject: (project: string) => void;
-}) => (
-  <Card>
-    <section aria-label="Projects">
-      <Stack gap="xs">
-        <SectionHeader title="Projects" count={names.length} />
-        <List aria-label="Projects without agents">
-          {names.map((name) => (
-            <ListItem key={name}>
-              <Link
-                emphasis="strong"
-                href={projectHref(name)}
-                onClick={navigateOnPlainClick(() => onProject(name))}
-              >
-                {name}
-              </Link>
-            </ListItem>
-          ))}
-        </List>
-      </Stack>
-    </section>
-  </Card>
+      </AgentList>
+    </Stack>
+  </section>
 );
 
 /**
- * `/`: every live agent, Needs you first, then a card per project and Other, then the projects
- * without agents. A project's card or row opens its page. It updates live.
+ * `/`: every live agent in two groups, Needs you and Everything else, the latter by project and
+ * narrowed by a project filter. Its Projects action opens every project in a side sheet. It
+ * updates live.
  */
-export const Overview = ({ client, onOpen, onProject }: OverviewProps) => {
+export const Overview = ({ client, onOpen, onProject, onStarted }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
   const overview = useQuery(overviewQuery(client));
   const projects = useQuery(projectsQuery(client));
   const now = useNow();
+  const [chosen, setChosen] = useState(ALL);
+  const [projectsOpen, setProjectsOpen] = useState(false);
 
   const herdrAway =
     unavailable ??
@@ -116,22 +87,39 @@ export const Overview = ({ client, onOpen, onProject }: OverviewProps) => {
       ? overview.error.message
       : undefined);
   const data = overview.data;
-  const known = new Set(projects.data?.map(({ name }) => name));
-  const busy = data === undefined ? undefined : busyProjects(data);
-  const idle =
-    busy === undefined || projects.data === undefined
-      ? []
-      : projects.data.map(({ name }) => name).filter((name) => !busy.has(name));
-  const empty = data !== undefined && data.needsYou.length === 0 && data.groups.length === 0;
+  const names = projects.data?.map(({ name }) => name) ?? [];
+  const groups = data?.groups ?? [];
+  const filter = activeFilter(groups, chosen);
+  // A project that leaves the list is forgotten, so it is not chosen again when it comes back.
+  useEffect(() => {
+    if (filter !== chosen) setChosen(filter);
+  }, [filter, chosen]);
+  const empty = data !== undefined && data.needsYou.length === 0 && groups.length === 0;
 
   return (
     <>
       <TopBar
         title="pocket-comms"
         subtitle={<LiveIndicator live={live} label={live ? 'Mac mini · live' : 'Connecting…'} />}
+        end={<IconButton icon="menu" label="Projects" onClick={() => setProjectsOpen(true)} />}
+      />
+      <ProjectsSheet
+        client={client}
+        open={projectsOpen}
+        onClose={() => setProjectsOpen(false)}
+        overview={data}
+        projects={projects.data?.map(({ name }) => name)}
+        projectsError={projects.error?.message}
+        onProject={onProject}
+        onStarted={(project, created) => {
+          setProjectsOpen(false);
+          // A start without a running agent says so on the project's page.
+          if (created.agent?.started === true) onStarted(created.agent.ref, created.agent.note);
+          else onProject(project, startedNotice(created));
+        }}
       />
       <Page>
-        <Stack gap="md">
+        <Stack gap="lg">
           {herdrAway === undefined ? null : (
             <Alert>Herdr is not running. The app keeps trying. ({herdrAway})</Alert>
           )}
@@ -146,31 +134,44 @@ export const Overview = ({ client, onOpen, onProject }: OverviewProps) => {
           ) : (
             <>
               {data.needsYou.length === 0 ? null : (
-                <Section
+                <Group
                   title="Needs you"
-                  section="needsYou"
                   agents={data.needsYou}
+                  projects={names}
                   now={now}
                   onOpen={onOpen}
                 />
               )}
-              {data.groups.map((group) => (
-                <Section
-                  key={group.key}
-                  title={group.name}
-                  section={group.key === OTHER_KEY ? 'other' : 'project'}
-                  agents={group.agents}
+              {groups.length === 0 ? null : (
+                <Group
+                  title="Everything else"
+                  agents={agentsOf(groups, filter)}
+                  projects={names}
                   now={now}
                   onOpen={onOpen}
-                  onTitle={
-                    group.key !== OTHER_KEY && known.has(group.name)
-                      ? () => onProject(group.name)
-                      : undefined
+                  filter={
+                    groups.length < 2 ? undefined : (
+                      <FilterChips
+                        label="Project"
+                        value={filter}
+                        onChange={setChosen}
+                        options={[
+                          { value: ALL, label: 'All' },
+                          ...groups.map((group) => ({
+                            value: group.key,
+                            label: group.name,
+                            hue: projectHue(
+                              group.key === OTHER_KEY ? undefined : group.name,
+                              names,
+                            ),
+                          })),
+                        ]}
+                      />
+                    )
                   }
                 />
-              ))}
+              )}
               {empty ? <Text tone="muted">No agents are running.</Text> : null}
-              {idle.length === 0 ? null : <IdleProjects names={idle} onProject={onProject} />}
             </>
           )}
         </Stack>

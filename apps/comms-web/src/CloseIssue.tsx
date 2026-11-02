@@ -12,10 +12,22 @@ export interface CloseIssueProps {
 }
 
 /** The agents, or the branch of a worktree without one, that still work on the issue. */
-const stillWorking = (issue: IssueView) =>
+export const stillWorking = (issue: IssueView) =>
   issue.work.flatMap((work) =>
     work.agents.length === 0 ? [work.branch] : work.agents.map((agent) => agent.ref),
   );
+
+/** Closes an issue in Gitea; the Close sheet and the projects sheet ask first. */
+export const useCloseIssue = (
+  client: CommsClient,
+  project: string,
+  number: number,
+  onClosed: (number: number) => void,
+) =>
+  useMutation({
+    mutationFn: () => client.closeIssue(project, number),
+    onSuccess: () => onClosed(number),
+  });
 
 const CloseForm = ({
   client,
@@ -24,10 +36,7 @@ const CloseForm = ({
   onClose,
   onClosed,
 }: Omit<CloseIssueProps, 'issue'> & { readonly issue: IssueView }) => {
-  const close = useMutation({
-    mutationFn: () => client.closeIssue(project, issue.number),
-    onSuccess: () => onClosed(issue.number),
-  });
+  const close = useCloseIssue(client, project, issue.number, onClosed);
   const working = stillWorking(issue);
 
   return (
