@@ -20,6 +20,11 @@ export { ApprovalPanel, type ApprovalPanelProps } from './approval-panel/Approva
 export { HOLD_MS, KeyPad, type KeyPadProps } from './key-pad/KeyPad.js';
 export { Segmented, type SegmentedProps } from './segmented/Segmented.js';
 export { TerminalScreen, type TerminalScreenProps } from './terminal-screen/TerminalScreen.js';
+export {
+  QuestionCard,
+  type QuestionCardProps,
+  type QuestionCardQuestion,
+} from './question-card/QuestionCard.js';
 export { ToolLine, type ToolLineProps } from './tool-line/ToolLine.js';
 export { UserMessage, type UserMessageProps } from './user-message/UserMessage.js';
 export { LiveIndicator, type LiveIndicatorProps } from './live-indicator/LiveIndicator.js';

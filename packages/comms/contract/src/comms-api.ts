@@ -173,6 +173,29 @@ export const TranscriptEntry = Schema.Union([
     }),
     added: optional(Schema.Int, { description: 'Lines an edit added.', examples: [12] }),
     removed: optional(Schema.Int, { description: 'Lines an edit removed.', examples: [3] }),
+    questions: optional(
+      Schema.Array(
+        Schema.Struct({
+          header: optional(Schema.String, {
+            description: 'A short label of the question.',
+            examples: ['Stack'],
+          }),
+          text: Schema.String.annotate({
+            description: 'The question.',
+            examples: ['Keep Effect as the backend stack?'],
+          }),
+          answer: optional(Schema.String, {
+            description: 'The chosen option, several joined with ", ", or what the owner typed.',
+            examples: ['Keep Effect'],
+          }),
+        }).annotate({ identifier: 'Question', description: 'One question and its answer.' }),
+      ),
+      {
+        description:
+          'The questions the call asked the owner, in order: `pending` while they wait, `ok` once answered, `error` when never answered.',
+        examples: [[{ header: 'Stack', text: 'Keep Effect?', answer: 'Keep Effect' }]],
+      },
+    ),
     outcome: Schema.Literals(['ok', 'error', 'pending']).annotate({
       description: 'How the call ended; `pending` while it runs.',
       examples: ['ok'],

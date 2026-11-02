@@ -626,6 +626,43 @@
         "required": ["text"],
         "type": "object"
       },
+      "Question": {
+        "additionalProperties": false,
+        "description": "One question and its answer.",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The chosen option, several joined with \", \", or what the owner typed.",
+            "examples": ["Keep Effect"]
+          },
+          "header": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A short label of the question.",
+            "examples": ["Stack"]
+          },
+          "text": {
+            "description": "The question.",
+            "examples": ["Keep Effect as the backend stack?"],
+            "type": "string"
+          }
+        },
+        "required": ["text"],
+        "type": "object"
+      },
       "Screen": {
         "additionalProperties": false,
         "description": "The agent's terminal screen.",
@@ -899,6 +936,29 @@
                 "enum": ["ok", "error", "pending"],
                 "examples": ["ok"],
                 "type": "string"
+              },
+              "questions": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "$ref": "#/components/schemas/Question"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The questions the call asked the owner, in order: `pending` while they wait, `ok` once answered, `error` when never answered.",
+                "examples": [
+                  [
+                    {
+                      "answer": "Keep Effect",
+                      "header": "Stack",
+                      "text": "Keep Effect?"
+                    }
+                  ]
+                ]
               },
               "removed": {
                 "anyOf": [

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
+import { DockedHeader } from '../layout/docked-header.js';
 import styles from './TopBar.module.css';
 
 export type TopBarProps = {
@@ -14,17 +15,21 @@ export type TopBarProps = {
 
 /**
  * The bar at the top of a screen, with its heading. It stays on top while the page scrolls, clear
- * of the notch, and lets the page show through blurred.
+ * of the notch, and lets the page show through blurred. Heading a docked page, it is only the row:
+ * the page's header already does the rest.
  */
-export const TopBar = ({ title, subtitle, start, end }: TopBarProps) => (
-  <header className={styles.bar}>
-    <div className={styles.row}>
-      {start}
-      <div className={styles.titles}>
-        <h1 className={styles.title}>{title}</h1>
-        {subtitle === undefined ? null : <div className={styles.subtitle}>{subtitle}</div>}
+export const TopBar = ({ title, subtitle, start, end }: TopBarProps) => {
+  const docked = useContext(DockedHeader);
+  return (
+    <header className={docked ? styles.docked : styles.bar}>
+      <div className={styles.row}>
+        {start}
+        <div className={styles.titles}>
+          <h1 className={styles.title}>{title}</h1>
+          {subtitle === undefined ? null : <div className={styles.subtitle}>{subtitle}</div>}
+        </div>
+        {end}
       </div>
-      {end}
-    </div>
-  </header>
-);
+    </header>
+  );
+};

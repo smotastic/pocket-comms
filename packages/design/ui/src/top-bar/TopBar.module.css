@@ -18,6 +18,11 @@
   padding: var(--space-md) var(--space-lg);
 }
 
+/* Heading a docked page: the page's header clears the notch and draws the spacing and the border. */
+.docked .row {
+  padding: 0;
+}
+
 .titles {
   flex: 1;
   min-width: 0;

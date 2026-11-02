@@ -7,6 +7,7 @@ import {
   IconButton,
   KeyPad,
   Markdown,
+  QuestionCard,
   Segmented,
   Stack,
   StatusPill,
@@ -48,6 +49,9 @@ const CTRL_C = { value: 'ctrl+c', label: 'Ctrl-C', accessibleLabel: 'Hold to sen
 const isKey = (value: string): value is Key =>
   value === CTRL_C.value || KEYS.some((key) => key.value === value);
 
+// A call that asked the owner questions waits while pending and failed when they never answered.
+const QUESTION_STATES = { pending: 'waiting', ok: 'answered', error: 'unanswered' } as const;
+
 const Chat = ({
   transcript,
   failed,
@@ -71,6 +75,19 @@ const Chat = ({
           case 'assistant':
             return <Markdown key={entry.id} text={entry.text} />;
           case 'tool':
+            if (entry.questions !== undefined) {
+              return (
+                <QuestionCard
+                  key={entry.id}
+                  questions={entry.questions.map(({ header, text, answer }) => ({
+                    text,
+                    ...(header === undefined ? {} : { header }),
+                    ...(answer === undefined ? {} : { answer }),
+                  }))}
+                  state={QUESTION_STATES[entry.outcome]}
+                />
+              );
+            }
             return (
               <ToolLine
                 key={entry.id}

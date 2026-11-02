@@ -61,6 +61,37 @@ describe('the conversation', () => {
     expect(await screen.findByText('All green now.')).toBeDefined();
   });
 
+  it("shows an agent's questions with the owner's answers", async () => {
+    const fake = open();
+    await screen.findByText('Fix the failing test');
+
+    act(() =>
+      fake.emitAgent('kirk', {
+        type: 'entries',
+        reset: false,
+        entries: [
+          {
+            type: 'tool',
+            id: 'q1',
+            at: 5,
+            verb: 'Used',
+            target: 'AskUserQuestion',
+            questions: [
+              { header: 'Monorepo', text: 'Keep the Nx monorepo setup?', answer: 'Keep Nx' },
+            ],
+            outcome: 'ok',
+          },
+        ],
+        activity: 'Thinking…',
+      }),
+    );
+
+    expect(await screen.findByText('Keep the Nx monorepo setup?')).toBeDefined();
+    expect(screen.getByText('Monorepo')).toBeDefined();
+    expect(screen.getByText('Keep Nx')).toBeDefined();
+    expect(screen.queryByText('AskUserQuestion')).toBeNull();
+  });
+
   it('marks a done agent as seen', async () => {
     const fake = open(fakeAgent({ status: 'done', needsYou: true }));
 

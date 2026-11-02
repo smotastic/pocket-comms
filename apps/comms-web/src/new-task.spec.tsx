@@ -6,6 +6,9 @@ import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
 
+// New task opens from a project's page (spec 008, requirement 11).
+const at = { path: '/projects/pocket-home' };
+
 const openSheet = async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'New task' }));
   return screen.findByRole('dialog', { name: 'New task' });
@@ -16,23 +19,17 @@ const fill = async (task: string) => {
 };
 
 describe('the New task sheet', () => {
-  it('offers the projects open in Herdr first, as the server orders them', async () => {
-    renderApp({ client: fakeClient().client });
+  it("names the page's project and offers no other", async () => {
+    renderApp({ client: fakeClient().client, ...at });
 
     const sheet = await openSheet();
 
-    const picker = await within(sheet).findByRole('combobox', { name: 'Project' });
-    expect(
-      [...(picker as HTMLSelectElement).options].map((option) => [option.value, option.text]),
-    ).toEqual([
-      ['pocket-comms', 'pocket-comms · open in Herdr'],
-      ['pocket-home', 'pocket-home'],
-    ]);
-    expect((picker as HTMLSelectElement).value).toBe('pocket-comms');
+    expect(within(sheet).getByText('pocket-home · a new worktree in Herdr')).toBeDefined();
+    expect(within(sheet).queryByRole('combobox', { name: 'Project' })).toBeNull();
   });
 
   it('prefills the branch from the task until it is edited', async () => {
-    renderApp({ client: fakeClient().client });
+    renderApp({ client: fakeClient().client, ...at });
     await openSheet();
     const branch = () => screen.getByRole('textbox', { name: 'Branch' }) as HTMLInputElement;
 
@@ -56,7 +53,7 @@ describe('the New task sheet', () => {
         agent: { ref: 'feat-add-dark-mode', started: true, prompted: true },
       },
     });
-    const { router } = renderApp({ client: fake.client });
+    const { router } = renderApp({ client: fake.client, ...at });
     await openSheet();
 
     await fill('Add dark mode');
@@ -64,7 +61,7 @@ describe('the New task sheet', () => {
 
     expect(fake.calls.tasks).toEqual([
       {
-        project: 'pocket-comms',
+        project: 'pocket-home',
         task: 'Add dark mode',
         branch: 'feat/add-dark-mode',
         agent: { kind: 'claude' },
@@ -90,7 +87,7 @@ describe('the New task sheet', () => {
         },
       },
     });
-    renderApp({ client: fake.client });
+    renderApp({ client: fake.client, ...at });
     await openSheet();
 
     await fill('X');
@@ -103,7 +100,7 @@ describe('the New task sheet', () => {
 
   it('starts a Pi agent when chosen', async () => {
     const fake = fakeClient();
-    renderApp({ client: fake.client });
+    renderApp({ client: fake.client, ...at });
     await openSheet();
 
     await fill('Add dark mode');
@@ -113,13 +110,12 @@ describe('the New task sheet', () => {
     expect(fake.calls.tasks[0]?.agent).toEqual({ kind: 'pi' });
   });
 
-  it('creates only the worktree without an agent and says so on the overview', async () => {
+  it('creates only the worktree without an agent and says so on the project page', async () => {
     const fake = fakeClient();
-    const { router } = renderApp({ client: fake.client });
+    const { router } = renderApp({ client: fake.client, ...at });
     await openSheet();
 
     await fill('Add dark mode');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Project' }), 'pocket-home');
     await userEvent.click(screen.getByRole('switch', { name: 'Start an agent' }));
     expect(screen.queryByRole('group', { name: 'Agent' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
@@ -131,7 +127,7 @@ describe('the New task sheet', () => {
       (await screen.findByText('feat/x is ready in a new worktree.')).closest('[role="status"]'),
     ).not.toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(router.state.location.pathname).toBe('/');
+    expect(router.state.location.pathname).toBe('/projects/pocket-home');
   });
 
   it('shows a refused field at the field and keeps what was typed', async () => {
@@ -140,7 +136,7 @@ describe('the New task sheet', () => {
         { field: 'branch', message: 'git does not accept feat/a.lock as a branch name.' },
       ]),
     });
-    renderApp({ client: fake.client });
+    renderApp({ client: fake.client, ...at });
     await openSheet();
 
     await fill('Add dark mode');
@@ -159,7 +155,7 @@ describe('the New task sheet', () => {
     const fake = fakeClient({
       created: new RequestError('feat/x exists locally or on origin. Choose another name.', 409),
     });
-    renderApp({ client: fake.client });
+    renderApp({ client: fake.client, ...at });
     await openSheet();
 
     await fill('X');
@@ -172,7 +168,7 @@ describe('the New task sheet', () => {
   });
 
   it('closes and forgets the draft', async () => {
-    renderApp({ client: fakeClient().client });
+    renderApp({ client: fakeClient().client, ...at });
     await openSheet();
     await fill('Draft');
 
@@ -183,15 +179,5 @@ describe('the New task sheet', () => {
     expect(
       ((await screen.findByRole('textbox', { name: 'Task' })) as HTMLTextAreaElement).value,
     ).toBe('');
-  });
-
-  it('says when there is no project', async () => {
-    renderApp({ client: fakeClient({ projects: [] }).client });
-
-    await openSheet();
-
-    expect(
-      await screen.findByText('No git repositories were found in the projects folder.'),
-    ).toBeDefined();
   });
 });

@@ -1,4 +1,5 @@
-import type { MouseEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { isPlainClick } from '../plain-click.js';
 import { Tag } from '../tag/Tag.js';
 import hidden from '../visually-hidden.module.css';
 import styles from './AgentRow.module.css';
@@ -26,10 +27,6 @@ export type AgentRowProps = {
   /** Tints the row for something that needs the reader. */
   readonly attention?: 'blocked' | 'done';
 };
-
-// A click with a modifier or another button opens a tab or a menu; the browser keeps it.
-const isPlainClick = (event: MouseEvent) =>
-  event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 
 /** One agent in a list: its kind, name and status, and what it is doing. A link to its page. */
 export const AgentRow = ({
