@@ -34,6 +34,6 @@ in the task's own commit.
 - [x] **T05** — README and comms `AGENTS.md`: the `write:issue` scope and the adapter's one write
   - Gate: `pnpm format:check`
 
-- [ ] **T06** — Local check of the built app at 390 px with `agent-browser` and a fake Gitea, no
+- [x] **T06** — Local check of the built app at 390 px with `agent-browser` and a fake Gitea, no
       real issue closed; spec status `Done`
   - Gate: the check's notes in the pull request

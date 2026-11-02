@@ -42,7 +42,7 @@ const CloseForm = ({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" variant="danger" disabled={close.isPending}>
+          <Button type="submit" disabled={close.isPending}>
             {close.isPending ? 'Closing…' : 'Close issue'}
           </Button>
         </>

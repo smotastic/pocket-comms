@@ -1,6 +1,6 @@
 # Spec 010 — pocket-comms: close a Gitea issue from the issue list
 
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02); checked locally at 390 px with a fake Gitea on 2026-11-02
 - **Changes:** [spec 006](../006-comms-gitea-issues/spec.md) (requirement 17, "the app never
   writes to Gitea", and the token's scopes in requirement 1)
 
