@@ -84,16 +84,17 @@ describe('the image folder store', () => {
     }),
   );
 
-  it.effect('fails to save into a folder it cannot write, leaving nothing behind', () =>
+  it.effect('fails to save when the folder cannot be made, leaving nothing behind', () =>
     Effect.gen(function* () {
       const dir = stateDir();
-      mkdirSync(join(dir, 'images'), { mode: 0o500 });
+      // A file where the folder belongs fails for every user, root included.
+      writeFileSync(join(dir, 'images'), 'not a folder');
       const images = yield* store(dir);
 
       const error = yield* images.save({ kind: 'png', bytes: PNG }).pipe(Effect.flip);
 
       expect(error._tag).toBe('ImageNotSavedError');
-      expect(readdirSync(join(dir, 'images'))).toEqual([]);
+      expect(readdirSync(dir)).toEqual(['images']);
     }),
   );
 
