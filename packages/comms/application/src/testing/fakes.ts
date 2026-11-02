@@ -1,4 +1,5 @@
 import {
+  IN_PROGRESS_LABEL,
   OTHER_GROUP,
   parseRemote,
   type Agent,
@@ -115,6 +116,8 @@ export class FakeState extends Context.Service<
     giteaConfigured: boolean;
     /** Why the fake Gitea fails, when it does. */
     giteaFailure: string | undefined;
+    /** Why only marking an issue in progress fails, when it does. */
+    giteaMarkFailure: string | undefined;
     /** Every Gitea request, as `<method> <owner>/<name> [<number>]`. */
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
@@ -323,6 +326,21 @@ const gitea = (state: FakeState['Service']) => {
         issues[index] = { ...found, state: 'closed' };
         return Effect.void;
       }),
+    markInProgress: ({ owner, name }, number) =>
+      request<void, IssueNotFoundError | GiteaUnavailableError>(
+        `markInProgress ${owner}/${name} ${number}`,
+        () => {
+          if (state.giteaMarkFailure !== undefined) {
+            return Effect.fail(new GiteaUnavailableError({ reason: state.giteaMarkFailure }));
+          }
+          const issues = state.issues.get(`${owner}/${name}`) ?? [];
+          const index = issues.findIndex((issue) => issue.number === number);
+          const found = issues[index];
+          if (found === undefined) return Effect.fail(new IssueNotFoundError({ number }));
+          issues[index] = { ...found, labels: [...found.labels, IN_PROGRESS_LABEL] };
+          return Effect.void;
+        },
+      ),
     createIssue: ({ owner, name }, { title, body }) =>
       request(`createIssue ${owner}/${name} ${JSON.stringify({ title, body })}`, () =>
         Effect.sync(() => {
@@ -457,6 +475,7 @@ export const fakeLayer = () => {
         issues: new Map(),
         giteaConfigured: true,
         giteaFailure: undefined,
+        giteaMarkFailure: undefined,
         giteaCalls: [],
         docs: new Map(),
         notSetUp: undefined,

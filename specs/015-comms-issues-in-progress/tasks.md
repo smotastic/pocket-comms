@@ -11,7 +11,7 @@ in the task's own commit.
       (label in any case, or a worktree on the issue)
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application: `GiteaOutbound.markInProgress`; the fake records labels; `implement`
+- [x] **T02** — Application: `GiteaOutbound.markInProgress`; the fake records labels; `implement`
       marks after `create`, skips an already labelled issue, reports a failure as `markNote`,
       marks nothing when `create` fails; `IssueDto.inProgress`
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`

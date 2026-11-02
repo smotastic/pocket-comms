@@ -12,6 +12,7 @@ export type {
   IssueAgentDto,
   IssueDto,
   IssueListDto,
+  IssueTaskCreatedDto,
   IssueWorkDto,
 } from './dto/issue.dto.js';
 export type {
