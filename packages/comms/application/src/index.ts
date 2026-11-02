@@ -14,9 +14,17 @@ export type {
   IssueListDto,
   IssueWorkDto,
 } from './dto/issue.dto.js';
+export type {
+  BrainstormEventDto,
+  BrainstormStateDto,
+  ProposalDecisionInput,
+} from './dto/brainstorm.dto.js';
 export type { CreateTaskInput, ProjectDto, TaskAgentDto, TaskCreatedDto } from './dto/task.dto.js';
 export {
   AgentNotFoundError,
+  AgentRuntimeError,
+  BrainstormBusyError,
+  BrainstormNotSetUpError,
   BranchExistsError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
@@ -26,12 +34,27 @@ export {
   NotAWorktreeError,
   ProjectGitError,
   ProjectNotFoundError,
+  ProposalDecidedError,
+  ProposalNotFoundError,
   HerdrRejectedError,
   HerdrUnavailableError,
   TranscriptUnavailableError,
   WorktreeHasChangesError,
 } from './errors.js';
 export { AgentsInbound } from './ports/agents.inbound.port.js';
+export {
+  AgentRuntimeOutbound,
+  type RuntimeEvent,
+  type RuntimeState,
+  type RuntimeTool,
+  type ToolOutcome,
+  type TurnInput,
+} from './ports/agent-runtime.outbound.port.js';
+export { BrainstormInbound } from './ports/brainstorm.inbound.port.js';
+export {
+  BrainstormStoreOutbound,
+  type StoredChat,
+} from './ports/brainstorm-store.outbound.port.js';
 export {
   HerdrOutbound,
   type AgentStart,
@@ -41,7 +64,11 @@ export {
   type WorktreeRemoval,
   type WorktreeRequest,
 } from './ports/herdr.outbound.port.js';
-export { GiteaOutbound, type LinkedRepository } from './ports/gitea.outbound.port.js';
+export {
+  GiteaOutbound,
+  type CreatedIssue,
+  type LinkedRepository,
+} from './ports/gitea.outbound.port.js';
 export { IssuesInbound } from './ports/issues.inbound.port.js';
 export { ProjectsOutbound } from './ports/projects.outbound.port.js';
 export { TasksInbound } from './ports/tasks.inbound.port.js';

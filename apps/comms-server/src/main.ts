@@ -19,6 +19,8 @@ const main = Layer.unwrap(
         herdr: config.socketPath,
         gitea: config.giteaUrl,
         giteaToken: Option.isSome(config.giteaToken) ? 'set' : 'not set',
+        brainstorm: Option.getOrElse(config.brainstormModel, () => 'not set up'),
+        state: config.stateDir,
       }),
     );
     return Observability.serve(
@@ -29,6 +31,14 @@ const main = Layer.unwrap(
         projectsRoot: config.projectsRoot,
         agentArgs: config.agentArgs,
         gitea: { url: config.giteaUrl, token: config.giteaToken, hosts: config.giteaHosts },
+        stateDir: config.stateDir,
+        pi: {
+          provider: config.brainstormProvider,
+          model: config.brainstormModel,
+          apiKey: config.brainstormApiKey,
+          authFile: config.piAuthFile,
+          thinking: config.brainstormThinking,
+        },
         ...Option.match(config.webDist, { onNone: () => ({}), onSome: (webDist) => ({ webDist }) }),
       }),
       { serviceName: 'comms-server' },

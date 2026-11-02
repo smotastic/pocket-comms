@@ -246,6 +246,57 @@ describe('Gitea.layerHttp', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('creates an issue with one POST that carries only its title and body', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((url, method) =>
+        url.pathname === '/api/v1/repos/owner/app/issues' && method === 'POST'
+          ? {
+              status: 201,
+              body: { ...listed[0], number: 12, html_url: 'http://gitea.test/owner/app/issues/12' },
+            }
+          : { status: 404, body: { message: 'not found' } },
+      );
+
+      const created = yield* withGitea(gitea.url, (outbound) =>
+        outbound.createIssue(repository, { title: 'Dark mode', body: 'A toggle.' }),
+      );
+
+      expect(created).toEqual({ number: 12, url: 'http://gitea.test/owner/app/issues/12' });
+      expect(gitea.seen).toEqual([
+        {
+          method: 'POST',
+          url: '/api/v1/repos/owner/app/issues',
+          authorization: `token ${TOKEN}`,
+          contentType: 'application/json',
+          body: '{"title":"Dark mode","body":"A toggle."}',
+        },
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('reports a refused or missing repository when creating an issue', () =>
+    Effect.gen(function* () {
+      const missing = yield* fakeGitea(() => ({ status: 404, body: { message: 'not found' } }));
+      const invalid = yield* fakeGitea(() => ({ status: 422, body: { message: 'invalid' } }));
+
+      const errors = yield* Effect.all([
+        withGitea(missing.url, (outbound) =>
+          outbound.createIssue(repository, { title: 'X', body: '' }).pipe(Effect.flip),
+        ),
+        withGitea(invalid.url, (outbound) =>
+          outbound.createIssue(repository, { title: 'X', body: '' }).pipe(Effect.flip),
+        ),
+      ]);
+
+      expect(errors).toEqual([
+        new GiteaUnavailableError({
+          reason: 'Gitea has no repository owner/app, or the token cannot write to it.',
+        }),
+        new GiteaUnavailableError({ reason: 'Gitea answered 422.' }),
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('sends nothing without a token', () =>
     Effect.gen(function* () {
       const gitea = yield* fakeGitea(issueRoute([listed]));
@@ -257,11 +308,13 @@ describe('Gitea.layerHttp', () => {
             outbound.openIssues(repository).pipe(Effect.flip),
             outbound.issue(repository, 5).pipe(Effect.flip),
             outbound.closeIssue(repository, 5).pipe(Effect.flip),
+            outbound.createIssue(repository, { title: 'X', body: '' }).pipe(Effect.flip),
           ]),
         null,
       );
 
       expect(errors).toEqual([
+        new GiteaNotConfiguredError(),
         new GiteaNotConfiguredError(),
         new GiteaNotConfiguredError(),
         new GiteaNotConfiguredError(),

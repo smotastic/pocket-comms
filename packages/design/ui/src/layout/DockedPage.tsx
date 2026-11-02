@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from 'react';
 import { DockedHeader } from './docked-header.js';
-import { useFitVisualViewport, useFollowEnd } from './docking.js';
+import { useFitVisualViewport, useFollowEnd, usePublishFooterHeight } from './docking.js';
 import styles from './Layout.module.css';
 
 export type DockedPageProps = {
@@ -21,8 +21,10 @@ export type DockedPageProps = {
 export const DockedPage = ({ header, footer, label, children }: DockedPageProps) => {
   const page = useRef<HTMLElement>(null);
   const body = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
   useFitVisualViewport(page);
   useFollowEnd(body);
+  usePublishFooterHeight(footerRef);
 
   return (
     <main ref={page} className={styles.docked}>
@@ -35,7 +37,7 @@ export const DockedPage = ({ header, footer, label, children }: DockedPageProps)
       <div ref={body} className={styles.dockedBody} role="region" aria-label={label} tabIndex={0}>
         <div className={styles.dockedInner}>{children}</div>
       </div>
-      <div className={styles.dockedFooter}>
+      <div ref={footerRef} className={styles.dockedFooter}>
         <div className={styles.dockedInner}>{footer}</div>
       </div>
     </main>

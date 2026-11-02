@@ -1,7 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import type { AgentEventView, CommsClient, TranscriptView } from './comms-client.js';
-import { agentKey, overviewKey, transcriptKey } from './comms-queries.js';
+import type {
+  AgentEventView,
+  BrainstormEventView,
+  BrainstormStateView,
+  CommsClient,
+  TranscriptView,
+} from './comms-client.js';
+import { agentKey, brainstormKey, overviewKey, transcriptKey } from './comms-queries.js';
 
 type EntriesEvent = Extract<AgentEventView, { readonly type: 'entries' }>;
 
@@ -69,6 +75,32 @@ export const useAgentLive = (client: CommsClient, ref: string) => {
       ),
     [client, queryClient, ref],
   );
+  return { live };
+};
+
+/** Applies a brainstorm event: a state replaces the held one, a delta extends Pi's live text. */
+export const applyBrainstormEvent = (
+  held: BrainstormStateView | undefined,
+  event: BrainstormEventView,
+): BrainstormStateView | undefined => {
+  if (event.type === 'state') return event.state;
+  return held?._tag === 'Ready' ? { ...held, live: held.live + event.text } : held;
+};
+
+/** Follows the brainstorm stream into the query cache while `active`, such as while it is open. */
+export const useBrainstormLive = (client: CommsClient, active: boolean) => {
+  const queryClient = useQueryClient();
+  const [live, setLive] = useState(false);
+  useEffect(() => {
+    if (!active) return undefined;
+    return client.followBrainstorm(
+      (event) =>
+        queryClient.setQueryData<BrainstormStateView>(brainstormKey, (held) =>
+          applyBrainstormEvent(held, event),
+        ),
+      setLive,
+    );
+  }, [client, queryClient, active]);
   return { live };
 };
 

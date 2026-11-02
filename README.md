@@ -28,23 +28,36 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 (below). The development web server adds that header itself, as `tailscale serve` would, so
 `http://127.0.0.1:4200` works in a local browser.
 
-| Variable               | Default                      | Meaning                                                                                            |
-| ---------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| `COMMS_PORT`           | `4410`                       | The server's port on `127.0.0.1`                                                                   |
-| `COMMS_ALLOWED_LOGIN`  | `smotastic@`                 | The Tailscale login that may use the app; a value ending in `@` allows that user with any provider |
-| `HERDR_SOCKET_PATH`    | `~/.config/herdr/herdr.sock` | Herdr's API socket                                                                                 |
-| `COMMS_WEB_DIST`       | set by `pnpm start`          | The built web app the server serves; without it the server serves only the API                     |
-| `COMMS_PROJECTS_ROOT`  | `~/Development/projects`     | The folder whose git repositories (direct children) a new task can start in                        |
-| `COMMS_AGENT_ARGS`     | empty                        | Extra arguments for every agent a new task starts, split on spaces; empty keeps the CLI defaults   |
-| `COMMS_GITEA_URL`      | `http://localhost:3000`      | The Gitea server whose issues the app reads                                                        |
-| `COMMS_GITEA_TOKEN`    | none                         | A Gitea token with `write:issue` and `read:repository`; without it the issue lists say so          |
-| `COMMS_GITEA_HOSTS`    | `gitea`                      | Further host names (such as SSH aliases) of that Gitea in git remotes, comma-separated             |
-| `OTEL_EXPORTER_OTLP_*` | off                          | Traces, metrics and logs over OTLP (ADR 0010)                                                      |
+| Variable                    | Default                      | Meaning                                                                                            |
+| --------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `COMMS_PORT`                | `4410`                       | The server's port on `127.0.0.1`                                                                   |
+| `COMMS_ALLOWED_LOGIN`       | `smotastic@`                 | The Tailscale login that may use the app; a value ending in `@` allows that user with any provider |
+| `HERDR_SOCKET_PATH`         | `~/.config/herdr/herdr.sock` | Herdr's API socket                                                                                 |
+| `COMMS_WEB_DIST`            | set by `pnpm start`          | The built web app the server serves; without it the server serves only the API                     |
+| `COMMS_PROJECTS_ROOT`       | `~/Development/projects`     | The folder whose git repositories (direct children) a new task can start in                        |
+| `COMMS_AGENT_ARGS`          | empty                        | Extra arguments for every agent a new task starts, split on spaces; empty keeps the CLI defaults   |
+| `COMMS_GITEA_URL`           | `http://localhost:3000`      | The Gitea server whose issues the app reads                                                        |
+| `COMMS_GITEA_TOKEN`         | none                         | A Gitea token with `write:issue` and `read:repository`; without it the issue lists say so          |
+| `COMMS_GITEA_HOSTS`         | `gitea`                      | Further host names (such as SSH aliases) of that Gitea in git remotes, comma-separated             |
+| `COMMS_STATE_DIR`           | `~/.pocket-comms`            | Where the server keeps the brainstorm chat (`brainstorm.json`)                                     |
+| `COMMS_BRAINSTORM_PROVIDER` | none                         | The brainstorm chat's model provider, such as `openai`; without it the chat says it is not set up  |
+| `COMMS_BRAINSTORM_MODEL`    | none                         | The brainstorm chat's model, such as `gpt-6-luna`                                                  |
+| `COMMS_BRAINSTORM_API_KEY`  | none                         | An API key for that provider; without it the server uses your Pi login                             |
+| `COMMS_BRAINSTORM_THINKING` | `off`                        | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`                                        |
+| `COMMS_PI_AUTH_FILE`        | `~/.pi/agent/auth.json`      | Pi's credential file; `PI_CODING_AGENT_DIR` moves its folder as it does for Pi                     |
+| `OTEL_EXPORTER_OTLP_*`      | off                          | Traces, metrics and logs over OTLP (ADR 0010)                                                      |
 
 The Gitea token is a secret: put it in the server's environment only. Create it in Gitea under
 **Settings → Applications → Manage Access Tokens** with the scopes `write:issue` and
-`read:repository`. The app reads with `GET`; its only write is the `PATCH` that closes an issue.
-A token with `read:issue` still lists the issues, but closing one then fails.
+`read:repository`. The app reads with `GET`; it writes only the `PATCH` that closes an issue and
+the `POST` that creates one you approved in the brainstorm chat. A token with `read:issue` still
+lists the issues, but closing or creating one then fails.
+
+The brainstorm chat (the bulb at the bottom right of every screen) runs Pi inside the server. Sign
+in with Pi once (`pi`, then `/login`) and set the provider and the model, for example
+`COMMS_BRAINSTORM_PROVIDER=openai` and `COMMS_BRAINSTORM_MODEL=gpt-6-luna`. Pi only reads the
+project list, a project's open issues and its `README.md` and `AGENTS.md`; an issue is created only
+when you tap **Create issue** on its proposal.
 
 The API is documented at `/docs` (the OpenAPI document at `/docs/openapi.json`), behind the same
 login check.

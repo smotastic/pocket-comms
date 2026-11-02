@@ -76,3 +76,26 @@ export class IssueNotFoundError extends Data.TaggedError('IssueNotFoundError')<{
 export class IssueClosedError extends Data.TaggedError('IssueClosedError')<{
   readonly number: number;
 }> {}
+
+/** The agent runtime failed a turn, such as a model that cannot be reached. */
+export class AgentRuntimeError extends Data.TaggedError('AgentRuntimeError')<{
+  readonly reason: string;
+}> {}
+
+/** The server has no model for the brainstorm chat; `reason` names the missing setting. */
+export class BrainstormNotSetUpError extends Data.TaggedError('BrainstormNotSetUpError')<{
+  readonly reason: string;
+}> {}
+
+/** Pi is still answering, so the chat takes no new message or decision yet. */
+export class BrainstormBusyError extends Data.TaggedError('BrainstormBusyError') {}
+
+/** The brainstorm chat has no proposal with this id. */
+export class ProposalNotFoundError extends Data.TaggedError('ProposalNotFoundError')<{
+  readonly id: string;
+}> {}
+
+/** The proposal was decided already; it is decided once. */
+export class ProposalDecidedError extends Data.TaggedError('ProposalDecidedError')<{
+  readonly id: string;
+}> {}

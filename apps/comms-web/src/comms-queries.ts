@@ -10,6 +10,7 @@ export const transcriptKey = (ref: string) => ['transcript', ref] as const;
 export const screenKey = (ref: string) => ['screen', ref] as const;
 export const projectsKey = ['projects'] as const;
 export const issuesKey = (project: string) => ['issues', project] as const;
+export const brainstormKey = ['brainstorm'] as const;
 
 export const overviewQuery = (client: CommsClient) =>
   queryOptions({ queryKey: overviewKey, queryFn: () => client.overview() });
@@ -39,3 +40,7 @@ export const issuesQuery = (client: CommsClient, project: string) =>
     queryFn: () => client.issues(project),
     refetchInterval: 30_000,
   });
+
+/** The brainstorm chat, read when its sheet opens; the stream keeps it current while open. */
+export const brainstormQuery = (client: CommsClient) =>
+  queryOptions({ queryKey: brainstormKey, queryFn: () => client.brainstorm(), staleTime: 0 });

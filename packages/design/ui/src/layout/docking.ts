@@ -56,3 +56,27 @@ export const useFollowEnd = (ref: RefObject<HTMLElement | null>, active = true) 
     };
   }, [ref, active]);
 };
+
+/** The page variable that holds the height of a docked footer, which a `Fab` floats above. */
+export const FOOTER_HEIGHT_VARIABLE = '--docked-footer-height';
+
+/**
+ * Publishes the element's height on the page as `--docked-footer-height` while it is mounted, so
+ * a floating button never covers the footer, however tall it grows.
+ */
+export const usePublishFooterHeight = (ref: RefObject<HTMLElement | null>) => {
+  useEffect(() => {
+    const element = ref.current;
+    if (element === null) return;
+    const root = document.documentElement.style;
+    const publish = () =>
+      root.setProperty(FOOTER_HEIGHT_VARIABLE, `${element.getBoundingClientRect().height}px`);
+    publish();
+    const resized = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(publish);
+    resized?.observe(element);
+    return () => {
+      resized?.disconnect();
+      root.removeProperty(FOOTER_HEIGHT_VARIABLE);
+    };
+  }, [ref]);
+};
