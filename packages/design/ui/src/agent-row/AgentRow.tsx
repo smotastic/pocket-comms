@@ -1,9 +1,7 @@
+import type { Hue } from '../hue.js';
 import { isPlainClick } from '../plain-click.js';
 import hidden from '../visually-hidden.module.css';
 import styles from './AgentRow.module.css';
-
-/** One of the project palette's colours, or neutral for no colour of its own. */
-export type Hue = 1 | 2 | 3 | 4 | 5 | 'neutral';
 
 const HUE_CLASSES: Record<Hue, string | undefined> = {
   1: styles.hue1,

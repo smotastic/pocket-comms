@@ -88,6 +88,7 @@ export const tokens = {
   },
   control: {
     height: {
+      sm: 'var(--control-height-sm)',
       md: 'var(--control-height-md)',
     },
   },

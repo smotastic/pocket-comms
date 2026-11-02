@@ -62,6 +62,7 @@
   --border-width-default: 1px;
   --border-width-focus: 2px;
   --border-width-stripe: 4px;
+  --control-height-sm: 32px;
   --control-height-md: 44px;
   --layout-width-page: 720px;
   --layout-height-sheet-gap: 96px;

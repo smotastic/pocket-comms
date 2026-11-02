@@ -62,9 +62,13 @@
   "control": {
     "height": {
       "$type": "dimension",
+      "sm": {
+        "$value": "{size.32}",
+        "$description": "A small control that sits among others, such as a filter chip."
+      },
       "md": {
         "$value": "{size.44}",
-        "$description": "The smallest tap target."
+        "$description": "A control that stands on its own, such as a button: the comfortable tap target."
       }
     }
   },

@@ -18,7 +18,7 @@ in the task's own commit.
 
 ## Overview
 
-- [ ] **T03** — Design kit `FilterChips`; the overview's Needs you and Everything else groups,
+- [x] **T03** — Design kit `FilterChips`; the overview's Needs you and Everything else groups,
       the project filter and its reset
   - Gate: `pnpm nx run-many -t lint test -p design-ui comms-web`
 
