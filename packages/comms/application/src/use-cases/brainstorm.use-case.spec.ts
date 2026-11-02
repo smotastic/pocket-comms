@@ -4,6 +4,7 @@ import * as Deferred from 'effect/Deferred';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Queue from 'effect/Queue';
+import * as TestClock from 'effect/testing/TestClock';
 import type * as Scope from 'effect/Scope';
 import type { BrainstormStateDto } from '../dto/brainstorm.dto.js';
 import {
@@ -218,6 +219,56 @@ describe('the brainstorm chat', () => {
         });
         expect(state.storedChat?.entries).toEqual([]);
         expect(state.storedChat?.runtime).toEqual(Option.none());
+      }),
+    ),
+  );
+
+  it.effect('keeps a late write of a stopped turn out of the new chat', () =>
+    run((brainstorm, state) =>
+      Effect.gen(function* () {
+        state.script.push([{ until: Effect.never }]);
+        yield* brainstorm.send('Hold on');
+        yield* Effect.yieldNow;
+        yield* brainstorm.reset();
+
+        // Pi's tools run outside the turn and may finish after it was stopped.
+        const propose = state.turns[0]?.tools.find((tool) => tool.name === 'propose_issue');
+        yield* propose?.run({ project: 'app', title: 'Late', body: '' }) ?? Effect.void;
+
+        expect(yield* entries(brainstorm)).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect('ends a turn that takes longer than five minutes and says so', () =>
+    run((brainstorm, state) =>
+      Effect.gen(function* () {
+        state.script.push([{ until: Effect.never }]);
+        yield* brainstorm.send('Hello?');
+        yield* Effect.yieldNow;
+
+        yield* TestClock.adjust('5 minutes');
+        yield* idle(brainstorm);
+
+        expect((yield* entries(brainstorm)).map(strip).at(-1)).toEqual({
+          type: 'failed',
+          reason: 'Pi did not answer within 5 minutes.',
+        });
+      }),
+    ),
+  );
+
+  it.effect('shows a turn that failed in an unexpected way', () =>
+    run((brainstorm, state) =>
+      Effect.gen(function* () {
+        state.script.push([{ die: 'boom' }]);
+        yield* brainstorm.send('Hi');
+        yield* idle(brainstorm);
+
+        expect((yield* entries(brainstorm)).map(strip).at(-1)).toEqual({
+          type: 'failed',
+          reason: 'The turn failed unexpectedly.',
+        });
       }),
     ),
   );

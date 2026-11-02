@@ -64,7 +64,9 @@ export type ScriptStep =
   /** Waits for the effect before the next step, so a test can hold a turn open. */
   | { readonly until: Effect.Effect<void> }
   | { readonly tool: string; readonly input: unknown }
-  | { readonly fail: string };
+  | { readonly fail: string }
+  /** A defect, as an adapter bug would raise. */
+  | { readonly die: string };
 
 /**
  * The state behind the fakes of the outbound ports. A test changes it directly and publishes on
@@ -357,6 +359,7 @@ const scriptedTurn = (
     ): Stream.Stream<RuntimeEvent, AgentRuntimeError> => {
       if (paused) return Stream.empty;
       if ('fail' in step) return Stream.fail(new AgentRuntimeError({ reason: step.fail }));
+      if ('die' in step) return Stream.die(new Error(step.die));
       if ('until' in step) return Stream.drain(Stream.fromEffect(step.until));
       if ('text' in step) {
         return Stream.make<Array<RuntimeEvent>>(

@@ -3,6 +3,7 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import * as Schema from 'effect/Schema';
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -91,7 +92,8 @@ export const layerFile = ({ folder }: FileStoreOptions) => {
         entries: chat.entries,
         runtime: Option.getOrNull(chat.runtime),
       };
-      const temporary = `${path}.${process.pid}.tmp`;
+      // A name of its own per save, so a slower earlier save never renames over a later one's file.
+      const temporary = `${path}.${randomUUID()}.tmp`;
       await writeFile(temporary, JSON.stringify(file), { encoding: 'utf-8', mode: 0o600 });
       await rename(temporary, path);
     }).pipe(

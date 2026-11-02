@@ -114,6 +114,19 @@ const toRuntimeEvent = (event: AgentEvent): ReadonlyArray<RuntimeEvent> => {
   }
 };
 
+// What looks like a provider key, such as `sk-proj-…`; providers echo part of one in a 401.
+const KEY_LIKE = /\b(?:sk|pk|rk)-[A-Za-z0-9_-]{8,}/gu;
+
+/**
+ * A failure reason without the API key or anything that looks like one: the reason is shown in
+ * the browser (spec 013, requirement 21).
+ */
+export const scrubSecrets = (reason: string, apiKey: string | undefined): string => {
+  const withoutKey =
+    apiKey === undefined || apiKey === '' ? reason : reason.replaceAll(apiKey, '[redacted]');
+  return withoutKey.replace(KEY_LIKE, '[redacted]');
+};
+
 /** Why the last answer of the model failed, if it did. */
 const failureOf = (agent: Agent): Option.Option<string> => {
   const last = agent.state.messages.at(-1);
@@ -148,8 +161,10 @@ const restore = (turn: TurnInput): Effect.Effect<Array<AgentMessage>, AgentRunti
   });
 
 /** The agent runtime on Pi (ADR 0012). */
-export const makePiRuntime = (setup: PiSetup) =>
-  AgentRuntimeOutbound.of({
+export const makePiRuntime = (setup: PiSetup) => {
+  const scrub = (reason: string) =>
+    scrubSecrets(reason, setup.apiKey === undefined ? undefined : Redacted.value(setup.apiKey));
+  return AgentRuntimeOutbound.of({
     notSetUp: Option.none(),
     runTurn: (turn) =>
       Stream.callback<RuntimeEvent, AgentRuntimeError>((queue) =>
@@ -177,11 +192,11 @@ export const makePiRuntime = (setup: PiSetup) =>
           yield* Effect.addFinalizer(() => Effect.sync(() => agent.abort()));
           yield* Effect.tryPromise({
             try: () => agent.prompt(turn.input),
-            catch: (error) => new AgentRuntimeError({ reason: String(error) }),
+            catch: (error) => new AgentRuntimeError({ reason: scrub(String(error)) }),
           });
           const failure = failureOf(agent);
           if (Option.isSome(failure))
-            return yield* new AgentRuntimeError({ reason: failure.value });
+            return yield* new AgentRuntimeError({ reason: scrub(failure.value) });
           // Through JSON text, so fields Pi leaves undefined are dropped as JSON drops them.
           const messages = agent.state.messages.flatMap((message) =>
             Option.toArray(asJson(JSON.parse(JSON.stringify(message)))),
@@ -205,3 +220,4 @@ export const makePiRuntime = (setup: PiSetup) =>
         ),
       ),
   });
+};

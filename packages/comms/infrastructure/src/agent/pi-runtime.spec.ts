@@ -16,7 +16,7 @@ import {
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Stream from 'effect/Stream';
-import { makePiRuntime } from './pi-runtime.js';
+import { makePiRuntime, scrubSecrets } from './pi-runtime.js';
 
 /** A tool that records its inputs and answers with `outcome`. */
 const tool = (name: string, outcome: ToolOutcome, calls: Array<unknown> = []): RuntimeTool => ({
@@ -216,4 +216,16 @@ describe('the Pi runtime', () => {
       expect(error.reason).toContain('overloaded');
     }),
   );
+});
+
+describe('scrubSecrets', () => {
+  it('removes the API key and anything that looks like a provider key from a reason', () => {
+    expect(scrubSecrets('Bad key my-own-secret-value given', 'my-own-secret-value')).toBe(
+      'Bad key [redacted] given',
+    );
+    expect(scrubSecrets('Incorrect API key provided: sk-proj-abcdEFGH1234.', undefined)).toBe(
+      'Incorrect API key provided: [redacted].',
+    );
+    expect(scrubSecrets('The model is overloaded.', undefined)).toBe('The model is overloaded.');
+  });
 });

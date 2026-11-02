@@ -22,6 +22,7 @@ import type {
   ProposalDecisionInput,
 } from '../dto/brainstorm.dto.js';
 import {
+  AgentRuntimeError,
   BrainstormBusyError,
   BrainstormNotSetUpError,
   NoGiteaRemoteError,
@@ -48,6 +49,9 @@ You can look at the owner's projects (list_projects), a project's open issues (l
 When an idea is clear enough to keep, propose it as a Gitea issue in the project it belongs to with propose_issue: a short title, and a Markdown body with the idea, why it matters and a rough shape. Check the open issues first so nothing is filed twice. Never claim an issue exists before the owner created it; they decide on every proposal.`;
 
 const newId = () => crypto.randomUUID();
+
+/** How long one turn of Pi may take, so a hung model never keeps the chat busy for good. */
+const TURN_DEADLINE = '5 minutes';
 
 const emptyChat = (): StoredChat => ({ id: newId(), entries: [], runtime: Option.none() });
 
@@ -96,16 +100,24 @@ export const makeBrainstorm = Effect.gen(function* () {
       return Effect.andThen(store.save(next), publishState);
     });
 
-  const append = (entry: (at: number) => BrainstormEntry) =>
+  /**
+   * Adds an entry to the chat `chatId`. A turn's late write after New chat changes nothing: Pi's
+   * tools may still finish after their turn was stopped.
+   */
+  const append = (chatId: string, entry: (at: number) => BrainstormEntry) =>
     Effect.flatMap(Clock.currentTimeMillis, (at) =>
-      Effect.suspend(() => change({ ...chat, entries: [...chat.entries, entry(at)] })),
+      Effect.suspend(() =>
+        chat.id === chatId
+          ? change({ ...chat, entries: [...chat.entries, entry(at)] })
+          : Effect.void,
+      ),
     );
 
-  const propose = (draft: IssueDraft) =>
+  const proposeIn = (chatId: string) => (draft: IssueDraft) =>
     Effect.suspend(() => {
       const id = newId();
       return Effect.as(
-        append((at) => ({ type: 'proposal', id, at, ...draft, state: { _tag: 'open' } })),
+        append(chatId, (at) => ({ type: 'proposal', id, at, ...draft, state: { _tag: 'open' } })),
         id,
       );
     });
@@ -119,15 +131,21 @@ export const makeBrainstorm = Effect.gen(function* () {
     answering ? Effect.fail(new BrainstormBusyError()) : Effect.void,
   );
 
-  /** Runs one turn of Pi to its end. A failure keeps what came before and is shown. */
-  const runTurn = (input: string) =>
-    runtime
+  /**
+   * Runs one turn of Pi to its end, within `TURN_DEADLINE`. A failure keeps what came before and
+   * is shown.
+   */
+  const runTurn = (input: string) => {
+    const chatId = chat.id;
+    const failed = (reason: string) =>
+      append(chatId, (at) => ({ type: 'failed', id: newId(), at, reason }));
+    return runtime
       .runTurn({
-        sessionId: chat.id,
+        sessionId: chatId,
         instructions: BRAINSTORM_INSTRUCTIONS,
         state: chat.runtime,
         input,
-        tools: toolsFor(propose),
+        tools: toolsFor(proposeIn(chatId)),
       })
       .pipe(
         Stream.runForEach((event) => {
@@ -137,18 +155,33 @@ export const makeBrainstorm = Effect.gen(function* () {
               return Effect.asVoid(PubSub.publish(updates, { type: 'delta', text: event.text }));
             case 'message':
               live = '';
-              return append((at) => ({ type: 'assistant', id: newId(), at, text: event.text }));
+              return append(chatId, (at) => ({
+                type: 'assistant',
+                id: newId(),
+                at,
+                text: event.text,
+              }));
             case 'ended':
-              return change({ ...chat, runtime: Option.some(event.state) });
+              return Effect.suspend(() =>
+                chat.id === chatId
+                  ? change({ ...chat, runtime: Option.some(event.state) })
+                  : Effect.void,
+              );
             default:
               return Effect.void;
           }
         }),
-        Effect.catchTag('AgentRuntimeError', (error) =>
-          append((at) => ({ type: 'failed', id: newId(), at, reason: error.reason })),
-        ),
+        Effect.timeoutOrElse({
+          duration: TURN_DEADLINE,
+          orElse: () =>
+            Effect.fail(new AgentRuntimeError({ reason: 'Pi did not answer within 5 minutes.' })),
+        }),
+        Effect.catchTag('AgentRuntimeError', (error) => failed(error.reason)),
+        // Whatever else fails a turn is shown too, so the chat never ends a turn without a word.
+        Effect.catchDefect(() => failed('The turn failed unexpectedly.')),
         Effect.withSpan('Brainstorm.turn'),
       );
+  };
 
   /** Starts a turn in the background; the chat is busy until it ends. */
   const startTurn = (input: string) =>
@@ -184,7 +217,7 @@ export const makeBrainstorm = Effect.gen(function* () {
     const parsed = parsePrompt(text);
     if (Result.isFailure(parsed)) return yield* parsed.failure;
     yield* ensureIdle;
-    yield* append((at) => ({ type: 'user', id: newId(), at, text: parsed.success }));
+    yield* append(chat.id, (at) => ({ type: 'user', id: newId(), at, text: parsed.success }));
     yield* startTurn(parsed.success);
   }, lock.withPermits(1));
 

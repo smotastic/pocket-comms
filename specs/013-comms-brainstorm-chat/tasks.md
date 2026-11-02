@@ -27,3 +27,12 @@ Each task is small and independently testable. Tick its checkbox in the task's o
 
 - [x] **T07** — Docs: the service's `AGENTS.md` rules, the README settings, spec status `Done`
   - Gate: `pnpm verify:local`
+
+## Follow-ups from the code review
+
+- [ ] **F01** — A Create that times out after Gitea created the issue leaves the card open, and a
+      retry files a duplicate; a failed save after the `POST` reopens the card after a restart.
+      Look for an open issue with the same title before creating, or say so on the card.
+- [ ] **F02** — A failed turn keeps the owner's message but not Pi's history, so Pi forgets it, and
+      a decision note given in a failed turn. Store the turn's input in Pi's history before it runs.
+- [ ] **F03** — `readDoc` reads the whole file before it is cut; read at most `MAX_DOC_LENGTH`.
