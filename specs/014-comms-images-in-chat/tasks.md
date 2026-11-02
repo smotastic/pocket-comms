@@ -25,7 +25,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       record in the plan how each stores it in its session file
   - Gate: the plan's risk note says what was seen
 
-- [ ] **T06** — Design kit: the `image` icon, `ImageThumb`, and the `Composer`'s attachments, attach
+- [x] **T06** — Design kit: the `image` icon, `ImageThumb`, and the `Composer`'s attachments, attach
       button and `sendable`
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 

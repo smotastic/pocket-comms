@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { axeViolations } from '../testing/a11y.js';
 import { UserMessage } from './UserMessage.js';
+import styles from './UserMessage.module.css';
 
 afterEach(cleanup);
 
@@ -20,6 +21,12 @@ describe('UserMessage', () => {
   it('keeps the line breaks of the message', () => {
     render(<UserMessage>{'one\ntwo'}</UserMessage>);
     expect(screen.getByText(/one/).textContent).toBe('one\ntwo');
+  });
+
+  it('shows its attachments, also without text', () => {
+    const { container } = render(<UserMessage attachments={<span>Image 1</span>} />);
+    expect(screen.getByText('Image 1')).toBeDefined();
+    expect(container.querySelector(`.${styles.text}`)).toBeNull();
   });
 
   it('has no accessibility violations', async () => {

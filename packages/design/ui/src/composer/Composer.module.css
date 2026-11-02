@@ -29,6 +29,13 @@
   padding-top: var(--space-2xs);
 }
 
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding-top: var(--space-2xs);
+}
+
 .row {
   display: flex;
   align-items: flex-end;
