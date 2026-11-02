@@ -7,7 +7,7 @@ in the task's own commit.
 
 ## Backend
 
-- [ ] **T01** — Domain: `IN_PROGRESS_LABEL`, its style, `hasInProgressLabel`, `isInProgress`
+- [x] **T01** — Domain: `IN_PROGRESS_LABEL`, its style, `hasInProgressLabel`, `isInProgress`
       (label in any case, or a worktree on the issue)
   - Gate: `pnpm nx test comms-domain`
 
