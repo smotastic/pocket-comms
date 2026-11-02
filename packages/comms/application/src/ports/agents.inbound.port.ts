@@ -14,9 +14,13 @@ import type {
   AgentNotFoundError,
   HerdrRejectedError,
   HerdrUnavailableError,
+  NotAWorktreeError,
+  ProjectGitError,
   TranscriptUnavailableError,
+  WorktreeHasChangesError,
 } from '../errors.js';
 import { makeAgent } from '../use-cases/agent.use-case.js';
+import { makeClose } from '../use-cases/close.use-case.js';
 import { makeInput } from '../use-cases/input.use-case.js';
 import { makeOverview } from '../use-cases/overview.use-case.js';
 import { makeTranscript } from '../use-cases/transcript.use-case.js';
@@ -47,6 +51,14 @@ export class AgentsInbound extends Context.Service<
       ref: string,
       keys: ReadonlyArray<string>,
     ) => Effect.Effect<void, Lookup | InvalidInputError | HerdrRejectedError>;
+    /** Removes the agent's worktree and closes its workspace; `force` drops its changes. */
+    readonly close: (
+      ref: string,
+      force: boolean,
+    ) => Effect.Effect<
+      void,
+      Lookup | NotAWorktreeError | WorktreeHasChangesError | ProjectGitError | HerdrRejectedError
+    >;
   }
 >()('comms/application/AgentsInbound') {
   static readonly layer = Layer.effect(
@@ -57,6 +69,7 @@ export class AgentsInbound extends Context.Service<
         ...(yield* makeAgent),
         ...(yield* makeTranscript),
         ...(yield* makeInput),
+        ...(yield* makeClose),
       };
     }),
   );

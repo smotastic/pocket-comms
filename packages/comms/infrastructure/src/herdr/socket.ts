@@ -65,6 +65,7 @@ const WorkspaceRecord = Schema.Struct({
   worktree: Schema.optional(
     Schema.NullOr(
       Schema.Struct({
+        checkout_path: optionalString,
         is_linked_worktree: Schema.optional(Schema.NullOr(Schema.Boolean)),
         repo_key: optionalString,
         repo_name: optionalString,
@@ -109,6 +110,7 @@ const toWorkspace = (record: typeof WorkspaceRecord.Type): Workspace => {
   const label = record.label ?? record.workspace_id;
   const key = record.worktree?.repo_key;
   const root = record.worktree?.repo_root;
+  const checkout = record.worktree?.checkout_path;
   const base = {
     id: record.workspace_id,
     label,
@@ -121,6 +123,7 @@ const toWorkspace = (record: typeof WorkspaceRecord.Type): Workspace => {
     group: { key, name: project },
     project,
     ...(record.worktree?.is_linked_worktree === true ? { worktree: label } : {}),
+    ...(checkout === undefined || checkout === null ? {} : { checkout }),
   };
 };
 
@@ -376,6 +379,16 @@ export const layerSocket = ({
           })),
           Effect.withSpan('Herdr.createWorktree'),
         ),
+      // Herdr removes the checkout folder and closes the workspace; the branch stays.
+      // `trust_repository` is never sent (spec 010, requirement 10).
+      removeWorktree: ({ workspaceId, force }) =>
+        request(
+          'worktree.remove',
+          { workspace_id: workspaceId, force },
+          Schema.Unknown,
+          workspaceId,
+          '60 seconds',
+        ).pipe(Effect.asVoid, Effect.withSpan('Herdr.removeWorktree')),
       // Herdr waits up to `timeout_ms` for the agent to take input; the request waits longer.
       startAgent: ({ paneId, name, kind }) =>
         request(

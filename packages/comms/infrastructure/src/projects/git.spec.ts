@@ -236,3 +236,44 @@ describe('Projects.layerGit for issues', () => {
     }),
   );
 });
+
+describe('Projects.layerGit for closing a worktree', () => {
+  const alpha = (root: string) => ({ name: 'alpha', path: join(root, 'alpha') });
+  const hasChanges = (root: string) =>
+    ProjectsOutbound.use((outbound) => outbound.hasChanges(alpha(root), join(root, 'linked'))).pipe(
+      Effect.provide(layerGit({ root })),
+    );
+
+  it.live('sees no changes in a clean worktree', () =>
+    Effect.gen(function* () {
+      const { root } = projectsRoot();
+
+      expect(yield* hasChanges(root)).toBe(false);
+    }),
+  );
+
+  it.live('sees a modified file and an untracked file as changes', () =>
+    Effect.gen(function* () {
+      const { root } = projectsRoot();
+      writeFileSync(join(root, 'linked', 'README.md'), 'changed\n');
+      const modified = yield* hasChanges(root);
+      run(join(root, 'linked'), 'checkout', '--quiet', '--', 'README.md');
+      writeFileSync(join(root, 'linked', 'new.txt'), 'new\n');
+      const untracked = yield* hasChanges(root);
+
+      expect([modified, untracked]).toEqual([true, true]);
+    }),
+  );
+
+  it.live('fails for a folder that is no worktree', () =>
+    Effect.gen(function* () {
+      const { root } = projectsRoot();
+
+      const error = yield* ProjectsOutbound.use((outbound) =>
+        outbound.hasChanges(alpha(root), join(root, 'notes')),
+      ).pipe(Effect.provide(layerGit({ root })), Effect.flip);
+
+      expect(error).toBeInstanceOf(ProjectGitError);
+    }),
+  );
+});

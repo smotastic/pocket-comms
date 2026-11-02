@@ -29,6 +29,7 @@ describe('CommsApi', () => {
     expect(Object.keys(document().paths).sort()).toEqual([
       '/api/v1/agents',
       '/api/v1/agents/{agent}',
+      '/api/v1/agents/{agent}/close',
       '/api/v1/agents/{agent}/events',
       '/api/v1/agents/{agent}/keys',
       '/api/v1/agents/{agent}/prompt',

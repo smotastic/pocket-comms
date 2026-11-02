@@ -1,11 +1,12 @@
 # comms service
 
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
-them over `CommsApi`, it starts new tasks in Herdr worktrees, and it reads the projects' Gitea
+them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, and it reads the projects' Gitea
 issues. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
-[spec 006](../../specs/006-comms-gitea-issues/spec.md) and
-[spec 007](../../specs/007-comms-sessions-by-project/spec.md).
+[spec 006](../../specs/006-comms-gitea-issues/spec.md),
+[spec 007](../../specs/007-comms-sessions-by-project/spec.md) and
+[spec 010](../../specs/010-comms-close-agent/spec.md).
 It has no database; its only state (seen completions, last status changes) lives in server memory.
 
 ## Where each file type goes
@@ -34,6 +35,10 @@ It has no database; its only state (seen completions, last status changes) lives
   `GET` and follows no redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
   header; never log it, put it in an error or send it to the browser. Tests use the anonymised
   fixtures in `infrastructure/src/testing/fixtures` and a local fake server, never a real token.
+- Closing an agent removes only a workspace that both Herdr and git know as a linked worktree of
+  a project, through `worktree.remove`; never the primary checkout, never a path from a request.
+  Without `force`, the server asks git for changes first and removes nothing when there are any.
+  `force` comes only from the owner's explicit Discard changes and close.
 - Implementing an issue goes through the spec 005 `create` use case; do not copy its rules.
 - Every route goes through the Tailscale identity guard (`api/src/identity.ts`), and the server
   listens on `127.0.0.1` only. Do not add a route outside `commsServerLayer`.

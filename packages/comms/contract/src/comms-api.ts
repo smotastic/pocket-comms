@@ -261,6 +261,14 @@ export const KeysRequest = Schema.Struct({
     .annotate({ description: 'One to eight keys, pressed in order.', examples: [['1']] }),
 }).annotate({ identifier: 'KeysRequest', description: 'Key presses for the agent.' });
 
+export const CloseRequest = Schema.Struct({
+  force: optional(Schema.Boolean, {
+    description:
+      'Removes the worktree also when it has uncommitted or untracked changes, which are lost.',
+    examples: [false],
+  }),
+}).annotate({ identifier: 'CloseRequest', description: 'How to close the agent.' });
+
 export const Project = Schema.Struct({
   name: Schema.String.annotate({
     description: "The project's folder name below the projects root.",
@@ -586,6 +594,18 @@ const group = HttpApiGroup.make('agents')
       OpenApi.annotations({
         summary: 'Mark as seen',
         description: 'Remembers that the owner saw the current completion of a done agent.',
+      }),
+    ),
+    HttpApiEndpoint.post('close', '/agents/:agent/close', {
+      params: agent,
+      payload: CloseRequest,
+      success: HttpApiSchema.NoContent,
+      error: [...problems, Problems.Conflict, Problems.Validation],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Close an agent',
+        description:
+          "Removes the agent's linked worktree and closes its Herdr workspace with every agent in it. The branch stays. Without force, a worktree with changes is not removed (409).",
       }),
     ),
   )

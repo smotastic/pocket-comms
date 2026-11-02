@@ -74,6 +74,30 @@ export const problems = {
         detail: `${error.message} (${error.code})`,
       }),
     ),
+  notAWorktree: (error: { readonly ref: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'not-a-worktree',
+        title: 'The agent is not in a worktree',
+        detail: `${error.ref} does not work in a linked worktree of a project, so the app does not close it.`,
+      }),
+    ),
+  worktreeHasChanges: (error: { readonly ref: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'worktree-has-changes',
+        title: 'The worktree has changes',
+        detail: `The worktree of ${error.ref} has uncommitted or untracked changes. Close it with force to discard them.`,
+      }),
+    ),
+  worktreeNotRemoved: (error: { readonly code: string; readonly message: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'worktree-not-removed',
+        title: 'Herdr did not remove the worktree',
+        detail: `${error.message} (${error.code})`,
+      }),
+    ),
   projectNotFound: (error: { readonly project: string }) =>
     Effect.fail(
       notFoundProblem({

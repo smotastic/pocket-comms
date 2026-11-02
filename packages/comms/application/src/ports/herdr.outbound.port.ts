@@ -33,6 +33,12 @@ export interface CreatedWorktree {
   readonly branch: string;
 }
 
+/** What `removeWorktree` asks for: the worktree workspace, and whether to drop its changes. */
+export interface WorktreeRemoval {
+  readonly workspaceId: string;
+  readonly force: boolean;
+}
+
 /** What `startAgent` asks for: an agent of `kind`, named `name`, in the shell of `paneId`. */
 export interface AgentStart {
   readonly paneId: string;
@@ -72,6 +78,13 @@ export class HerdrOutbound extends Context.Service<
     readonly createWorktree: (
       request: WorktreeRequest,
     ) => Effect.Effect<CreatedWorktree, HerdrUnavailableError | HerdrRejectedError>;
+    /**
+     * Removes the checkout of a worktree workspace and closes the workspace with all its panes.
+     * The branch stays.
+     */
+    readonly removeWorktree: (
+      removal: WorktreeRemoval,
+    ) => Effect.Effect<void, HerdrUnavailableError | HerdrRejectedError>;
     /** Starts an agent in a pane at its shell prompt and waits until it is up. */
     readonly startAgent: (
       start: AgentStart,

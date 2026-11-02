@@ -11,9 +11,11 @@ import {
   IssueNotFoundError,
   IssuesInbound,
   NoGiteaRemoteError,
+  NotAWorktreeError,
   ProjectGitError,
   ProjectNotFoundError,
   TasksInbound,
+  WorktreeHasChangesError,
   type ImplementIssueInput,
   type IssueListDto,
   type AgentDto,
@@ -238,6 +240,36 @@ describe('the agents API', () => {
 
     expect((await call('/api/v1/agents/kirk/seen', { method: 'POST' })).status).toBe(204);
     expect(seen).toEqual(['kirk']);
+  });
+
+  it('closes an agent, without force unless asked', async () => {
+    const closed: Array<[string, boolean]> = [];
+    const call = serve({
+      close: (ref, force) => Effect.sync(() => void closed.push([ref, force])),
+    });
+
+    expect((await call('/api/v1/agents/kirk/close', json({}))).status).toBe(204);
+    expect((await call('/api/v1/agents/kirk/close', json({ force: true }))).status).toBe(204);
+    expect(closed).toEqual([
+      ['kirk', false],
+      ['kirk', true],
+    ]);
+  });
+
+  it.each([
+    [new AgentNotFoundError({ ref: 'kirk' }), 404, 'agent-not-found'],
+    [new NotAWorktreeError({ ref: 'kirk' }), 409, 'not-a-worktree'],
+    [new WorktreeHasChangesError({ ref: 'kirk' }), 409, 'worktree-has-changes'],
+    [new ProjectGitError({ project: 'app', reason: 'status failed' }), 409, 'project-git-failed'],
+    [new HerdrRejectedError({ ref: 'w2', code: 'c', message: 'm' }), 409, 'worktree-not-removed'],
+    [new HerdrUnavailableError({ reason: 'away' }), 503, 'herdr-unavailable'],
+  ] as const)('maps a close failing with %s to %i', async (error, status, slug) => {
+    const call = serve({ close: () => Effect.fail(error) });
+
+    const response = await call('/api/v1/agents/kirk/close', json({}));
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
   });
 
   it('streams the overview as server-sent events', async () => {

@@ -22,11 +22,13 @@ export {
   IssueClosedError,
   IssueNotFoundError,
   NoGiteaRemoteError,
+  NotAWorktreeError,
   ProjectGitError,
   ProjectNotFoundError,
   HerdrRejectedError,
   HerdrUnavailableError,
   TranscriptUnavailableError,
+  WorktreeHasChangesError,
 } from './errors.js';
 export { AgentsInbound } from './ports/agents.inbound.port.js';
 export {
@@ -35,6 +37,7 @@ export {
   type CreatedWorktree,
   type HerdrSnapshot,
   type StartedAgent,
+  type WorktreeRemoval,
   type WorktreeRequest,
 } from './ports/herdr.outbound.port.js';
 export { GiteaOutbound, type LinkedRepository } from './ports/gitea.outbound.port.js';

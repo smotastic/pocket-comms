@@ -4,7 +4,7 @@
 
 Each task is small and independently testable. Tick its checkbox in the task's own commit.
 
-- [ ] **T01** — Server: the workspace's checkout, `removeWorktree`, `hasChanges`, the `close` use
+- [x] **T01** — Server: the workspace's checkout, `removeWorktree`, `hasChanges`, the `close` use
       case, the endpoint, its problems and the OpenAPI document
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`
 
