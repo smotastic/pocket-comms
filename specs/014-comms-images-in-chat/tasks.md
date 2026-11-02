@@ -16,7 +16,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       folder
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T04** — Contract, API and server: the `images` group, `imageIds` on the prompt and task
+- [x] **T04** — Contract, API and server: the `images` group, `imageIds` on the prompt and task
       requests, `images` on the user entry, the sweep fiber, the composition and the OpenAPI
       document
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`

@@ -10,6 +10,8 @@ export {
   BrainstormState,
   CommsApi,
   CreateTaskRequest,
+  ImageId,
+  ImageUpload,
   ImplementIssueRequest,
   Issue,
   IssueDraft,
@@ -35,4 +37,5 @@ export {
   TaskCreated,
   Transcript,
   TranscriptEntry,
+  UploadedImage,
 } from './comms-api.js';
