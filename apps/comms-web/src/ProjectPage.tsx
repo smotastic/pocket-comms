@@ -20,6 +20,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AgentItem } from './AgentItem.js';
+import { BrainstormHeaderAction } from './brainstorm-placement.prototype.js';
 import { projectHue } from './rows.js';
 import type {
   AgentView,
@@ -246,14 +247,17 @@ export const ProjectPage = ({
           ? {}
           : { subtitle: `${repository.owner}/${repository.name} on Gitea` })}
         end={
-          <IconButton
-            icon="plus"
-            label="New task"
-            onClick={() => {
-              setNotice(undefined);
-              setCreating(true);
-            }}
-          />
+          <>
+            <BrainstormHeaderAction />
+            <IconButton
+              icon="plus"
+              label="New task"
+              onClick={() => {
+                setNotice(undefined);
+                setCreating(true);
+              }}
+            />
+          </>
         }
       />
       <NewTask

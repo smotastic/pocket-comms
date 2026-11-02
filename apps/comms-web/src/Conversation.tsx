@@ -19,6 +19,7 @@ import {
 } from '@pocket-comms/design-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { BrainstormHeaderAction } from './brainstorm-placement.prototype.js';
 import type { AgentView, CommsClient, Key, TranscriptView } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { CloseAgent } from './CloseAgent.js';
@@ -128,6 +129,7 @@ const Header = ({
         : { subtitle: <StatusPill tone={agent.status} label={STATUS_LABELS[agent.status]} /> })}
       end={
         <>
+          <BrainstormHeaderAction />
           {agent?.format === undefined ? null : (
             <Segmented
               label="View"

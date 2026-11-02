@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Composer,
+  DockedPage,
   Fab,
   IconButton,
   Inline,
@@ -12,6 +13,7 @@ import {
   SheetHeader,
   Stack,
   Text,
+  TopBar,
   UserMessage,
 } from '@pocket-comms/design-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -156,54 +158,118 @@ const Footer = ({
   );
 };
 
+/** What the chat sheet and the brainstorm page both show: the state and its New chat question. */
+const useBrainstormChat = (client: CommsClient, active: boolean) => {
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const chat = useQuery({ ...brainstormQuery(client), enabled: active });
+  useBrainstormLive(client, active);
+  return { chat, state: chat.data, confirmingReset, setConfirmingReset };
+};
+
+/** The body under the header: the errors, the not-set-up reason or the conversation. */
+const ChatBody = ({
+  client,
+  chat,
+  state,
+  confirmingReset,
+  setConfirmingReset,
+}: ReturnType<typeof useBrainstormChat> & { readonly client: CommsClient }) => (
+  <>
+    {chat.error === null ? null : <Alert>{chat.error.message}</Alert>}
+    {state?._tag === 'NotSetUp' ? (
+      <Stack gap="sm">
+        <Text>The brainstorm chat is not set up.</Text>
+        <Text tone="muted">{state.reason}</Text>
+      </Stack>
+    ) : null}
+    {state?._tag === 'Ready' ? (
+      <Chat
+        client={client}
+        state={state}
+        confirmingReset={confirmingReset}
+        onResetDone={() => setConfirmingReset(false)}
+      />
+    ) : null}
+  </>
+);
+
+const NewChat = ({ chat }: { readonly chat: ReturnType<typeof useBrainstormChat> }) =>
+  chat.state?._tag === 'Ready' ? (
+    <IconButton icon="plus" label="New chat" onClick={() => chat.setConfirmingReset(true)} />
+  ) : null;
+
+/** The chat in a sheet over the current screen. */
+export const BrainstormSheet = ({
+  client,
+  open,
+  onClose,
+  size = 'full',
+}: {
+  readonly client: CommsClient;
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly size?: 'tall' | 'full';
+}) => {
+  const chat = useBrainstormChat(client, open);
+  const close = () => {
+    chat.setConfirmingReset(false);
+    onClose();
+  };
+  return (
+    <Sheet
+      open={open}
+      size={size}
+      follow
+      label="Brainstorm"
+      bodyLabel="Brainstorm conversation"
+      onClose={close}
+      header={
+        <SheetHeader title="Brainstorm" subtitle="Ideas with Pi">
+          <NewChat chat={chat} />
+          <IconButton icon="close" label="Close" onClick={close} />
+        </SheetHeader>
+      }
+      footer={<Footer client={client} state={chat.state} />}
+    >
+      <ChatBody client={client} {...chat} />
+    </Sheet>
+  );
+};
+
+/** The chat as a page of its own (prototype, issue #28). */
+export const BrainstormPage = ({
+  client,
+  onBack,
+}: {
+  readonly client: CommsClient;
+  readonly onBack: () => void;
+}) => {
+  const chat = useBrainstormChat(client, true);
+  return (
+    <DockedPage
+      label="Brainstorm conversation"
+      header={
+        <TopBar
+          start={<IconButton icon="back" label="Back" onClick={onBack} />}
+          title="Brainstorm"
+          subtitle="Ideas with Pi"
+          end={<NewChat chat={chat} />}
+        />
+      }
+      footer={<Footer client={client} state={chat.state} />}
+    >
+      <ChatBody client={client} {...chat} />
+    </DockedPage>
+  );
+};
+
 /** The bubble on every screen and the chat sheet it opens. */
 export const Brainstorm = ({ client }: { readonly client: CommsClient }) => {
   const [open, setOpen] = useState(false);
-  const [confirmingReset, setConfirmingReset] = useState(false);
-  const chat = useQuery({ ...brainstormQuery(client), enabled: open });
-  useBrainstormLive(client, open);
-  const state = chat.data;
-  const close = () => {
-    setOpen(false);
-    setConfirmingReset(false);
-  };
-
   return (
     <>
       {open ? null : <Fab icon="brainstorm" label="Brainstorm" onClick={() => setOpen(true)} />}
-      <Sheet
-        open={open}
-        size="full"
-        follow
-        label="Brainstorm"
-        bodyLabel="Brainstorm conversation"
-        onClose={close}
-        header={
-          <SheetHeader title="Brainstorm" subtitle="Ideas with Pi">
-            {state?._tag === 'Ready' ? (
-              <IconButton icon="plus" label="New chat" onClick={() => setConfirmingReset(true)} />
-            ) : null}
-            <IconButton icon="close" label="Close" onClick={close} />
-          </SheetHeader>
-        }
-        footer={<Footer client={client} state={state} />}
-      >
-        {chat.error === null ? null : <Alert>{chat.error.message}</Alert>}
-        {state?._tag === 'NotSetUp' ? (
-          <Stack gap="sm">
-            <Text>The brainstorm chat is not set up.</Text>
-            <Text tone="muted">{state.reason}</Text>
-          </Stack>
-        ) : null}
-        {state?._tag === 'Ready' ? (
-          <Chat
-            client={client}
-            state={state}
-            confirmingReset={confirmingReset}
-            onResetDone={() => setConfirmingReset(false)}
-          />
-        ) : null}
-      </Sheet>
+      <BrainstormSheet client={client} open={open} onClose={() => setOpen(false)} />
     </>
   );
 };

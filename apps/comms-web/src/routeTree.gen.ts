@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root';
 import { Route as IndexRouteImport } from './routes/index';
+import { Route as BrainstormPrototypeRouteImport } from './routes/brainstorm-prototype';
 import { Route as AgentsAgentRouteImport } from './routes/agents.$agent';
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index';
 import { Route as ProjectsProjectRouteImport } from './routes/projects.$project';
@@ -17,6 +18,11 @@ import { Route as ProjectsProjectRouteImport } from './routes/projects.$project'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const BrainstormPrototypeRoute = BrainstormPrototypeRouteImport.update({
+  id: '/brainstorm-prototype',
+  path: '/brainstorm-prototype',
   getParentRoute: () => rootRouteImport,
 } as any);
 const AgentsAgentRoute = AgentsAgentRouteImport.update({
@@ -37,12 +43,14 @@ const ProjectsProjectRoute = ProjectsProjectRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
+  '/brainstorm-prototype': typeof BrainstormPrototypeRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects/': typeof ProjectsIndexRoute;
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
+  '/brainstorm-prototype': typeof BrainstormPrototypeRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects': typeof ProjectsIndexRoute;
@@ -50,20 +58,38 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/': typeof IndexRoute;
+  '/brainstorm-prototype': typeof BrainstormPrototypeRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects/': typeof ProjectsIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/agents/$agent' | '/projects/$project' | '/projects/';
+  fullPaths:
+    | '/'
+    | '/brainstorm-prototype'
+    | '/agents/$agent'
+    | '/projects/$project'
+    | '/projects/';
   fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/agents/$agent' | '/projects/$project' | '/projects';
-  id: '__root__' | '/' | '/agents/$agent' | '/projects/$project' | '/projects/';
+  to:
+    | '/'
+    | '/brainstorm-prototype'
+    | '/agents/$agent'
+    | '/projects/$project'
+    | '/projects';
+  id:
+    | '__root__'
+    | '/'
+    | '/brainstorm-prototype'
+    | '/agents/$agent'
+    | '/projects/$project'
+    | '/projects/';
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  BrainstormPrototypeRoute: typeof BrainstormPrototypeRoute;
   AgentsAgentRoute: typeof AgentsAgentRoute;
   ProjectsProjectRoute: typeof ProjectsProjectRoute;
   ProjectsIndexRoute: typeof ProjectsIndexRoute;
@@ -76,6 +102,13 @@ declare module '@tanstack/react-router' {
       path: '/';
       fullPath: '/';
       preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/brainstorm-prototype': {
+      id: '/brainstorm-prototype';
+      path: '/brainstorm-prototype';
+      fullPath: '/brainstorm-prototype';
+      preLoaderRoute: typeof BrainstormPrototypeRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     '/agents/$agent': {
@@ -104,6 +137,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BrainstormPrototypeRoute: BrainstormPrototypeRoute,
   AgentsAgentRoute: AgentsAgentRoute,
   ProjectsProjectRoute: ProjectsProjectRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
