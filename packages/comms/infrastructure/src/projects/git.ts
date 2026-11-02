@@ -1,11 +1,11 @@
 import { ProjectGitError, ProjectsOutbound } from '@pocket-comms/comms-application';
-import type { Project, Worktree } from '@pocket-comms/comms-domain';
+import type { Project, ProjectDoc, Worktree } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import { execFile } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { readdir, realpath } from 'node:fs/promises';
+import { lstat, readdir, readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export interface GitOptions {
@@ -183,6 +183,18 @@ export const layerGit = ({ root, fetchTimeoutMs = 60_000 }: GitOptions) => {
       return status.stdout.trim() !== '';
     }).pipe(Effect.withSpan('Projects.hasChanges'));
 
+  // Only a regular file directly in the project folder: a symlink could point anywhere.
+  const readDoc = (project: Project, doc: ProjectDoc) =>
+    Effect.promise(async () => {
+      const path = join(project.path, doc);
+      try {
+        const stats = await lstat(path);
+        return stats.isFile() ? Option.some(await readFile(path, 'utf-8')) : Option.none();
+      } catch {
+        return Option.none<string>();
+      }
+    }).pipe(Effect.withSpan('Projects.readDoc'));
+
   return Layer.succeed(
     ProjectsOutbound,
     ProjectsOutbound.of({
@@ -193,6 +205,7 @@ export const layerGit = ({ root, fetchTimeoutMs = 60_000 }: GitOptions) => {
       originUrl,
       worktrees,
       hasChanges,
+      readDoc,
     }),
   );
 };

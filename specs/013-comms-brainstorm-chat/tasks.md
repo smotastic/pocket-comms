@@ -11,7 +11,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       tools, the turn runner and `BrainstormInbound`, with fakes
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T03** — Infrastructure: Pi's packages in the catalog, the dependency-cruiser rule, the Pi
+- [x] **T03** — Infrastructure: Pi's packages in the catalog, the dependency-cruiser rule, the Pi
       runtime and auth file, the file store, Gitea `createIssue` and git `readDoc`
   - Gate: `pnpm nx test comms-infrastructure`, `pnpm nx run-many -t lint`
 

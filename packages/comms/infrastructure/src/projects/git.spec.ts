@@ -3,7 +3,7 @@ import { ProjectGitError, ProjectsOutbound } from '@pocket-comms/comms-applicati
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gitEnvironment, layerGit } from './git.js';
@@ -274,6 +274,34 @@ describe('Projects.layerGit for closing a worktree', () => {
       ).pipe(Effect.provide(layerGit({ root })), Effect.flip);
 
       expect(error).toBeInstanceOf(ProjectGitError);
+    }),
+  );
+});
+
+describe('Projects.layerGit for the brainstorm chat', () => {
+  const readDoc = (root: string, name: string, doc: 'README.md' | 'AGENTS.md') =>
+    ProjectsOutbound.use((outbound) =>
+      outbound.readDoc({ name, path: join(root, name) }, doc),
+    ).pipe(Effect.provide(layerGit({ root })));
+
+  it.live('reads a top-level doc, and none when it is missing', () =>
+    Effect.gen(function* () {
+      const { root } = projectsRoot();
+
+      expect(yield* readDoc(root, 'alpha', 'README.md')).toEqual(Option.some('seed\n'));
+      expect(yield* readDoc(root, 'alpha', 'AGENTS.md')).toEqual(Option.none());
+    }),
+  );
+
+  it.live('reads no symlink and no folder', () =>
+    Effect.gen(function* () {
+      const { root } = projectsRoot();
+      writeFileSync(join(root, 'secret.txt'), 'secret\n');
+      symlinkSync(join(root, 'secret.txt'), join(root, 'alpha', 'AGENTS.md'));
+      mkdirSync(join(root, 'beta', 'README.md'));
+
+      expect(yield* readDoc(root, 'alpha', 'AGENTS.md')).toEqual(Option.none());
+      expect(yield* readDoc(root, 'beta', 'README.md')).toEqual(Option.none());
     }),
   );
 });
