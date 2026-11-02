@@ -378,6 +378,28 @@ describe('Gitea.layerHttp', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('adds nothing when Gitea refuses to create the label', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((url, method) =>
+        method === 'GET' && url.pathname === '/api/v1/repos/owner/app/labels'
+          ? { status: 200, body: [] }
+          : { status: 403, body: { message: 'forbidden' } },
+      );
+
+      const refused = yield* withGitea(gitea.url, (outbound) =>
+        outbound.markInProgress(repository, 5).pipe(Effect.flip),
+      );
+
+      expect(refused).toEqual(
+        new GiteaUnavailableError({ reason: 'Gitea refused the token (403).' }),
+      );
+      expect(gitea.seen.map(({ method, url }) => `${method} ${url}`)).toEqual([
+        'GET /api/v1/repos/owner/app/labels?limit=50&page=1',
+        'POST /api/v1/repos/owner/app/labels',
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('names a missing issue when marking, and passes on a refused token', () =>
     Effect.gen(function* () {
       const label = [{ id: 4, name: 'status/in-progress' }];

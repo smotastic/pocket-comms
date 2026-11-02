@@ -3,7 +3,10 @@ import type { IssueTaskCreatedView, IssueView, TaskCreatedView } from './comms-c
 // How the issue lists show the issues in progress apart (spec 015). The server decides which
 // issues are in progress; this only splits the list and words the start.
 
-/** The label the server puts on an issue it starts; the group says it, so no tag repeats it. */
+/**
+ * The label the server puts on an issue it starts; the group says it, so no tag repeats it. The
+ * web app cannot import the domain, so this repeats its `IN_PROGRESS_LABEL`.
+ */
 const IN_PROGRESS_LABEL = 'status/in-progress';
 
 /** The issues in progress and the open others, each in the server's order. */
