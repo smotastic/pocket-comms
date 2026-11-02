@@ -79,9 +79,10 @@ const summarise = (cwd: string | undefined, name: string, input: unknown): ToolS
 };
 
 // A prompt the owner typed. Claude also stores injected text as user messages: skill bodies and
-// hand-backs (`isMeta`), and notifications whose origin is not a human.
+// hand-backs (`isMeta`), the summary that replaces a compacted conversation (`isCompactSummary`),
+// and notifications whose origin is not a human.
 const isOwnersPrompt = (line: Record<string, unknown>, text: string) => {
-  if (line['isMeta'] === true) return false;
+  if (line['isMeta'] === true || line['isCompactSummary'] === true) return false;
   const origin = line['origin'];
   if (isRecord(origin)) return origin['kind'] === 'human';
   return !text.trimStart().startsWith('<');
