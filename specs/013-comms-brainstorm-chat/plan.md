@@ -1,7 +1,7 @@
 # Plan 013 — pocket-comms: a floating brainstorm chat
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02), implemented in the pull request for Gitea #9
 - **ADR:** [0012 — an agent runtime port with a Pi adapter](../../docs/architecture/adr/0012-an-agent-runtime-port-with-a-pi-adapter.md)
   (`Accepted` with this plan)
 
@@ -104,3 +104,9 @@ None. The service has no database; the chat is one JSON file in the state folder
   `brainstorm.json.bad`, so nothing is silently lost.
 - **The bubble on small screens.** Each screen with a bottom bar sets the offset; the web spec
   checks it on the conversation.
+
+> **As-built note (2026-11-02).** `POST /messages` answers 204, like the other commands. There is
+> no `issue-not-created` problem: Gitea's refusal is `gitea-unavailable` (503) with Gitea's reason,
+> as for closing an issue. The settings are documented in the README, since the comms server has
+> no `.env.example`. The floating button sits above a docked page's footer through the
+> `--docked-footer-height` variable that `DockedPage` publishes.

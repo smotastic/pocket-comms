@@ -1,6 +1,6 @@
 # Spec 013 — pocket-comms: a floating brainstorm chat
 
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02), implemented in the pull request for Gitea #9
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (every screen gets the chat bubble) and
   [spec 010](../010-comms-close-issues/spec.md) (the app's Gitea writes: creating an issue joins
   closing one)
