@@ -74,6 +74,28 @@ describe('createClaudeParser', () => {
     expect(parser.push('')).toEqual([]);
   });
 
+  it('skips the summary Claude writes when it compacts the conversation', () => {
+    const parser = createClaudeParser('/work/app');
+
+    const changed = parser.push(
+      JSON.stringify({
+        type: 'user',
+        isSidechain: false,
+        isCompactSummary: true,
+        isVisibleInTranscriptOnly: true,
+        uuid: 'u-summary',
+        timestamp: '2026-10-30T15:17:01Z',
+        message: {
+          role: 'user',
+          content: 'This session is being continued from a previous conversation…',
+        },
+      }),
+    );
+
+    expect(changed).toEqual([]);
+    expect(parser.entries()).toEqual([]);
+  });
+
   it.each([
     [
       'Write',
