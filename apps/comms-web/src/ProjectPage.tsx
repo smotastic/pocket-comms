@@ -27,6 +27,7 @@ import type {
   TaskCreatedView,
 } from './comms-client.js';
 import { issuesKey, issuesQuery, overviewQuery, projectsQuery } from './comms-queries.js';
+import { CloseIssue } from './CloseIssue.js';
 import { ImplementIssue } from './ImplementIssue.js';
 import { STATUS_LABELS } from './labels.js';
 import { navigateOnPlainClick } from './links.js';
@@ -60,11 +61,13 @@ const IssueRow = ({
   now,
   onOpenAgent,
   onImplement,
+  onClose,
 }: {
   readonly issue: IssueView;
   readonly now: number;
   readonly onOpenAgent: (ref: string) => void;
   readonly onImplement: () => void;
+  readonly onClose: () => void;
 }) => (
   <ListItem>
     <Stack gap="xs">
@@ -101,11 +104,14 @@ const IssueRow = ({
           ))
         ),
       )}
-      <div>
+      <Inline gap="xs">
         <Button size="sm" variant="secondary" onClick={onImplement}>
           Implement with Claude
         </Button>
-      </div>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+      </Inline>
     </Stack>
   </ListItem>
 );
@@ -115,11 +121,13 @@ const Issues = ({
   now,
   onOpenAgent,
   onImplement,
+  onClose,
 }: {
   readonly list: IssueListView;
   readonly now: number;
   readonly onOpenAgent: (ref: string) => void;
   readonly onImplement: (issue: IssueView) => void;
+  readonly onClose: (issue: IssueView) => void;
 }) => {
   if (list._tag === 'NotConfigured') {
     return (
@@ -138,6 +146,7 @@ const Issues = ({
           now={now}
           onOpenAgent={onOpenAgent}
           onImplement={() => onImplement(issue)}
+          onClose={() => onClose(issue)}
         />
       ))}
     </List>
@@ -174,7 +183,7 @@ const Agents = ({
 
 /**
  * `/projects/$project`: the project's agents, its open Gitea issues with Implement with Claude
- * (spec 006) and a new task in it (spec 008). The agents update live.
+ * (spec 006) and Close (spec 010), and a new task in it (spec 008). The agents update live.
  */
 export const ProjectPage = ({
   client,
@@ -189,6 +198,7 @@ export const ProjectPage = ({
   const issues = useQuery(issuesQuery(client, project));
   const queryClient = useQueryClient();
   const [implementing, setImplementing] = useState<IssueView | undefined>(undefined);
+  const [closing, setClosing] = useState<IssueView | undefined>(undefined);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const now = useNow();
@@ -253,6 +263,17 @@ export const ProjectPage = ({
           started(created);
         }}
       />
+      <CloseIssue
+        client={client}
+        project={project}
+        issue={closing}
+        onClose={() => setClosing(undefined)}
+        onClosed={(number) => {
+          setClosing(undefined);
+          setNotice(`#${number} closed.`);
+          void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
+        }}
+      />
       <Page>
         <Stack gap="md">
           {notice === undefined ? null : (
@@ -281,6 +302,10 @@ export const ProjectPage = ({
                   onImplement={(issue) => {
                     setNotice(undefined);
                     setImplementing(issue);
+                  }}
+                  onClose={(issue) => {
+                    setNotice(undefined);
+                    setClosing(issue);
                   }}
                 />
               )}

@@ -1,12 +1,13 @@
 # comms service
 
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
-them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, and it reads the projects' Gitea
-issues. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
+them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, and it reads and
+closes the projects' Gitea issues. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
 [spec 006](../../specs/006-comms-gitea-issues/spec.md),
-[spec 007](../../specs/007-comms-sessions-by-project/spec.md) and
-[spec 010](../../specs/010-comms-close-agent/spec.md).
+[spec 007](../../specs/007-comms-sessions-by-project/spec.md),
+[spec 010](../../specs/010-comms-close-issues/spec.md) and
+[spec 011](../../specs/011-comms-close-agent/spec.md).
 It has no database; its only state (seen completions, last status changes) lives in server memory.
 
 ## Where each file type goes
@@ -31,8 +32,9 @@ It has no database; its only state (seen completions, last status changes) lives
   the projects port lists; never accept a path from a request.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
-- `GiteaOutbound` only reads: the app never writes to Gitea, and the HTTP adapter sends only
-  `GET` and follows no redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
+- `GiteaOutbound` reads, and its one write is `closeIssue` (spec 010): the HTTP adapter sends
+  `GET`, plus a `PATCH` with exactly `{"state":"closed"}`, never a `DELETE`, and follows no
+  redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
   header; never log it, put it in an error or send it to the browser. Tests use the anonymised
   fixtures in `infrastructure/src/testing/fixtures` and a local fake server, never a real token.
 - Closing an agent removes only a workspace that both Herdr and git know as a linked worktree of

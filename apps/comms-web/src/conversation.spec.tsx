@@ -289,11 +289,11 @@ describe('closing an agent', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Close kirk' });
 
     expect(within(sheet).getByText(/removes the worktree feature/u)).toBeDefined();
-    expect(fake.calls.closed).toEqual([]);
+    expect(fake.calls.closedAgents).toEqual([]);
     await confirm('Close worktree');
 
     await waitFor(() => expect(fake.router.state.location.pathname).toBe('/'));
-    expect(fake.calls.closed).toEqual([['kirk', false]]);
+    expect(fake.calls.closedAgents).toEqual([['kirk', false]]);
   });
 
   it('names the other agents of the worktree, which close too', async () => {
@@ -310,7 +310,7 @@ describe('closing an agent', () => {
 
   it('offers to discard the changes of a worktree that has some', async () => {
     const fake = openWorktree();
-    fake.state.closeFailures = [
+    fake.state.closeAgentFailures = [
       new RequestError('The worktree has changes.', 409, [], 'worktree-has-changes'),
     ];
     await userEvent.click(await screen.findByRole('button', { name: 'Close kirk' }));
@@ -320,7 +320,7 @@ describe('closing an agent', () => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Discard changes and close' }));
 
     await waitFor(() => expect(fake.router.state.location.pathname).toBe('/'));
-    expect(fake.calls.closed).toEqual([
+    expect(fake.calls.closedAgents).toEqual([
       ['kirk', false],
       ['kirk', true],
     ]);
@@ -328,7 +328,7 @@ describe('closing an agent', () => {
 
   it("shows Herdr's refusal and stays open", async () => {
     const fake = openWorktree();
-    fake.state.closeFailures = [
+    fake.state.closeAgentFailures = [
       new RequestError(
         'worktree is locked (worktree_remove_failed)',
         409,

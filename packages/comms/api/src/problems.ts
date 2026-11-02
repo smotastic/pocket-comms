@@ -119,7 +119,7 @@ export const problems = {
       conflictProblem({
         slug: 'gitea-not-configured',
         title: 'Gitea is not configured',
-        detail: 'Set COMMS_GITEA_TOKEN on the server to read Gitea issues.',
+        detail: 'Set COMMS_GITEA_TOKEN on the server to use Gitea issues.',
       }),
     ),
   giteaUnavailable: (error: { readonly reason: string }) =>

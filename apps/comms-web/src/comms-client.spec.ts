@@ -235,4 +235,16 @@ describe('the tasks requests', () => {
     const body = input instanceof Request ? await input.text() : init?.body;
     expect(JSON.parse(String(body))).toEqual({ branch: 'feat/8-x' });
   });
+
+  it('closes an issue', async () => {
+    fetch.mockImplementation(async () => new Response(null, { status: 204 }));
+
+    await makeCommsClient('http://app').closeIssue('pocket-comms', 8);
+
+    const [input, init] = fetch.mock.calls[0] ?? [];
+    expect(String(input instanceof Request ? input.url : input)).toBe(
+      'http://app/api/v1/projects/pocket-comms/issues/8/close',
+    );
+    expect(input instanceof Request ? input.method : init?.method).toBe('POST');
+  });
 });

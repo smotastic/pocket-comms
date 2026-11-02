@@ -27,9 +27,15 @@ interface Seen {
   readonly method: string | undefined;
   readonly url: string | undefined;
   readonly authorization: string | undefined;
+  /** Only for a request with a body. */
+  readonly contentType?: string | undefined;
+  readonly body?: string;
 }
 
-type Route = (url: URL) => {
+type Route = (
+  url: URL,
+  method: string | undefined,
+) => {
   readonly status: number;
   readonly body: unknown;
   readonly location?: string;
@@ -42,19 +48,26 @@ const fakeGitea = (route: Route) =>
       (resume) => {
         const seen: Array<Seen> = [];
         const server = createServer((request: IncomingMessage, response: ServerResponse) => {
-          seen.push({
-            method: request.method,
-            url: request.url,
-            authorization: request.headers.authorization,
+          const chunks: Array<Buffer> = [];
+          request.on('data', (chunk: Buffer) => chunks.push(chunk));
+          request.on('end', () => {
+            const sent = Buffer.concat(chunks).toString('utf8');
+            seen.push({
+              method: request.method,
+              url: request.url,
+              authorization: request.headers.authorization,
+              ...(sent === '' ? {} : { contentType: request.headers['content-type'], body: sent }),
+            });
+            const { status, body, location } = route(
+              new URL(request.url ?? '/', 'http://gitea.test'),
+              request.method,
+            );
+            response.writeHead(status, {
+              'content-type': 'application/json',
+              ...(location === undefined ? {} : { location }),
+            });
+            response.end(typeof body === 'string' ? body : JSON.stringify(body));
           });
-          const { status, body, location } = route(
-            new URL(request.url ?? '/', 'http://gitea.test'),
-          );
-          response.writeHead(status, {
-            'content-type': 'application/json',
-            ...(location === undefined ? {} : { location }),
-          });
-          response.end(typeof body === 'string' ? body : JSON.stringify(body));
         });
         server.listen(0, '127.0.0.1', () => {
           const { port } = server.address() as AddressInfo;
@@ -191,6 +204,48 @@ describe('Gitea.layerHttp', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('closes an issue with one PATCH that sets only its state', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((url, method) =>
+        url.pathname === '/api/v1/repos/owner/app/issues/5' && method === 'PATCH'
+          ? { status: 201, body: { ...listed[0], state: 'closed' } }
+          : { status: 404, body: { message: 'not found' } },
+      );
+
+      yield* withGitea(gitea.url, (outbound) => outbound.closeIssue(repository, 5));
+
+      expect(gitea.seen).toEqual([
+        {
+          method: 'PATCH',
+          url: '/api/v1/repos/owner/app/issues/5',
+          authorization: `token ${TOKEN}`,
+          contentType: 'application/json',
+          body: '{"state":"closed"}',
+        },
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('names a missing issue when closing, and passes on a refused token', () =>
+    Effect.gen(function* () {
+      const missing = yield* fakeGitea(() => ({ status: 404, body: { message: 'not found' } }));
+      const readOnly = yield* fakeGitea(() => ({ status: 403, body: { message: 'forbidden' } }));
+
+      const notFound = yield* withGitea(missing.url, (outbound) =>
+        outbound.closeIssue(repository, 9).pipe(Effect.flip),
+      );
+      const refused = yield* withGitea(readOnly.url, (outbound) =>
+        outbound.closeIssue(repository, 5).pipe(Effect.flip),
+      );
+
+      expect(notFound).toEqual(new IssueNotFoundError({ number: 9 }));
+      expect(refused).toEqual(
+        new GiteaUnavailableError({ reason: 'Gitea refused the token (403).' }),
+      );
+      expect(JSON.stringify(refused)).not.toContain(TOKEN);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('sends nothing without a token', () =>
     Effect.gen(function* () {
       const gitea = yield* fakeGitea(issueRoute([listed]));
@@ -201,11 +256,16 @@ describe('Gitea.layerHttp', () => {
           Effect.all([
             outbound.openIssues(repository).pipe(Effect.flip),
             outbound.issue(repository, 5).pipe(Effect.flip),
+            outbound.closeIssue(repository, 5).pipe(Effect.flip),
           ]),
         null,
       );
 
-      expect(errors).toEqual([new GiteaNotConfiguredError(), new GiteaNotConfiguredError()]);
+      expect(errors).toEqual([
+        new GiteaNotConfiguredError(),
+        new GiteaNotConfiguredError(),
+        new GiteaNotConfiguredError(),
+      ]);
       expect(gitea.seen).toEqual([]);
     }).pipe(Effect.scoped),
   );
@@ -242,16 +302,18 @@ describe('Gitea.layerHttp', () => {
         location: `${elsewhere.url}${url.pathname}${url.search}`,
       }));
 
-      const error = yield* withGitea(redirecting.url, (outbound) =>
-        outbound.openIssues(repository).pipe(Effect.flip),
+      const errors = yield* withGitea(redirecting.url, (outbound) =>
+        Effect.all([
+          outbound.openIssues(repository).pipe(Effect.flip),
+          outbound.closeIssue(repository, 5).pipe(Effect.flip),
+        ]),
       );
 
-      expect(error).toEqual(
-        new GiteaUnavailableError({
-          reason:
-            'Gitea answered with a redirect (302); set COMMS_GITEA_URL to the address it names.',
-        }),
-      );
+      const redirected = new GiteaUnavailableError({
+        reason:
+          'Gitea answered with a redirect (302); set COMMS_GITEA_URL to the address it names.',
+      });
+      expect(errors).toEqual([redirected, redirected]);
       expect(elsewhere.seen).toEqual([]);
     }).pipe(Effect.scoped),
   );

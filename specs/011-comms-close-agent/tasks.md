@@ -1,4 +1,4 @@
-# Tasks 010 — pocket-comms: close an agent and its worktree
+# Tasks 011 — pocket-comms: close an agent and its worktree
 
 - **Plan:** [plan.md](./plan.md)
 

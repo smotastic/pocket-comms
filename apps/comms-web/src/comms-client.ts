@@ -61,6 +61,7 @@ export interface CommsClient {
     number: number,
     branch: string,
   ) => Promise<TaskCreatedView>;
+  readonly closeIssue: (project: string, number: number) => Promise<void>;
   readonly followOverview: (
     onState: (state: OverviewStateView) => void,
     onLive: OnLive,
@@ -214,6 +215,10 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
           params: { project, number: String(number) },
           payload: { branch },
         }),
+      ),
+    closeIssue: (project, number) =>
+      run((api) => api.issues.close({ params: { project, number: String(number) } })).then(
+        () => undefined,
       ),
     followOverview: (onState, onLive) =>
       follow(`${baseUrl}/api/v1/events`, 'overview', OverviewState, onState, onLive),

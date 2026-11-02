@@ -39,6 +39,7 @@ describe('CommsApi', () => {
       '/api/v1/events',
       '/api/v1/projects',
       '/api/v1/projects/{project}/issues',
+      '/api/v1/projects/{project}/issues/{number}/close',
       '/api/v1/projects/{project}/issues/{number}/implement',
       '/api/v1/tasks',
     ]);

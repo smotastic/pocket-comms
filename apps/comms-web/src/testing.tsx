@@ -52,8 +52,10 @@ export interface FakeState {
   readonly issues: Map<string, IssueListView | RequestError>;
   /** What the next Implement with Claude answers. */
   implemented: TaskCreatedView | RequestError;
-  /** The failures of the next closes, in order; a close without one succeeds. */
-  closeFailures: Array<RequestError>;
+  /** A failure for the next close; without one the issue leaves its project's list. */
+  closeFailure?: RequestError;
+  /** The failures of the next agent closes, in order; a close without one succeeds. */
+  closeAgentFailures: Array<RequestError>;
 }
 
 /**
@@ -73,7 +75,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     created: { workspace: 'wK', branch: 'feat/x', path: '/worktrees/feat-x' },
     issues: new Map(),
     implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
-    closeFailures: [],
+    closeAgentFailures: [],
     ...initial,
   };
   const calls = {
@@ -82,7 +84,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     seen: [] as Array<string>,
     tasks: [] as Array<NewTask>,
     implemented: [] as Array<[string, number, string]>,
-    closed: [] as Array<[string, boolean]>,
+    closed: [] as Array<[string, number]>,
+    closedAgents: [] as Array<[string, boolean]>,
   };
   const overviewFollowers = new Set<(state: OverviewStateView) => void>();
   const agentFollowers = new Map<string, Set<(event: AgentEventView) => void>>();
@@ -124,9 +127,20 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       if (state.implemented instanceof RequestError) throw state.implemented;
       return state.implemented;
     },
+    closeIssue: async (project, number) => {
+      calls.closed.push([project, number]);
+      if (state.closeFailure !== undefined) throw state.closeFailure;
+      const list = state.issues.get(project);
+      if (list !== undefined && !(list instanceof RequestError) && list._tag === 'Listed') {
+        state.issues.set(project, {
+          ...list,
+          issues: list.issues.filter((issue) => issue.number !== number),
+        });
+      }
+    },
     closeAgent: async (ref, force) => {
-      calls.closed.push([ref, force]);
-      const failure = state.closeFailures.shift();
+      calls.closedAgents.push([ref, force]);
+      const failure = state.closeAgentFailures.shift();
       if (failure !== undefined) throw failure;
     },
     followOverview: (onState, onLive) => {

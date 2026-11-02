@@ -1,4 +1,4 @@
-# Spec 010 — pocket-comms: close an agent and its worktree
+# Spec 011 — pocket-comms: close an agent and its worktree
 
 - **Status:** `Approved` — approved by the owner (2026-11-02)
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (the conversation's top bar) and

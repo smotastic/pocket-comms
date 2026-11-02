@@ -34,6 +34,12 @@ export type IssueListDto =
   | { readonly _tag: 'NoGiteaRemote' }
   | { readonly _tag: 'NotConfigured' };
 
+/** Close an issue of a project. */
+export interface CloseIssueInput {
+  readonly project: string;
+  readonly number: number;
+}
+
 /** Implement an issue of a project on a new branch. */
 export interface ImplementIssueInput {
   readonly project: string;

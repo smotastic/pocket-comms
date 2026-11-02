@@ -15,7 +15,7 @@ export interface LinkedRepository extends GiteaRepository {
 
 type Failure = GiteaNotConfiguredError | GiteaUnavailableError;
 
-/** The app's Gitea server, read only: the port has no method that writes. */
+/** The app's Gitea server. It reads, and closes issues; no other method writes (spec 010). */
 export class GiteaOutbound extends Context.Service<
   GiteaOutbound,
   {
@@ -29,5 +29,10 @@ export class GiteaOutbound extends Context.Service<
       repository: GiteaRepository,
       number: number,
     ) => Effect.Effect<Issue, Failure | IssueNotFoundError>;
+    /** Sets the issue's state to closed and changes nothing else. */
+    readonly closeIssue: (
+      repository: GiteaRepository,
+      number: number,
+    ) => Effect.Effect<void, Failure | IssueNotFoundError>;
   }
 >()('comms/application/GiteaOutbound') {}

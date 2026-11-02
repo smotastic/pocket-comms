@@ -281,6 +281,15 @@ const gitea = (state: FakeState['Service']) => {
           ? Effect.fail(new IssueNotFoundError({ number }))
           : Effect.succeed<Issue>(found);
       }),
+    closeIssue: ({ owner, name }, number) =>
+      request(`closeIssue ${owner}/${name} ${number}`, () => {
+        const issues = state.issues.get(`${owner}/${name}`) ?? [];
+        const index = issues.findIndex((issue) => issue.number === number);
+        const found = issues[index];
+        if (found === undefined) return Effect.fail(new IssueNotFoundError({ number }));
+        issues[index] = { ...found, state: 'closed' };
+        return Effect.void;
+      }),
   });
 };
 
