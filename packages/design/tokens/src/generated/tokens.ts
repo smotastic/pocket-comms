@@ -95,6 +95,7 @@ export const tokens = {
   layout: {
     width: {
       page: 'var(--layout-width-page)',
+      'side-sheet': 'var(--layout-width-side-sheet)',
     },
     height: {
       'sheet-gap': 'var(--layout-height-sheet-gap)',

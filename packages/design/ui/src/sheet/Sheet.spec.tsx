@@ -137,6 +137,107 @@ describe('Sheet', () => {
     expect(dialog.classList).not.toContain(styles.tall);
   });
 
+  it('slides in from the end side, without a grabber', async () => {
+    const user = userEvent.setup();
+    render(<Screen side="end" />);
+    const dialog = await openSheet(user);
+    expect(dialog.classList).toContain(styles.end);
+    expect(dialog.classList).not.toContain(styles.tall);
+    expect(dialog.querySelector(`.${styles.grabber}`)).toBeNull();
+    expect(dialog.parentElement?.classList).toContain(styles.overlayEnd);
+  });
+
+  it('stays open under a sheet opened from it, and takes focus back when that one closes', async () => {
+    const user = userEvent.setup();
+    const Stacked = () => {
+      const [inner, setInner] = useState(false);
+      return (
+        <Sheet
+          open
+          side="end"
+          label="Projects"
+          bodyLabel="Project list"
+          onClose={() => undefined}
+          header={<SheetHeader title="Projects" />}
+        >
+          <button type="button" onClick={() => setInner(true)}>
+            Implement
+          </button>
+          <Sheet
+            open={inner}
+            label="Implement"
+            bodyLabel="Branch"
+            onClose={() => setInner(false)}
+            header={<SheetHeader title="Implement" />}
+          >
+            <p>Branch</p>
+          </Sheet>
+        </Sheet>
+      );
+    };
+    render(<Stacked />);
+    const outer = screen.getByRole('dialog', { name: 'Projects' });
+    const opener = screen.getByRole('button', { name: 'Implement' });
+    await user.click(opener);
+    expect(screen.getByRole('dialog', { name: 'Implement' })).toBeDefined();
+    const outerOverlay = outer.parentElement as HTMLElement;
+    expect(outerOverlay.inert).toBe(true);
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog', { name: 'Implement' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Projects' })).toBe(outer);
+    expect(outerOverlay.inert).toBe(false);
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('lets the page scroll again when a sheet and the one opened from it close together', async () => {
+    const user = userEvent.setup();
+    document.documentElement.style.overflow = 'auto';
+    const Both = () => {
+      const [open, setOpen] = useState(true);
+      const [inner, setInner] = useState(false);
+      const closeBoth = () => {
+        setOpen(false);
+        setInner(false);
+      };
+      return (
+        <Sheet
+          open={open}
+          side="end"
+          label="Projects"
+          bodyLabel="Project list"
+          onClose={closeBoth}
+          header={<SheetHeader title="Projects" />}
+        >
+          <button type="button" onClick={() => setInner(true)}>
+            Implement
+          </button>
+          <Sheet
+            open={inner}
+            label="Implement"
+            bodyLabel="Branch"
+            onClose={closeBoth}
+            header={<SheetHeader title="Implement" />}
+          >
+            <button type="button" onClick={closeBoth}>
+              Start
+            </button>
+          </Sheet>
+        </Sheet>
+      );
+    };
+    render(<Both />);
+    await user.click(screen.getByRole('button', { name: 'Implement' }));
+    expect(document.documentElement.style.overflow).toBe('hidden');
+
+    await user.click(screen.getByRole('button', { name: 'Start' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.documentElement.style.overflow).toBe('auto');
+    document.documentElement.style.overflow = '';
+  });
+
   it('follows what is added while the reader is at the end', async () => {
     const lines = (count: number) => (
       <Sheet

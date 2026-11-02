@@ -90,6 +90,30 @@
   height: env(safe-area-inset-bottom);
 }
 
+/* A side sheet keeps the screen behind in view beside it and holds the notch inside itself. */
+.overlayEnd {
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+.end {
+  flex: none;
+  width: 100%;
+  max-width: var(--layout-width-side-sheet);
+  height: 100%;
+  margin: 0;
+  padding-top: env(safe-area-inset-top);
+  border-left: var(--border-width-default) solid var(--color-border-default);
+  animation-name: slide;
+  animation-timing-function: var(--motion-easing-decelerate);
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(100%);
+  }
+}
+
 @keyframes rise {
   from {
     transform: translateY(100%);

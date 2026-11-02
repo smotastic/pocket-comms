@@ -77,6 +77,10 @@
       "$type": "dimension",
       "page": {
         "$value": "{size.720}"
+      },
+      "side-sheet": {
+        "$value": "{size.320}",
+        "$description": "A sheet that slides in from the side; the screen behind stays in view beside it."
       }
     },
     "height": {
