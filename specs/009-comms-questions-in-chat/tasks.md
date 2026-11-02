@@ -8,7 +8,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       fixture; contract member and OpenAPI document
   - Gate: `pnpm nx test comms-domain comms-infrastructure comms-contract`, `pnpm openapi:check`
 
-- [ ] **T02** — Design kit: `QuestionCard` with story and spec
+- [x] **T02** — Design kit: `QuestionCard` with story and spec
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 
 - [ ] **T03** — Web: the chat shows a question entry with `QuestionCard`
