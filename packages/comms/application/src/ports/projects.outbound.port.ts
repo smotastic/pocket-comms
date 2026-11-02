@@ -4,7 +4,7 @@ import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
 import type { ProjectGitError } from '../errors.js';
 
-/** The git repositories below the projects root, and the git questions a new worktree asks. */
+/** The git repositories below the projects root, and the git questions a new or closing worktree asks. */
 export class ProjectsOutbound extends Context.Service<
   ProjectsOutbound,
   {
@@ -28,5 +28,10 @@ export class ProjectsOutbound extends Context.Service<
     readonly worktrees: (
       project: Project,
     ) => Effect.Effect<ReadonlyArray<Worktree>, ProjectGitError>;
+    /** Whether the worktree of `project` at `path` has uncommitted or untracked changes. */
+    readonly hasChanges: (
+      project: Project,
+      path: string,
+    ) => Effect.Effect<boolean, ProjectGitError>;
   }
 >()('comms/application/ProjectsOutbound') {}

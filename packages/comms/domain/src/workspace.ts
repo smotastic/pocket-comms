@@ -15,6 +15,8 @@ export interface Workspace {
   readonly project?: string;
   /** The workspace's label when it is a linked worktree; a main checkout has none. */
   readonly worktree?: string;
+  /** The folder of the workspace's own checkout, when it is a git workspace. */
+  readonly checkout?: string;
 }
 
 /** The one group of every workspace without a project; the overview shows it last. */

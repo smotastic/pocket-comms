@@ -41,6 +41,7 @@ export interface HerdrCall {
     | 'prompt'
     | 'sendKeys'
     | 'createWorktree'
+    | 'removeWorktree'
     | 'startAgent';
   readonly target?: string;
   readonly params?: unknown;
@@ -85,6 +86,8 @@ export class FakeState extends Context.Service<
     readonly origins: Map<string, string>;
     /** The worktrees of every project. */
     readonly worktrees: Map<string, Array<Worktree>>;
+    /** The worktree folders with uncommitted or untracked changes. */
+    readonly changed: Set<string>;
     /** The issues and pull requests of every Gitea repository, by `<owner>/<name>`. */
     readonly issues: Map<string, Array<Issue>>;
     /** The fake Gitea has a token. */
@@ -103,6 +106,7 @@ export const fakeWorkspaces: ReadonlyArray<Workspace> = [
     group: { key: '/work/app/.git', name: 'app' },
     root: '/work/app',
     project: 'app',
+    checkout: '/work/app',
   },
   {
     id: 'w2',
@@ -111,6 +115,7 @@ export const fakeWorkspaces: ReadonlyArray<Workspace> = [
     root: '/work/app',
     project: 'app',
     worktree: 'feature',
+    checkout: '/worktrees/feature',
   },
   { id: 'w3', label: 'notes', group: OTHER_GROUP },
 ];
@@ -167,6 +172,11 @@ const herdr = (state: FakeState['Service']) => {
         path: `/worktrees/${request.branch.replaceAll('/', '-')}`,
         branch: request.branch,
       })),
+    removeWorktree: (removal) =>
+      command(
+        { method: 'removeWorktree', target: removal.workspaceId, params: removal },
+        () => undefined,
+      ),
     startAgent: (start) =>
       command({ method: 'startAgent', target: start.paneId, params: start }, () => state.started),
     changes: Stream.fromPubSub(state.herdrChanges),
@@ -224,6 +234,8 @@ const projects = (state: FakeState['Service']) => {
       ),
     worktrees: (project) =>
       Effect.as(ask(`worktrees ${project.name}`), [...(state.worktrees.get(project.name) ?? [])]),
+    hasChanges: (project, path) =>
+      Effect.as(ask(`hasChanges ${project.name} ${path}`), state.changed.has(path)),
     branchExists: (project, branch) =>
       Effect.as(
         ask(`branchExists ${project.name} ${branch}`),
@@ -322,6 +334,7 @@ export const fakeLayer = () => {
         started: { status: 'idle', ready: true },
         origins: new Map([['app', 'gitea:owner/app.git']]),
         worktrees: new Map([['app', [{ path: '/work/app', branch: 'master' }]]]),
+        changed: new Set(),
         issues: new Map(),
         giteaConfigured: true,
         giteaFailure: undefined,

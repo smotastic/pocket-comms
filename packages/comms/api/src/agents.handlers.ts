@@ -74,6 +74,17 @@ export const agentsHandlers = HttpApiBuilder.group(
       )
       .handle('seen', ({ params }) =>
         agentsInbound.markSeen(params.agent).pipe(Effect.catchTags(lookup)),
+      )
+      .handle('close', ({ params, payload }) =>
+        agentsInbound.close(params.agent, payload.force ?? false).pipe(
+          Effect.catchTags({
+            ...lookup,
+            NotAWorktreeError: problems.notAWorktree,
+            WorktreeHasChangesError: problems.worktreeHasChanges,
+            ProjectGitError: problems.projectGitFailed,
+            HerdrRejectedError: problems.worktreeNotRemoved,
+          }),
+        ),
       );
   }),
 );

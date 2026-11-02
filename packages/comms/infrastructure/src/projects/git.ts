@@ -173,6 +173,16 @@ export const layerGit = ({ root, fetchTimeoutMs = 60_000 }: GitOptions) => {
       return parseWorktrees(listed.stdout);
     }).pipe(Effect.withSpan('Projects.worktrees'));
 
+  // Untracked files count: removing the worktree would delete them too.
+  const hasChanges = (project: Project, path: string) =>
+    Effect.gen(function* () {
+      const status = yield* git(path, ['status', '--porcelain', '--untracked-files=all'], quick);
+      if (status.code !== 0) {
+        return yield* failed(project, `git status failed: ${lastLine(status.stderr)}`);
+      }
+      return status.stdout.trim() !== '';
+    }).pipe(Effect.withSpan('Projects.hasChanges'));
+
   return Layer.succeed(
     ProjectsOutbound,
     ProjectsOutbound.of({
@@ -182,6 +192,7 @@ export const layerGit = ({ root, fetchTimeoutMs = 60_000 }: GitOptions) => {
       branchExists,
       originUrl,
       worktrees,
+      hasChanges,
     }),
   );
 };

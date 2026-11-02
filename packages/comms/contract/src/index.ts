@@ -19,6 +19,7 @@ export {
   Project,
   ProjectParam,
   Projects,
+  CloseRequest,
   PromptRequest,
   Screen,
   TailscaleIdentity,

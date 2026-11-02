@@ -26,6 +26,8 @@ export const sourceOf = (agent: Agent): Option.Option<TranscriptSource> => {
 /** A live agent with what the app shows for it. */
 export interface AgentView {
   readonly agent: Agent;
+  /** The agent's Herdr workspace, when Herdr lists it. */
+  readonly workspace: Workspace | undefined;
   readonly dto: AgentDto;
 }
 
@@ -68,6 +70,7 @@ export const makeLoadAgents = Effect.gen(function* () {
         const workspace = workspaces.get(agent.workspaceId);
         return {
           agent,
+          workspace,
           dto: {
             ref: agentRef(agent),
             paneId: agent.paneId,

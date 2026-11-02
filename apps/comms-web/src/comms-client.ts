@@ -51,6 +51,8 @@ export interface CommsClient {
   readonly prompt: (ref: string, text: string) => Promise<void>;
   readonly keys: (ref: string, keys: ReadonlyArray<Key>) => Promise<void>;
   readonly seen: (ref: string) => Promise<void>;
+  /** Removes the agent's worktree and closes its workspace; `force` discards its changes. */
+  readonly closeAgent: (ref: string, force: boolean) => Promise<void>;
   readonly projects: () => Promise<ReadonlyArray<ProjectView>>;
   readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
   readonly issues: (project: string) => Promise<IssueListView>;
@@ -89,17 +91,29 @@ export interface FieldIssue {
 
 /**
  * A failed request; `status` is the HTTP status of a Problem Details answer, `issues` the fields
- * a validation problem names.
+ * a validation problem names, and `problem` the slug of its type, such as `worktree-has-changes`.
  */
 export class RequestError extends Error {
   constructor(
     message: string,
     readonly status: number | undefined,
     readonly issues: ReadonlyArray<FieldIssue> = [],
+    readonly problem?: string,
   ) {
     super(message);
   }
 }
+
+const PROBLEM_PREFIX = 'urn:pocket-comms:problem:';
+
+const problemOf = (error: unknown): string | undefined =>
+  typeof error === 'object' &&
+  error !== null &&
+  'type' in error &&
+  typeof error.type === 'string' &&
+  error.type.startsWith(PROBLEM_PREFIX)
+    ? error.type.slice(PROBLEM_PREFIX.length)
+    : undefined;
 
 const isFieldIssue = (value: unknown): value is FieldIssue =>
   typeof value === 'object' &&
@@ -176,7 +190,7 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     );
     if (Exit.isSuccess(exit)) return exit.value;
     const error = Cause.squash(exit.cause);
-    throw new RequestError(messageOf(error), statusOf(error), issuesOf(error));
+    throw new RequestError(messageOf(error), statusOf(error), issuesOf(error), problemOf(error));
   };
   const agent = (ref: string) => ({ params: { agent: ref } });
 
@@ -190,6 +204,8 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     keys: (ref, keys) =>
       run((api) => api.agents.keys({ ...agent(ref), payload: { keys } })).then(() => undefined),
     seen: (ref) => run((api) => api.agents.seen(agent(ref))).then(() => undefined),
+    closeAgent: (ref, force) =>
+      run((api) => api.agents.close({ ...agent(ref), payload: { force } })).then(() => undefined),
     projects: () => run((api) => api.tasks.projects()).then((result) => result.projects),
     createTask: (task) => run((api) => api.tasks.create({ payload: task })),
     issues: (project) => run((api) => api.issues.list({ params: { project } })),

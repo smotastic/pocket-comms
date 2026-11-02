@@ -21,6 +21,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { AgentView, CommsClient, Key, TranscriptView } from './comms-client.js';
 import { RequestError } from './comms-client.js';
+import { CloseAgent } from './CloseAgent.js';
 import { agentQuery, screenQuery, transcriptQuery } from './comms-queries.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive } from './live.js';
@@ -109,11 +110,14 @@ const Header = ({
   view,
   onView,
   onBack,
+  onClose,
 }: {
   readonly agent: AgentView | undefined;
   readonly view: View;
   readonly onView: (view: View) => void;
   readonly onBack: () => void;
+  /** Asks to close the agent; only an agent in a linked worktree can be closed. */
+  readonly onClose?: () => void;
 }) => (
   <Stack gap="2xs">
     <TopBar
@@ -122,21 +126,24 @@ const Header = ({
       {...(agent === undefined
         ? {}
         : { subtitle: <StatusPill tone={agent.status} label={STATUS_LABELS[agent.status]} /> })}
-      {...(agent?.format === undefined
-        ? {}
-        : {
-            end: (
-              <Segmented
-                label="View"
-                options={[
-                  { value: 'chat', label: 'Chat' },
-                  { value: 'screen', label: 'Screen' },
-                ]}
-                value={view}
-                onChange={(value) => onView(value === 'screen' ? 'screen' : 'chat')}
-              />
-            ),
-          })}
+      end={
+        <>
+          {agent?.format === undefined ? null : (
+            <Segmented
+              label="View"
+              options={[
+                { value: 'chat', label: 'Chat' },
+                { value: 'screen', label: 'Screen' },
+              ]}
+              value={view}
+              onChange={(value) => onView(value === 'screen' ? 'screen' : 'chat')}
+            />
+          )}
+          {agent?.worktree === undefined || onClose === undefined ? null : (
+            <IconButton icon="trash" label={`Close ${agent.ref}`} onClick={onClose} />
+          )}
+        </>
+      }
     />
     {agent === undefined ? null : (
       <Text tone="muted" size="sm" truncate>
@@ -174,6 +181,7 @@ export const Conversation = ({ client, agentRef, onBack, note }: ConversationPro
     if (unseenDone) markSeen();
   }, [markSeen, unseenDone]);
 
+  const [closing, setClosing] = useState(false);
   const [draft, setDraft] = useState('');
   const prompt = useMutation({
     mutationFn: (text: string) => client.prompt(agentRef, text),
@@ -226,7 +234,15 @@ export const Conversation = ({ client, agentRef, onBack, note }: ConversationPro
   return (
     <DockedPage
       label={`Conversation with ${name}`}
-      header={<Header agent={agent} view={view} onView={setChosen} onBack={onBack} />}
+      header={
+        <Header
+          agent={agent}
+          view={view}
+          onView={setChosen}
+          onBack={onBack}
+          onClose={() => setClosing(true)}
+        />
+      }
       footer={
         <Stack gap="xs">
           {failure === null ? null : <Alert>{failure.message}</Alert>}
@@ -280,6 +296,15 @@ export const Conversation = ({ client, agentRef, onBack, note }: ConversationPro
           </>
         )}
       </Stack>
+      {agent.worktree === undefined ? null : (
+        <CloseAgent
+          client={client}
+          agent={agent}
+          open={closing}
+          onCancel={() => setClosing(false)}
+          onClosed={onBack}
+        />
+      )}
     </DockedPage>
   );
 };

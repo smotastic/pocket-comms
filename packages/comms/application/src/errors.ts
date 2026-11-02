@@ -19,6 +19,16 @@ export class HerdrRejectedError extends Data.TaggedError('HerdrRejectedError')<{
   readonly message: string;
 }> {}
 
+/** The agent's workspace is not a linked worktree of a project, so the app may not close it. */
+export class NotAWorktreeError extends Data.TaggedError('NotAWorktreeError')<{
+  readonly ref: string;
+}> {}
+
+/** The agent's worktree has uncommitted or untracked changes that removing it would lose. */
+export class WorktreeHasChangesError extends Data.TaggedError('WorktreeHasChangesError')<{
+  readonly ref: string;
+}> {}
+
 /** The agent has no session file the app can show as a chat. */
 export class TranscriptUnavailableError extends Data.TaggedError('TranscriptUnavailableError')<{
   readonly ref: string;

@@ -48,6 +48,7 @@ const lists = (request: HerdrRequest) => {
             workspace_id: 'wJ',
             label: 'ingestor-mvp',
             worktree: {
+              checkout_path: '/worktrees/home/feat-ingestor-mvp',
               is_linked_worktree: true,
               repo_key: '/work/home/.git',
               repo_name: 'pocket-home',
@@ -58,6 +59,7 @@ const lists = (request: HerdrRequest) => {
             workspace_id: 'wH',
             label: 'pocket-home',
             worktree: {
+              checkout_path: '/work/home',
               is_linked_worktree: false,
               repo_key: '/work/home/.git',
               repo_name: 'pocket-home',
@@ -93,6 +95,18 @@ const lists = (request: HerdrRequest) => {
         agent: { pane_id: 'wK:p1', agent_status: 'idle', interactive_ready: true },
       },
     };
+  }
+  if (request.method === 'worktree.remove') {
+    return request.params['workspace_id'] === 'wDirty'
+      ? { error: { code: 'worktree_remove_failed', message: 'worktree contains modified files' } }
+      : {
+          result: {
+            type: 'worktree_removed',
+            workspace_id: request.params['workspace_id'],
+            path: '/worktrees/home/feat-ingestor-mvp',
+            forced: request.params['force'],
+          },
+        };
   }
   if (request.method === 'agent.prompt' && request.params['text'] === 'refuse') {
     return { error: { code: 'agent_not_ready', message: 'agent wJ:p1 is not ready' } };
@@ -141,6 +155,7 @@ describe('Herdr.layerSocket', () => {
             root: '/work/home',
             project: 'pocket-home',
             worktree: 'ingestor-mvp',
+            checkout: '/worktrees/home/feat-ingestor-mvp',
           },
           {
             id: 'wH',
@@ -148,6 +163,7 @@ describe('Herdr.layerSocket', () => {
             group: { key: '/work/home/.git', name: 'pocket-home' },
             root: '/work/home',
             project: 'pocket-home',
+            checkout: '/work/home',
           },
           { id: 'w9', label: 'notes', group: { key: 'other', name: 'Other' } },
         ],
@@ -214,6 +230,38 @@ describe('Herdr.layerSocket', () => {
           },
         ],
       ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('removes a worktree with the force asked for, never trusting the repository', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      yield* HerdrOutbound.use((herdr) =>
+        Effect.andThen(
+          herdr.removeWorktree({ workspaceId: 'wJ', force: false }),
+          herdr.removeWorktree({ workspaceId: 'wJ', force: true }),
+        ),
+      ).pipe(Effect.provide(layerSocket({ path: server.path })));
+
+      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
+        ['worktree.remove', { workspace_id: 'wJ', force: false }],
+        ['worktree.remove', { workspace_id: 'wJ', force: true }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live("reports Herdr's refusal to remove a worktree", () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      const error = yield* HerdrOutbound.use((herdr) =>
+        herdr.removeWorktree({ workspaceId: 'wDirty', force: false }),
+      ).pipe(Effect.provide(layerSocket({ path: server.path })), Effect.flip);
+
+      expect(error).toMatchObject({
+        _tag: 'HerdrRejectedError',
+        ref: 'wDirty',
+        code: 'worktree_remove_failed',
+      });
     }).pipe(Effect.scoped),
   );
 
@@ -381,11 +429,12 @@ describe('Herdr.layerSocket changes', () => {
           herdr.sendKeys('wJ:p1', ['esc']),
           herdr.createWorktree({ cwd: '/work/home', branch: 'feat/new', base: 'b', label: 'l' }),
           herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind: 'claude' }),
+          herdr.removeWorktree({ workspaceId: 'wJ', force: false }),
           herdr.changes.pipe(Stream.take(1), Stream.runDrain),
         ]),
       ).pipe(Effect.provide(layerSocket({ path: server.path, relistInterval: '20 millis' })));
 
-      expect(server.requests.length).toBeGreaterThan(6);
+      expect(server.requests.length).toBeGreaterThan(7);
       expect(server.requests.filter((request) => request.method.endsWith('focus'))).toEqual([]);
     }).pipe(Effect.scoped),
   );
