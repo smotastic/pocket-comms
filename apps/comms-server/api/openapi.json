@@ -2781,6 +2781,16 @@
               }
             },
             "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
           }
         },
         "security": [],

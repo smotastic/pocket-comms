@@ -3,7 +3,7 @@ import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import type { ImageDto } from '../dto/image.dto.js';
-import type { ImageNotFoundError } from '../errors.js';
+import type { ImageNotFoundError, ImageNotSavedError } from '../errors.js';
 import { makeImages } from '../use-cases/images.use-case.js';
 import type { StoredImage } from './images.outbound.port.js';
 
@@ -13,7 +13,9 @@ import type { StoredImage } from './images.outbound.port.js';
 export class ImagesInbound extends Context.Service<
   ImagesInbound,
   {
-    readonly upload: (bytes: Uint8Array) => Effect.Effect<ImageDto, InvalidInputError>;
+    readonly upload: (
+      bytes: Uint8Array,
+    ) => Effect.Effect<ImageDto, InvalidInputError | ImageNotSavedError>;
     readonly read: (id: string) => Effect.Effect<StoredImage, ImageNotFoundError>;
     /** Removes the images older than the retention time. */
     readonly sweep: Effect.Effect<void>;

@@ -1,4 +1,8 @@
-import { ImagesOutbound, type StoredImage } from '@pocket-comms/comms-application';
+import {
+  ImageNotSavedError,
+  ImagesOutbound,
+  type StoredImage,
+} from '@pocket-comms/comms-application';
 import { IMAGE_EXTENSIONS, isImageId, type ImageKind } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
@@ -13,6 +17,7 @@ import { join, resolve } from 'node:path';
 
 const KINDS = Object.entries(IMAGE_EXTENSIONS) as ReadonlyArray<[ImageKind, string]>;
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567';
+const TEMPORARY = '.tmp';
 
 // 130 random bits as 26 characters of lowercase base32.
 const newId = () => {
@@ -54,15 +59,27 @@ export const layerFolder = ({ stateDir }: FolderStoreOptions) => {
     return undefined;
   };
 
+  // A failed write leaves no temporary file behind; one a crash leaves is swept.
   const save = (image: StoredImage) =>
-    Effect.promise(async () => {
-      await mkdir(folder, { recursive: true, mode: 0o700 });
-      const id = newId();
-      const path = join(folder, `${id}.${IMAGE_EXTENSIONS[image.kind]}`);
-      const temporary = join(folder, `.${randomUUID()}.tmp`);
-      await writeFile(temporary, image.bytes, { mode: 0o600 });
-      await rename(temporary, path);
-      return id;
+    Effect.tryPromise({
+      try: async () => {
+        await mkdir(folder, { recursive: true, mode: 0o700 });
+        const id = newId();
+        const path = join(folder, `${id}.${IMAGE_EXTENSIONS[image.kind]}`);
+        const temporary = join(folder, `.${randomUUID()}${TEMPORARY}`);
+        try {
+          await writeFile(temporary, image.bytes, { mode: 0o600 });
+          await rename(temporary, path);
+        } catch (error) {
+          await unlink(temporary).catch(() => undefined);
+          throw error;
+        }
+        return id;
+      },
+      catch: (error) =>
+        new ImageNotSavedError({
+          reason: error instanceof Error ? error.message : 'The image could not be written.',
+        }),
     }).pipe(Effect.withSpan('Images.save'));
 
   const path = (id: string) =>
@@ -85,11 +102,13 @@ export const layerFolder = ({ stateDir }: FolderStoreOptions) => {
       for (const name of names) {
         const dot = name.lastIndexOf('.');
         const known = KINDS.some(([, extension]) => name.slice(dot + 1) === extension);
-        if (dot <= 0 || !known || !isImageId(name.slice(0, dot))) continue;
+        const image = dot > 0 && known && isImageId(name.slice(0, dot));
+        const leftOver = name.startsWith('.') && name.endsWith(TEMPORARY);
+        if (!image && !leftOver) continue;
         const info = await lstat(join(folder, name)).catch(() => undefined);
         if (info?.isFile() !== true || info.mtimeMs >= epochMillis) continue;
         await unlink(join(folder, name)).then(
-          () => (removed += 1),
+          () => (removed += image ? 1 : 0),
           () => undefined,
         );
       }

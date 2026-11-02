@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from '@effect/vitest';
+import { afterEach, describe, expect, it, vi } from '@effect/vitest';
 import {
   AgentNotFoundError,
   AgentsInbound,
@@ -11,6 +11,7 @@ import {
   HerdrRejectedError,
   HerdrUnavailableError,
   ImageNotFoundError,
+  ImageNotSavedError,
   ImagesInbound,
   IssueClosedError,
   IssueNotFoundError,
@@ -782,6 +783,48 @@ describe('the images routes (spec 014)', () => {
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({
       type: 'urn:pocket-comms:problem:invalid-request',
+    });
+  });
+
+  it('sweeps the old images when the server starts', async () => {
+    let sweeps = 0;
+    const call = serve(
+      {},
+      undefined,
+      {},
+      {},
+      {},
+      {
+        sweep: Effect.sync(() => {
+          sweeps += 1;
+        }),
+      },
+    );
+
+    await call('/health/live');
+
+    // The sweep runs in a fiber of its own, next to the requests.
+    await vi.waitFor(() => expect(sweeps).toBe(1));
+  });
+
+  it('answers 503 when the image cannot be kept', async () => {
+    const call = serve(
+      {},
+      undefined,
+      {},
+      {},
+      {},
+      {
+        upload: () => Effect.fail(new ImageNotSavedError({ reason: 'No space left on device' })),
+      },
+    );
+
+    const response = await call('/api/v1/images', upload(PNG));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:image-not-saved',
+      detail: 'No space left on device',
     });
   });
 

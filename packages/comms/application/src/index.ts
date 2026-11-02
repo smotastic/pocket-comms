@@ -40,6 +40,7 @@ export {
   HerdrRejectedError,
   HerdrUnavailableError,
   ImageNotFoundError,
+  ImageNotSavedError,
   TranscriptUnavailableError,
   WorktreeHasChangesError,
 } from './errors.js';

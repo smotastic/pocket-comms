@@ -178,6 +178,14 @@ export const problems = {
         detail: `The proposal ${error.id} was created or discarded already.`,
       }),
     ),
+  imageNotSaved: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'image-not-saved',
+        title: 'The image was not kept',
+        detail: error.reason,
+      }),
+    ),
   imageNotFound: (error: { readonly id: string }) =>
     Effect.fail(
       notFoundProblem({

@@ -20,9 +20,12 @@ export const imagesHandlers = HttpApiBuilder.group(
       handlers
         // The body is the image itself; the use case checks what is in it.
         .handle('upload', ({ payload }) =>
-          imagesInbound
-            .upload(payload)
-            .pipe(Effect.catchTags({ InvalidInputError: problems.invalidInput })),
+          imagesInbound.upload(payload).pipe(
+            Effect.catchTags({
+              InvalidInputError: problems.invalidInput,
+              ImageNotSavedError: problems.imageNotSaved,
+            }),
+          ),
         )
         // Raw, because the content type is the image's own. An id never changes its image.
         .handleRaw('read', ({ params }) =>

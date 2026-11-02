@@ -84,6 +84,34 @@ describe('the image folder store', () => {
     }),
   );
 
+  it.effect('fails to save into a folder it cannot write, leaving nothing behind', () =>
+    Effect.gen(function* () {
+      const dir = stateDir();
+      mkdirSync(join(dir, 'images'), { mode: 0o500 });
+      const images = yield* store(dir);
+
+      const error = yield* images.save({ kind: 'png', bytes: PNG }).pipe(Effect.flip);
+
+      expect(error._tag).toBe('ImageNotSavedError');
+      expect(readdirSync(join(dir, 'images'))).toEqual([]);
+    }),
+  );
+
+  it.effect('sweeps an old temporary file a crash left behind', () =>
+    Effect.gen(function* () {
+      const dir = stateDir();
+      mkdirSync(join(dir, 'images'));
+      writeFileSync(join(dir, 'images', '.left.tmp'), 'half');
+      const past = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+      utimesSync(join(dir, 'images', '.left.tmp'), past, past);
+      const images = yield* store(dir);
+
+      yield* images.removeOlderThan(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      expect(readdirSync(join(dir, 'images'))).toEqual([]);
+    }),
+  );
+
   it.effect('removes nothing before the folder exists', () =>
     Effect.gen(function* () {
       const images = yield* store(stateDir());

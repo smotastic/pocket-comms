@@ -220,10 +220,11 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
 
 /**
  * Image handling without a canvas: an image is sent as it was picked, a file named `broken.*`
- * cannot be read, and a thumbnail is named after the file.
+ * cannot be read, one named `slow.*` takes a moment, and a thumbnail is named after the file.
  */
 export const fakeImageHandling: ImageHandling = {
   prepare: async (file) => {
+    if (file.name.startsWith('slow.')) await new Promise((resolve) => setTimeout(resolve, 50));
     if (file.name.startsWith('broken.')) {
       throw new UnreadableImageError(`${file.name} cannot be read as an image.`);
     }

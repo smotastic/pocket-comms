@@ -85,6 +85,21 @@ describe('images in the conversation', () => {
     );
   });
 
+  it('counts images still being shrunk, so no sixth can be picked meanwhile', async () => {
+    open();
+
+    await attach('slow.1.png', 'slow.2.png', 'slow.3.png', 'slow.4.png', 'slow.5.png');
+
+    expect(screen.queryAllByRole('img', { name: /^Image \d$/u })).toHaveLength(0);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Attach image' }).disabled).toBe(
+      true,
+    );
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send' }).disabled).toBe(true);
+    await waitFor(() =>
+      expect(screen.getAllByRole('img', { name: /^Image \d$/u })).toHaveLength(5),
+    );
+  });
+
   it('holds the send back while an upload failed, until the image is removed', async () => {
     const fake = open();
     fake.state.uploadFailure = 'The image is larger than 10 MB.';
@@ -181,6 +196,22 @@ describe('images in the New task form', () => {
         },
       ]),
     );
+  });
+
+  it('keeps and sends the images when the agent is switched off, so the server refuses them', async () => {
+    const fake = fakeClient();
+    renderApp({ client: fake.client, ...at });
+    const sheet = await openSheet();
+
+    await userEvent.type(within(sheet).getByRole('textbox', { name: 'Task' }), 'Fix the header');
+    await userEvent.upload(picker() as HTMLInputElement, [image('shot.png')]);
+    await within(sheet).findByRole('img', { name: 'Image 1' });
+    await userEvent.click(within(sheet).getByRole('switch', { name: 'Start an agent' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Create' }));
+
+    expect(within(sheet).getByRole('img', { name: 'Image 1' })).toBeDefined();
+    await waitFor(() => expect(fake.calls.tasks[0]?.imageIds).toEqual(['image-1']));
+    expect(fake.calls.tasks[0]?.agent).toBeUndefined();
   });
 
   it('offers no images for a task without an agent', async () => {

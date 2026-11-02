@@ -54,9 +54,10 @@ const NewTaskForm = ({
   const [startAgent, setStartAgent] = useState(true);
   const [kind, setKind] = useState<AgentToStart>('claude');
   const create = useMutation({ mutationFn: client.createTask, onSuccess: onCreated });
-  // Images go with the agent's first prompt, so only a task with an agent takes them (spec 014).
+  // Images go with the agent's first prompt, so only a task with an agent takes them; images left
+  // on a task without one are sent anyway, and the server refuses them (spec 014, req. 11).
   const images = useAttachments(client);
-  const busy = create.isPending || (startAgent && images.pending);
+  const busy = create.isPending || images.pending;
 
   const branch = editedBranch ?? (task.trim() === '' ? '' : suggestBranch(task));
   const issues = create.error instanceof RequestError ? create.error.issues : [];
@@ -76,7 +77,7 @@ const NewTaskForm = ({
           task,
           branch,
           ...(startAgent ? { agent: { kind } } : {}),
-          ...(startAgent && images.ids.length > 0 ? { imageIds: images.ids } : {}),
+          ...(images.ids.length > 0 ? { imageIds: images.ids } : {}),
         });
       }}
       actions={
@@ -120,15 +121,21 @@ const NewTaskForm = ({
             }}
           />
           {issueOf('agent') === undefined ? null : <Alert>{issueOf('agent')}</Alert>}
+        </Stack>
+      ) : null}
+      {startAgent || images.attachments.length > 0 ? (
+        <Stack gap="xs">
           <Text size="sm" tone="muted">
             Images for the first prompt
           </Text>
           <Inline gap="xs">
-            <AttachButton
-              label="Attach image"
-              onFiles={(files) => void images.add(files)}
-              disabled={images.full}
-            />
+            {startAgent ? (
+              <AttachButton
+                label="Attach image"
+                onFiles={(files) => void images.add(files)}
+                disabled={images.full}
+              />
+            ) : null}
             <AttachedImages
               attachments={images.attachments}
               onRemove={images.remove}

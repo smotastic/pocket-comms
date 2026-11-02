@@ -4,6 +4,7 @@ import type * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import { HttpApiBuilder, HttpApiScalar } from 'effect/http-api';
 import { agentsHandlers } from './agents.handlers.js';
+import { bodyLimit } from './body-limit.js';
 import { brainstormHandlers } from './brainstorm.handlers.js';
 import { issuesHandlers } from './issues.handlers.js';
 import { tasksHandlers } from './tasks.handlers.js';
@@ -51,4 +52,5 @@ export const commsServerLayer = <E, R>({
     imageSweepLayer,
     webDist === undefined ? Layer.empty : webAppLayer(webDist),
     identityGuard(allowedLogin),
+    bodyLimit,
   );

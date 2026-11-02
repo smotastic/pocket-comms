@@ -1006,7 +1006,7 @@ const images = HttpApiGroup.make('images')
     HttpApiEndpoint.post('upload', '/images', {
       payload: ImageUpload,
       success: UploadedImage.pipe(HttpApiSchema.status(201)),
-      error: Problems.Validation,
+      error: [Problems.Validation, Problems.ServiceUnavailable],
     }).annotateMerge(
       OpenApi.annotations({
         summary: 'Upload an image',

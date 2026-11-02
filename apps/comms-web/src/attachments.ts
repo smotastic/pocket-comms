@@ -96,6 +96,9 @@ export const useAttachments = (client: Pick<CommsClient, 'uploadImage'>) => {
   const [entries, setEntries] = useState<ReadonlyArray<Entry>>([]);
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const nextKey = useRef(0);
+  // The slots taken, also by images still being shrunk, so a second pick cannot overfill them.
+  const held = useRef(0);
+  const [preparing, setPreparing] = useState(0);
   const current = useRef(entries);
   current.current = entries;
 
@@ -119,16 +122,21 @@ export const useAttachments = (client: Pick<CommsClient, 'uploadImage'>) => {
   };
 
   const add = async (files: ReadonlyArray<File>) => {
-    const room = MAX_IMAGES - current.current.length;
-    const taken = files.slice(0, Math.max(0, room));
+    const taken = files.slice(0, Math.max(0, MAX_IMAGES - held.current));
     const leftOut = files.length - taken.length;
+    held.current += taken.length;
+    setPreparing((count) => count + taken.length);
     const unreadable: Array<string> = [];
     for (const file of taken) {
       const blob = await prepare(file).catch((error: unknown) => {
         unreadable.push(reasonOf(error));
         return undefined;
       });
-      if (blob === undefined) continue;
+      setPreparing((count) => count - 1);
+      if (blob === undefined) {
+        held.current -= 1;
+        continue;
+      }
       const key = nextKey.current++;
       setEntries((all) => [...all, { key, blob, preview: preview(blob), state: 'uploading' }]);
       upload(key, blob);
@@ -144,7 +152,9 @@ export const useAttachments = (client: Pick<CommsClient, 'uploadImage'>) => {
 
   const remove = (key: number) => {
     const entry = current.current.find((candidate) => candidate.key === key);
-    if (entry !== undefined) release(entry.preview);
+    if (entry === undefined) return;
+    release(entry.preview);
+    held.current -= 1;
     setEntries((all) => all.filter((candidate) => candidate.key !== key));
     setNotice(undefined);
   };
@@ -156,6 +166,7 @@ export const useAttachments = (client: Pick<CommsClient, 'uploadImage'>) => {
 
   const clear = () => {
     for (const entry of current.current) release(entry.preview);
+    held.current -= current.current.length;
     setEntries([]);
     setNotice(undefined);
   };
@@ -166,8 +177,8 @@ export const useAttachments = (client: Pick<CommsClient, 'uploadImage'>) => {
     attachments: entries as ReadonlyArray<Attachment>,
     ids,
     notice,
-    full: entries.length >= MAX_IMAGES,
-    pending: entries.some((entry) => entry.state !== 'ready'),
+    full: entries.length + preparing >= MAX_IMAGES,
+    pending: preparing > 0 || entries.some((entry) => entry.state !== 'ready'),
     add,
     remove,
     retry,
