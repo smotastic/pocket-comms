@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it } from '@effect/vitest';
 import {
   AgentNotFoundError,
   AgentsInbound,
+  BrainstormBusyError,
+  BrainstormInbound,
+  BrainstormNotSetUpError,
   BranchExistsError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
@@ -14,6 +17,8 @@ import {
   NotAWorktreeError,
   ProjectGitError,
   ProjectNotFoundError,
+  ProposalDecidedError,
+  ProposalNotFoundError,
   TasksInbound,
   WorktreeHasChangesError,
   type CloseIssueInput,
@@ -71,6 +76,7 @@ const serve = (
   web?: string,
   tasks: Partial<TasksInbound['Service']> = {},
   issues: Partial<IssuesInbound['Service']> = {},
+  brainstorm: Partial<BrainstormInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -81,6 +87,7 @@ const serve = (
       Layer.provide(Layer.mock(AgentsInbound, inbound)),
       Layer.provide(Layer.mock(TasksInbound, tasks)),
       Layer.provide(Layer.mock(IssuesInbound, issues)),
+      Layer.provide(Layer.mock(BrainstormInbound, brainstorm)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -559,6 +566,114 @@ describe('the issues API', () => {
       (await call('/api/v1/projects/pocket-comms/issues/8/close', { method: 'POST', login: null }))
         .status,
     ).toBe(403);
+  });
+});
+
+describe('the brainstorm API', () => {
+  const brainstorm = (inbound: Partial<BrainstormInbound['Service']>) =>
+    serve({}, undefined, {}, {}, inbound);
+
+  it('reads the chat', async () => {
+    const call = brainstorm({
+      state: Effect.succeed({
+        _tag: 'Ready',
+        entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea' }],
+        answering: false,
+        live: '',
+      }),
+    });
+
+    const response = await call('/api/v1/brainstorm');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      _tag: 'Ready',
+      entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea' }],
+      answering: false,
+      live: '',
+    });
+  });
+
+  it('follows the chat as server-sent events', async () => {
+    const call = brainstorm({
+      events: Stream.make({ type: 'delta', text: 'Nice' } as const),
+    });
+
+    const response = await call('/api/v1/brainstorm/events');
+
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    expect(await response.text()).toContain(
+      'event: brainstorm\ndata: {"type":"delta","text":"Nice"}',
+    );
+  });
+
+  it('sends a message, decides on a proposal and starts a new chat', async () => {
+    const asked: Array<unknown> = [];
+    const call = brainstorm({
+      send: (text) => Effect.sync(() => void asked.push(['send', text])),
+      decide: (id, decision) => Effect.sync(() => void asked.push(['decide', id, decision])),
+      reset: () => Effect.sync(() => void asked.push(['reset'])),
+    });
+
+    const sent = await call('/api/v1/brainstorm/messages', json({ text: 'Idea' }));
+    const decided = await call(
+      '/api/v1/brainstorm/proposals/p-1/decision',
+      json({ _tag: 'Create', draft: { project: 'app', title: 'Dark mode', body: '' } }),
+    );
+    const reset = await call('/api/v1/brainstorm/reset', { method: 'POST' });
+
+    expect([sent.status, decided.status, reset.status]).toEqual([204, 204, 204]);
+    expect(asked).toEqual([
+      ['send', 'Idea'],
+      [
+        'decide',
+        'p-1',
+        { _tag: 'Create', draft: { project: 'app', title: 'Dark mode', body: '' } },
+      ],
+      ['reset'],
+    ]);
+  });
+
+  it.each([
+    [new BrainstormNotSetUpError({ reason: 'Set it.' }), 409, 'brainstorm-not-set-up'],
+    [new BrainstormBusyError(), 409, 'brainstorm-busy'],
+  ] as const)('maps the send failure %s to %i', async (error, status, slug) => {
+    const call = brainstorm({ send: () => Effect.fail(error) });
+
+    const response = await call('/api/v1/brainstorm/messages', json({ text: 'Idea' }));
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
+  });
+
+  it.each([
+    [new ProposalNotFoundError({ id: 'p-1' }), 404, 'proposal-not-found'],
+    [new ProposalDecidedError({ id: 'p-1' }), 409, 'proposal-decided'],
+    [new BrainstormBusyError(), 409, 'brainstorm-busy'],
+    [new NoGiteaRemoteError({ project: 'p' }), 409, 'no-gitea-remote'],
+    [new GiteaNotConfiguredError(), 409, 'gitea-not-configured'],
+    [new GiteaUnavailableError({ reason: 'Gitea answered 500.' }), 503, 'gitea-unavailable'],
+  ] as const)('maps the decision failure %s to %i', async (error, status, slug) => {
+    const call = brainstorm({ decide: () => Effect.fail(error) });
+
+    const response = await call(
+      '/api/v1/brainstorm/proposals/p-1/decision',
+      json({ _tag: 'Discard' }),
+    );
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
+  });
+
+  it('refuses a proposal id that could be a path, and a request without the allowed login', async () => {
+    const call = brainstorm({ decide: () => Effect.void, reset: () => Effect.void });
+
+    expect(
+      (await call('/api/v1/brainstorm/proposals/a..b/decision', json({ _tag: 'Discard' }))).status,
+    ).toBe(422);
+    expect((await call('/api/v1/brainstorm/reset', { method: 'POST', login: null })).status).toBe(
+      403,
+    );
   });
 });
 

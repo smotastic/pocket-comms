@@ -4,12 +4,15 @@ import { OpenApi } from 'effect/http-api';
 import {
   AgentEvent,
   AGENTS_TO_START,
+  BrainstormEntry,
   CommsApi,
   IssueList,
   IssueNumberParam,
   KEYS,
   OverviewState,
   ProjectParam,
+  ProposalDecisionRequest,
+  ProposalParam,
   TranscriptEntry,
 } from './index.js';
 
@@ -19,13 +22,19 @@ type Operation = {
   responses?: Record<string, { content?: Record<string, unknown> }>;
 };
 
-const operations = () =>
-  Object.values(document().paths).flatMap((item) =>
-    Object.values(item as Record<string, Operation>),
+const operationsOf = (paths: ReadonlyArray<[string, unknown]>) =>
+  paths.flatMap(([, item]) => Object.values(item as Record<string, Operation>));
+
+const operations = () => operationsOf(Object.entries(document().paths));
+
+// The brainstorm chat runs in the server and needs no Herdr (spec 013).
+const herdrOperations = () =>
+  operationsOf(
+    Object.entries(document().paths).filter(([path]) => !path.startsWith('/api/v1/brainstorm')),
   );
 
 describe('CommsApi', () => {
-  it('serves the agents, the tasks and the issues under /api/v1', () => {
+  it('serves the agents, the tasks, the issues and the brainstorm chat under /api/v1', () => {
     expect(Object.keys(document().paths).sort()).toEqual([
       '/api/v1/agents',
       '/api/v1/agents/{agent}',
@@ -36,6 +45,11 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}/screen',
       '/api/v1/agents/{agent}/seen',
       '/api/v1/agents/{agent}/transcript',
+      '/api/v1/brainstorm',
+      '/api/v1/brainstorm/events',
+      '/api/v1/brainstorm/messages',
+      '/api/v1/brainstorm/proposals/{proposal}/decision',
+      '/api/v1/brainstorm/reset',
       '/api/v1/events',
       '/api/v1/projects',
       '/api/v1/projects/{project}/issues',
@@ -63,7 +77,11 @@ describe('CommsApi', () => {
   });
 
   it('streams the live updates as server-sent events', () => {
-    for (const path of ['/api/v1/events', '/api/v1/agents/{agent}/events']) {
+    for (const path of [
+      '/api/v1/events',
+      '/api/v1/agents/{agent}/events',
+      '/api/v1/brainstorm/events',
+    ]) {
       const ok = document().paths[path]?.get?.responses?.['200'] as Operation['responses'];
       expect(Object.keys(ok?.['content'] ?? {})).toEqual(['text/event-stream']);
     }
@@ -76,7 +94,7 @@ describe('CommsApi', () => {
   });
 
   it('documents a 503 for every operation that needs Herdr', () => {
-    for (const operation of operations()) {
+    for (const operation of herdrOperations()) {
       expect(Object.keys(operation.responses ?? {})).toContain('503');
     }
   });
@@ -150,5 +168,41 @@ describe('wire schemas', () => {
         activity: 'Thinking…',
       }),
     ).toMatchObject({ type: 'entries', reset: true });
+  });
+});
+
+describe('brainstorm wire schemas', () => {
+  it('round-trips an entry of every kind', () => {
+    const entries = [
+      { type: 'user', id: 'u1', at: 1, text: 'Idea' },
+      { type: 'assistant', id: 'a1', at: 2, text: '**Nice**' },
+      {
+        type: 'proposal',
+        id: 'p1',
+        at: 3,
+        project: 'pocket-home',
+        title: 'Dark mode',
+        body: 'A toggle.',
+        state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
+      },
+      { type: 'failed', id: 'f1', at: 4, reason: 'The model cannot be reached.' },
+    ];
+    const codec = Schema.Array(BrainstormEntry);
+    expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(entries))).toEqual(entries);
+  });
+
+  it('reads only proposal ids without a slash or a dot from the path', () => {
+    const proposal = Schema.is(ProposalParam);
+    expect(['2f1c9a7e-4b7d', 'p1'].map(proposal)).toEqual([true, true]);
+    expect(['..', 'a/b', ''].map(proposal)).toEqual([false, false, false]);
+  });
+
+  it('takes a decision to create with a draft, or to discard', () => {
+    const decode = Schema.decodeUnknownSync(ProposalDecisionRequest);
+    expect(decode({ _tag: 'Discard' })).toEqual({ _tag: 'Discard' });
+    expect(() => decode({ _tag: 'Create' })).toThrow();
+    expect(() =>
+      decode({ _tag: 'Create', draft: { project: 'a', title: 'x'.repeat(256), body: '' } }),
+    ).toThrow();
   });
 });

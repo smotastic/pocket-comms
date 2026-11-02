@@ -13,11 +13,16 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "catalog:",
+    "@earendil-works/pi-ai": "catalog:",
     "@pocket-comms/comms-application": "workspace:*",
     "@pocket-comms/comms-domain": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "proper-lockfile": "catalog:",
+    "typebox": "catalog:"
   },
   "devDependencies": {
-    "@effect/vitest": "catalog:"
+    "@effect/vitest": "catalog:",
+    "@types/proper-lockfile": "catalog:"
   }
 }

@@ -180,6 +180,15 @@ module.exports = {
       },
       to: { path: '^packages/backend-shared/src/observability/' },
     },
+    {
+      name: 'agent-runtime-in-infrastructure-only',
+      comment:
+        'An agent runtime is an outbound adapter (ADR 0012): only the infrastructure layer imports ' +
+        "Pi's packages; the application defines the tools and the port.",
+      severity: 'error',
+      from: { path: WORKSPACE, pathNot: layerLevel('infrastructure') },
+      to: { path: '(?:^|/)(?:node_modules/)?@earendil-works/' },
+    },
     // ── Design system ────────────────────────────────────────────────────────────────────────
     {
       name: 'no-design-in-server-code',

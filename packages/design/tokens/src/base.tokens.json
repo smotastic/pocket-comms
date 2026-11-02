@@ -69,6 +69,10 @@
       "md": {
         "$value": "{size.44}",
         "$description": "A control that stands on its own, such as a button: the comfortable tap target."
+      },
+      "fab": {
+        "$value": "{size.56}",
+        "$description": "The floating round button."
       }
     }
   },

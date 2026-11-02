@@ -12,8 +12,8 @@ import * as Option from 'effect/Option';
 import * as Redacted from 'effect/Redacted';
 import * as Schema from 'effect/Schema';
 
-// Gitea's REST API (`/api/v1`). It reads with `GET`, and its one write is the `PATCH` that closes
-// an issue (spec 010). The token travels in the `Authorization` header and nowhere else; no
+// Gitea's REST API (`/api/v1`). It reads with `GET`, and writes only the `PATCH` that closes an
+// issue (spec 010) and the `POST` that creates one (spec 013). The token travels in the `Authorization` header and nowhere else; no
 // reason, log line or span carries it (spec 006, requirement 2).
 
 export interface HttpOptions {
@@ -65,7 +65,7 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
   const unknownShape = () => unavailable('Gitea answered in an unknown shape.');
 
   // One request; a `404` is `undefined`, so the caller names what was missing.
-  const send = (method: 'GET' | 'PATCH', path: string, body?: unknown) =>
+  const send = (method: 'GET' | 'PATCH' | 'POST', path: string, body?: unknown) =>
     Effect.gen(function* () {
       if (Option.isNone(token)) return yield* new GiteaNotConfiguredError();
       const headers = {
@@ -170,6 +170,30 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
       }),
     );
 
+  // The body holds the title and the body only, so no label, assignee or milestone is set.
+  const createIssue = (
+    repository: GiteaRepository,
+    { title, body }: { readonly title: string; readonly body: string },
+  ) =>
+    Effect.gen(function* () {
+      const answer = yield* send('POST', `${repositoryPath(repository)}/issues`, { title, body });
+      if (answer === undefined) {
+        return yield* unavailable(
+          `Gitea has no repository ${repository.owner}/${repository.name}, or the token cannot write to it.`,
+        );
+      }
+      const json = yield* Effect.tryPromise({
+        try: () => answer.json() as Promise<unknown>,
+        catch: unknownShape,
+      });
+      const created = yield* decodeIssue(json).pipe(Effect.mapError(unknownShape));
+      return { number: created.number, url: created.html_url };
+    }).pipe(
+      Effect.withSpan('Gitea.createIssue', {
+        attributes: { owner: repository.owner, repository: repository.name },
+      }),
+    );
+
   const repositoryOf = (remoteUrl: string) => {
     const remote = parseRemote(remoteUrl);
     return remote === undefined || !ownHosts.has(remote.host)
@@ -183,6 +207,6 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
 
   return Layer.succeed(
     GiteaOutbound,
-    GiteaOutbound.of({ repositoryOf, openIssues, issue, closeIssue }),
+    GiteaOutbound.of({ repositoryOf, openIssues, issue, closeIssue, createIssue }),
   );
 };

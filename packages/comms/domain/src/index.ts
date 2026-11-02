@@ -47,3 +47,19 @@ export {
   type RemoteRepository,
   type Worktree,
 } from './issue.js';
+export {
+  cutDoc,
+  isProjectDoc,
+  MAX_DOC_LENGTH,
+  MAX_ISSUE_BODY,
+  MAX_ISSUE_TITLE,
+  parseIssueDraft,
+  PROJECT_DOCS,
+  proposalOf,
+  settleProposal,
+  type BrainstormEntry,
+  type IssueDraft,
+  type ProjectDoc,
+  type ProposalEntry,
+  type ProposalState,
+} from './brainstorm.js';

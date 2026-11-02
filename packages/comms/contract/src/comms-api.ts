@@ -470,6 +470,199 @@ export const ImplementIssueRequest = Schema.Struct({
   description: 'Implement the issue with Claude in a new worktree on this branch.',
 });
 
+// ── The brainstorm chat (spec 013) ─────────────────────────────────────────────────────────
+
+export const ProposalParam = Schema.String.check(
+  Schema.isPattern(/^[A-Za-z0-9-]{1,64}$/u),
+).annotate({
+  description: "A proposal's id.",
+  examples: ['2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44'],
+});
+
+const entryId = Schema.String.annotate({
+  description: 'The id of the entry.',
+  examples: ['2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44'],
+});
+const entryAt = Millis.annotate({
+  description: 'When the entry was added, in epoch milliseconds.',
+});
+
+const DraftFields = {
+  project: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(100)).annotate({
+    description: 'The project the issue is for, by name.',
+    examples: ['pocket-home'],
+  }),
+  title: Schema.String.check(Schema.isMaxLength(255)).annotate({
+    description: "The issue's title; it must not be blank.",
+    examples: ['Dark mode toggle'],
+  }),
+  body: Schema.String.check(Schema.isMaxLength(20_000)).annotate({
+    description: "The issue's body in Markdown.",
+    examples: ['A toggle in the settings that switches the app to dark colours.'],
+  }),
+};
+
+export const IssueDraft = Schema.Struct(DraftFields).annotate({
+  identifier: 'IssueDraft',
+  description: 'An issue as the owner edited it: exactly what is created.',
+  examples: [{ project: 'pocket-home', title: 'Dark mode toggle', body: 'A toggle in settings.' }],
+});
+
+export const ProposalState = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.tag('open').annotate({
+      description: 'The owner has not decided yet.',
+      examples: ['open'],
+    }),
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('created').annotate({
+      description: 'The owner created the issue.',
+      examples: ['created'],
+    }),
+    number: Schema.Int.annotate({ description: "The new issue's number.", examples: [12] }),
+    url: Schema.String.annotate({
+      description: "The new issue's page in Gitea.",
+      examples: ['http://localhost:3000/smotastic/pocket-home/issues/12'],
+    }),
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('discarded').annotate({
+      description: 'The owner discarded the proposal.',
+      examples: ['discarded'],
+    }),
+  }),
+]).annotate({
+  identifier: 'ProposalState',
+  description: 'Whether the proposal was decided.',
+  examples: [{ _tag: 'open' }],
+});
+
+export const BrainstormEntry = Schema.Union([
+  Schema.Struct({
+    type: Schema.tag('user').annotate({ description: "The owner's message.", examples: ['user'] }),
+    id: entryId,
+    at: entryAt,
+    text: Schema.String.annotate({
+      description: "The owner's message.",
+      examples: ['Idea: dark mode for pocket-home'],
+    }),
+  }),
+  Schema.Struct({
+    type: Schema.tag('assistant').annotate({
+      description: "Pi's answer.",
+      examples: ['assistant'],
+    }),
+    id: entryId,
+    at: entryAt,
+    text: Schema.String.annotate({
+      description: "Pi's answer in Markdown.",
+      examples: ['Nice. **Which screens** need it first?'],
+    }),
+  }),
+  Schema.Struct({
+    type: Schema.tag('proposal').annotate({
+      description: 'An issue Pi proposes.',
+      examples: ['proposal'],
+    }),
+    id: entryId,
+    at: entryAt,
+    ...DraftFields,
+    state: ProposalState,
+  }),
+  Schema.Struct({
+    type: Schema.tag('failed').annotate({
+      description: 'A turn of Pi that failed.',
+      examples: ['failed'],
+    }),
+    id: entryId,
+    at: entryAt,
+    reason: Schema.String.annotate({
+      description: 'Why the turn failed.',
+      examples: ['The model cannot be reached.'],
+    }),
+  }),
+]).annotate({ identifier: 'BrainstormEntry', description: 'One entry of the brainstorm chat.' });
+
+export const BrainstormState = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.tag('Ready').annotate({
+      description: 'The chat works.',
+      examples: ['Ready'],
+    }),
+    entries: Schema.Array(BrainstormEntry).annotate({
+      description: 'The entries, oldest first.',
+      examples: [[]],
+    }),
+    answering: Schema.Boolean.annotate({
+      description: 'Pi is answering; the chat takes no message or decision until it is done.',
+      examples: [false],
+    }),
+    live: Schema.String.annotate({
+      description: "The text of Pi's message so far, while it writes one.",
+      examples: ['Nice. Which'],
+    }),
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('NotSetUp').annotate({
+      description: 'The server has no model for the chat.',
+      examples: ['NotSetUp'],
+    }),
+    reason: Schema.String.annotate({
+      description: 'Which setting is missing.',
+      examples: [
+        'Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL to use the brainstorm chat.',
+      ],
+    }),
+  }),
+]).annotate({
+  identifier: 'BrainstormState',
+  description: 'The brainstorm chat, or why it is not set up.',
+});
+
+export const BrainstormEvent = Schema.Union([
+  Schema.Struct({
+    type: Schema.tag('state').annotate({
+      description: 'The chat changed; the state replaces the one the reader holds.',
+      examples: ['state'],
+    }),
+    state: BrainstormState,
+  }),
+  Schema.Struct({
+    type: Schema.tag('delta').annotate({
+      description: 'Pi wrote more of its message; append it to `live`.',
+      examples: ['delta'],
+    }),
+    text: Schema.String.annotate({ description: 'The new text.', examples: [' screens'] }),
+  }),
+]).annotate({ identifier: 'BrainstormEvent', description: 'One update of the brainstorm chat.' });
+
+export const BrainstormMessageRequest = Schema.Struct({
+  text: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(20_000)).annotate({
+    description: 'The message; it is sent trimmed and must not be blank.',
+    examples: ['Idea: dark mode for pocket-home'],
+  }),
+}).annotate({ identifier: 'BrainstormMessageRequest', description: 'A message for Pi.' });
+
+export const ProposalDecisionRequest = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.tag('Create').annotate({
+      description: 'Create the issue as shown.',
+      examples: ['Create'],
+    }),
+    draft: IssueDraft,
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('Discard').annotate({
+      description: 'Create nothing.',
+      examples: ['Discard'],
+    }),
+  }),
+]).annotate({
+  identifier: 'ProposalDecisionRequest',
+  description: "The owner's decision on a proposal.",
+});
+
 /**
  * The Tailscale identity check: `tailscale serve` adds `Tailscale-User-Login`, and only the
  * allowed login may use the service. The server checks every route, also outside this API.
@@ -702,8 +895,73 @@ const issues = HttpApiGroup.make('issues')
   .annotateMerge(
     OpenApi.annotations({
       title: 'Issues',
-      description:
-        "Read a project's Gitea issues, implement one or close one. Closing is the app's only write to Gitea.",
+      description: "Read a project's Gitea issues, implement one or close one.",
+    }),
+  );
+
+const brainstorm = HttpApiGroup.make('brainstorm')
+  .add(
+    HttpApiEndpoint.get('state', '/brainstorm', {
+      success: BrainstormState,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Read the brainstorm chat',
+        description: 'The one brainstorm chat with Pi, or why it is not set up.',
+      }),
+    ),
+    HttpApiEndpoint.get('events', '/brainstorm/events', {
+      success: eventStream('brainstorm', BrainstormEvent, '{"type":"delta","text":"Nice"}'),
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Follow the brainstorm chat',
+        description:
+          'Server-sent events: the state at once and after every change, and the text Pi writes in between.',
+      }),
+    ),
+    HttpApiEndpoint.post('send', '/brainstorm/messages', {
+      payload: BrainstormMessageRequest,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.Conflict, Problems.Validation],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Send a message to Pi',
+        description:
+          "Adds the owner's message and starts Pi's answer without waiting for it. While Pi answers, a message is refused (409).",
+      }),
+    ),
+    HttpApiEndpoint.post('decide', '/brainstorm/proposals/:proposal/decision', {
+      params: { proposal: ProposalParam },
+      payload: ProposalDecisionRequest,
+      success: HttpApiSchema.NoContent,
+      error: [
+        Problems.NotFound,
+        Problems.Conflict,
+        Problems.Validation,
+        Problems.ServiceUnavailable,
+      ],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Decide on a proposal',
+        description:
+          "Creates the proposed issue as shown, with only its title and body, in the project's Gitea repository, or discards it; then tells Pi. A proposal is decided once.",
+      }),
+    ),
+    HttpApiEndpoint.post('reset', '/brainstorm/reset', {
+      success: HttpApiSchema.NoContent,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Start a new chat',
+        description: 'Stops a running answer and replaces the chat with an empty one.',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Brainstorm',
+      description: 'Brainstorm with Pi and turn ideas into Gitea issues the owner approves.',
     }),
   );
 
@@ -712,6 +970,7 @@ export const CommsApi = HttpApi.make('comms')
   .add(group)
   .add(tasks)
   .add(issues)
+  .add(brainstorm)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

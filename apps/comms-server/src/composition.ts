@@ -1,11 +1,14 @@
 import { commsServerLayer } from '@pocket-comms/comms-api';
 import {
   AgentsInbound,
+  BrainstormInbound,
   HerdrOutbound,
   IssuesInbound,
   TasksInbound,
 } from '@pocket-comms/comms-application';
 import {
+  Agent,
+  Brainstorm,
   Gitea,
   Herdr,
   Projects,
@@ -29,12 +32,16 @@ export interface ServerOptions {
   readonly agentArgs: ReadonlyArray<string>;
   /** The Gitea server whose issues the app reads (spec 006). */
   readonly gitea: Gitea.HttpOptions;
+  /** The folder of the server's stored state: the brainstorm chat (spec 013). */
+  readonly stateDir: string;
+  /** The brainstorm chat's model (spec 013). */
+  readonly pi: Agent.PiOptions;
   readonly webDist?: string;
 }
 
 /**
  * The adapters: Herdr over its socket, session files below `home`, git below `projectsRoot`,
- * Gitea over HTTP, and memory for the rest.
+ * Gitea over HTTP, Pi in process, the brainstorm chat in `stateDir`, and memory for the rest.
  */
 export const services = ({
   socketPath,
@@ -42,12 +49,16 @@ export const services = ({
   projectsRoot,
   agentArgs,
   gitea,
+  stateDir,
+  pi,
 }: Omit<ServerOptions, 'allowedLogin' | 'webDist'>) =>
   Layer.mergeAll(
     Herdr.layerSocket({ path: socketPath, agentArgs }),
     Projects.layerGit({ root: projectsRoot }),
     Gitea.layerHttp(gitea),
     Transcript.layerFiles({ home }),
+    Agent.layerPi(pi),
+    Brainstorm.layerFile({ folder: stateDir }),
     Seen.layerMemory,
     StatusHistory.layerMemory,
   );
@@ -64,6 +75,11 @@ export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
     readiness: herdrReadiness,
     ...(webDist === undefined ? {} : { webDist }),
   }).pipe(
-    Layer.provide([AgentsInbound.layer, TasksInbound.layer, IssuesInbound.layer]),
+    Layer.provide([
+      AgentsInbound.layer,
+      TasksInbound.layer,
+      IssuesInbound.layer,
+      BrainstormInbound.layer,
+    ]),
     Layer.provideMerge(services(adapters)),
   );

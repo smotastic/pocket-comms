@@ -90,6 +90,7 @@ export const tokens = {
     height: {
       sm: 'var(--control-height-sm)',
       md: 'var(--control-height-md)',
+      fab: 'var(--control-height-fab)',
     },
   },
   layout: {

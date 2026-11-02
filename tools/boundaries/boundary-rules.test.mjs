@@ -173,6 +173,24 @@ test('observability-in-servers-only allows a server composition root', () => {
   );
 });
 
+test('agent-runtime-in-infrastructure-only fires for an application file that imports Pi', () => {
+  const file = `${applicationSrc}/boundary-violation.ts`;
+  withViolation(
+    file,
+    "import { Agent } from '@earendil-works/pi-agent-core';\nexport const x = Agent;\n",
+    () => assert.deepEqual(cruise(file), ['agent-runtime-in-infrastructure-only']),
+  );
+});
+
+test('agent-runtime-in-infrastructure-only allows the infrastructure layer', () => {
+  const file = 'packages/comms/infrastructure/src/boundary-violation.ts';
+  withViolation(
+    file,
+    "import { Agent } from '@earendil-works/pi-agent-core';\nexport const x = Agent;\n",
+    () => assert.deepEqual(cruise(file), []),
+  );
+});
+
 test('no-design-in-server-code fires for a server file that imports the tokens', () => {
   const file = 'apps/comms-server/src/boundary-violation.ts';
   withViolation(
