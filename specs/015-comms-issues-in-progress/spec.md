@@ -1,6 +1,6 @@
 # Spec 015 — pocket-comms: mark started issues in progress and show them apart
 
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02); checked locally at 390 px with a fake Gitea on 2026-11-02
 - **Changes:** [spec 006](../006-comms-gitea-issues/spec.md) (the issue list's order, requirement
   7), [spec 010](../010-comms-close-issues/spec.md) (the writes the app sends to Gitea,
   requirement 9) and [spec 012](../012-comms-flat-overview/spec.md) (the issues in the projects

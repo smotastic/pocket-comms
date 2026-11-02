@@ -1,7 +1,7 @@
 # Plan 015 — pocket-comms: mark started issues in progress and show them apart
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02); checked locally at 390 px with a fake Gitea on 2026-11-02
 
 ## 1. Affected projects
 

@@ -39,6 +39,6 @@ in the task's own commit.
 - [x] **T06** — README and comms `AGENTS.md`: the label writes
   - Gate: `pnpm format:check`
 
-- [ ] **T07** — Local check of the built app at 390 px with `agent-browser` and a fake Gitea, no
+- [x] **T07** — Local check of the built app at 390 px with `agent-browser` and a fake Gitea, no
       real issue labelled; spec status `Done`
   - Gate: the check's notes in the pull request
