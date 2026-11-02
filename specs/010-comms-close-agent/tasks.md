@@ -11,5 +11,5 @@ Each task is small and independently testable. Tick its checkbox in the task's o
 - [x] **T02** — Design kit: the `trash` icon
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 
-- [ ] **T03** — Web: the conversation's Close action and its confirmation sheet
+- [x] **T03** — Web: the conversation's Close action and its confirmation sheet
   - Gate: `pnpm nx test comms-web`, `pnpm verify:local`

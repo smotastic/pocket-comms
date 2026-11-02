@@ -52,6 +52,8 @@ export interface FakeState {
   readonly issues: Map<string, IssueListView | RequestError>;
   /** What the next Implement with Claude answers. */
   implemented: TaskCreatedView | RequestError;
+  /** The failures of the next closes, in order; a close without one succeeds. */
+  closeFailures: Array<RequestError>;
 }
 
 /**
@@ -71,6 +73,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     created: { workspace: 'wK', branch: 'feat/x', path: '/worktrees/feat-x' },
     issues: new Map(),
     implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
+    closeFailures: [],
     ...initial,
   };
   const calls = {
@@ -79,6 +82,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     seen: [] as Array<string>,
     tasks: [] as Array<NewTask>,
     implemented: [] as Array<[string, number, string]>,
+    closed: [] as Array<[string, boolean]>,
   };
   const overviewFollowers = new Set<(state: OverviewStateView) => void>();
   const agentFollowers = new Map<string, Set<(event: AgentEventView) => void>>();
@@ -119,6 +123,11 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       calls.implemented.push([project, number, branch]);
       if (state.implemented instanceof RequestError) throw state.implemented;
       return state.implemented;
+    },
+    closeAgent: async (ref, force) => {
+      calls.closed.push([ref, force]);
+      const failure = state.closeFailures.shift();
+      if (failure !== undefined) throw failure;
     },
     followOverview: (onState, onLive) => {
       overviewFollowers.add(onState);

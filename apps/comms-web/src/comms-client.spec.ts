@@ -180,6 +180,30 @@ describe('the tasks requests', () => {
     });
   });
 
+  it('closes an agent and names the problem of a refusal', async () => {
+    fetch.mockImplementationOnce(async () => new Response(null, { status: 204 }));
+    fetch.mockImplementationOnce(async () =>
+      answer(409, {
+        type: 'urn:pocket-comms:problem:worktree-has-changes',
+        title: 'The worktree has changes',
+        status: 409,
+        detail: 'The worktree of kirk has uncommitted or untracked changes.',
+      }),
+    );
+    const client = makeCommsClient('http://app');
+
+    await client.closeAgent('kirk', true);
+    const error = await client.closeAgent('kirk', false).catch((failure: unknown) => failure);
+
+    const [input, init] = fetch.mock.calls[0] ?? [];
+    expect(String(input instanceof Request ? input.url : input)).toBe(
+      'http://app/api/v1/agents/kirk/close',
+    );
+    const body = input instanceof Request ? await input.text() : init?.body;
+    expect(JSON.parse(String(body))).toEqual({ force: true });
+    expect(error).toMatchObject({ status: 409, problem: 'worktree-has-changes' });
+  });
+
   it("reads a project's issues", async () => {
     fetch.mockImplementation(async () => answer(200, { _tag: 'NotConfigured' }));
 

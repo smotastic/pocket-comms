@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { RequestError, type TranscriptView } from './comms-client.js';
+import { RequestError, type AgentView, type TranscriptView } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
@@ -253,5 +253,94 @@ describe('the conversation', () => {
     renderApp({ client: fakeClient().client, path: '/agents/nobody' });
 
     expect(await screen.findByText('nobody is not running any more.')).toBeDefined();
+  });
+});
+
+describe('closing an agent', () => {
+  const worktreeAgent = (overrides: Partial<AgentView> = {}) =>
+    fakeAgent({ workspace: 'feature', worktree: 'feature', ...overrides });
+
+  const openWorktree = (others: ReadonlyArray<AgentView> = []) => {
+    const agent = worktreeAgent();
+    const fake = open(agent);
+    fake.state.overview = {
+      needsYou: [],
+      groups: [{ key: '/work/app/.git', name: 'app', agents: [agent, ...others] }],
+    };
+    return fake;
+  };
+
+  const confirm = async (name: string) => {
+    const sheet = await screen.findByRole('dialog', { name: 'Close kirk' });
+    await userEvent.click(within(sheet).getByRole('button', { name }));
+    return sheet;
+  };
+
+  it('offers no Close for an agent in a main checkout', async () => {
+    open(fakeAgent());
+    await screen.findByText('Fix the failing test');
+
+    expect(screen.queryByRole('button', { name: 'Close kirk' })).toBeNull();
+  });
+
+  it('closes the worktree after the confirmation and goes back', async () => {
+    const fake = openWorktree();
+    await userEvent.click(await screen.findByRole('button', { name: 'Close kirk' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Close kirk' });
+
+    expect(within(sheet).getByText(/removes the worktree feature/u)).toBeDefined();
+    expect(fake.calls.closed).toEqual([]);
+    await confirm('Close worktree');
+
+    await waitFor(() => expect(fake.router.state.location.pathname).toBe('/'));
+    expect(fake.calls.closed).toEqual([['kirk', false]]);
+  });
+
+  it('names the other agents of the worktree, which close too', async () => {
+    openWorktree([
+      worktreeAgent({ ref: 'spock', name: 'spock', paneId: 'w1:p2' }),
+      fakeAgent({ ref: 'uhura', name: 'uhura', paneId: 'w9:p1' }),
+    ]);
+    await userEvent.click(await screen.findByRole('button', { name: 'Close kirk' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Close kirk' });
+
+    expect(await within(sheet).findByText(/spock closes too/u)).toBeDefined();
+    expect(within(sheet).queryByText(/uhura/u)).toBeNull();
+  });
+
+  it('offers to discard the changes of a worktree that has some', async () => {
+    const fake = openWorktree();
+    fake.state.closeFailures = [
+      new RequestError('The worktree has changes.', 409, [], 'worktree-has-changes'),
+    ];
+    await userEvent.click(await screen.findByRole('button', { name: 'Close kirk' }));
+    const sheet = await confirm('Close worktree');
+
+    expect(await within(sheet).findByText(/changes that are not committed/u)).toBeDefined();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Discard changes and close' }));
+
+    await waitFor(() => expect(fake.router.state.location.pathname).toBe('/'));
+    expect(fake.calls.closed).toEqual([
+      ['kirk', false],
+      ['kirk', true],
+    ]);
+  });
+
+  it("shows Herdr's refusal and stays open", async () => {
+    const fake = openWorktree();
+    fake.state.closeFailures = [
+      new RequestError(
+        'worktree is locked (worktree_remove_failed)',
+        409,
+        [],
+        'worktree-not-removed',
+      ),
+    ];
+    await userEvent.click(await screen.findByRole('button', { name: 'Close kirk' }));
+    const sheet = await confirm('Close worktree');
+
+    expect(await within(sheet).findByText(/worktree is locked/u)).toBeDefined();
+    expect(within(sheet).getByRole('button', { name: 'Close worktree' })).toBeDefined();
+    expect(fake.router.state.location.pathname).toBe('/agents/kirk');
   });
 });
