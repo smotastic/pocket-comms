@@ -141,6 +141,217 @@
         "required": ["kind"],
         "type": "object"
       },
+      "BrainstormEntry": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was added, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
+                "type": "string"
+              },
+              "text": {
+                "description": "The owner's message.",
+                "examples": ["Idea: dark mode for pocket-home"],
+                "type": "string"
+              },
+              "type": {
+                "description": "The owner's message.",
+                "enum": ["user"],
+                "examples": ["user"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "text"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was added, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
+                "type": "string"
+              },
+              "text": {
+                "description": "Pi's answer in Markdown.",
+                "examples": ["Nice. **Which screens** need it first?"],
+                "type": "string"
+              },
+              "type": {
+                "description": "Pi's answer.",
+                "enum": ["assistant"],
+                "examples": ["assistant"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "text"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was added, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "body": {
+                "description": "The issue's body in Markdown.",
+                "examples": ["A toggle in the settings that switches the app to dark colours."],
+                "maxLength": 20000,
+                "type": "string"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
+                "type": "string"
+              },
+              "project": {
+                "description": "The project the issue is for, by name.",
+                "examples": ["pocket-home"],
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              "state": {
+                "$ref": "#/components/schemas/ProposalState"
+              },
+              "title": {
+                "description": "The issue's title; it must not be blank.",
+                "examples": ["Dark mode toggle"],
+                "maxLength": 255,
+                "type": "string"
+              },
+              "type": {
+                "description": "An issue Pi proposes.",
+                "enum": ["proposal"],
+                "examples": ["proposal"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "project", "title", "body", "state"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was added, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
+                "type": "string"
+              },
+              "reason": {
+                "description": "Why the turn failed.",
+                "examples": ["The model cannot be reached."],
+                "type": "string"
+              },
+              "type": {
+                "description": "A turn of Pi that failed.",
+                "enum": ["failed"],
+                "examples": ["failed"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "reason"],
+            "type": "object"
+          }
+        ],
+        "description": "One entry of the brainstorm chat."
+      },
+      "BrainstormEventEncoded": {
+        "contentMediaType": "application/json",
+        "description": "The event as JSON.",
+        "examples": ["{\"type\":\"delta\",\"text\":\"Nice\"}"],
+        "type": "string"
+      },
+      "BrainstormMessageRequest": {
+        "additionalProperties": false,
+        "description": "A message for Pi.",
+        "properties": {
+          "text": {
+            "description": "The message; it is sent trimmed and must not be blank.",
+            "examples": ["Idea: dark mode for pocket-home"],
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": ["text"],
+        "type": "object"
+      },
+      "BrainstormState": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "The chat works.",
+                "enum": ["Ready"],
+                "examples": ["Ready"],
+                "type": "string"
+              },
+              "answering": {
+                "description": "Pi is answering; the chat takes no message or decision until it is done.",
+                "examples": [false],
+                "type": "boolean"
+              },
+              "entries": {
+                "description": "The entries, oldest first.",
+                "examples": [[]],
+                "items": {
+                  "$ref": "#/components/schemas/BrainstormEntry"
+                },
+                "type": "array"
+              },
+              "live": {
+                "description": "The text of Pi's message so far, while it writes one.",
+                "examples": ["Nice. Which"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag", "entries", "answering", "live"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "The server has no model for the chat.",
+                "enum": ["NotSetUp"],
+                "examples": ["NotSetUp"],
+                "type": "string"
+              },
+              "reason": {
+                "description": "Which setting is missing.",
+                "examples": [
+                  "Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL to use the brainstorm chat."
+                ],
+                "type": "string"
+              }
+            },
+            "required": ["_tag", "reason"],
+            "type": "object"
+          }
+        ],
+        "description": "The brainstorm chat, or why it is not set up."
+      },
       "CloseRequest": {
         "additionalProperties": false,
         "description": "How to close the agent.",
@@ -371,6 +582,40 @@
           }
         },
         "required": ["ref", "status"],
+        "type": "object"
+      },
+      "IssueDraft": {
+        "additionalProperties": false,
+        "description": "An issue as the owner edited it: exactly what is created.",
+        "examples": [
+          {
+            "body": "A toggle in settings.",
+            "project": "pocket-home",
+            "title": "Dark mode toggle"
+          }
+        ],
+        "properties": {
+          "body": {
+            "description": "The issue's body in Markdown.",
+            "examples": ["A toggle in the settings that switches the app to dark colours."],
+            "maxLength": 20000,
+            "type": "string"
+          },
+          "project": {
+            "description": "The project the issue is for, by name.",
+            "examples": ["pocket-home"],
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "description": "The issue's title; it must not be blank.",
+            "examples": ["Dark mode toggle"],
+            "maxLength": 255,
+            "type": "string"
+          }
+        },
+        "required": ["project", "title", "body"],
         "type": "object"
       },
       "IssueList": {
@@ -644,6 +889,99 @@
         },
         "required": ["text"],
         "type": "object"
+      },
+      "ProposalDecisionRequest": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "Create the issue as shown.",
+                "enum": ["Create"],
+                "examples": ["Create"],
+                "type": "string"
+              },
+              "draft": {
+                "$ref": "#/components/schemas/IssueDraft"
+              }
+            },
+            "required": ["_tag", "draft"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "Create nothing.",
+                "enum": ["Discard"],
+                "examples": ["Discard"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag"],
+            "type": "object"
+          }
+        ],
+        "description": "The owner's decision on a proposal."
+      },
+      "ProposalState": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "The owner has not decided yet.",
+                "enum": ["open"],
+                "examples": ["open"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "The owner created the issue.",
+                "enum": ["created"],
+                "examples": ["created"],
+                "type": "string"
+              },
+              "number": {
+                "description": "The new issue's number.",
+                "examples": [12],
+                "type": "integer"
+              },
+              "url": {
+                "description": "The new issue's page in Gitea.",
+                "examples": ["http://localhost:3000/smotastic/pocket-home/issues/12"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag", "number", "url"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "The owner discarded the proposal.",
+                "enum": ["discarded"],
+                "examples": ["discarded"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag"],
+            "type": "object"
+          }
+        ],
+        "description": "Whether the proposal was decided.",
+        "examples": [
+          {
+            "_tag": "open"
+          }
+        ]
       },
       "Question": {
         "additionalProperties": false,
@@ -1865,6 +2203,343 @@
         "tags": ["Agents"]
       }
     },
+    "/api/v1/brainstorm": {
+      "get": {
+        "description": "The one brainstorm chat with Pi, or why it is not set up.",
+        "operationId": "brainstorm.state",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrainstormState"
+                }
+              }
+            },
+            "description": "The brainstorm chat, or why it is not set up."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Read the brainstorm chat",
+        "tags": ["Brainstorm"]
+      }
+    },
+    "/api/v1/brainstorm/events": {
+      "get": {
+        "description": "Server-sent events: the state at once and after every change, and the text Pi writes in between.",
+        "operationId": "brainstorm.events",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BrainstormEventEncoded"
+                    },
+                    "event": {
+                      "description": "The event name.",
+                      "enum": ["brainstorm"],
+                      "examples": ["brainstorm"],
+                      "type": "string"
+                    }
+                  },
+                  "required": ["event", "data"],
+                  "type": "object"
+                },
+                "x-effect-stream": {
+                  "causeSchema": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Fail"],
+                              "type": "string"
+                            },
+                            "error": {
+                              "not": {}
+                            }
+                          },
+                          "required": ["_tag", "error"],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Die"],
+                              "type": "string"
+                            },
+                            "defect": {}
+                          },
+                          "required": ["_tag", "defect"],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Interrupt"],
+                              "type": "string"
+                            },
+                            "fiberId": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": ["_tag", "fiberId"],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "type": "array"
+                  },
+                  "encoding": "sse",
+                  "errorSchema": {
+                    "not": {}
+                  },
+                  "failureEvent": "effect/http-api/stream/failure"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Follow the brainstorm chat",
+        "tags": ["Brainstorm"]
+      }
+    },
+    "/api/v1/brainstorm/messages": {
+      "post": {
+        "description": "Adds the owner's message and starts Pi's answer without waiting for it. While Pi answers, a message is refused (409).",
+        "operationId": "brainstorm.send",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrainstormMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Send a message to Pi",
+        "tags": ["Brainstorm"]
+      }
+    },
+    "/api/v1/brainstorm/proposals/{proposal}/decision": {
+      "post": {
+        "description": "Creates the proposed issue as shown, with only its title and body, in the project's Gitea repository, or discards it; then tells Pi. A proposal is decided once.",
+        "operationId": "brainstorm.decide",
+        "parameters": [
+          {
+            "description": "A proposal's id.",
+            "example": "2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44",
+            "in": "path",
+            "name": "proposal",
+            "required": true,
+            "schema": {
+              "description": "A proposal's id.",
+              "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
+              "pattern": "^[A-Za-z0-9-]{1,64}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Decide on a proposal",
+        "tags": ["Brainstorm"]
+      }
+    },
+    "/api/v1/brainstorm/reset": {
+      "post": {
+        "description": "Stops a running answer and replaces the chat with an empty one.",
+        "operationId": "brainstorm.reset",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Start a new chat",
+        "tags": ["Brainstorm"]
+      }
+    },
     "/api/v1/events": {
       "get": {
         "description": "Server-sent events: the overview at once and after every change, or why Herdr cannot be reached.",
@@ -2404,8 +3079,12 @@
       "name": "Tasks"
     },
     {
-      "description": "Read a project's Gitea issues, implement one or close one. Closing is the app's only write to Gitea.",
+      "description": "Read a project's Gitea issues, implement one or close one.",
       "name": "Issues"
+    },
+    {
+      "description": "Brainstorm with Pi and turn ideas into Gitea issues the owner approves.",
+      "name": "Brainstorm"
     }
   ]
 }

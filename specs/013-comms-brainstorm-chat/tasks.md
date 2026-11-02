@@ -15,7 +15,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       runtime and auth file, the file store, Gitea `createIssue` and git `readDoc`
   - Gate: `pnpm nx test comms-infrastructure`, `pnpm nx run-many -t lint`
 
-- [ ] **T04** — Contract, API and server: the `brainstorm` group, its handlers and problems, the
+- [x] **T04** — Contract, API and server: the `brainstorm` group, its handlers and problems, the
       settings, the composition and the OpenAPI document
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`
 

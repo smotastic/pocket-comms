@@ -39,6 +39,14 @@ const serve = (projects = mkdtempSync(join(tmpdir(), 'projects-'))) => {
       projectsRoot: projects,
       agentArgs: [],
       gitea: { url: 'http://127.0.0.1:9', token: Option.none(), hosts: ['gitea'] },
+      stateDir: mkdtempSync(join(tmpdir(), 'state-')),
+      pi: {
+        provider: Option.none(),
+        model: Option.none(),
+        apiKey: Option.none(),
+        authFile: join(tmpdir(), 'no-pi-auth.json'),
+        thinking: 'off',
+      },
     }).pipe(Layer.provide(HttpServer.layerServices)),
     { disableLogger: true },
   );
@@ -71,6 +79,17 @@ describe('the composed server', () => {
 
   it('answers 404 for the issues of an unknown project', async () => {
     expect((await serve()('/api/v1/projects/nope/issues')).status).toBe(404);
+  });
+
+  it('says that the brainstorm chat is not set up without a model, and still serves', async () => {
+    const response = await serve()('/api/v1/brainstorm');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      _tag: 'NotSetUp',
+      reason:
+        'Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL to use the brainstorm chat.',
+    });
   });
 
   it('is not ready while Herdr is away', async () => {

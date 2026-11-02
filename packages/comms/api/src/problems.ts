@@ -146,6 +146,38 @@ export const problems = {
         detail: `Issue #${error.number} is closed, so there is nothing to implement.`,
       }),
     ),
+  brainstormNotSetUp: (error: { readonly reason: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'brainstorm-not-set-up',
+        title: 'The brainstorm chat is not set up',
+        detail: error.reason,
+      }),
+    ),
+  brainstormBusy: () =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'brainstorm-busy',
+        title: 'Pi is still answering',
+        detail: 'Wait until Pi has answered, then send again.',
+      }),
+    ),
+  proposalNotFound: (error: { readonly id: string }) =>
+    Effect.fail(
+      notFoundProblem({
+        slug: 'proposal-not-found',
+        title: 'Proposal not found',
+        detail: `The brainstorm chat has no proposal ${error.id}.`,
+      }),
+    ),
+  proposalDecided: (error: { readonly id: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'proposal-decided',
+        title: 'The proposal was decided already',
+        detail: `The proposal ${error.id} was created or discarded already.`,
+      }),
+    ),
   invalidInput: (error: { readonly issues: ReadonlyArray<FieldIssue> }) =>
     Effect.fail(validationProblem(error.issues)),
 };
