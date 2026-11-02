@@ -7,12 +7,12 @@ in the task's own commit.
 
 ## Backend
 
-- [ ] **T01** — Application: `GiteaOutbound.closeIssue`, the fake records closes,
+- [x] **T01** — Application: `GiteaOutbound.closeIssue`, the fake records closes,
       `IssuesInbound.close` (open → closed once, closed → no write, pull request or missing →
       `IssueNotFoundError`, no remote or token → nothing)
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
-- [ ] **T02** — `Gitea.layerHttp`: `send` behind `get` and the close; `closeIssue` (`PATCH` with
+- [x] **T02** — `Gitea.layerHttp`: `send` behind `get` and the close; `closeIssue` (`PATCH` with
       `{"state":"closed"}`, `403` and `404` mapping, no token in reasons, no redirect, no `DELETE`)
   - Gate: `pnpm nx test comms-infrastructure`
 

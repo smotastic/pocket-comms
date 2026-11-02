@@ -12,14 +12,14 @@ import * as Option from 'effect/Option';
 import * as Redacted from 'effect/Redacted';
 import * as Schema from 'effect/Schema';
 
-// Gitea's REST API (`/api/v1`), read only: every request is a `GET`. The token travels in the
-// `Authorization` header and nowhere else; no reason, log line or span carries it (spec 006,
-// requirement 2).
+// Gitea's REST API (`/api/v1`). It reads with `GET`, and its one write is the `PATCH` that closes
+// an issue (spec 010). The token travels in the `Authorization` header and nowhere else; no
+// reason, log line or span carries it (spec 006, requirement 2).
 
 export interface HttpOptions {
   /** The Gitea server, such as `http://localhost:3000`. */
   readonly url: string;
-  /** A token with read access to issues and repositories; none means not configured. */
+  /** A token that can write issues and read repositories; none means not configured. */
   readonly token: Option.Option<Redacted.Redacted<string>>;
   /** Further host names of the server in git remotes, such as the SSH alias `gitea`. */
   readonly hosts: ReadonlyArray<string>;
@@ -64,18 +64,25 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
   const unavailable = (reason: string) => new GiteaUnavailableError({ reason });
   const unknownShape = () => unavailable('Gitea answered in an unknown shape.');
 
-  // One `GET`; a `404` is `undefined`, so the caller names what was missing.
-  const get = (path: string) =>
+  // One request; a `404` is `undefined`, so the caller names what was missing.
+  const send = (method: 'GET' | 'PATCH', path: string, body?: unknown) =>
     Effect.gen(function* () {
       if (Option.isNone(token)) return yield* new GiteaNotConfiguredError();
       const headers = {
         accept: 'application/json',
         authorization: `token ${Redacted.value(token.value)}`,
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
       };
       const response = yield* Effect.tryPromise({
         // A redirect is not followed, so the token is never sent to another address.
         try: (signal) =>
-          fetch(`${base}/api/v1${path}`, { method: 'GET', headers, signal, redirect: 'manual' }),
+          fetch(`${base}/api/v1${path}`, {
+            method,
+            headers,
+            signal,
+            redirect: 'manual',
+            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          }),
         catch: (error) =>
           unavailable(
             `Gitea cannot be reached at ${base}: ${error instanceof Error ? error.message : 'the request failed'}.`,
@@ -96,11 +103,20 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
         );
       }
       if (!response.ok) return yield* unavailable(`Gitea answered ${response.status}.`);
-      return yield* Effect.tryPromise({
-        try: () => response.json() as Promise<unknown>,
-        catch: unknownShape,
-      });
+      return response;
     });
+
+  const get = (path: string) =>
+    send('GET', path).pipe(
+      Effect.flatMap((response) =>
+        response === undefined
+          ? Effect.succeed(undefined)
+          : Effect.tryPromise({
+              try: () => response.json() as Promise<unknown>,
+              catch: unknownShape,
+            }),
+      ),
+    );
 
   const repositoryPath = ({ owner, name }: GiteaRepository) =>
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
@@ -139,6 +155,21 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
       }),
     );
 
+  // The body sets the state only, so no other field of the issue changes.
+  const closeIssue = (repository: GiteaRepository, number: number) =>
+    Effect.gen(function* () {
+      const answer = yield* send('PATCH', `${repositoryPath(repository)}/issues/${number}`, {
+        state: 'closed',
+      });
+      if (answer === undefined) return yield* new IssueNotFoundError({ number });
+      // Gitea answers with the issue, which the app does not need.
+      yield* Effect.promise(() => answer.body?.cancel() ?? Promise.resolve());
+    }).pipe(
+      Effect.withSpan('Gitea.closeIssue', {
+        attributes: { owner: repository.owner, repository: repository.name, number },
+      }),
+    );
+
   const repositoryOf = (remoteUrl: string) => {
     const remote = parseRemote(remoteUrl);
     return remote === undefined || !ownHosts.has(remote.host)
@@ -150,5 +181,8 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
         });
   };
 
-  return Layer.succeed(GiteaOutbound, GiteaOutbound.of({ repositoryOf, openIssues, issue }));
+  return Layer.succeed(
+    GiteaOutbound,
+    GiteaOutbound.of({ repositoryOf, openIssues, issue, closeIssue }),
+  );
 };
