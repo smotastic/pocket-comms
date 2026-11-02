@@ -22,7 +22,14 @@ export interface Question {
 
 /** One entry of an agent's conversation, as the chat shows it. `at` is in epoch milliseconds. */
 export type TranscriptEntry =
-  | { readonly type: 'user'; readonly id: string; readonly at: number; readonly text: string }
+  | {
+      readonly type: 'user';
+      readonly id: string;
+      readonly at: number;
+      readonly text: string;
+      /** The images the prompt attached, by id (spec 014); their paths are not in `text`. */
+      readonly images?: ReadonlyArray<string> | undefined;
+    }
   /** `text` is Markdown. */
   | { readonly type: 'assistant'; readonly id: string; readonly at: number; readonly text: string }
   | {

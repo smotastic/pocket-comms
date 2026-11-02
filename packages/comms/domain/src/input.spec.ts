@@ -20,6 +20,10 @@ describe('parsePrompt', () => {
     );
   });
 
+  it('accepts blank text with an image', () => {
+    expect(parsePrompt('  ', 1)).toEqual(Result.succeed(''));
+  });
+
   it('rejects a text longer than the limit', () => {
     expect(parsePrompt('x'.repeat(MAX_PROMPT_LENGTH + 1))).toEqual(
       Result.fail(

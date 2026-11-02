@@ -25,6 +25,7 @@ export const tasksHandlers = HttpApiBuilder.group(
             task: payload.task,
             branch: payload.branch,
             agent: payload.agent?.kind,
+            imageIds: payload.imageIds,
           })
           .pipe(
             Effect.catchTags({

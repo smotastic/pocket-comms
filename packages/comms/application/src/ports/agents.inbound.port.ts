@@ -43,9 +43,11 @@ export class AgentsInbound extends Context.Service<
     ) => Effect.Effect<TranscriptDto, Lookup | TranscriptUnavailableError>;
     readonly agentEvents: (ref: string) => Effect.Effect<Stream.Stream<AgentEventDto>, Lookup>;
     readonly screen: (ref: string) => Effect.Effect<string, Lookup | HerdrRejectedError>;
+    /** Sends the text and the paths of the attached images; the text may be blank with images. */
     readonly prompt: (
       ref: string,
       text: string,
+      imageIds?: ReadonlyArray<string>,
     ) => Effect.Effect<void, Lookup | InvalidInputError | HerdrRejectedError>;
     readonly sendKeys: (
       ref: string,

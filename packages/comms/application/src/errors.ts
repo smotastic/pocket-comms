@@ -99,3 +99,13 @@ export class ProposalNotFoundError extends Data.TaggedError('ProposalNotFoundErr
 export class ProposalDecidedError extends Data.TaggedError('ProposalDecidedError')<{
   readonly id: string;
 }> {}
+
+/** The image could not be kept, such as on a full disk; `reason` says why. */
+export class ImageNotSavedError extends Data.TaggedError('ImageNotSavedError')<{
+  readonly reason: string;
+}> {}
+
+/** The server keeps no image with this id: it never existed or was removed (spec 014). */
+export class ImageNotFoundError extends Data.TaggedError('ImageNotFoundError')<{
+  readonly id: string;
+}> {}

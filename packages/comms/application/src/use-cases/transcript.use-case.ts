@@ -1,10 +1,11 @@
-import { activityOf, type TranscriptEntry } from '@pocket-comms/comms-domain';
+import { activityOf, imagesInPrompt, type TranscriptEntry } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Stream from 'effect/Stream';
 import type { AgentEventDto, TranscriptDto } from '../dto/agent.dto.js';
 import { TranscriptUnavailableError } from '../errors.js';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { ImagesOutbound } from '../ports/images.outbound.port.js';
 import { TranscriptOutbound, type TranscriptSource } from '../ports/transcript.outbound.port.js';
 import { makeLoadAgents, sourceOf, type AgentView } from './agents.js';
 
@@ -18,7 +19,16 @@ const sameJson = <A>(a: A, b: A): boolean => JSON.stringify(a) === JSON.stringif
 export const makeTranscript = Effect.gen(function* () {
   const herdrOutbound = yield* HerdrOutbound;
   const transcriptOutbound = yield* TranscriptOutbound;
+  const { folder } = yield* ImagesOutbound;
   const { find } = yield* makeLoadAgents;
+
+  // A prompt's attached images show as images, not as paths (spec 014, requirement 12).
+  const shown = (entries: ReadonlyArray<TranscriptEntry>): ReadonlyArray<TranscriptEntry> =>
+    entries.map((entry) => {
+      if (entry.type !== 'user') return entry;
+      const { text, images } = imagesInPrompt(entry.text, folder);
+      return images.length === 0 ? entry : { ...entry, text, images };
+    });
 
   const sourceOrFail = (view: AgentView) =>
     Option.match(sourceOf(view.agent), {
@@ -37,7 +47,7 @@ export const makeTranscript = Effect.gen(function* () {
 
   const transcript = Effect.fn('Transcript.transcript')(function* (ref: string) {
     const source = yield* sourceOrFail(yield* find(ref));
-    const { entries } = yield* transcriptOutbound.read(source);
+    const entries = shown((yield* transcriptOutbound.read(source)).entries);
     return { entries, activity: activityOf(entries) } satisfies TranscriptDto;
   });
 
@@ -80,6 +90,7 @@ export const makeTranscript = Effect.gen(function* () {
       let latest: TranscriptEntry | undefined;
       let first = true;
       return transcriptOutbound.follow(source).pipe(
+        Stream.map(shown),
         Stream.map((entries): AgentEventDto => {
           latest = entries.at(-1) ?? latest;
           const reset = first;

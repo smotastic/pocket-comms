@@ -7,7 +7,7 @@ import * as Queue from 'effect/Queue';
 import type { AgentEventDto } from '../dto/agent.dto.js';
 import { TranscriptUnavailableError } from '../errors.js';
 import { AgentsInbound } from '../ports/agents.inbound.port.js';
-import { fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
+import { FAKE_IMAGES_FOLDER, fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
 import { collect, settle } from '../testing/streams.js';
 
 const layer = () => AgentsInbound.layer.pipe(Layer.provideMerge(fakeLayer()));
@@ -33,6 +33,22 @@ describe('AgentsInbound.transcript', () => {
       const transcript = yield* AgentsInbound.use((inbound) => inbound.transcript('kirk'));
 
       expect(transcript).toEqual({ entries: [prompt, running], activity: 'Running pnpm test…' });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect("shows a prompt's attached images by id instead of their paths", () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const id = 'a'.repeat(26);
+      state.agents = [fakeAgent({ paneId: 'w1:p1', name: 'kirk', session: 's1' })];
+      state.transcripts.set('s1', {
+        entries: [{ ...prompt, text: `Look\n\n${FAKE_IMAGES_FOLDER}/${id}.jpg` }],
+        modifiedAt: at,
+      });
+
+      const transcript = yield* AgentsInbound.use((inbound) => inbound.transcript('kirk'));
+
+      expect(transcript.entries).toEqual([{ ...prompt, text: 'Look', images: [id] }]);
     }).pipe(Effect.provide(layer())),
   );
 

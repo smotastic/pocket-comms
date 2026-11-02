@@ -39,7 +39,7 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 | `COMMS_GITEA_URL`           | `http://localhost:3000`      | The Gitea server whose issues the app reads                                                        |
 | `COMMS_GITEA_TOKEN`         | none                         | A Gitea token with `write:issue` and `read:repository`; without it the issue lists say so          |
 | `COMMS_GITEA_HOSTS`         | `gitea`                      | Further host names (such as SSH aliases) of that Gitea in git remotes, comma-separated             |
-| `COMMS_STATE_DIR`           | `~/.pocket-comms`            | Where the server keeps the brainstorm chat (`brainstorm.json`)                                     |
+| `COMMS_STATE_DIR`           | `~/.pocket-comms`            | Where the server keeps the brainstorm chat (`brainstorm.json`) and images (`images/`, 30 days)     |
 | `COMMS_BRAINSTORM_PROVIDER` | none                         | The brainstorm chat's model provider, such as `openai`; without it the chat says it is not set up  |
 | `COMMS_BRAINSTORM_MODEL`    | none                         | The brainstorm chat's model, such as `gpt-6-luna`                                                  |
 | `COMMS_BRAINSTORM_API_KEY`  | none                         | An API key for that provider; without it the server uses your Pi login                             |
