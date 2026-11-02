@@ -57,6 +57,14 @@ export const tokens = {
       danger: 'var(--color-border-danger)',
       success: 'var(--color-border-success)',
     },
+    project: {
+      '1': 'var(--color-project-1)',
+      '2': 'var(--color-project-2)',
+      '3': 'var(--color-project-3)',
+      '4': 'var(--color-project-4)',
+      '5': 'var(--color-project-5)',
+      neutral: 'var(--color-project-neutral)',
+    },
   },
   space: {
     '3xs': 'var(--space-3xs)',

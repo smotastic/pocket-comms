@@ -44,6 +44,12 @@
   --color-border-control: #6b7380;
   --color-border-danger: rgba(248, 113, 113, 0.45);
   --color-border-success: rgba(62, 207, 142, 0.35);
+  --color-project-1: #0369a1;
+  --color-project-2: #be185d;
+  --color-project-3: #0f766e;
+  --color-project-4: #9a4a12;
+  --color-project-5: #6d28d9;
+  --color-project-neutral: #6b7380;
   --space-3xs: 2px;
   --space-2xs: 4px;
   --space-xs: 6px;
@@ -117,6 +123,12 @@
     --color-border-control: #6b7380;
     --color-border-danger: rgba(248, 113, 113, 0.45);
     --color-border-success: rgba(62, 207, 142, 0.35);
+    --color-project-1: #38bdf8;
+    --color-project-2: #f472b6;
+    --color-project-3: #2dd4bf;
+    --color-project-4: #f0a46b;
+    --color-project-5: #a78bfa;
+    --color-project-neutral: #9099a8;
     --shadow-card: 0px 0px 0px 0px rgba(0, 0, 0, 0);
   }
 }
@@ -148,5 +160,11 @@
   --color-border-control: #6b7380;
   --color-border-danger: rgba(248, 113, 113, 0.45);
   --color-border-success: rgba(62, 207, 142, 0.35);
+  --color-project-1: #38bdf8;
+  --color-project-2: #f472b6;
+  --color-project-3: #2dd4bf;
+  --color-project-4: #f0a46b;
+  --color-project-5: #a78bfa;
+  --color-project-neutral: #9099a8;
   --shadow-card: 0px 0px 0px 0px rgba(0, 0, 0, 0);
 }

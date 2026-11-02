@@ -90,6 +90,28 @@
       "success": {
         "$value": "{color.green.400-35}"
       }
+    },
+    "project": {
+      "$description": "A project's colour: the edge of its rows and its label. Projects take them in turn.",
+      "1": {
+        "$value": "{color.sky.700}"
+      },
+      "2": {
+        "$value": "{color.pink.700}"
+      },
+      "3": {
+        "$value": "{color.teal.700}"
+      },
+      "4": {
+        "$value": "{color.orange.700}"
+      },
+      "5": {
+        "$value": "{color.violet.700}"
+      },
+      "neutral": {
+        "$value": "{color.gray.500}",
+        "$description": "A project without a colour of its own, and an agent without a project."
+      }
     }
   },
   "shadow": {
