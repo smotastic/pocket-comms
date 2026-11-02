@@ -4,7 +4,7 @@
 
 Each task is small and independently testable. Tick its checkbox in the task's own commit.
 
-- [ ] **T01** — Domain: image ids, the content check, the limits, the prompt with paths, the prompt
+- [x] **T01** — Domain: image ids, the content check, the limits, the prompt with paths, the prompt
       rule with images, and the images of a transcript `user` entry
   - Gate: `pnpm nx test comms-domain`
 
