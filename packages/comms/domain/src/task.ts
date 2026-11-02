@@ -98,11 +98,22 @@ const isAgentToStart = Schema.is(AgentToStart);
 export const parseAgentToStart = (kind: string): Result.Result<AgentToStart, InvalidInputError> =>
   isAgentToStart(kind) ? Result.succeed(kind) : invalid('agent', `${kind} cannot be started.`);
 
-/** The new agent's Herdr name: the branch with `-` for `/`, numbered when a live agent has it. */
+/** Herdr refuses agent names longer than this. */
+const MAX_AGENT_NAME_LENGTH = 32;
+
+const shortened = (name: string, length: number): string =>
+  name.slice(0, length).replace(/-+$/u, '');
+
+/**
+ * The new agent's Herdr name: the branch with `-` for `/`, shortened to Herdr's limit and numbered
+ * when a live agent has it.
+ */
 export const agentNameFor = (branch: string, taken: ReadonlySet<string>): string => {
   const base = branch.replaceAll('/', '-');
-  if (!taken.has(base)) return base;
+  const name = shortened(base, MAX_AGENT_NAME_LENGTH);
+  if (!taken.has(name)) return name;
   let number = 2;
-  while (taken.has(`${base}-${number}`)) number += 1;
-  return `${base}-${number}`;
+  const numbered = (n: number) => `${shortened(base, MAX_AGENT_NAME_LENGTH - `-${n}`.length)}-${n}`;
+  while (taken.has(numbered(number))) number += 1;
+  return numbered(number);
 };

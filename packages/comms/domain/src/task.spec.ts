@@ -135,4 +135,25 @@ describe('agentNameFor', () => {
       'feat-new-task-3',
     );
   });
+
+  it('shortens a long branch to the 32 characters Herdr allows', () => {
+    expect(agentNameFor('feat/49-alert-when-the-mac-s-own-disk-fills', new Set())).toBe(
+      'feat-49-alert-when-the-mac-s-own',
+    );
+  });
+
+  it('keeps the number within 32 characters', () => {
+    expect(
+      agentNameFor(
+        'feat/49-alert-when-the-mac-s-own-disk-fills',
+        new Set(['feat-49-alert-when-the-mac-s-own']),
+      ),
+    ).toBe('feat-49-alert-when-the-mac-s-o-2');
+  });
+
+  it('drops a trailing dash left by shortening', () => {
+    expect(agentNameFor('feat/49-alert-when-the-mac-ssss-own-disk', new Set())).toBe(
+      'feat-49-alert-when-the-mac-ssss',
+    );
+  });
 });
