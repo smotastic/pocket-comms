@@ -45,7 +45,7 @@ const listed = (names: ReadonlyArray<string>) =>
   names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 
 /**
- * The confirmation before an agent's worktree is removed (spec 010). Nothing is removed before
+ * The confirmation before an agent's worktree is removed. Nothing is removed before
  * the owner confirms, and changes are discarded only after a second, explicit confirmation.
  */
 export const CloseAgent = ({ client, agent, open, onCancel, onClosed }: CloseAgentProps) => {

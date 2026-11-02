@@ -380,7 +380,8 @@ export const layerSocket = ({
           Effect.withSpan('Herdr.createWorktree'),
         ),
       // Herdr removes the checkout folder and closes the workspace; the branch stays.
-      // `trust_repository` is never sent (spec 010, requirement 10).
+      // `trust_repository` is never sent: the owner decides
+      // whether a repository is trusted, never the app.
       removeWorktree: ({ workspaceId, force }) =>
         request(
           'worktree.remove',

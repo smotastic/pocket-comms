@@ -10,8 +10,8 @@ export const makeClose = Effect.gen(function* () {
   const { find } = yield* makeLoadAgents;
 
   /**
-   * Removes the worktree of the agent `ref` and closes its workspace, with every agent in it
-   * (spec 010). Only a workspace that both Herdr and git know as a linked worktree of a project
+   * Removes the worktree of the agent `ref` and closes its workspace, with every agent in it.
+   * Only a workspace that both Herdr and git know as a linked worktree of a project
    * is removed; without `force`, one with changes is not.
    */
   const close = Effect.fn('Agent.close')(function* (ref: string, force: boolean) {

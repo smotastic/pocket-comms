@@ -84,6 +84,23 @@ describe('AgentsInbound.close', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('refuses a workspace Herdr does not report as a linked worktree', () =>
+    Effect.gen(function* () {
+      const state = yield* arrange;
+      // git lists the checkout as linked, but Herdr does not call the workspace a worktree.
+      state.workspaces = state.workspaces.map((workspace) => {
+        if (workspace.id !== 'w2') return workspace;
+        const { worktree: _worktree, ...rest } = workspace;
+        return rest;
+      });
+
+      const error = yield* close('kirk', true).pipe(Effect.flip);
+
+      expect(error).toEqual(new NotAWorktreeError({ ref: 'kirk' }));
+      expect(removals(state)).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('refuses an agent in a workspace without a repository', () =>
     Effect.gen(function* () {
       const state = yield* arrange;

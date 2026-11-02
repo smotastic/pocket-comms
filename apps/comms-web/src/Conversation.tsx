@@ -116,7 +116,7 @@ const Header = ({
   readonly view: View;
   readonly onView: (view: View) => void;
   readonly onBack: () => void;
-  /** Asks to close the agent; only an agent in a linked worktree can be closed (spec 010). */
+  /** Asks to close the agent; only an agent in a linked worktree can be closed. */
   readonly onClose?: () => void;
 }) => (
   <Stack gap="2xs">
