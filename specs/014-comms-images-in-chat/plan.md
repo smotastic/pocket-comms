@@ -77,6 +77,14 @@ None. The service has no database; images are files in the state folder.
   with images. The shrink is a pure size function tested on its own; the canvas runs in the browser.
 - **Boundaries:** the existing layer tags and dependency-cruiser rules; no new dependency.
 
+> **As-built note (2026-11-02).** The upload is a raw `application/octet-stream` body, not
+> multipart: Effect's OpenAPI generator drops the description of a multipart file field, and a raw
+> body needs no temporary file. The prompt's image paths are taken out of the transcript in the
+> application layer (`transcript.use-case.ts`, with the store's `folder`), not in the transcript
+> adapter. The kit gained an `AttachButton` (also used by the New task form) and a
+> `control.height.thumb` token; `ImageThumb` links to the full-size image instead of opening a
+> sheet, and shows a picture that no longer loads as removed.
+
 ## 5. Risks
 
 - **Agents may turn a pasted image path into an attachment.** Claude Code converts an image path it
