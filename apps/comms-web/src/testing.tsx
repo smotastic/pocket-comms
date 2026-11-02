@@ -5,6 +5,8 @@ import {
   RequestError,
   type AgentEventView,
   type AgentView,
+  type BrainstormEventView,
+  type BrainstormStateView,
   type CommsClient,
   type IssueListView,
   type Key,
@@ -12,6 +14,7 @@ import {
   type OverviewStateView,
   type OverviewView,
   type ProjectView,
+  type ProposalDecision,
   type TaskCreatedView,
   type TranscriptView,
 } from './comms-client.js';
@@ -56,6 +59,10 @@ export interface FakeState {
   closeFailure?: RequestError;
   /** The failures of the next agent closes, in order; a close without one succeeds. */
   closeAgentFailures: Array<RequestError>;
+  /** The brainstorm chat as the server holds it. */
+  brainstorm: BrainstormStateView;
+  /** A failure for the next brainstorm message or decision, as the server would report it. */
+  brainstormFailure?: RequestError;
 }
 
 /**
@@ -76,6 +83,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     issues: new Map(),
     implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
     closeAgentFailures: [],
+    brainstorm: { _tag: 'Ready', entries: [], answering: false, live: '' },
     ...initial,
   };
   const calls = {
@@ -86,6 +94,15 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     implemented: [] as Array<[string, number, string]>,
     closed: [] as Array<[string, number]>,
     closedAgents: [] as Array<[string, boolean]>,
+    brainstormMessages: [] as Array<string>,
+    decisions: [] as Array<[string, ProposalDecision]>,
+    brainstormResets: 0,
+  };
+  const brainstormFollowers = new Set<(event: BrainstormEventView) => void>();
+  const failBrainstorm = () => {
+    const failure = state.brainstormFailure;
+    state.brainstormFailure = undefined;
+    if (failure !== undefined) throw failure;
   };
   const overviewFollowers = new Set<(state: OverviewStateView) => void>();
   const agentFollowers = new Map<string, Set<(event: AgentEventView) => void>>();
@@ -143,6 +160,23 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       const failure = state.closeAgentFailures.shift();
       if (failure !== undefined) throw failure;
     },
+    brainstorm: async () => state.brainstorm,
+    sendBrainstorm: async (text) => {
+      failBrainstorm();
+      calls.brainstormMessages.push(text);
+    },
+    decideProposal: async (id, decision) => {
+      failBrainstorm();
+      calls.decisions.push([id, decision]);
+    },
+    resetBrainstorm: async () => {
+      calls.brainstormResets += 1;
+    },
+    followBrainstorm: (onEvent, onLive) => {
+      brainstormFollowers.add(onEvent);
+      onLive(true);
+      return () => brainstormFollowers.delete(onEvent);
+    },
     followOverview: (onState, onLive) => {
       overviewFollowers.add(onState);
       onLive(true);
@@ -164,6 +198,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     emitOverview: (next: OverviewStateView) => overviewFollowers.forEach((follow) => follow(next)),
     emitAgent: (ref: string, event: AgentEventView) =>
       agentFollowers.get(ref)?.forEach((follow) => follow(event)),
+    emitBrainstorm: (event: BrainstormEventView) =>
+      brainstormFollowers.forEach((follow) => follow(event)),
   };
 };
 

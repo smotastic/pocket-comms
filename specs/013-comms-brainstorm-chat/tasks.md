@@ -22,7 +22,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
 - [x] **T05** — Design kit: the `brainstorm` icon, `FloatingButton` and `ProposalCard`
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 
-- [ ] **T06** — Web: the bubble on every screen and the brainstorm sheet
+- [x] **T06** — Web: the bubble on every screen and the brainstorm sheet
   - Gate: `pnpm nx test comms-web`, `pnpm verify:local`
 
 - [ ] **T07** — Docs: the service's `AGENTS.md` rules, the README settings, spec status `Done`

@@ -2,14 +2,18 @@ import {
   type Agent,
   type AGENTS_TO_START,
   AgentEvent,
+  BrainstormEvent,
+  type BrainstormState,
   CommsApi,
   type CreateTaskRequest,
   type Issue,
+  type IssueDraft,
   type IssueList,
   type KEYS,
   OverviewState,
   type Overview,
   type Project,
+  type ProposalDecisionRequest,
   type TaskCreated,
   type Transcript,
 } from '@pocket-comms/comms-contract';
@@ -32,6 +36,14 @@ export type TaskCreatedView = typeof TaskCreated.Type;
 export type AgentToStart = (typeof AGENTS_TO_START)[number];
 export type IssueListView = typeof IssueList.Type;
 export type IssueView = typeof Issue.Type;
+export type BrainstormStateView = typeof BrainstormState.Type;
+export type BrainstormEventView = typeof BrainstormEvent.Type;
+export type BrainstormEntryView = Extract<
+  BrainstormStateView,
+  { readonly _tag: 'Ready' }
+>['entries'][number];
+export type IssueDraftView = typeof IssueDraft.Type;
+export type ProposalDecision = typeof ProposalDecisionRequest.Type;
 
 /** Stops a live subscription. */
 export type Unsubscribe = () => void;
@@ -62,6 +74,17 @@ export interface CommsClient {
     branch: string,
   ) => Promise<TaskCreatedView>;
   readonly closeIssue: (project: string, number: number) => Promise<void>;
+  /** The brainstorm chat (spec 013). */
+  readonly brainstorm: () => Promise<BrainstormStateView>;
+  /** Sends the owner's message; Pi's answer arrives on the brainstorm stream. */
+  readonly sendBrainstorm: (text: string) => Promise<void>;
+  readonly decideProposal: (id: string, decision: ProposalDecision) => Promise<void>;
+  /** Starts an empty brainstorm chat. */
+  readonly resetBrainstorm: () => Promise<void>;
+  readonly followBrainstorm: (
+    onEvent: (event: BrainstormEventView) => void,
+    onLive: OnLive,
+  ) => Unsubscribe;
   readonly followOverview: (
     onState: (state: OverviewStateView) => void,
     onLive: OnLive,
@@ -220,6 +243,19 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
       run((api) => api.issues.close({ params: { project, number: String(number) } })).then(
         () => undefined,
       ),
+    brainstorm: () => run((api) => api.brainstorm.state()),
+    sendBrainstorm: (text) =>
+      run((api) => api.brainstorm.send({ payload: { text } })).then(() => undefined),
+    // One call per kind of decision, so each payload matches its own request shape.
+    decideProposal: (id, decision) =>
+      run((api) =>
+        decision._tag === 'Create'
+          ? api.brainstorm.decide({ params: { proposal: id }, payload: decision })
+          : api.brainstorm.decide({ params: { proposal: id }, payload: decision }),
+      ).then(() => undefined),
+    resetBrainstorm: () => run((api) => api.brainstorm.reset()).then(() => undefined),
+    followBrainstorm: (onEvent, onLive) =>
+      follow(`${baseUrl}/api/v1/brainstorm/events`, 'brainstorm', BrainstormEvent, onEvent, onLive),
     followOverview: (onState, onLive) =>
       follow(`${baseUrl}/api/v1/events`, 'overview', OverviewState, onState, onLive),
     followAgent: (ref, onEvent, onLive) =>
