@@ -19,7 +19,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       settings, the composition and the OpenAPI document
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`
 
-- [ ] **T05** — Design kit: the `brainstorm` icon, `FloatingButton` and `ProposalCard`
+- [x] **T05** — Design kit: the `brainstorm` icon, `FloatingButton` and `ProposalCard`
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 
 - [ ] **T06** — Web: the bubble on every screen and the brainstorm sheet

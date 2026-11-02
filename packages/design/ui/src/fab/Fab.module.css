@@ -1,0 +1,89 @@
+/* A column at the bottom right: the button, then an empty box as tall as a docked footer, so the
+   button sits above it whatever the home indicator's height. Taps pass through the column. Below
+   a sheet, which covers it. */
+.floating {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-lg);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  pointer-events: none;
+}
+
+/* `DockedPage` publishes its footer's height; without one the box is empty. */
+.floating::after {
+  content: '';
+  height: var(--docked-footer-height, 0);
+}
+
+.button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--control-height-fab);
+  height: var(--control-height-fab);
+  margin-right: var(--space-lg);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-accent);
+  box-shadow: var(--shadow-card);
+  color: var(--color-text-on-accent);
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  transition-property: background-color, transform;
+  transition-duration: var(--motion-duration-fast);
+  transition-timing-function: var(--motion-easing-standard);
+}
+
+.button:hover {
+  background: var(--color-bg-accent-hover);
+}
+
+.button:focus-visible {
+  outline: var(--border-width-focus) solid var(--color-border-focus);
+  outline-offset: var(--border-width-focus);
+}
+
+.button:active {
+  transform: scale(0.94);
+}
+
+/* A dot ringed in the canvas color, so it stands apart from the button. */
+.badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--space-lg);
+  height: var(--space-lg);
+  border: var(--border-width-focus) solid var(--color-bg-canvas);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-accent);
+  animation: pulse var(--motion-duration-pulse) var(--motion-easing-standard) infinite;
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition-property: none;
+  }
+
+  .button:active {
+    transform: none;
+  }
+
+  .badge {
+    animation: none;
+  }
+}

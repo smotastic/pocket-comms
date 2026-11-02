@@ -5,6 +5,7 @@ import './base.css';
 export { tokens } from '@pocket-comms/design-tokens';
 export { Button, type ButtonProps } from './button/Button.js';
 export { IconButton, type IconButtonProps } from './icon-button/IconButton.js';
+export { Fab, type FabProps } from './fab/Fab.js';
 export { ICON_NAMES, type IconName } from './icon-button/Icon.js';
 export { Field, type FieldControlProps, type FieldProps } from './form/Field.js';
 export { Form, type FormProps } from './form/Form.js';
@@ -26,6 +27,11 @@ export {
   type QuestionCardQuestion,
 } from './question-card/QuestionCard.js';
 export { ToolLine, type ToolLineProps } from './tool-line/ToolLine.js';
+export {
+  ProposalCard,
+  type ProposalCardProps,
+  type ProposalDraft,
+} from './proposal-card/ProposalCard.js';
 export { UserMessage, type UserMessageProps } from './user-message/UserMessage.js';
 export { LiveIndicator, type LiveIndicatorProps } from './live-indicator/LiveIndicator.js';
 export { SectionHeader, type SectionHeaderProps } from './section-header/SectionHeader.js';

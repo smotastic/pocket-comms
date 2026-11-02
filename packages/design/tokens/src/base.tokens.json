@@ -61,6 +61,10 @@
       "md": {
         "$value": "{size.44}",
         "$description": "The smallest tap target."
+      },
+      "fab": {
+        "$value": "{size.56}",
+        "$description": "The floating round button."
       }
     }
   },

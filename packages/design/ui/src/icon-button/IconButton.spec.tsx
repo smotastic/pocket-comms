@@ -87,6 +87,7 @@ describe('IconButton', () => {
       'issues',
       'menu',
       'trash',
+      'brainstorm',
     ]);
     for (const name of ICON_NAMES) {
       const path = screen.getByRole('button', { name }).querySelector('path');

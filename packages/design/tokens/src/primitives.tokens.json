@@ -544,6 +544,12 @@
         "unit": "px"
       }
     },
+    "56": {
+      "$value": {
+        "value": 56,
+        "unit": "px"
+      }
+    },
     "96": {
       "$value": {
         "value": 96,
