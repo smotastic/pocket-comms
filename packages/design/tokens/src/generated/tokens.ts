@@ -37,8 +37,6 @@ export const tokens = {
       'success-soft': 'var(--color-bg-success-soft)',
       'neutral-soft': 'var(--color-bg-neutral-soft)',
       bar: 'var(--color-bg-bar)',
-      'kind-claude': 'var(--color-bg-kind-claude)',
-      'kind-pi': 'var(--color-bg-kind-pi)',
     },
     text: {
       default: 'var(--color-text-default)',
@@ -47,8 +45,6 @@ export const tokens = {
       'on-accent': 'var(--color-text-on-accent)',
       danger: 'var(--color-text-danger)',
       success: 'var(--color-text-success)',
-      'kind-claude': 'var(--color-text-kind-claude)',
-      'kind-pi': 'var(--color-text-kind-pi)',
     },
     border: {
       default: 'var(--color-border-default)',
@@ -56,6 +52,14 @@ export const tokens = {
       control: 'var(--color-border-control)',
       danger: 'var(--color-border-danger)',
       success: 'var(--color-border-success)',
+    },
+    project: {
+      '1': 'var(--color-project-1)',
+      '2': 'var(--color-project-2)',
+      '3': 'var(--color-project-3)',
+      '4': 'var(--color-project-4)',
+      '5': 'var(--color-project-5)',
+      neutral: 'var(--color-project-neutral)',
     },
   },
   space: {
@@ -79,16 +83,19 @@ export const tokens = {
     width: {
       default: 'var(--border-width-default)',
       focus: 'var(--border-width-focus)',
+      stripe: 'var(--border-width-stripe)',
     },
   },
   control: {
     height: {
+      sm: 'var(--control-height-sm)',
       md: 'var(--control-height-md)',
     },
   },
   layout: {
     width: {
       page: 'var(--layout-width-page)',
+      'side-sheet': 'var(--layout-width-side-sheet)',
     },
     height: {
       'sheet-gap': 'var(--layout-height-sheet-gap)',

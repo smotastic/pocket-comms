@@ -106,3 +106,27 @@ export const Tall: Story = () => <Chat initialSize="tall" messages={20} />;
 export const EmptyChat: Story = () => <Chat initialSize="tall" messages={0} />;
 
 export const Full: Story = () => <Chat initialSize="full" messages={20} />;
+
+export const Side: Story = () => {
+  const [open, setOpen] = useState(true);
+  const close = () => setOpen(false);
+  return (
+    <Page>
+      <Button onClick={() => setOpen(true)}>Open the side sheet</Button>
+      <Sheet
+        open={open}
+        side="end"
+        label="Projects"
+        bodyLabel="Project list"
+        onClose={close}
+        header={
+          <SheetHeader title="Projects">
+            <IconButton icon="close" label="Close" onClick={close} />
+          </SheetHeader>
+        }
+      >
+        <Text>Every project, each opening in place.</Text>
+      </Sheet>
+    </Page>
+  );
+};

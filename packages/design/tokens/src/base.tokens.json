@@ -52,15 +52,23 @@
       },
       "focus": {
         "$value": "{size.2}"
+      },
+      "stripe": {
+        "$value": "{size.4}",
+        "$description": "A coloured edge that marks what a row belongs to, such as an agent's project."
       }
     }
   },
   "control": {
     "height": {
       "$type": "dimension",
+      "sm": {
+        "$value": "{size.32}",
+        "$description": "A small control that sits among others, such as a filter chip."
+      },
       "md": {
         "$value": "{size.44}",
-        "$description": "The smallest tap target."
+        "$description": "A control that stands on its own, such as a button: the comfortable tap target."
       }
     }
   },
@@ -69,6 +77,10 @@
       "$type": "dimension",
       "page": {
         "$value": "{size.720}"
+      },
+      "side-sheet": {
+        "$value": "{size.320}",
+        "$description": "A sheet that slides in from the side; the screen behind stays in view beside it."
       }
     },
     "height": {

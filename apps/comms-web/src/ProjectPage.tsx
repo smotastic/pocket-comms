@@ -1,4 +1,5 @@
 import {
+  AgentList,
   Alert,
   Button,
   Card,
@@ -14,10 +15,12 @@ import {
   Tag,
   Text,
   TopBar,
+  type Hue,
 } from '@pocket-comms/design-ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AgentItem } from './AgentItem.js';
+import { projectHue } from './rows.js';
 import type {
   AgentView,
   CommsClient,
@@ -35,10 +38,13 @@ import { useNow, useOverviewLive } from './live.js';
 import { NewTask } from './NewTask.js';
 import { filterOverview } from './project-agents.js';
 import { since } from './since.js';
+import { startedNotice } from './started.js';
 
 export interface ProjectPageProps {
   readonly client: CommsClient;
   readonly project: string;
+  /** Shown when the page opens, such as what a start from the projects sheet left to say. */
+  readonly notice?: string | undefined;
   readonly onBack: () => void;
   readonly onOpenAgent: (ref: string) => void;
   /** Opens the conversation of an agent New task or Implement with Claude started, with a note. */
@@ -48,12 +54,6 @@ export interface ProjectPageProps {
 const updated = (at: number, now: number) => {
   const ago = since(at, now);
   return ago === 'now' ? 'Updated just now' : `Updated ${ago} ago`;
-};
-
-/** What the screen says after a start without a running agent. */
-const startedNotice = (created: TaskCreatedView) => {
-  const ready = `${created.branch} is ready in a new worktree.`;
-  return created.agent?.note === undefined ? ready : `${ready} ${created.agent.note}`;
 };
 
 const IssueRow = ({
@@ -161,10 +161,12 @@ const agentsOf = (overview: OverviewView, project: string) => {
 
 const Agents = ({
   agents,
+  hue,
   now,
   onOpen,
 }: {
   readonly agents: ReadonlyArray<AgentView>;
+  readonly hue: Hue;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
 }) => (
@@ -173,9 +175,20 @@ const Agents = ({
       <Stack gap="xs">
         <SectionHeader title="Agents" count={agents.length} />
         {agents.length === 0 ? <Text tone="muted">No agents are running.</Text> : null}
-        {agents.map((agent) => (
-          <AgentItem key={agent.paneId} agent={agent} section="project" now={now} onOpen={onOpen} />
-        ))}
+        {agents.length === 0 ? null : (
+          <AgentList label="Agents of the project">
+            {agents.map((agent) => (
+              <AgentItem
+                key={agent.paneId}
+                agent={agent}
+                hue={hue}
+                withProject={false}
+                now={now}
+                onOpen={onOpen}
+              />
+            ))}
+          </AgentList>
+        )}
       </Stack>
     </section>
   </Card>
@@ -188,6 +201,7 @@ const Agents = ({
 export const ProjectPage = ({
   client,
   project,
+  notice: initialNotice,
   onBack,
   onOpenAgent,
   onStarted,
@@ -200,7 +214,7 @@ export const ProjectPage = ({
   const [implementing, setImplementing] = useState<IssueView | undefined>(undefined);
   const [closing, setClosing] = useState<IssueView | undefined>(undefined);
   const [creating, setCreating] = useState(false);
-  const [notice, setNotice] = useState<string | undefined>(undefined);
+  const [notice, setNotice] = useState(initialNotice);
   const now = useNow();
   const repository = issues.data?._tag === 'Listed' ? issues.data.repository : undefined;
   const unknown =
@@ -287,7 +301,15 @@ export const ProjectPage = ({
               <Text tone="muted">Loading the agents…</Text>
             ) : null
           ) : (
-            <Agents agents={agentsOf(overview.data, project)} now={now} onOpen={onOpenAgent} />
+            <Agents
+              agents={agentsOf(overview.data, project)}
+              hue={projectHue(
+                project,
+                (projects.data ?? []).map(({ name }) => name),
+              )}
+              now={now}
+              onOpen={onOpenAgent}
+            />
           )}
           <section aria-label="Issues">
             <Stack gap="xs">
