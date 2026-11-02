@@ -25,7 +25,7 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T04** — Client method `closeIssue`; the Close button on each row; the `CloseIssue` sheet
+- [x] **T04** — Client method `closeIssue`; the Close button on each row; the `CloseIssue` sheet
       (number and title, work warning, progress, error kept, cancel); the notice and the refetch
   - Gate: `pnpm nx test comms-web`
 

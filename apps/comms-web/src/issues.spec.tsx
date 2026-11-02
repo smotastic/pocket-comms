@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RequestError, type IssueListView, type IssueView } from './comms-client.js';
@@ -179,5 +179,76 @@ describe('Implement with Claude', () => {
     expect(
       await within(sheet).findByText('Name the branch <type>/<kebab-description>.'),
     ).toBeTruthy();
+  });
+});
+
+describe('Close an issue', () => {
+  const closeSheet = async (number: number) => {
+    await userEvent.click(within(await rowOf(number)).getByRole('button', { name: 'Close' }));
+    return screen.findByRole('dialog', { name: `Close #${number}` });
+  };
+
+  it('asks first, then closes the issue and takes it off the list', async () => {
+    const { calls } = open(
+      listed(issue({ number: 8, title: 'feat: issue list' }), issue({ number: 3 })),
+    );
+
+    const sheet = await closeSheet(8);
+    expect(within(sheet).getByText('feat: issue list')).toBeTruthy();
+    expect(calls.closed).toEqual([]);
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Close issue' }));
+
+    expect(calls.closed).toEqual([['pocket-comms', 8]]);
+    expect(await screen.findByText('#8 closed.')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('link', { name: /^#8 /u })).toBeNull());
+    expect(screen.queryByRole('dialog', { name: 'Close #8' })).toBeNull();
+    expect(await rowOf(3)).toBeTruthy();
+  });
+
+  it('closes nothing when the owner cancels', async () => {
+    const { calls } = open(listed(issue({ number: 8 })));
+
+    const sheet = await closeSheet(8);
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Close #8' })).toBeNull());
+    expect(calls.closed).toEqual([]);
+    expect(await rowOf(8)).toBeTruthy();
+  });
+
+  it('warns about the agents and worktrees that still work on the issue', async () => {
+    open(
+      listed(
+        issue({
+          number: 8,
+          work: [
+            {
+              branch: 'feat/8-issue-list',
+              agents: [{ ref: 'feat-8-issue-list', status: 'working' }],
+            },
+            { branch: 'fix/8-old', agents: [] },
+          ],
+        }),
+      ),
+    );
+
+    const sheet = await closeSheet(8);
+
+    expect(
+      within(sheet).getByText(
+        'Still worked on: feat-8-issue-list, fix/8-old. Closing leaves them running.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('shows why closing failed and keeps the issue', async () => {
+    const { state } = open(listed(issue({ number: 8 })));
+    state.closeFailure = new RequestError('Gitea refused the token (403).', 503);
+
+    const sheet = await closeSheet(8);
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Close issue' }));
+
+    expect(await within(sheet).findByText('Gitea refused the token (403).')).toBeTruthy();
+    expect(await rowOf(8)).toBeTruthy();
   });
 });
