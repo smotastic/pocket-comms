@@ -1,4 +1,5 @@
 import { useRef, type ReactNode } from 'react';
+import { DockedHeader } from './docked-header.js';
 import { useFitVisualViewport, useFollowEnd } from './docking.js';
 import styles from './Layout.module.css';
 
@@ -26,7 +27,9 @@ export const DockedPage = ({ header, footer, label, children }: DockedPageProps)
   return (
     <main ref={page} className={styles.docked}>
       <div className={styles.dockedHeader}>
-        <div className={styles.dockedInner}>{header}</div>
+        <div className={styles.dockedInner}>
+          <DockedHeader.Provider value={true}>{header}</DockedHeader.Provider>
+        </div>
       </div>
       {/* Focusable, so a keyboard can scroll it. */}
       <div ref={body} className={styles.dockedBody} role="region" aria-label={label} tabIndex={0}>
