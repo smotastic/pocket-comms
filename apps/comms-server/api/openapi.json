@@ -524,6 +524,11 @@
             "examples": ["feat/8-per-project-gitea-issue-list"],
             "type": "string"
           },
+          "inProgress": {
+            "description": "The issue has the `status/in-progress` label or a worktree on one of its branches.",
+            "examples": [false],
+            "type": "boolean"
+          },
           "labels": {
             "description": "The label names.",
             "examples": [["enhancement"]],
@@ -561,7 +566,16 @@
             "type": "array"
           }
         },
-        "required": ["number", "title", "labels", "updatedAt", "url", "branch", "work"],
+        "required": [
+          "number",
+          "title",
+          "labels",
+          "updatedAt",
+          "url",
+          "branch",
+          "work",
+          "inProgress"
+        ],
         "type": "object"
       },
       "IssueAgent": {
@@ -701,6 +715,59 @@
           }
         },
         "required": ["owner", "name", "url"],
+        "type": "object"
+      },
+      "IssueTaskCreated": {
+        "additionalProperties": false,
+        "description": "The new worktree and its agent, and whether the issue was marked in progress.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskAgent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The agent, when one was asked for.",
+            "examples": [
+              {
+                "prompted": true,
+                "ref": "feat-dark-mode-toggle",
+                "started": true
+              }
+            ]
+          },
+          "branch": {
+            "description": "The branch of the new worktree.",
+            "examples": ["feat/dark-mode-toggle"],
+            "type": "string"
+          },
+          "markNote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the issue was not marked in progress, when it was not.",
+            "examples": ["#8 was not marked in progress: Gitea refused the token (403)."]
+          },
+          "path": {
+            "description": "The new worktree's folder.",
+            "examples": ["/Users/me/.herdr/worktrees/pocket-comms/feat-dark-mode-toggle"],
+            "type": "string"
+          },
+          "workspace": {
+            "description": "The new worktree's Herdr workspace.",
+            "examples": ["wK"],
+            "type": "string"
+          }
+        },
+        "required": ["workspace", "branch", "path"],
         "type": "object"
       },
       "IssueWork": {
@@ -1103,47 +1170,6 @@
         "type": "object"
       },
       "TaskCreated": {
-        "additionalProperties": false,
-        "description": "The new worktree, and its agent.",
-        "properties": {
-          "agent": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskAgent"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The agent, when one was asked for.",
-            "examples": [
-              {
-                "prompted": true,
-                "ref": "feat-dark-mode-toggle",
-                "started": true
-              }
-            ]
-          },
-          "branch": {
-            "description": "The branch of the new worktree.",
-            "examples": ["feat/dark-mode-toggle"],
-            "type": "string"
-          },
-          "path": {
-            "description": "The new worktree's folder.",
-            "examples": ["/Users/me/.herdr/worktrees/pocket-comms/feat-dark-mode-toggle"],
-            "type": "string"
-          },
-          "workspace": {
-            "description": "The new worktree's Herdr workspace.",
-            "examples": ["wK"],
-            "type": "string"
-          }
-        },
-        "required": ["workspace", "branch", "path"],
-        "type": "object"
-      },
-      "TaskCreated_1": {
         "additionalProperties": false,
         "description": "The new worktree, and its agent.",
         "properties": {
@@ -2720,7 +2746,7 @@
     },
     "/api/v1/projects/{project}/issues": {
       "get": {
-        "description": "The open Gitea issues of the project's `origin` repository, each with its suggested branch and the worktrees and agents that work on it.",
+        "description": "The open Gitea issues of the project's `origin` repository, each with its suggested branch, the worktrees and agents that work on it, and whether it is in progress.",
         "operationId": "issues.list",
         "parameters": [
           {
@@ -2888,7 +2914,7 @@
     },
     "/api/v1/projects/{project}/issues/{number}/implement": {
       "post": {
-        "description": "Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt.",
+        "description": "Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt. Then it adds the `status/in-progress` label to the issue, creating the label when the repository has none; a failed label write leaves the task started and is reported in `markNote`.",
         "operationId": "issues.implement",
         "parameters": [
           {
@@ -2933,11 +2959,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaskCreated_1"
+                  "$ref": "#/components/schemas/IssueTaskCreated"
                 }
               }
             },
-            "description": "The new worktree, and its agent."
+            "description": "The new worktree and its agent, and whether the issue was marked in progress."
           },
           "403": {
             "content": {

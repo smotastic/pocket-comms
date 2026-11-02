@@ -23,7 +23,7 @@ in the task's own commit.
 
 ## API and server
 
-- [ ] **T04** — Contract `Issue.inProgress` and `IssueTaskCreated.markNote`; handler; acceptance
+- [x] **T04** — Contract `Issue.inProgress` and `IssueTaskCreated.markNote`; handler; acceptance
       tests; OpenAPI document
   - Gate: `pnpm nx test comms-contract`, `pnpm nx test comms-api`, `pnpm openapi:check`,
     `pnpm openapi:lint`
