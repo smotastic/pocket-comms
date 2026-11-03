@@ -2,8 +2,12 @@ import type { InvalidInputError } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import type { CloseIssueInput, ImplementIssueInput, IssueListDto } from '../dto/issue.dto.js';
-import type { TaskCreatedDto } from '../dto/task.dto.js';
+import type {
+  CloseIssueInput,
+  ImplementIssueInput,
+  IssueListDto,
+  IssueTaskCreatedDto,
+} from '../dto/issue.dto.js';
 import type {
   BranchExistsError,
   GiteaNotConfiguredError,
@@ -21,7 +25,8 @@ import { makeImplementIssue } from '../use-cases/implement-issue.use-case.js';
 import { makeIssues } from '../use-cases/issues.use-case.js';
 
 // The inbound port of the issues resource (ADR 0006): a project's open Gitea issues, and
-// implementing one as a spec 005 task (spec 006), and closing one (spec 010).
+// implementing one as a spec 005 task and marking it in progress (specs 006 and 015), and closing
+// one (spec 010).
 
 export class IssuesInbound extends Context.Service<
   IssuesInbound,
@@ -32,7 +37,7 @@ export class IssuesInbound extends Context.Service<
     readonly implement: (
       input: ImplementIssueInput,
     ) => Effect.Effect<
-      TaskCreatedDto,
+      IssueTaskCreatedDto,
       | ProjectNotFoundError
       | NoGiteaRemoteError
       | GiteaNotConfiguredError

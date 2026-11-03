@@ -5,6 +5,7 @@ import {
   Composer,
   DockedPage,
   IconButton,
+  ImageThumb,
   KeyPad,
   Markdown,
   QuestionCard,
@@ -21,6 +22,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { AgentView, CommsClient, Key, TranscriptView } from './comms-client.js';
 import { RequestError } from './comms-client.js';
+import { AttachedImages } from './AttachedImages.js';
+import { useAttachments } from './attachments.js';
 import { CloseAgent } from './CloseAgent.js';
 import { agentQuery, screenQuery, transcriptQuery } from './comms-queries.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
@@ -56,8 +59,11 @@ const QUESTION_STATES = { pending: 'waiting', ok: 'answered', error: 'unanswered
 const Chat = ({
   transcript,
   failed,
+  imageUrl,
 }: {
   readonly transcript: TranscriptView | undefined;
+  /** Where an attached image of a prompt is served (spec 014). */
+  readonly imageUrl: (id: string) => string;
   /** The session cannot be read, such as before the agent's first prompt. */
   readonly failed: boolean;
 }) => {
@@ -72,7 +78,25 @@ const Chat = ({
       {transcript.entries.map((entry) => {
         switch (entry.type) {
           case 'user':
-            return <UserMessage key={entry.id}>{entry.text}</UserMessage>;
+            return (
+              <UserMessage
+                key={entry.id}
+                {...(entry.images === undefined || entry.images.length === 0
+                  ? {}
+                  : {
+                      attachments: entry.images.map((id, index) => (
+                        <ImageThumb
+                          key={id}
+                          label={`Image ${index + 1}`}
+                          src={imageUrl(id)}
+                          href={imageUrl(id)}
+                        />
+                      )),
+                    })}
+              >
+                {entry.text}
+              </UserMessage>
+            );
           case 'assistant':
             return <Markdown key={entry.id} text={entry.text} />;
           case 'tool':
@@ -183,16 +207,22 @@ export const Conversation = ({ client, agentRef, onBack, note }: ConversationPro
 
   const [closing, setClosing] = useState(false);
   const [draft, setDraft] = useState('');
+  const images = useAttachments(client);
+  // A successful send clears the text and the images; a failed one keeps both (spec 014).
   const prompt = useMutation({
-    mutationFn: (text: string) => client.prompt(agentRef, text),
-    onSuccess: () => setDraft(''),
+    mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
+      client.prompt(agentRef, text, imageIds),
+    onSuccess: () => {
+      setDraft('');
+      images.clear();
+    },
   });
   const keys = useMutation({ mutationFn: (key: Key) => client.keys(agentRef, [key]) });
   // Only the latest send can fail visibly: a new one clears the reason of the other.
   const failure = prompt.error ?? keys.error;
   const sendPrompt = (text: string) => {
     keys.reset();
-    prompt.mutate(text);
+    prompt.mutate({ text, imageIds: images.ids });
   };
   const pressKey = (key: Key) => {
     prompt.reset();
@@ -246,6 +276,7 @@ export const Conversation = ({ client, agentRef, onBack, note }: ConversationPro
       footer={
         <Stack gap="xs">
           {failure === null ? null : <Alert>{failure.message}</Alert>}
+          {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
           {blocked || view === 'screen' ? (
             <KeyPad
               label="Keys"
@@ -268,7 +299,21 @@ export const Conversation = ({ client, agentRef, onBack, note }: ConversationPro
               onChange={setDraft}
               onSend={sendPrompt}
               placeholder={`Message ${name}`}
-              locked={prompt.isPending}
+              locked={prompt.isPending || images.pending}
+              onAttach={(files) => void images.add(files)}
+              attachDisabled={images.full}
+              sendable={images.ids.length > 0}
+              {...(images.attachments.length === 0
+                ? {}
+                : {
+                    attachments: (
+                      <AttachedImages
+                        attachments={images.attachments}
+                        onRemove={images.remove}
+                        onRetry={images.retry}
+                      />
+                    ),
+                  })}
             />
           )}
         </Stack>
@@ -284,7 +329,11 @@ export const Conversation = ({ client, agentRef, onBack, note }: ConversationPro
           <TerminalScreen label={`Screen of ${name}`} text={screenText} />
         ) : (
           <>
-            <Chat transcript={transcript.data} failed={transcript.error !== null} />
+            <Chat
+              transcript={transcript.data}
+              failed={transcript.error !== null}
+              imageUrl={client.imageUrl}
+            />
             {agent.status === 'working' ? (
               <Activity label={transcript.data?.activity ?? 'Thinking…'} />
             ) : null}

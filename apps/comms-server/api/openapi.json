@@ -431,6 +431,25 @@
             "minLength": 1,
             "type": "string"
           },
+          "imageIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "The id the server gave an uploaded image.",
+                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                  "pattern": "^[a-z2-7]{26}$",
+                  "type": "string"
+                },
+                "maxItems": 5,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Up to five uploaded images for the agent's first prompt; they need an agent.",
+            "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+          },
           "project": {
             "description": "The name of a project of `GET /projects`.",
             "examples": ["pocket-comms"],
@@ -524,6 +543,11 @@
             "examples": ["feat/8-per-project-gitea-issue-list"],
             "type": "string"
           },
+          "inProgress": {
+            "description": "The issue has the `status/in-progress` label or a worktree on one of its branches.",
+            "examples": [false],
+            "type": "boolean"
+          },
           "labels": {
             "description": "The label names.",
             "examples": [["enhancement"]],
@@ -561,7 +585,16 @@
             "type": "array"
           }
         },
-        "required": ["number", "title", "labels", "updatedAt", "url", "branch", "work"],
+        "required": [
+          "number",
+          "title",
+          "labels",
+          "updatedAt",
+          "url",
+          "branch",
+          "work",
+          "inProgress"
+        ],
         "type": "object"
       },
       "IssueAgent": {
@@ -701,6 +734,59 @@
           }
         },
         "required": ["owner", "name", "url"],
+        "type": "object"
+      },
+      "IssueTaskCreated": {
+        "additionalProperties": false,
+        "description": "The new worktree and its agent, and whether the issue was marked in progress.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskAgent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The agent, when one was asked for.",
+            "examples": [
+              {
+                "prompted": true,
+                "ref": "feat-dark-mode-toggle",
+                "started": true
+              }
+            ]
+          },
+          "branch": {
+            "description": "The branch of the new worktree.",
+            "examples": ["feat/dark-mode-toggle"],
+            "type": "string"
+          },
+          "markNote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the issue was not marked in progress, when it was not.",
+            "examples": ["#8 was not marked in progress: Gitea refused the token (403)."]
+          },
+          "path": {
+            "description": "The new worktree's folder.",
+            "examples": ["/Users/me/.herdr/worktrees/pocket-comms/feat-dark-mode-toggle"],
+            "type": "string"
+          },
+          "workspace": {
+            "description": "The new worktree's Herdr workspace.",
+            "examples": ["wK"],
+            "type": "string"
+          }
+        },
+        "required": ["workspace", "branch", "path"],
         "type": "object"
       },
       "IssueWork": {
@@ -879,11 +965,29 @@
         "additionalProperties": false,
         "description": "A prompt for the agent.",
         "properties": {
+          "imageIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "The id the server gave an uploaded image.",
+                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                  "pattern": "^[a-z2-7]{26}$",
+                  "type": "string"
+                },
+                "maxItems": 5,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Up to five uploaded images; their paths follow the text, one per line.",
+            "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+          },
           "text": {
-            "description": "The prompt; it is sent trimmed and must not be blank.",
+            "description": "The prompt; it is sent trimmed and must not be blank unless images are attached.",
             "examples": ["Run the tests and fix what fails."],
             "maxLength": 20000,
-            "minLength": 1,
             "type": "string"
           }
         },
@@ -1143,47 +1247,6 @@
         "required": ["workspace", "branch", "path"],
         "type": "object"
       },
-      "TaskCreated_1": {
-        "additionalProperties": false,
-        "description": "The new worktree, and its agent.",
-        "properties": {
-          "agent": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TaskAgent"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The agent, when one was asked for.",
-            "examples": [
-              {
-                "prompted": true,
-                "ref": "feat-dark-mode-toggle",
-                "started": true
-              }
-            ]
-          },
-          "branch": {
-            "description": "The branch of the new worktree.",
-            "examples": ["feat/dark-mode-toggle"],
-            "type": "string"
-          },
-          "path": {
-            "description": "The new worktree's folder.",
-            "examples": ["/Users/me/.herdr/worktrees/pocket-comms/feat-dark-mode-toggle"],
-            "type": "string"
-          },
-          "workspace": {
-            "description": "The new worktree's Herdr workspace.",
-            "examples": ["wK"],
-            "type": "string"
-          }
-        },
-        "required": ["workspace", "branch", "path"],
-        "type": "object"
-      },
       "Transcript": {
         "additionalProperties": false,
         "description": "The latest entries of the agent’s session.",
@@ -1220,8 +1283,26 @@
                 "examples": ["u-1"],
                 "type": "string"
               },
+              "images": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "description": "The id the server gave an uploaded image.",
+                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                      "pattern": "^[a-z2-7]{26}$",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The images the prompt attached, by id, in order.",
+                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+              },
               "text": {
-                "description": "The owner's prompt.",
+                "description": "The owner's prompt, without the paths of its attached images.",
                 "examples": ["Run the tests"],
                 "type": "string"
               },
@@ -1368,6 +1449,20 @@
           }
         ],
         "description": "One entry of the chat."
+      },
+      "UploadedImage": {
+        "additionalProperties": false,
+        "description": "The uploaded image, by the id a prompt attaches it with.",
+        "properties": {
+          "id": {
+            "description": "The id the server gave an uploaded image.",
+            "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+            "pattern": "^[a-z2-7]{26}$",
+            "type": "string"
+          }
+        },
+        "required": ["id"],
+        "type": "object"
       },
       "ValidationProblemEncoded": {
         "additionalProperties": false,
@@ -2666,6 +2761,136 @@
         "tags": ["Agents"]
       }
     },
+    "/api/v1/images": {
+      "post": {
+        "description": "Keeps one JPEG or PNG image, checked by its content, under an id the server makes. A prompt or a task attaches it by that id.",
+        "operationId": "images.upload",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedImage"
+                }
+              }
+            },
+            "description": "The uploaded image, by the id a prompt attaches it with."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Upload an image",
+        "tags": ["Images"]
+      }
+    },
+    "/api/v1/images/{image}": {
+      "get": {
+        "description": "An uploaded image, with its own content type. Images go after 30 days.",
+        "operationId": "images.read",
+        "parameters": [
+          {
+            "description": "The id the server gave an uploaded image.",
+            "example": "k5w3x7q2m4n6p3r2s4t6v5x2z4",
+            "in": "path",
+            "name": "image",
+            "required": true,
+            "schema": {
+              "description": "The id the server gave an uploaded image.",
+              "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+              "pattern": "^[a-z2-7]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The image, as `image/jpeg` or `image/png`."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Read an image",
+        "tags": ["Images"]
+      }
+    },
     "/api/v1/projects": {
       "get": {
         "description": "The git repositories below the projects root that a task can start in.",
@@ -2720,7 +2945,7 @@
     },
     "/api/v1/projects/{project}/issues": {
       "get": {
-        "description": "The open Gitea issues of the project's `origin` repository, each with its suggested branch and the worktrees and agents that work on it.",
+        "description": "The open Gitea issues of the project's `origin` repository, each with its suggested branch, the worktrees and agents that work on it, and whether it is in progress.",
         "operationId": "issues.list",
         "parameters": [
           {
@@ -2888,7 +3113,7 @@
     },
     "/api/v1/projects/{project}/issues/{number}/implement": {
       "post": {
-        "description": "Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt.",
+        "description": "Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt. Then it adds the `status/in-progress` label to the issue, creating the label when the repository has none; a failed label write leaves the task started and is reported in `markNote`.",
         "operationId": "issues.implement",
         "parameters": [
           {
@@ -2933,11 +3158,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaskCreated_1"
+                  "$ref": "#/components/schemas/IssueTaskCreated"
                 }
               }
             },
-            "description": "The new worktree, and its agent."
+            "description": "The new worktree and its agent, and whether the issue was marked in progress."
           },
           "403": {
             "content": {
@@ -3085,6 +3310,10 @@
     {
       "description": "Brainstorm with Pi and turn ideas into Gitea issues the owner approves.",
       "name": "Brainstorm"
+    },
+    {
+      "description": "Images the owner attaches to a prompt or a task.",
+      "name": "Images"
     }
   ]
 }

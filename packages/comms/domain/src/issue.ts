@@ -2,7 +2,8 @@ import type { Agent } from './agent.js';
 import { BRANCH_TYPES, MAX_TASK_LENGTH } from './task.js';
 
 // The rules of a project's Gitea issues (spec 006): which repository a remote names, the order
-// of the list, the branch and the task an issue suggests, and which worktrees work on an issue.
+// of the list, the branch and the task an issue suggests, which worktrees work on an issue, and
+// when an issue is in progress (spec 015).
 
 /** A Gitea issue, or a pull request, which Gitea lists among the issues. */
 export interface Issue {
@@ -175,3 +176,26 @@ export const workOnIssues = (
   }
   return work;
 };
+
+/** The label pocket-comms puts on an issue it starts (spec 015). */
+export const IN_PROGRESS_LABEL = 'status/in-progress';
+
+/** How the label looks when pocket-comms creates it in a repository: a scoped, exclusive label. */
+export const IN_PROGRESS_LABEL_STYLE = {
+  color: '#e3b341',
+  description: 'Being worked on (set by pocket-comms)',
+  exclusive: true,
+} as const;
+
+/** Whether a label name is the in-progress label, in any case. */
+export const isInProgressLabel = (label: string): boolean =>
+  label.toLowerCase() === IN_PROGRESS_LABEL;
+
+export const hasInProgressLabel = (issue: Issue): boolean => issue.labels.some(isInProgressLabel);
+
+/**
+ * Whether an issue is in progress (spec 015, requirement 7): it has the label, or a worktree works
+ * on it, which also covers issues started by hand.
+ */
+export const isInProgress = (issue: Issue, work: ReadonlyArray<IssueWork>): boolean =>
+  hasInProgressLabel(issue) || work.length > 0;

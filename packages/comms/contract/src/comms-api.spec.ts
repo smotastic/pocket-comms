@@ -27,14 +27,16 @@ const operationsOf = (paths: ReadonlyArray<[string, unknown]>) =>
 
 const operations = () => operationsOf(Object.entries(document().paths));
 
-// The brainstorm chat runs in the server and needs no Herdr (spec 013).
+// The brainstorm chat (spec 013) and the images (spec 014) live in the server and need no Herdr.
 const herdrOperations = () =>
   operationsOf(
-    Object.entries(document().paths).filter(([path]) => !path.startsWith('/api/v1/brainstorm')),
+    Object.entries(document().paths).filter(
+      ([path]) => !path.startsWith('/api/v1/brainstorm') && !path.startsWith('/api/v1/images'),
+    ),
   );
 
 describe('CommsApi', () => {
-  it('serves the agents, the tasks, the issues and the brainstorm chat under /api/v1', () => {
+  it('serves the agents, the tasks, the issues, the brainstorm chat and the images under /api/v1', () => {
     expect(Object.keys(document().paths).sort()).toEqual([
       '/api/v1/agents',
       '/api/v1/agents/{agent}',
@@ -51,6 +53,8 @@ describe('CommsApi', () => {
       '/api/v1/brainstorm/proposals/{proposal}/decision',
       '/api/v1/brainstorm/reset',
       '/api/v1/events',
+      '/api/v1/images',
+      '/api/v1/images/{image}',
       '/api/v1/projects',
       '/api/v1/projects/{project}/issues',
       '/api/v1/projects/{project}/issues/{number}/close',

@@ -13,6 +13,7 @@ const issue = (overrides: Partial<IssueView> & Pick<IssueView, 'number'>): Issue
   url: `http://gitea.test/smotastic/pocket-comms/issues/${overrides.number}`,
   branch: `feat/${overrides.number}-issue`,
   work: [],
+  inProgress: false,
   ...overrides,
 });
 
@@ -90,6 +91,36 @@ describe('the project screen', () => {
     expect(within(row).getByText('fix/8-old · no agent running')).toBeTruthy();
   });
 
+  it('shows the issues in progress apart, above the open ones, without their label', async () => {
+    open(
+      listed(
+        issue({ number: 7, labels: ['status/in-progress', 'ui'], inProgress: true }),
+        issue({ number: 6, work: [{ branch: 'feat/6-x', agents: [] }], inProgress: true }),
+        issue({ number: 5 }),
+      ),
+    );
+
+    await screen.findByRole('heading', { name: 'In progress 2' });
+    expect(screen.getByRole('heading', { name: 'Open 1' })).toBeTruthy();
+    const numbers = (name: string) =>
+      within(screen.getByRole('list', { name }))
+        .getAllByRole('link', { name: /^#/u })
+        .map((link) => link.textContent?.split(' ')[0]);
+    expect(numbers('Issues in progress')).toEqual(['#7', '#6']);
+    expect(numbers('Open issues')).toEqual(['#5']);
+    const seven = await rowOf(7);
+    expect(within(seven).getByText('ui')).toBeTruthy();
+    expect(within(seven).queryByText('status/in-progress')).toBeNull();
+  });
+
+  it('leaves out a group without issues', async () => {
+    open(listed(issue({ number: 5 })));
+
+    await screen.findByRole('heading', { name: 'Open 1' });
+    expect(screen.queryByRole('heading', { name: /^In progress/u })).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Issues in progress' })).toBeNull();
+  });
+
   it.each([
     [{ _tag: 'NotConfigured' } as const, /COMMS_GITEA_TOKEN/u],
     [{ _tag: 'NoGiteaRemote' } as const, /no Gitea remote/u],
@@ -135,6 +166,27 @@ describe('Implement with Claude', () => {
     expect(calls.implemented).toEqual([['pocket-comms', 8, 'feat/8-issue-list']]);
     await screen.findByRole('heading', { name: 'feat-8-issue-list' });
     expect(router.state.location.pathname).toBe('/agents/feat-8-issue-list');
+  });
+
+  it('says when the started issue could not be marked in progress', async () => {
+    const agent = fakeAgent({ ref: 'feat-8-issue', paneId: 'wK:p1' });
+    open(listed(issue({ number: 8 })), {
+      agents: new Map([[agent.ref, agent]]),
+      implemented: {
+        workspace: 'wK',
+        branch: 'feat/8-issue',
+        path: '/worktrees/feat-8-issue',
+        agent: { ref: 'feat-8-issue', started: true, prompted: true },
+        markNote: '#8 was not marked in progress: Gitea refused the token (403).',
+      },
+    });
+
+    const sheet = await startSheet(8);
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Start Claude' }));
+
+    expect((await screen.findByRole('status')).textContent).toBe(
+      '#8 was not marked in progress: Gitea refused the token (403).',
+    );
   });
 
   it('sends the branch the owner typed', async () => {

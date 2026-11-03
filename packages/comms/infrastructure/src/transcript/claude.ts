@@ -1,4 +1,4 @@
-import type { TranscriptEntry } from '@pocket-comms/comms-domain';
+import { promptWithImages, type TranscriptEntry } from '@pocket-comms/comms-domain';
 import { join } from 'node:path';
 import {
   diffCounts,
@@ -93,6 +93,22 @@ const blocksOf = (message: unknown): ReadonlyArray<Record<string, unknown>> => {
   return Array.isArray(content) ? content.filter(isRecord) : [];
 };
 
+// Claude reads each image path of a prompt into an image block and shows it as a marker in the
+// text; a meta line after the prompt names each image's file.
+const IMAGE_MARKER = /\[Image #\d+\]\s*/gu;
+const IMAGE_SOURCE = /^\[Image: source: (.+)\]$/u;
+
+const hasImages = (message: unknown) =>
+  blocksOf(message).some((block) => block['type'] === 'image');
+
+// The files a meta line names, when it only names image files.
+const imageSourcesOf = (message: unknown): ReadonlyArray<string> | undefined => {
+  const paths = blocksOf(message).map((block) =>
+    block['type'] === 'text' ? IMAGE_SOURCE.exec(stringField(block, 'text') ?? '')?.[1] : undefined,
+  );
+  return paths.length > 0 && paths.every((path) => path !== undefined) ? paths : undefined;
+};
+
 // An edit's result carries the applied patch; its hunks hold the changed lines.
 const patchCounts = (result: unknown) => {
   const patch = isRecord(result) ? result['structuredPatch'] : undefined;
@@ -108,6 +124,8 @@ const patchCounts = (result: unknown) => {
 
 export const createClaudeParser = (cwd: string | undefined): TranscriptParser => {
   const log = entryLog();
+  // The latest prompt with images, its text without markers and the files named so far.
+  let attached: { id: string; text: string; paths: Array<string> } | undefined;
 
   const push = (raw: string): ReadonlyArray<TranscriptEntry> => {
     const line = parseLine(raw);
@@ -119,6 +137,16 @@ export const createClaudeParser = (cwd: string | undefined): TranscriptParser =>
     const changed: Array<TranscriptEntry> = [];
 
     if (line['type'] === 'user') {
+      // The paths go back below the text, as the prompt was sent, so the chat shows the images.
+      const sources = line['isMeta'] === true ? imageSourcesOf(message) : undefined;
+      if (sources !== undefined) {
+        const last = log.last();
+        if (attached === undefined || last?.type !== 'user' || last.id !== attached.id) return [];
+        attached.paths.push(...sources);
+        return [
+          log.replaceLast({ ...last, text: promptWithImages(attached.text, attached.paths) }),
+        ];
+      }
       const content = isRecord(message) ? message['content'] : undefined;
       if (typeof content === 'string') {
         if (isOwnersPrompt(line, content))
@@ -131,6 +159,9 @@ export const createClaudeParser = (cwd: string | undefined): TranscriptParser =>
         .join('\n');
       if (text !== '' && isOwnersPrompt(line, text)) {
         changed.push(log.add({ type: 'user', id, at, text }));
+        attached = hasImages(message)
+          ? { id, text: text.replace(IMAGE_MARKER, '').trim(), paths: [] }
+          : undefined;
       }
       for (const block of blocksOf(message)) {
         if (block['type'] !== 'tool_result') continue;

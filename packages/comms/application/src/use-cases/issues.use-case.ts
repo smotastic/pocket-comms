@@ -1,5 +1,6 @@
 import {
   agentRef,
+  isInProgress,
   issueBranch,
   orderIssues,
   workOnIssues,
@@ -28,6 +29,7 @@ const toDto = (issue: Issue, work: ReadonlyArray<IssueWork>): IssueDto => ({
     branch: each.branch,
     agents: each.agents.map((agent) => ({ ref: agentRef(agent), status: agent.status })),
   })),
+  inProgress: isInProgress(issue, work),
 });
 
 export const makeIssues = Effect.gen(function* () {

@@ -7,6 +7,19 @@ export {
   type TranscriptFormat,
 } from './agent.js';
 export { isAllowedLogin } from './access.js';
+export {
+  IMAGE_EXTENSIONS,
+  IMAGE_RETENTION_DAYS,
+  imageKindOf,
+  imagesInPrompt,
+  isImageId,
+  MAX_IMAGE_BYTES,
+  MAX_IMAGES,
+  parseImage,
+  parseImageIds,
+  promptWithImages,
+  type ImageKind,
+} from './image.js';
 export { InvalidInputError } from './errors.js';
 export { AgentKey, MAX_KEYS, MAX_PROMPT_LENGTH, parseKeys, parsePrompt } from './input.js';
 export { buildOverview, needsYou, type Overview, type OverviewGroup } from './overview.js';
@@ -34,6 +47,11 @@ export {
   type Task,
 } from './task.js';
 export {
+  hasInProgressLabel,
+  IN_PROGRESS_LABEL,
+  IN_PROGRESS_LABEL_STYLE,
+  isInProgress,
+  isInProgressLabel,
   issueBranch,
   issueNumberOf,
   issueTask,

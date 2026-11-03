@@ -1,6 +1,9 @@
 import { describe, expect, it } from '@effect/vitest';
 import type { Agent } from './agent.js';
 import {
+  hasInProgressLabel,
+  IN_PROGRESS_LABEL,
+  isInProgress,
   issueBranch,
   issueNumberOf,
   issueTask,
@@ -205,5 +208,32 @@ describe('workOnIssues', () => {
       { branch: 'feat/80-other', agents: [agent('p5', '/w/app/feat-80-other')] },
     ]);
     expect([...work.keys()].sort()).toEqual([8, 80]);
+  });
+});
+
+describe('isInProgress', () => {
+  const work = [{ branch: 'feat/5-x', agents: [] }];
+
+  it('names the label pocket-comms sets', () => {
+    expect(IN_PROGRESS_LABEL).toBe('status/in-progress');
+  });
+
+  it.each([
+    [['status/in-progress'], true],
+    [['Status/In-Progress'], true],
+    [['bug', 'STATUS/IN-PROGRESS'], true],
+    [['in progress'], false],
+    [[], false],
+  ])('finds the label in %j: %s', (labels, expected) => {
+    expect(hasInProgressLabel(issue({ number: 5, labels }))).toBe(expected);
+  });
+
+  it('is in progress with the label, a worktree on the issue, or both', () => {
+    const labelled = issue({ number: 5, labels: ['status/in-progress'] });
+    const plain = issue({ number: 5 });
+    expect(isInProgress(labelled, [])).toBe(true);
+    expect(isInProgress(plain, work)).toBe(true);
+    expect(isInProgress(labelled, work)).toBe(true);
+    expect(isInProgress(plain, [])).toBe(false);
   });
 });

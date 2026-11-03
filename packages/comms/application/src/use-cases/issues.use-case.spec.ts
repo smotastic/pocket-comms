@@ -50,6 +50,7 @@ describe('IssuesInbound.issues', () => {
             url: 'http://gitea.test/owner/app/issues/5',
             branch: 'feat/5-dark-mode',
             work: [],
+            inProgress: false,
           },
           {
             number: 3,
@@ -59,6 +60,7 @@ describe('IssuesInbound.issues', () => {
             url: 'http://gitea.test/owner/app/issues/3',
             branch: 'fix/3-login-breaks',
             work: [],
+            inProgress: false,
           },
         ],
       });
@@ -84,6 +86,28 @@ describe('IssuesInbound.issues', () => {
       expect(list._tag === 'Listed' && list.issues[0]?.work).toEqual([
         { branch: 'feat/8-list', agents: [{ ref: 'feat-8-list', status: 'idle' }] },
         { branch: 'fix/8-old', agents: [] },
+      ]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('marks an issue in progress by its label or a worktree on it', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [
+        fakeIssue({ number: 7, labels: ['Status/In-Progress'], updatedAt: 3 }),
+        fakeIssue({ number: 6, updatedAt: 2 }),
+        fakeIssue({ number: 5, updatedAt: 1 }),
+      ]);
+      state.worktrees.set('app', [{ path: '/worktrees/feat-6-list', branch: 'feat/6-list' }]);
+
+      const list = yield* issues();
+
+      expect(
+        list._tag === 'Listed' && list.issues.map(({ number, inProgress }) => [number, inProgress]),
+      ).toEqual([
+        [7, true],
+        [6, true],
+        [5, false],
       ]);
     }).pipe(Effect.provide(layer())),
   );
@@ -164,8 +188,10 @@ describe('IssuesInbound.implement', () => {
         branch: 'feat/8-issue-list',
         path: '/worktrees/feat-8-issue-list',
         agent: { ref: 'feat-8-issue-list', started: true, prompted: true, note: undefined },
+        markNote: undefined,
       });
-      expect(state.giteaCalls).toEqual(['issue owner/app 8']);
+      expect(state.giteaCalls).toEqual(['issue owner/app 8', 'markInProgress owner/app 8']);
+      expect(state.issues.get('owner/app')?.[0]?.labels).toEqual(['status/in-progress']);
       expect(state.calls).toEqual([
         expect.objectContaining({
           method: 'createWorktree',
@@ -181,6 +207,34 @@ describe('IssuesInbound.implement', () => {
         }),
         { method: 'prompt', target: 'w-feat/8-issue-list:p1', params: issueTask(issue) },
       ]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('does not mark an issue that has the label already', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8, labels: ['STATUS/IN-PROGRESS'] })]);
+
+      const created = yield* implement();
+
+      expect(created.markNote).toBeUndefined();
+      expect(state.giteaCalls).toEqual(['issue owner/app 8']);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('starts the task when marking fails, and says why', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8 })]);
+      state.giteaMarkFailure = 'Gitea refused the token (403).';
+
+      const created = yield* implement();
+
+      expect(created.agent?.started).toBe(true);
+      expect(created.markNote).toBe(
+        '#8 was not marked in progress: Gitea refused the token (403).',
+      );
+      expect(state.issues.get('owner/app')?.[0]?.labels).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
 
@@ -232,6 +286,7 @@ describe('IssuesInbound.implement', () => {
 
       expect(error._tag).toBe('InvalidInputError');
       expect(state.calls).toEqual([]);
+      expect(state.giteaCalls).toEqual(['issue owner/app 8']);
     }).pipe(Effect.provide(layer())),
   );
 });

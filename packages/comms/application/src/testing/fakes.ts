@@ -1,4 +1,5 @@
 import {
+  IN_PROGRESS_LABEL,
   OTHER_GROUP,
   parseRemote,
   type Agent,
@@ -8,6 +9,7 @@ import {
   type Workspace,
   type Worktree,
 } from '@pocket-comms/comms-domain';
+import * as Clock from 'effect/Clock';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
@@ -36,6 +38,7 @@ import {
 } from '../ports/brainstorm-store.outbound.port.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
+import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
 import {
   SeenOutbound,
   StatusHistoryOutbound,
@@ -115,6 +118,8 @@ export class FakeState extends Context.Service<
     giteaConfigured: boolean;
     /** Why the fake Gitea fails, when it does. */
     giteaFailure: string | undefined;
+    /** Why only marking an issue in progress fails, when it does. */
+    giteaMarkFailure: string | undefined;
     /** Every Gitea request, as `<method> <owner>/<name> [<number>]`. */
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
@@ -127,6 +132,8 @@ export class FakeState extends Context.Service<
     /** The stored brainstorm chat, and how often it was saved. */
     storedChat: StoredChat | undefined;
     saves: number;
+    /** The kept images by id, with when each was saved in epoch milliseconds. */
+    readonly images: Map<string, StoredImage & { readonly savedAt: number }>;
   }
 >()('comms/application/testing/FakeState') {}
 
@@ -278,6 +285,45 @@ const projects = (state: FakeState['Service']) => {
 };
 
 // The fake Gitea is the host `gitea`, at `http://gitea.test`.
+/** The folder of the fake image store. */
+export const FAKE_IMAGES_FOLDER = '/state/images';
+
+// Ids count up, padded to the store's id shape.
+const images = (state: FakeState['Service']): ImagesOutbound['Service'] => ({
+  folder: FAKE_IMAGES_FOLDER,
+  save: (image) =>
+    Effect.gen(function* () {
+      const id = `image${'a'.repeat(20)}${String.fromCharCode(97 + state.images.size)}`;
+      state.images.set(id, { ...image, savedAt: yield* Clock.currentTimeMillis });
+      return id;
+    }),
+  path: (id) =>
+    Effect.sync(() => {
+      const image = state.images.get(id);
+      return image === undefined
+        ? Option.none()
+        : Option.some(`${FAKE_IMAGES_FOLDER}/${id}.${image.kind === 'png' ? 'png' : 'jpg'}`);
+    }),
+  read: (id) =>
+    Effect.sync(() =>
+      Option.map(Option.fromNullishOr(state.images.get(id)), ({ kind, bytes }) => ({
+        kind,
+        bytes,
+      })),
+    ),
+  removeOlderThan: (epochMillis) =>
+    Effect.sync(() => {
+      let removed = 0;
+      for (const [id, image] of state.images) {
+        if (image.savedAt < epochMillis) {
+          state.images.delete(id);
+          removed += 1;
+        }
+      }
+      return removed;
+    }),
+});
+
 const gitea = (state: FakeState['Service']) => {
   const request = <A, E = never>(
     call: string,
@@ -323,6 +369,21 @@ const gitea = (state: FakeState['Service']) => {
         issues[index] = { ...found, state: 'closed' };
         return Effect.void;
       }),
+    markInProgress: ({ owner, name }, number) =>
+      request<void, IssueNotFoundError | GiteaUnavailableError>(
+        `markInProgress ${owner}/${name} ${number}`,
+        () => {
+          if (state.giteaMarkFailure !== undefined) {
+            return Effect.fail(new GiteaUnavailableError({ reason: state.giteaMarkFailure }));
+          }
+          const issues = state.issues.get(`${owner}/${name}`) ?? [];
+          const index = issues.findIndex((issue) => issue.number === number);
+          const found = issues[index];
+          if (found === undefined) return Effect.fail(new IssueNotFoundError({ number }));
+          issues[index] = { ...found, labels: [...found.labels, IN_PROGRESS_LABEL] };
+          return Effect.void;
+        },
+      ),
     createIssue: ({ owner, name }, { title, body }) =>
       request(`createIssue ${owner}/${name} ${JSON.stringify({ title, body })}`, () =>
         Effect.sync(() => {
@@ -457,6 +518,7 @@ export const fakeLayer = () => {
         issues: new Map(),
         giteaConfigured: true,
         giteaFailure: undefined,
+        giteaMarkFailure: undefined,
         giteaCalls: [],
         docs: new Map(),
         notSetUp: undefined,
@@ -464,6 +526,7 @@ export const fakeLayer = () => {
         turns: [],
         storedChat: undefined,
         saves: 0,
+        images: new Map(),
       };
     }),
   );
@@ -488,6 +551,7 @@ export const fakeLayer = () => {
               fake.saves += 1;
             }),
         }),
+        Context.add(ImagesOutbound, images(fake)),
         Context.add(SeenOutbound, {
           seen: Effect.sync(() => new Set(fake.seen)),
           markSeen: (key) =>

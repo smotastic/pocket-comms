@@ -4,6 +4,7 @@ import {
   parseAgentToStart,
   parseBranch,
   parseTask,
+  promptWithImages,
   type AgentToStart,
   type Project,
 } from '@pocket-comms/comms-domain';
@@ -22,6 +23,7 @@ import {
   type StartedAgent,
 } from '../ports/herdr.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
+import { makeImagePaths } from './image-paths.js';
 
 // Creates a task (spec 005): checks every input before anything changes, creates the worktree
 // through Herdr, then optionally starts an agent and sends it the task. Once the worktree exists
@@ -48,6 +50,7 @@ const NOTES = {
 export const makeCreateTask = Effect.gen(function* () {
   const projectsOutbound = yield* ProjectsOutbound;
   const herdrOutbound = yield* HerdrOutbound;
+  const { imagePaths } = yield* makeImagePaths;
 
   const findProject = Effect.fnUntraced(function* (name: string) {
     const projects = yield* projectsOutbound.list;
@@ -148,6 +151,14 @@ export const makeCreateTask = Effect.gen(function* () {
       });
     }
 
+    const imageIds = input.imageIds ?? [];
+    if (imageIds.length > 0 && kind.success === undefined) {
+      return yield* new InvalidInputError({
+        issues: [{ field: 'imageIds', message: 'Images need an agent to start.' }],
+      });
+    }
+    const paths = yield* imagePaths(imageIds);
+
     const project = yield* findProject(input.project);
     const base = yield* checkBranch(project, branch.success);
     const worktree = yield* herdrOutbound.createWorktree({
@@ -159,7 +170,7 @@ export const makeCreateTask = Effect.gen(function* () {
     const agent =
       kind.success === undefined
         ? undefined
-        : yield* startAgent(worktree, kind.success, task.success.text);
+        : yield* startAgent(worktree, kind.success, promptWithImages(task.success.text, paths));
     return {
       workspace: worktree.workspaceId,
       branch: worktree.branch,

@@ -12,6 +12,8 @@ export interface CreateTaskInput {
   readonly branch: string;
   /** The kind of agent to start, or none. */
   readonly agent?: string | undefined;
+  /** The images the agent's first prompt attaches (spec 014); they need an agent. */
+  readonly imageIds?: ReadonlyArray<string> | undefined;
 }
 
 /** The agent started for a task; `note` says what did not happen and why. */

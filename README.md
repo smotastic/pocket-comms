@@ -39,7 +39,7 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 | `COMMS_GITEA_URL`           | `http://localhost:3000`      | The Gitea server whose issues the app reads                                                        |
 | `COMMS_GITEA_TOKEN`         | none                         | A Gitea token with `write:issue` and `read:repository`; without it the issue lists say so          |
 | `COMMS_GITEA_HOSTS`         | `gitea`                      | Further host names (such as SSH aliases) of that Gitea in git remotes, comma-separated             |
-| `COMMS_STATE_DIR`           | `~/.pocket-comms`            | Where the server keeps the brainstorm chat (`brainstorm.json`)                                     |
+| `COMMS_STATE_DIR`           | `~/.pocket-comms`            | Where the server keeps the brainstorm chat (`brainstorm.json`) and images (`images/`, 30 days)     |
 | `COMMS_BRAINSTORM_PROVIDER` | none                         | The brainstorm chat's model provider, such as `openai`; without it the chat says it is not set up  |
 | `COMMS_BRAINSTORM_MODEL`    | none                         | The brainstorm chat's model, such as `gpt-6-luna`                                                  |
 | `COMMS_BRAINSTORM_API_KEY`  | none                         | An API key for that provider; without it the server uses your Pi login                             |
@@ -49,9 +49,11 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 
 The Gitea token is a secret: put it in the server's environment only. Create it in Gitea under
 **Settings → Applications → Manage Access Tokens** with the scopes `write:issue` and
-`read:repository`. The app reads with `GET`; it writes only the `PATCH` that closes an issue and
-the `POST` that creates one you approved in the brainstorm chat. A token with `read:issue` still
-lists the issues, but closing or creating one then fails.
+`read:repository`. The app reads with `GET`; it writes only the `PATCH` that closes an issue, the
+`POST` that creates one you approved in the brainstorm chat, and the `POST`s that mark an issue you
+start with Implement with Claude as `status/in-progress` (creating that label in the repository the
+first time). It never removes a label. A token with `read:issue` still lists the issues, but
+closing, creating or marking one then fails; a failed mark leaves the started agent running.
 
 The brainstorm chat (the bulb at the bottom right of every screen) runs Pi inside the server. Sign
 in with Pi once (`pi`, then `/login`) and set the provider and the model, for example

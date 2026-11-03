@@ -120,6 +120,43 @@ describe('Composer', () => {
     expect(screen.getByRole('button', { name: 'Ask' })).toBeDefined();
   });
 
+  it('offers an attach button that hands over the picked images', async () => {
+    const user = userEvent.setup();
+    const onAttach = vi.fn();
+    render(<Controlled onAttach={onAttach} />);
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]');
+
+    await user.upload(
+      input as HTMLInputElement,
+      new File(['x'], 'shot.png', { type: 'image/png' }),
+    );
+
+    expect(screen.getByRole('button', { name: 'Attach image' })).toBeDefined();
+    expect(onAttach).toHaveBeenCalledOnce();
+  });
+
+  it('has no attach button unless asked, and can disable it', () => {
+    const { rerender } = render(<Controlled />);
+    expect(screen.queryByRole('button', { name: 'Attach image' })).toBeNull();
+    rerender(<Controlled onAttach={() => undefined} attachDisabled />);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Attach image' }).disabled).toBe(
+      true,
+    );
+  });
+
+  it('shows the attachments in the field and sends without text when sendable', async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn();
+    render(<Controlled onSend={onSend} attachments={<Tag>shot.png</Tag>} sendable />);
+    expect(screen.getByText('shot.png').closest(`.${styles.field}`)).toBe(
+      box().closest(`.${styles.field}`),
+    );
+
+    await user.click(send());
+
+    expect(onSend).toHaveBeenCalledWith('');
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(
       <Controlled

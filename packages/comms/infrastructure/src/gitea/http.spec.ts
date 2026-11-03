@@ -297,6 +297,130 @@ describe('Gitea.layerHttp', () => {
     }).pipe(Effect.scoped),
   );
 
+  const labelRoute =
+    (pages: ReadonlyArray<ReadonlyArray<{ id: number; name: string }>>, add = 200): Route =>
+    (url, method) => {
+      if (url.pathname === '/api/v1/repos/owner/app/labels' && method === 'GET') {
+        return { status: 200, body: pages[Number(url.searchParams.get('page')) - 1] ?? [] };
+      }
+      if (url.pathname === '/api/v1/repos/owner/app/labels' && method === 'POST') {
+        return { status: 201, body: { id: 9, name: 'status/in-progress', color: 'e3b341' } };
+      }
+      if (url.pathname === '/api/v1/repos/owner/app/issues/5/labels' && method === 'POST') {
+        return { status: add, body: [] };
+      }
+      return { status: 404, body: { message: 'not found' } };
+    };
+
+  it.live('marks an issue in progress with the label the repository has, in any case', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea(
+        labelRoute([
+          [
+            { id: 1, name: 'bug' },
+            { id: 4, name: 'Status/In-Progress' },
+          ],
+        ]),
+      );
+
+      yield* withGitea(gitea.url, (outbound) => outbound.markInProgress(repository, 5));
+
+      expect(gitea.seen).toEqual([
+        {
+          method: 'GET',
+          url: '/api/v1/repos/owner/app/labels?limit=50&page=1',
+          authorization: `token ${TOKEN}`,
+        },
+        {
+          method: 'POST',
+          url: '/api/v1/repos/owner/app/issues/5/labels',
+          authorization: `token ${TOKEN}`,
+          contentType: 'application/json',
+          body: '{"labels":[4]}',
+        },
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('creates the in-progress label when the repository has none, then adds it', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea(labelRoute([[{ id: 1, name: 'bug' }]]));
+
+      yield* withGitea(gitea.url, (outbound) => outbound.markInProgress(repository, 5));
+
+      expect(gitea.seen.map(({ method, url, body }) => [method, url, body])).toEqual([
+        ['GET', '/api/v1/repos/owner/app/labels?limit=50&page=1', undefined],
+        [
+          'POST',
+          '/api/v1/repos/owner/app/labels',
+          '{"name":"status/in-progress","color":"#e3b341","description":"Being worked on (set by pocket-comms)","exclusive":true}',
+        ],
+        ['POST', '/api/v1/repos/owner/app/issues/5/labels', '{"labels":[9]}'],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('looks for the label on every page of labels', () =>
+    Effect.gen(function* () {
+      const first = Array.from({ length: 50 }, (_, index) => ({
+        id: index + 100,
+        name: `l${index}`,
+      }));
+      const gitea = yield* fakeGitea(labelRoute([first, [{ id: 77, name: 'status/in-progress' }]]));
+
+      yield* withGitea(gitea.url, (outbound) => outbound.markInProgress(repository, 5));
+
+      expect(gitea.seen.map(({ method, url, body }) => [method, url, body])).toEqual([
+        ['GET', '/api/v1/repos/owner/app/labels?limit=50&page=1', undefined],
+        ['GET', '/api/v1/repos/owner/app/labels?limit=50&page=2', undefined],
+        ['POST', '/api/v1/repos/owner/app/issues/5/labels', '{"labels":[77]}'],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('adds nothing when Gitea refuses to create the label', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((url, method) =>
+        method === 'GET' && url.pathname === '/api/v1/repos/owner/app/labels'
+          ? { status: 200, body: [] }
+          : { status: 403, body: { message: 'forbidden' } },
+      );
+
+      const refused = yield* withGitea(gitea.url, (outbound) =>
+        outbound.markInProgress(repository, 5).pipe(Effect.flip),
+      );
+
+      expect(refused).toEqual(
+        new GiteaUnavailableError({ reason: 'Gitea refused the token (403).' }),
+      );
+      expect(gitea.seen.map(({ method, url }) => `${method} ${url}`)).toEqual([
+        'GET /api/v1/repos/owner/app/labels?limit=50&page=1',
+        'POST /api/v1/repos/owner/app/labels',
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('names a missing issue when marking, and passes on a refused token', () =>
+    Effect.gen(function* () {
+      const label = [{ id: 4, name: 'status/in-progress' }];
+      const missing = yield* fakeGitea(labelRoute([label], 404));
+      const readOnly = yield* fakeGitea(labelRoute([label], 403));
+
+      const notFound = yield* withGitea(missing.url, (outbound) =>
+        outbound.markInProgress(repository, 5).pipe(Effect.flip),
+      );
+      const refused = yield* withGitea(readOnly.url, (outbound) =>
+        outbound.markInProgress(repository, 5).pipe(Effect.flip),
+      );
+
+      expect(notFound).toEqual(new IssueNotFoundError({ number: 5 }));
+      expect(refused).toEqual(
+        new GiteaUnavailableError({ reason: 'Gitea refused the token (403).' }),
+      );
+      expect(JSON.stringify(refused)).not.toContain(TOKEN);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('sends nothing without a token', () =>
     Effect.gen(function* () {
       const gitea = yield* fakeGitea(issueRoute([listed]));
@@ -309,11 +433,13 @@ describe('Gitea.layerHttp', () => {
             outbound.issue(repository, 5).pipe(Effect.flip),
             outbound.closeIssue(repository, 5).pipe(Effect.flip),
             outbound.createIssue(repository, { title: 'X', body: '' }).pipe(Effect.flip),
+            outbound.markInProgress(repository, 5).pipe(Effect.flip),
           ]),
         null,
       );
 
       expect(errors).toEqual([
+        new GiteaNotConfiguredError(),
         new GiteaNotConfiguredError(),
         new GiteaNotConfiguredError(),
         new GiteaNotConfiguredError(),

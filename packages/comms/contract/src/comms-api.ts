@@ -131,6 +131,16 @@ export const OverviewState = Schema.Union([
   description: 'The overview, or why Herdr cannot be reached.',
 });
 
+export const ImageId = Schema.String.check(Schema.isPattern(/^[a-z2-7]{26}$/u)).annotate({
+  description: 'The id the server gave an uploaded image.',
+  examples: ['k5w3x7q2m4n6p3r2s4t6v5x2z4'],
+});
+
+const imageIds = optional(Schema.Array(ImageId).check(Schema.isMaxLength(5)), {
+  description: 'Up to five uploaded images; their paths follow the text, one per line.',
+  examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
+});
+
 const id = Schema.String.annotate({ description: 'The id of the entry.', examples: ['u-1'] });
 const at = Millis.annotate({ description: 'When the entry was written, in epoch milliseconds.' });
 
@@ -140,8 +150,12 @@ export const TranscriptEntry = Schema.Union([
     id,
     at,
     text: Schema.String.annotate({
-      description: "The owner's prompt.",
+      description: "The owner's prompt, without the paths of its attached images.",
       examples: ['Run the tests'],
+    }),
+    images: optional(Schema.Array(ImageId), {
+      description: 'The images the prompt attached, by id, in order.',
+      examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
     }),
   }),
   Schema.Struct({
@@ -247,10 +261,11 @@ export const Screen = Schema.Struct({
 export const KEYS = ['1', '2', '3', 'up', 'down', 'enter', 'esc', 'ctrl+c'] as const;
 
 export const PromptRequest = Schema.Struct({
-  text: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(20_000)).annotate({
-    description: 'The prompt; it is sent trimmed and must not be blank.',
+  text: Schema.String.check(Schema.isMaxLength(20_000)).annotate({
+    description: 'The prompt; it is sent trimmed and must not be blank unless images are attached.',
     examples: ['Run the tests and fix what fails.'],
   }),
+  imageIds,
 }).annotate({ identifier: 'PromptRequest', description: 'A prompt for the agent.' });
 
 export const KeysRequest = Schema.Struct({
@@ -316,6 +331,10 @@ export const CreateTaskRequest = Schema.Struct({
       examples: [{ kind: 'claude' }],
     },
   ),
+  imageIds: optional(Schema.Array(ImageId).check(Schema.isMaxLength(5)), {
+    description: "Up to five uploaded images for the agent's first prompt; they need an agent.",
+    examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
+  }),
 }).annotate({
   identifier: 'CreateTaskRequest',
   description: 'A new task: a worktree on a new branch, optionally with an agent in it.',
@@ -406,6 +425,11 @@ export const Issue = Schema.Struct({
     description: "The project's worktrees on a branch of this issue.",
     examples: [[]],
   }),
+  inProgress: Schema.Boolean.annotate({
+    description:
+      'The issue has the `status/in-progress` label or a worktree on one of its branches.',
+    examples: [false],
+  }),
 }).annotate({ identifier: 'Issue', description: 'An open issue of the project.' });
 
 export const IssueList = Schema.Union([
@@ -468,6 +492,17 @@ export const ImplementIssueRequest = Schema.Struct({
 }).annotate({
   identifier: 'ImplementIssueRequest',
   description: 'Implement the issue with Claude in a new worktree on this branch.',
+});
+
+export const IssueTaskCreated = Schema.Struct({
+  ...TaskCreated.fields,
+  markNote: optional(Schema.String, {
+    description: 'Why the issue was not marked in progress, when it was not.',
+    examples: ['#8 was not marked in progress: Gitea refused the token (403).'],
+  }),
+}).annotate({
+  identifier: 'IssueTaskCreated',
+  description: 'The new worktree and its agent, and whether the issue was marked in progress.',
 });
 
 // ── The brainstorm chat (spec 013) ─────────────────────────────────────────────────────────
@@ -857,13 +892,13 @@ const issues = HttpApiGroup.make('issues')
       OpenApi.annotations({
         summary: "List a project's issues",
         description:
-          "The open Gitea issues of the project's `origin` repository, each with its suggested branch and the worktrees and agents that work on it.",
+          "The open Gitea issues of the project's `origin` repository, each with its suggested branch, the worktrees and agents that work on it, and whether it is in progress.",
       }),
     ),
     HttpApiEndpoint.post('implement', '/projects/:project/issues/:number/implement', {
       params: { ...project, number: IssueNumberParam },
       payload: ImplementIssueRequest,
-      success: TaskCreated.pipe(HttpApiSchema.status(201)),
+      success: IssueTaskCreated.pipe(HttpApiSchema.status(201)),
       error: [
         Problems.NotFound,
         Problems.Conflict,
@@ -874,7 +909,7 @@ const issues = HttpApiGroup.make('issues')
       OpenApi.annotations({
         summary: 'Implement an issue with Claude',
         description:
-          'Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt.',
+          'Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt. Then it adds the `status/in-progress` label to the issue, creating the label when the repository has none; a failed label write leaves the task started and is reported in `markNote`.',
       }),
     ),
     HttpApiEndpoint.post('close', '/projects/:project/issues/:number/close', {
@@ -965,12 +1000,64 @@ const brainstorm = HttpApiGroup.make('brainstorm')
     }),
   );
 
+export const ImageUpload = Schema.Uint8Array.pipe(
+  HttpApiSchema.asUint8Array({ contentType: 'application/octet-stream' }),
+).annotate({
+  identifier: 'ImageUpload',
+  description: 'One JPEG or PNG image of at most 10 MB, as the raw bytes.',
+  examples: [],
+});
+
+export const UploadedImage = Schema.Struct({ id: ImageId }).annotate({
+  identifier: 'UploadedImage',
+  description: 'The uploaded image, by the id a prompt attaches it with.',
+});
+
+const ImageBytes = Schema.Uint8Array.pipe(
+  HttpApiSchema.asUint8Array({ contentType: 'image/jpeg' }),
+).annotate({ description: 'The image, as `image/jpeg` or `image/png`.', examples: [] });
+
+const images = HttpApiGroup.make('images')
+  .add(
+    HttpApiEndpoint.post('upload', '/images', {
+      payload: ImageUpload,
+      success: UploadedImage.pipe(HttpApiSchema.status(201)),
+      error: [Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Upload an image',
+        description:
+          'Keeps one JPEG or PNG image, checked by its content, under an id the server makes. A prompt or a task attaches it by that id.',
+      }),
+    ),
+    HttpApiEndpoint.get('read', '/images/:image', {
+      params: { image: ImageId },
+      success: ImageBytes,
+      error: Problems.NotFound,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Read an image',
+        description: 'An uploaded image, with its own content type. Images go after 30 days.',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Images',
+      description: 'Images the owner attaches to a prompt or a task.',
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
   .add(tasks)
   .add(issues)
   .add(brainstorm)
+  .add(images)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

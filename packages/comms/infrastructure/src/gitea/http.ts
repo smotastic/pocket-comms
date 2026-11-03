@@ -4,7 +4,14 @@ import {
   GiteaUnavailableError,
   IssueNotFoundError,
 } from '@pocket-comms/comms-application';
-import { parseRemote, type GiteaRepository, type Issue } from '@pocket-comms/comms-domain';
+import {
+  IN_PROGRESS_LABEL,
+  IN_PROGRESS_LABEL_STYLE,
+  isInProgressLabel,
+  parseRemote,
+  type GiteaRepository,
+  type Issue,
+} from '@pocket-comms/comms-domain';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
@@ -13,8 +20,10 @@ import * as Redacted from 'effect/Redacted';
 import * as Schema from 'effect/Schema';
 
 // Gitea's REST API (`/api/v1`). It reads with `GET`, and writes only the `PATCH` that closes an
-// issue (spec 010) and the `POST` that creates one (spec 013). The token travels in the `Authorization` header and nowhere else; no
-// reason, log line or span carries it (spec 006, requirement 2).
+// issue (spec 010), the `POST` that creates one (spec 013), and the `POST`s that create the
+// in-progress label and add it to an issue (spec 015). It never replaces or removes labels. The
+// token travels in the `Authorization` header and nowhere else; no reason, log line or span
+// carries it (spec 006, requirement 2).
 
 export interface HttpOptions {
   /** The Gitea server, such as `http://localhost:3000`. */
@@ -29,6 +38,7 @@ export interface HttpOptions {
 
 const PAGE_SIZE = 50;
 const MAX_ISSUES = 500;
+const MAX_LABEL_PAGES = 10;
 
 const GiteaIssue = Schema.Struct({
   number: Schema.Int,
@@ -40,6 +50,9 @@ const GiteaIssue = Schema.Struct({
   labels: Schema.optional(Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String })))),
   pull_request: Schema.optional(Schema.NullOr(Schema.Unknown)),
 });
+const GiteaLabel = Schema.Struct({ id: Schema.Int, name: Schema.String });
+const decodeLabel = Schema.decodeUnknownEffect(GiteaLabel);
+const decodeLabels = Schema.decodeUnknownEffect(Schema.Array(GiteaLabel));
 const decodeIssue = Schema.decodeUnknownEffect(GiteaIssue);
 const decodeIssues = Schema.decodeUnknownEffect(Schema.Array(GiteaIssue));
 
@@ -194,6 +207,57 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
       }),
     );
 
+  const json = (response: Response) =>
+    Effect.tryPromise({ try: () => response.json() as Promise<unknown>, catch: unknownShape });
+
+  // The id of the repository's in-progress label, found by name in any case or else created.
+  const inProgressLabel = (repository: GiteaRepository) =>
+    Effect.gen(function* () {
+      for (let page = 1; page <= MAX_LABEL_PAGES; page += 1) {
+        const answer = yield* get(
+          `${repositoryPath(repository)}/labels?limit=${PAGE_SIZE}&page=${page}`,
+        );
+        if (answer === undefined) {
+          return yield* unavailable(
+            `Gitea has no repository ${repository.owner}/${repository.name}, or the token cannot read it.`,
+          );
+        }
+        const labels = yield* decodeLabels(answer).pipe(Effect.mapError(unknownShape));
+        const found = labels.find((label) => isInProgressLabel(label.name));
+        if (found !== undefined) return found.id;
+        if (labels.length < PAGE_SIZE) break;
+      }
+      const created = yield* send('POST', `${repositoryPath(repository)}/labels`, {
+        name: IN_PROGRESS_LABEL,
+        ...IN_PROGRESS_LABEL_STYLE,
+      });
+      if (created === undefined) {
+        return yield* unavailable(
+          `Gitea has no repository ${repository.owner}/${repository.name}, or the token cannot write to it.`,
+        );
+      }
+      const label = yield* json(created).pipe(
+        Effect.flatMap((body) => decodeLabel(body).pipe(Effect.mapError(unknownShape))),
+      );
+      return label.id;
+    });
+
+  // Adding with `POST` keeps the issue's other labels; a `PUT` would replace them.
+  const markInProgress = (repository: GiteaRepository, number: number) =>
+    Effect.gen(function* () {
+      const id = yield* inProgressLabel(repository);
+      const answer = yield* send('POST', `${repositoryPath(repository)}/issues/${number}/labels`, {
+        labels: [id],
+      });
+      if (answer === undefined) return yield* new IssueNotFoundError({ number });
+      // Gitea answers with the issue's labels, which the app does not need.
+      yield* Effect.promise(() => answer.body?.cancel() ?? Promise.resolve());
+    }).pipe(
+      Effect.withSpan('Gitea.markInProgress', {
+        attributes: { owner: repository.owner, repository: repository.name, number },
+      }),
+    );
+
   const repositoryOf = (remoteUrl: string) => {
     const remote = parseRemote(remoteUrl);
     return remote === undefined || !ownHosts.has(remote.host)
@@ -207,6 +271,6 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
 
   return Layer.succeed(
     GiteaOutbound,
-    GiteaOutbound.of({ repositoryOf, openIssues, issue, closeIssue, createIssue }),
+    GiteaOutbound.of({ repositoryOf, openIssues, issue, closeIssue, markInProgress, createIssue }),
   );
 };

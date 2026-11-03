@@ -12,6 +12,8 @@ export const ICON_NAMES = [
   'menu',
   'trash',
   'brainstorm',
+  'image',
+  'retry',
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -31,6 +33,10 @@ const PATHS: Readonly<Record<IconName, string>> = {
   trash: 'M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6',
   // A light bulb, for an idea to think through.
   brainstorm: 'M9 18h6M10 21h4M9 15c0-1-.4-1.8-1.1-2.6a6 6 0 1 1 8.2 0c-.7.8-1.1 1.6-1.1 2.6z',
+  // A framed picture with a hill and a sun, for attaching an image.
+  image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9.5h.01',
+  // A circling arrow, for trying again.
+  retry: 'M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5',
 };
 
 /** An icon that only decorates: its button or link carries the name. */

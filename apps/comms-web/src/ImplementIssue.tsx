@@ -16,6 +16,7 @@ import {
   type IssueView,
   type TaskCreatedView,
 } from './comms-client.js';
+import { withMarkNote } from './issue-groups.js';
 
 export interface ImplementIssueProps {
   readonly client: CommsClient;
@@ -35,7 +36,7 @@ const ImplementForm = ({
   const [branch, setBranch] = useState(issue.branch);
   const start = useMutation({
     mutationFn: () => client.implementIssue(project, issue.number, branch),
-    onSuccess: onStarted,
+    onSuccess: (created) => onStarted(withMarkNote(created)),
   });
   const issues = start.error instanceof RequestError ? start.error.issues : [];
   const branchIssue = issues.find((each) => each.field === 'branch')?.message;
