@@ -16,7 +16,7 @@ in the task's own commit.
       project
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T03** — `ConversationMenu`: More in the conversation's top bar on every header state, with
+- [x] **T03** — `ConversationMenu`: More in the conversation's top bar on every header state, with
       Brainstorm with Pi and, for a closable agent, Close &lt;agent&gt;; each entry closes More
       first; the close tests go through More
   - Gate: `pnpm nx test comms-web`

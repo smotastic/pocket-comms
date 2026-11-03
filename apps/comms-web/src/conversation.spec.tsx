@@ -34,6 +34,13 @@ const open = (agent = fakeAgent({ status: 'working' }), extra: { screen?: string
   return { ...fake, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
 };
 
+/** Opens the top bar's More sheet. */
+const openMore = async () => {
+  const banner = await screen.findByRole('banner');
+  await userEvent.click(within(banner).getByRole('button', { name: 'More' }));
+  return screen.findByRole('dialog', { name: 'More' });
+};
+
 describe('the conversation', () => {
   it('renders the session as a chat', async () => {
     open();
@@ -279,13 +286,33 @@ describe('closing an agent', () => {
   it('offers no Close for an agent in a main checkout', async () => {
     open(fakeAgent());
     await screen.findByText('Fix the failing test');
+    const more = await openMore();
 
+    expect(within(more).getAllByRole('button')).toEqual([
+      within(more).getByRole('button', { name: 'Close' }),
+      within(more).getByRole('button', { name: 'Brainstorm with Pi' }),
+    ]);
     expect(screen.queryByRole('button', { name: 'Close kirk' })).toBeNull();
+  });
+
+  it('offers Brainstorm with Pi before Close, and closes More before asking', async () => {
+    openWorktree();
+    const more = await openMore();
+
+    expect(within(more).getAllByRole('button')).toEqual([
+      within(more).getByRole('button', { name: 'Close' }),
+      within(more).getByRole('button', { name: 'Brainstorm with Pi' }),
+      within(more).getByRole('button', { name: 'Close kirk' }),
+    ]);
+    await userEvent.click(within(more).getByRole('button', { name: 'Close kirk' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Close kirk' })).toBeDefined();
+    expect(screen.queryByRole('dialog', { name: 'More' })).toBeNull();
   });
 
   it('closes the worktree after the confirmation and goes back', async () => {
     const fake = openWorktree();
-    await userEvent.click(await screen.findByRole('button', { name: 'Close kirk' }));
+    await userEvent.click(within(await openMore()).getByRole('button', { name: 'Close kirk' }));
     const sheet = await screen.findByRole('dialog', { name: 'Close kirk' });
 
     expect(within(sheet).getByText(/removes the worktree feature/u)).toBeDefined();
@@ -301,7 +328,7 @@ describe('closing an agent', () => {
       worktreeAgent({ ref: 'spock', name: 'spock', paneId: 'w1:p2' }),
       fakeAgent({ ref: 'uhura', name: 'uhura', paneId: 'w9:p1' }),
     ]);
-    await userEvent.click(await screen.findByRole('button', { name: 'Close kirk' }));
+    await userEvent.click(within(await openMore()).getByRole('button', { name: 'Close kirk' }));
     const sheet = await screen.findByRole('dialog', { name: 'Close kirk' });
 
     expect(await within(sheet).findByText(/spock closes too/u)).toBeDefined();
@@ -313,7 +340,7 @@ describe('closing an agent', () => {
     fake.state.closeAgentFailures = [
       new RequestError('The worktree has changes.', 409, [], 'worktree-has-changes'),
     ];
-    await userEvent.click(await screen.findByRole('button', { name: 'Close kirk' }));
+    await userEvent.click(within(await openMore()).getByRole('button', { name: 'Close kirk' }));
     const sheet = await confirm('Close worktree');
 
     expect(await within(sheet).findByText(/changes that are not committed/u)).toBeDefined();
@@ -336,11 +363,58 @@ describe('closing an agent', () => {
         'worktree-not-removed',
       ),
     ];
-    await userEvent.click(await screen.findByRole('button', { name: 'Close kirk' }));
+    await userEvent.click(within(await openMore()).getByRole('button', { name: 'Close kirk' }));
     const sheet = await confirm('Close worktree');
 
     expect(await within(sheet).findByText(/worktree is locked/u)).toBeDefined();
     expect(within(sheet).getByRole('button', { name: 'Close worktree' })).toBeDefined();
     expect(fake.router.state.location.pathname).toBe('/agents/kirk');
+  });
+});
+
+describe('the More menu', () => {
+  it('holds the brainstorm chat and leaves the top bar to the agent', async () => {
+    open(fakeAgent({ workspace: 'feature', worktree: 'feature' }));
+    const banner = await screen.findByRole('banner');
+    await screen.findByText('Fix the failing test');
+
+    expect(within(banner).queryByRole('button', { name: 'Brainstorm' })).toBeNull();
+    expect(within(banner).queryByRole('button', { name: 'Close kirk' })).toBeNull();
+    await userEvent.click(
+      within(await openMore()).getByRole('button', { name: 'Brainstorm with Pi' }),
+    );
+
+    expect(await screen.findByRole('dialog', { name: 'Brainstorm' })).toBeDefined();
+    expect(screen.queryByRole('dialog', { name: 'More' })).toBeNull();
+  });
+
+  it('shows while the agent loads and when it is gone', async () => {
+    const fake = fakeClient();
+    renderApp({
+      client: { ...fake.client, agent: () => new Promise(() => undefined) },
+      path: '/agents/kirk',
+    });
+    await screen.findByText('Loading the agent…');
+    expect(
+      within(await openMore()).getByRole('button', { name: 'Brainstorm with Pi' }),
+    ).toBeDefined();
+    cleanup();
+
+    renderApp({ client: fakeClient().client, path: '/agents/nobody' });
+    await screen.findByText('nobody is not running any more.');
+    expect(
+      within(await openMore()).getByRole('button', { name: 'Brainstorm with Pi' }),
+    ).toBeDefined();
+  });
+
+  it('closes without doing anything', async () => {
+    const fake = open(fakeAgent({ workspace: 'feature', worktree: 'feature' }));
+    const more = await openMore();
+    await userEvent.click(within(more).getByRole('button', { name: 'Close' }));
+
+    expect(screen.queryByRole('dialog', { name: 'More' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Brainstorm' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Close kirk' })).toBeNull();
+    expect(fake.calls.closedAgents).toEqual([]);
   });
 });
