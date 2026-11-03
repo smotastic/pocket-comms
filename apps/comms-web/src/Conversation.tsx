@@ -19,7 +19,6 @@ import {
 } from '@pocket-comms/design-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { ConversationMenu } from './brainstorm-placement.prototype.js';
 import type { AgentView, CommsClient, Key, TranscriptView } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { CloseAgent } from './CloseAgent.js';
@@ -140,11 +139,9 @@ const Header = ({
               onChange={(value) => onView(value === 'screen' ? 'screen' : 'chat')}
             />
           )}
-          <ConversationMenu
-            {...(agent?.worktree === undefined || onClose === undefined
-              ? {}
-              : { close: { label: `Close ${agent.ref}`, onClose } })}
-          />
+          {agent?.worktree === undefined || onClose === undefined ? null : (
+            <IconButton icon="trash" label={`Close ${agent.ref}`} onClick={onClose} />
+          )}
         </>
       }
     />

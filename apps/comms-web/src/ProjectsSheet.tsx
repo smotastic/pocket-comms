@@ -13,7 +13,6 @@ import {
 } from '@pocket-comms/design-ui';
 import { useQueries, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useState } from 'react';
-import { BrainstormMenuEntry } from './brainstorm-placement.prototype.js';
 import type {
   CommsClient,
   IssueListView,
@@ -334,7 +333,6 @@ export const ProjectsSheet = ({
       </SheetHeader>
     }
   >
-    <BrainstormMenuEntry />
     {projectsError !== undefined ? (
       <Alert>{projectsError}</Alert>
     ) : projects === undefined ? (

@@ -13,7 +13,6 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AgentItem } from './AgentItem.js';
-import { BrainstormHeaderAction, PlacementSwitcher } from './brainstorm-placement.prototype.js';
 import type { AgentView, CommsClient } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { overviewQuery, projectsQuery } from './comms-queries.js';
@@ -102,12 +101,7 @@ export const Overview = ({ client, onOpen, onProject, onStarted }: OverviewProps
       <TopBar
         title="pocket-comms"
         subtitle={<LiveIndicator live={live} label={live ? 'Mac mini · live' : 'Connecting…'} />}
-        end={
-          <>
-            <BrainstormHeaderAction />
-            <IconButton icon="menu" label="Projects" onClick={() => setProjectsOpen(true)} />
-          </>
-        }
+        end={<IconButton icon="menu" label="Projects" onClick={() => setProjectsOpen(true)} />}
       />
       <ProjectsSheet
         client={client}
@@ -126,7 +120,6 @@ export const Overview = ({ client, onOpen, onProject, onStarted }: OverviewProps
       />
       <Page>
         <Stack gap="lg">
-          <PlacementSwitcher />
           {herdrAway === undefined ? null : (
             <Alert>Herdr is not running. The app keeps trying. ({herdrAway})</Alert>
           )}
