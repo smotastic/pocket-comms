@@ -30,7 +30,7 @@ in the task's own commit.
       subscriptions kept, atomic writes, a broken file reported)
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T06** — Infrastructure: the `web-push` sender (`TTL`, `Urgency`, `404`/`410` as `Gone`)
+- [x] **T06** — Infrastructure: the `web-push` sender (`TTL`, `Urgency`, `404`/`410` as `Gone`)
       against a local fake push endpoint
   - Gate: `pnpm nx test comms-infrastructure`
 

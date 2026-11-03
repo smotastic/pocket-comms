@@ -65,5 +65,5 @@ None. Comms has no database; the two new files live in `COMMS_STATE_DIR/push/`.
   keep it bounded; filters are a later spec if needed.
 - **Herdr restart.** Agents that reappear after Herdr restarts count as new, and one that comes
   back blocked notifies once. Accepted: it is rare and the notification is still true.
-- **New dependency.** `web-push` (MIT, no native code) is the only addition. It is a library in
+- **New dependency.** `web-push` (MPL-2.0, five small dependencies, no native code) is the only addition. It is a library in
   one adapter behind a port, not an architecture decision, so no ADR.
