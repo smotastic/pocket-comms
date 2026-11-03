@@ -1,6 +1,285 @@
 {
   "components": {
     "schemas": {
+      "Activity": {
+        "additionalProperties": false,
+        "description": "What happened across the agents.",
+        "properties": {
+          "events": {
+            "description": "The newest 100 events of the last 24 hours, newest first.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/ActivityEvent"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["events"],
+        "type": "object"
+      },
+      "ActivityAgent": {
+        "additionalProperties": false,
+        "description": "The agent an event is about, as it was when the event happened.",
+        "examples": [
+          {
+            "name": "kirk",
+            "paneId": "wJ:p1",
+            "project": "pocket-home",
+            "ref": "kirk",
+            "workspace": "ingestor-mvp",
+            "worktree": "ingestor-mvp"
+          }
+        ],
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The agent's Herdr name.",
+            "examples": ["kirk"]
+          },
+          "paneId": {
+            "description": "The agent's Herdr pane.",
+            "examples": ["wJ:p1"],
+            "type": "string"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The repository of the agent's workspace.",
+            "examples": ["pocket-home"]
+          },
+          "ref": {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "examples": ["kirk-ingestor-mvp"],
+            "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+            "type": "string"
+          },
+          "workspace": {
+            "description": "The label of the agent's Herdr workspace.",
+            "examples": ["ingestor-mvp"],
+            "type": "string"
+          },
+          "worktree": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The workspace label of a linked worktree; missing for a main checkout.",
+            "examples": ["ingestor-mvp"]
+          }
+        },
+        "required": ["ref", "paneId", "workspace"],
+        "type": "object"
+      },
+      "ActivityEncoded": {
+        "contentMediaType": "application/json",
+        "description": "The event as JSON.",
+        "examples": ["{\"events\":[]}"],
+        "type": "string"
+      },
+      "ActivityEvent": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent": {
+                "$ref": "#/components/schemas/ActivityAgent"
+              },
+              "at": {
+                "description": "When it happened, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the event.",
+                "examples": ["0c6f5bd2-5a3e-4f7a-9d61-1f0f6f1c2a3b"],
+                "type": "string"
+              },
+              "live": {
+                "description": "Whether the agent still runs, so its conversation can open.",
+                "examples": [true],
+                "type": "boolean"
+              },
+              "type": {
+                "description": "A new agent showed up in Herdr.",
+                "enum": ["appeared"],
+                "examples": ["appeared"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "agent", "live"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent": {
+                "$ref": "#/components/schemas/ActivityAgent"
+              },
+              "at": {
+                "description": "When it happened, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the event.",
+                "examples": ["0c6f5bd2-5a3e-4f7a-9d61-1f0f6f1c2a3b"],
+                "type": "string"
+              },
+              "live": {
+                "description": "Whether the agent still runs, so its conversation can open.",
+                "examples": [true],
+                "type": "boolean"
+              },
+              "type": {
+                "description": "The agent left Herdr.",
+                "enum": ["gone"],
+                "examples": ["gone"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "agent", "live"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent": {
+                "$ref": "#/components/schemas/ActivityAgent"
+              },
+              "at": {
+                "description": "When it happened, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the event.",
+                "examples": ["0c6f5bd2-5a3e-4f7a-9d61-1f0f6f1c2a3b"],
+                "type": "string"
+              },
+              "live": {
+                "description": "Whether the agent still runs, so its conversation can open.",
+                "examples": [true],
+                "type": "boolean"
+              },
+              "status": {
+                "description": "The status the agent changed to.",
+                "enum": ["working", "blocked", "done"],
+                "examples": ["done"],
+                "type": "string"
+              },
+              "type": {
+                "description": "The agent started working, needs the owner, or finished.",
+                "enum": ["status"],
+                "examples": ["status"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "agent", "live", "status"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent": {
+                "$ref": "#/components/schemas/ActivityAgent"
+              },
+              "at": {
+                "description": "When it happened, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "excerpt": {
+                "description": "The prompt's first line, at most 80 characters; empty for images only.",
+                "examples": ["Fix the failing test"],
+                "type": "string"
+              },
+              "id": {
+                "description": "The id of the event.",
+                "examples": ["0c6f5bd2-5a3e-4f7a-9d61-1f0f6f1c2a3b"],
+                "type": "string"
+              },
+              "images": {
+                "description": "How many images were attached.",
+                "examples": [0],
+                "type": "integer"
+              },
+              "live": {
+                "description": "Whether the agent still runs, so its conversation can open.",
+                "examples": [true],
+                "type": "boolean"
+              },
+              "type": {
+                "description": "The owner sent a prompt from the app.",
+                "enum": ["prompt"],
+                "examples": ["prompt"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "agent", "live", "excerpt", "images"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent": {
+                "$ref": "#/components/schemas/ActivityAgent"
+              },
+              "at": {
+                "description": "When it happened, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the event.",
+                "examples": ["0c6f5bd2-5a3e-4f7a-9d61-1f0f6f1c2a3b"],
+                "type": "string"
+              },
+              "keys": {
+                "description": "The keys, in order.",
+                "examples": [["enter"]],
+                "items": {
+                  "description": "One key.",
+                  "enum": ["1", "2", "3", "up", "down", "enter", "esc", "ctrl+c"],
+                  "examples": ["enter"],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "live": {
+                "description": "Whether the agent still runs, so its conversation can open.",
+                "examples": [true],
+                "type": "boolean"
+              },
+              "type": {
+                "description": "The owner sent keys from the app, such as an approval.",
+                "enum": ["keys"],
+                "examples": ["keys"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "agent", "live", "keys"],
+            "type": "object"
+          }
+        ],
+        "description": "One event of the activity timeline."
+      },
       "Agent": {
         "additionalProperties": false,
         "description": "A live agent.",
@@ -1679,6 +1958,164 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/activity": {
+      "get": {
+        "description": "What happened across the agents: new and gone agents, status changes, and the prompts and keys sent from the app.",
+        "operationId": "activity.activity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Activity"
+                }
+              }
+            },
+            "description": "What happened across the agents."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Read the activity timeline",
+        "tags": ["Activity"]
+      }
+    },
+    "/api/v1/activity/events": {
+      "get": {
+        "description": "Server-sent events: the timeline at once and after every change.",
+        "operationId": "activity.events",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ActivityEncoded"
+                    },
+                    "event": {
+                      "description": "The event name.",
+                      "enum": ["activity"],
+                      "examples": ["activity"],
+                      "type": "string"
+                    }
+                  },
+                  "required": ["event", "data"],
+                  "type": "object"
+                },
+                "x-effect-stream": {
+                  "causeSchema": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Fail"],
+                              "type": "string"
+                            },
+                            "error": {
+                              "not": {}
+                            }
+                          },
+                          "required": ["_tag", "error"],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Die"],
+                              "type": "string"
+                            },
+                            "defect": {}
+                          },
+                          "required": ["_tag", "defect"],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "_tag": {
+                              "enum": ["Interrupt"],
+                              "type": "string"
+                            },
+                            "fiberId": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": ["_tag", "fiberId"],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "type": "array"
+                  },
+                  "encoding": "sse",
+                  "errorSchema": {
+                    "not": {}
+                  },
+                  "failureEvent": "effect/http-api/stream/failure"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Follow the activity timeline",
+        "tags": ["Activity"]
+      }
+    },
     "/api/v1/agents": {
       "get": {
         "description": "Every live agent: Needs you first, then the rest by repository.",
@@ -3723,6 +4160,10 @@
     {
       "description": "Images the owner attaches to a prompt or a task.",
       "name": "Images"
+    },
+    {
+      "description": "A timeline of what happened across the agents.",
+      "name": "Activity"
     }
   ]
 }

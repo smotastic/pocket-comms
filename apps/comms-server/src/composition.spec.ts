@@ -92,6 +92,13 @@ describe('the composed server', () => {
     });
   });
 
+  it('serves an empty activity timeline while Herdr is away', async () => {
+    const response = await serve()('/api/v1/activity');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ events: [] });
+  });
+
   it('is not ready while Herdr is away', async () => {
     expect((await serve()('/health/ready')).status).toBe(503);
   });

@@ -9,6 +9,7 @@ import type {
   TranscriptView,
 } from './comms-client.js';
 import {
+  activityKey,
   agentKey,
   brainstormKey,
   overviewKey,
@@ -59,6 +60,18 @@ export const useOverviewLive = (client: CommsClient) => {
     [client, queryClient],
   );
   return { live, unavailable };
+};
+
+/** Follows the activity timeline's stream into the query cache while the page is shown. */
+export const useActivityLive = (client: CommsClient) => {
+  const queryClient = useQueryClient();
+  const [live, setLive] = useState(false);
+  useEffect(
+    () =>
+      client.followActivity((activity) => queryClient.setQueryData(activityKey, activity), setLive),
+    [client, queryClient],
+  );
+  return { live };
 };
 
 /** Follows one agent's stream into the query cache: the agent, and its conversation entries. */

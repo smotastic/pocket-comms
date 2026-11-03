@@ -118,6 +118,24 @@ describe('AgentRow', () => {
     expect(link().classList).toContain(styles[attention]);
   });
 
+  it('is a plain row without a link', () => {
+    const { container } = render(
+      <AgentRow
+        status={{ tone: 'idle', label: 'Gone' }}
+        name="kirk"
+        project="pocket-comms"
+        title="Gone"
+        since="2h"
+      />,
+    );
+    expect(screen.queryByRole('link')).toBeNull();
+    const plain = container.firstElementChild;
+    expect(plain?.tagName).toBe('DIV');
+    expect(plain?.classList).toContain(styles.row);
+    expect(plain?.classList).not.toContain(styles.link);
+    expect(plain?.textContent).toMatch(/kirk.*Gone.*pocket-comms.*Gone.*2h/);
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = row({
       attention: 'blocked',

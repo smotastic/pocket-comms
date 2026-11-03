@@ -1,4 +1,5 @@
 import {
+  Activity,
   type Agent,
   type AGENTS_TO_START,
   AgentEvent,
@@ -28,6 +29,8 @@ import { FetchHttpClient } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
 
 export type AgentView = typeof Agent.Type;
+export type ActivityView = typeof Activity.Type;
+export type ActivityEventView = ActivityView['events'][number];
 export type OverviewView = typeof Overview.Type;
 export type OverviewStateView = typeof OverviewState.Type;
 export type TranscriptView = typeof Transcript.Type;
@@ -96,6 +99,12 @@ export interface CommsClient {
   readonly resetBrainstorm: () => Promise<void>;
   readonly followBrainstorm: (
     onEvent: (event: BrainstormEventView) => void,
+    onLive: OnLive,
+  ) => Unsubscribe;
+  /** The activity timeline across the agents (spec 017). */
+  readonly activity: () => Promise<ActivityView>;
+  readonly followActivity: (
+    onActivity: (activity: ActivityView) => void,
     onLive: OnLive,
   ) => Unsubscribe;
   readonly followOverview: (
@@ -287,6 +296,9 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     resetBrainstorm: () => run((api) => api.brainstorm.reset()).then(() => undefined),
     followBrainstorm: (onEvent, onLive) =>
       follow(`${baseUrl}/api/v1/brainstorm/events`, 'brainstorm', BrainstormEvent, onEvent, onLive),
+    activity: () => run((api) => api.activity.activity()),
+    followActivity: (onActivity, onLive) =>
+      follow(`${baseUrl}/api/v1/activity/events`, 'activity', Activity, onActivity, onLive),
     followOverview: (onState, onLive) =>
       follow(`${baseUrl}/api/v1/events`, 'overview', OverviewState, onState, onLive),
     followAgent: (ref, onEvent, onLive) =>

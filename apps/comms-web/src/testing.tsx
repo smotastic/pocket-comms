@@ -3,6 +3,7 @@ import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { configure, render } from '@testing-library/react';
 import {
   RequestError,
+  type ActivityView,
   type AgentEventView,
   type AgentView,
   type BrainstormEventView,
@@ -72,11 +73,13 @@ export interface FakeState {
   brainstorm: BrainstormStateView;
   /** A failure for the next brainstorm message or decision, as the server would report it. */
   brainstormFailure?: RequestError;
+  /** The activity timeline as the server holds it, newest first. */
+  activity: ActivityView;
 }
 
 /**
- * A stand-in for the API that records every command. `emitOverview` and `emitAgent` push live
- * events to the screens that follow them.
+ * A stand-in for the API that records every command. `emitOverview`, `emitAgent`,
+ * `emitBrainstorm` and `emitActivity` push live events to the screens that follow them.
  */
 export const fakeClient = (initial: Partial<FakeState> = {}) => {
   const state: FakeState = {
@@ -94,6 +97,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
     closeAgentFailures: [],
     brainstorm: { _tag: 'Ready', entries: [], answering: false, live: '' },
+    activity: { events: [] },
     ...initial,
   };
   const calls = {
@@ -118,6 +122,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     if (failure !== undefined) throw failure;
   };
   const overviewFollowers = new Set<(state: OverviewStateView) => void>();
+  const activityFollowers = new Set<(activity: ActivityView) => void>();
   const agentFollowers = new Map<string, Set<(event: AgentEventView) => void>>();
   const subagentFollowers = new Map<string, Set<(event: SubagentEventView) => void>>();
 
@@ -205,6 +210,12 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       onLive(true);
       return () => brainstormFollowers.delete(onEvent);
     },
+    activity: async () => state.activity,
+    followActivity: (onActivity, onLive) => {
+      activityFollowers.add(onActivity);
+      onLive(true);
+      return () => activityFollowers.delete(onActivity);
+    },
     followOverview: (onState, onLive) => {
       overviewFollowers.add(onState);
       onLive(true);
@@ -238,6 +249,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       subagentFollowers.get(`${ref}/${id}`)?.forEach((follow) => follow(event)),
     emitBrainstorm: (event: BrainstormEventView) =>
       brainstormFollowers.forEach((follow) => follow(event)),
+    emitActivity: (next: ActivityView) => activityFollowers.forEach((follow) => follow(next)),
   };
 };
 

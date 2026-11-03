@@ -42,6 +42,8 @@ export interface ProjectsSheetProps {
   readonly onProject: (project: string) => void;
   /** Called once Implement or New task started work in a project. */
   readonly onStarted: (project: string, created: TaskCreatedView) => void;
+  /** Opens the activity timeline. */
+  readonly onActivity: () => void;
 }
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
@@ -234,7 +236,7 @@ const ProjectList = ({
   projects,
   onProject,
   onStarted,
-}: Omit<ProjectsSheetProps, 'open' | 'onClose' | 'projects' | 'projectsError'> & {
+}: Omit<ProjectsSheetProps, 'open' | 'onClose' | 'projects' | 'projectsError' | 'onActivity'> & {
   readonly projects: ReadonlyArray<string>;
 }) => {
   const queryClient = useQueryClient();
@@ -325,14 +327,15 @@ const ProjectList = ({
 };
 
 /**
- * Every project, sliding in from the side. A project opens in place to its open issues, with
- * Implement, New task and a link to its page.
+ * Every project, sliding in from the side, after a link to the activity timeline. A project opens
+ * in place to its open issues, with Implement, New task and a link to its page.
  */
 export const ProjectsSheet = ({
   open,
   onClose,
   projects,
   projectsError,
+  onActivity,
   ...props
 }: ProjectsSheetProps) => (
   <Sheet
@@ -347,12 +350,19 @@ export const ProjectsSheet = ({
       </SheetHeader>
     }
   >
-    {projectsError !== undefined ? (
-      <Alert>{projectsError}</Alert>
-    ) : projects === undefined ? (
-      <Text tone="muted">Loading the projects…</Text>
-    ) : (
-      <ProjectList projects={projects} {...props} />
-    )}
+    <Stack gap="md">
+      <Link href="/activity" onClick={navigateOnPlainClick(onActivity)}>
+        Activity
+      </Link>
+      <div>
+        {projectsError !== undefined ? (
+          <Alert>{projectsError}</Alert>
+        ) : projects === undefined ? (
+          <Text tone="muted">Loading the projects…</Text>
+        ) : (
+          <ProjectList projects={projects} {...props} />
+        )}
+      </div>
+    </Stack>
   </Sheet>
 );

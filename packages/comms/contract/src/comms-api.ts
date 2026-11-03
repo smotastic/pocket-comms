@@ -266,12 +266,12 @@ const Entries = Schema.Array(TranscriptEntry).annotate({
   description: 'Entries, oldest first.',
   examples: [[]],
 });
-const Activity = Schema.String.annotate({
+const CurrentActivity = Schema.String.annotate({
   description: 'What a working agent does now.',
   examples: ['Running pnpm test…'],
 });
 
-export const Transcript = Schema.Struct({ entries: Entries, activity: Activity }).annotate({
+export const Transcript = Schema.Struct({ entries: Entries, activity: CurrentActivity }).annotate({
   identifier: 'Transcript',
   description: 'The latest entries of the agent’s session.',
 });
@@ -291,7 +291,7 @@ export const AgentEvent = Schema.Union([
       examples: [true],
     }),
     entries: Entries,
-    activity: Activity,
+    activity: CurrentActivity,
   }),
 ]).annotate({ identifier: 'AgentEvent', description: 'One update of an open conversation.' });
 
@@ -320,7 +320,7 @@ export const SubagentInfo = Schema.Struct(SubagentFields).annotate({
 export const Subagent = Schema.Struct({
   ...SubagentFields,
   entries: Entries,
-  activity: Activity,
+  activity: CurrentActivity,
 }).annotate({
   identifier: 'Subagent',
   description: 'A subagent of an agent, with the latest entries of its own conversation.',
@@ -344,7 +344,7 @@ export const SubagentEvent = Schema.Union([
       examples: [true],
     }),
     entries: Entries,
-    activity: Activity,
+    activity: CurrentActivity,
   }),
 ]).annotate({
   identifier: 'SubagentEvent',
@@ -376,6 +376,92 @@ export const KeysRequest = Schema.Struct({
     .check(Schema.isMinLength(1), Schema.isMaxLength(8))
     .annotate({ description: 'One to eight keys, pressed in order.', examples: [['1']] }),
 }).annotate({ identifier: 'KeysRequest', description: 'Key presses for the agent.' });
+
+export const ActivityAgent = Schema.Struct({
+  ref: AgentParam,
+  paneId: Schema.String.annotate({ description: "The agent's Herdr pane.", examples: ['wJ:p1'] }),
+  name: optional(Schema.String, { description: "The agent's Herdr name.", examples: ['kirk'] }),
+  workspace: Schema.String.annotate({
+    description: "The label of the agent's Herdr workspace.",
+    examples: ['ingestor-mvp'],
+  }),
+  project: optional(Schema.String, {
+    description: "The repository of the agent's workspace.",
+    examples: ['pocket-home'],
+  }),
+  worktree: optional(Schema.String, {
+    description: 'The workspace label of a linked worktree; missing for a main checkout.',
+    examples: ['ingestor-mvp'],
+  }),
+}).annotate({
+  identifier: 'ActivityAgent',
+  description: 'The agent an event is about, as it was when the event happened.',
+  examples: [
+    {
+      ref: 'kirk',
+      paneId: 'wJ:p1',
+      name: 'kirk',
+      workspace: 'ingestor-mvp',
+      project: 'pocket-home',
+      worktree: 'ingestor-mvp',
+    },
+  ],
+});
+
+const activityFields = {
+  id: Schema.String.annotate({
+    description: 'The id of the event.',
+    examples: ['0c6f5bd2-5a3e-4f7a-9d61-1f0f6f1c2a3b'],
+  }),
+  at: Millis.annotate({ description: 'When it happened, in epoch milliseconds.' }),
+  agent: ActivityAgent,
+  live: Schema.Boolean.annotate({
+    description: 'Whether the agent still runs, so its conversation can open.',
+    examples: [true],
+  }),
+};
+
+const activityType = <T extends string>(type: T, description: string) =>
+  Schema.tag(type).annotate({ description, examples: [type] });
+
+export const ActivityEvent = Schema.Union([
+  Schema.Struct({
+    type: activityType('appeared', 'A new agent showed up in Herdr.'),
+    ...activityFields,
+  }),
+  Schema.Struct({ type: activityType('gone', 'The agent left Herdr.'), ...activityFields }),
+  Schema.Struct({
+    type: activityType('status', 'The agent started working, needs the owner, or finished.'),
+    ...activityFields,
+    status: Schema.Literals(['working', 'blocked', 'done']).annotate({
+      description: 'The status the agent changed to.',
+      examples: ['done'],
+    }),
+  }),
+  Schema.Struct({
+    type: activityType('prompt', 'The owner sent a prompt from the app.'),
+    ...activityFields,
+    excerpt: Schema.String.annotate({
+      description: "The prompt's first line, at most 80 characters; empty for images only.",
+      examples: ['Fix the failing test'],
+    }),
+    images: Schema.Int.annotate({ description: 'How many images were attached.', examples: [0] }),
+  }),
+  Schema.Struct({
+    type: activityType('keys', 'The owner sent keys from the app, such as an approval.'),
+    ...activityFields,
+    keys: Schema.Array(
+      Schema.Literals(KEYS).annotate({ description: 'One key.', examples: ['enter'] }),
+    ).annotate({ description: 'The keys, in order.', examples: [['enter']] }),
+  }),
+]).annotate({ identifier: 'ActivityEvent', description: 'One event of the activity timeline.' });
+
+export const Activity = Schema.Struct({
+  events: Schema.Array(ActivityEvent).annotate({
+    description: 'The newest 100 events of the last 24 hours, newest first.',
+    examples: [[]],
+  }),
+}).annotate({ identifier: 'Activity', description: 'What happened across the agents.' });
 
 export const CloseRequest = Schema.Struct({
   force: optional(Schema.Boolean, {
@@ -1178,6 +1264,36 @@ const images = HttpApiGroup.make('images')
     }),
   );
 
+const activity = HttpApiGroup.make('activity')
+  .add(
+    HttpApiEndpoint.get('activity', '/activity', {
+      success: Activity,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Read the activity timeline',
+        description:
+          'What happened across the agents: new and gone agents, status changes, and the prompts and keys sent from the app.',
+      }),
+    ),
+    HttpApiEndpoint.get('events', '/activity/events', {
+      success: eventStream('activity', Activity, '{"events":[]}'),
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Follow the activity timeline',
+        description: 'Server-sent events: the timeline at once and after every change.',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Activity',
+      description: 'A timeline of what happened across the agents.',
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
@@ -1185,6 +1301,7 @@ export const CommsApi = HttpApi.make('comms')
   .add(issues)
   .add(brainstorm)
   .add(images)
+  .add(activity)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

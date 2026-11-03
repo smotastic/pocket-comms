@@ -38,7 +38,7 @@
   transition-timing-function: var(--motion-easing-standard);
 }
 
-.row:hover {
+.link:hover {
   background: var(--color-bg-neutral-soft);
 }
 

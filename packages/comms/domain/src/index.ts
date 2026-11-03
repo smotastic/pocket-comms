@@ -82,3 +82,19 @@ export {
   type ProposalEntry,
   type ProposalState,
 } from './brainstorm.js';
+export {
+  ACTIVITY_LIMIT,
+  ACTIVITY_WINDOW_MS,
+  activityBetween,
+  activitySubject,
+  EXCERPT_LENGTH,
+  isLiveIn,
+  keepActivity,
+  promptExcerpt,
+  type ActivityChange,
+  type ActivityEvent,
+  type ActivitySubject,
+  type NewActivity,
+  type Observed,
+  type RecordedStatus,
+} from './activity.js';

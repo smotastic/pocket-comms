@@ -150,3 +150,59 @@ describe('AgentsInbound.sendKeys', () => {
     }).pipe(Effect.provide(layer())),
   );
 });
+
+describe('AgentsInbound input in the activity timeline', () => {
+  it.effect('records a prompt Herdr took with its excerpt and images', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+      const bytes = new Uint8Array([0xff, 0xd8, 0xff]);
+      state.images.set('a'.repeat(26), { kind: 'jpeg', bytes, savedAt: 0 });
+
+      yield* AgentsInbound.use((inbound) =>
+        inbound.prompt('kirk', '\nFix the failing test\nand run it', ['a'.repeat(26)]),
+      );
+
+      expect(state.activity).toEqual([
+        {
+          id: expect.any(String),
+          at: expect.any(Number),
+          type: 'prompt',
+          excerpt: 'Fix the failing test',
+          images: 1,
+          agent: {
+            paneId: 'w1:p1',
+            ref: 'kirk',
+            name: 'kirk',
+            workspace: 'app',
+            project: 'app',
+            worktree: undefined,
+          },
+        },
+      ]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('records keys Herdr took', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+
+      yield* AgentsInbound.use((inbound) => inbound.sendKeys('kirk', ['2', 'enter']));
+
+      expect(state.activity).toMatchObject([{ type: 'keys', keys: ['2', 'enter'] }]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('records nothing when Herdr refuses the input', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+      state.rejects.set('w1:p1', 'pane_not_found');
+
+      yield* AgentsInbound.use((inbound) => inbound.prompt('kirk', 'hello')).pipe(Effect.ignore);
+      yield* AgentsInbound.use((inbound) => inbound.sendKeys('kirk', ['enter'])).pipe(
+        Effect.ignore,
+      );
+
+      expect(state.activity).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+});

@@ -1,5 +1,6 @@
 import { commsServerLayer } from '@pocket-comms/comms-api';
 import {
+  ActivityInbound,
   AgentsInbound,
   BrainstormInbound,
   HerdrOutbound,
@@ -8,6 +9,7 @@ import {
   TasksInbound,
 } from '@pocket-comms/comms-application';
 import {
+  Activity,
   Agent,
   Brainstorm,
   Gitea,
@@ -34,7 +36,10 @@ export interface ServerOptions {
   readonly agentArgs: ReadonlyArray<string>;
   /** The Gitea server whose issues the app reads (spec 006). */
   readonly gitea: Gitea.HttpOptions;
-  /** The folder of the server's stored state: the brainstorm chat (spec 013) and images (spec 014). */
+  /**
+   * The folder of the server's stored state: the brainstorm chat (spec 013), images (spec 014) and
+   * the activity timeline (spec 017).
+   */
   readonly stateDir: string;
   /** The brainstorm chat's model (spec 013). */
   readonly pi: Agent.PiOptions;
@@ -43,8 +48,8 @@ export interface ServerOptions {
 
 /**
  * The adapters: Herdr over its socket, session files below `home`, git below `projectsRoot`,
- * Gitea over HTTP, Pi in process, the brainstorm chat and the images in `stateDir`, and memory
- * for the rest.
+ * Gitea over HTTP, Pi in process, the brainstorm chat, the images and the activity timeline in
+ * `stateDir`, and memory for the rest.
  */
 export const services = ({
   socketPath,
@@ -63,6 +68,7 @@ export const services = ({
     Agent.layerPi(pi),
     Brainstorm.layerFile({ folder: stateDir }),
     Images.layerFolder({ stateDir }),
+    Activity.layerFile({ folder: stateDir }),
     Seen.layerMemory,
     StatusHistory.layerMemory,
   );
@@ -85,6 +91,7 @@ export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
       IssuesInbound.layer,
       BrainstormInbound.layer,
       ImagesInbound.layer,
+      ActivityInbound.layer,
     ]),
     Layer.provideMerge(services(adapters)),
   );
