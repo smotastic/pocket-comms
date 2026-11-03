@@ -1,0 +1,14 @@
+{
+  "name": "template",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "tags": ["scope:tools", "type:template"],
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["default"],
+      "cache": true,
+      "options": { "command": "node --test init.test.mjs", "cwd": "{projectRoot}" }
+    }
+  }
+}

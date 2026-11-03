@@ -7,7 +7,8 @@ human-approved specs and automated gates.
 
 Use pnpm. Run `pnpm install` before the first build.
 
-- `pnpm verify:local` — the fast local checks (also the pre-push hook). CI runs the full set.
+- `pnpm verify:local` — the fast local checks (also the pre-push hook). CI runs the full set,
+  `pnpm verify`, from the shared CI package `@smotastic/pocket-ci` (ADR 0013).
 - `pnpm dev` — every app's `dev` target: database, migrations, example data, API and web app.
   `pnpm dev:memory` runs without Docker; `pnpm dev:down` stops the database, `pnpm dev:reset`
   wipes it.
