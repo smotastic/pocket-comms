@@ -3,17 +3,20 @@
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
 them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, it reads,
 closes and marks in progress the projects' Gitea issues, it runs the brainstorm chat with Pi, and it keeps the images
-the owner attaches to a prompt. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
+the owner attaches to a prompt, and it pushes a notification to the owner's devices when an agent
+needs them. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
 [spec 006](../../specs/006-comms-gitea-issues/spec.md),
 [spec 007](../../specs/007-comms-sessions-by-project/spec.md),
 [spec 010](../../specs/010-comms-close-issues/spec.md),
 [spec 011](../../specs/011-comms-close-agent/spec.md),
 [spec 013](../../specs/013-comms-brainstorm-chat/spec.md),
-[spec 014](../../specs/014-comms-images-in-chat/spec.md) and
-[spec 015](../../specs/015-comms-issues-in-progress/spec.md).
+[spec 014](../../specs/014-comms-images-in-chat/spec.md),
+[spec 015](../../specs/015-comms-issues-in-progress/spec.md) and
+[spec 018](../../specs/018-comms-push-notifications/spec.md).
 It has no database. Seen completions and last status changes live in server memory; the brainstorm
-chat is one JSON file in the state folder, attached images are files in its `images` folder.
+chat is one JSON file in the state folder, attached images are files in its `images` folder, and
+the push devices and the VAPID key pair are two JSON files in its `push` folder.
 
 ## Where each file type goes
 
@@ -26,6 +29,9 @@ chat is one JSON file in the state folder, attached images are files in its `ima
 | Brainstorm entries, proposals, issue drafts, project docs           | `domain` (`src/brainstorm.ts`)                              |
 | Image rules (kinds, ids, limits, paths in a prompt)                 | `domain` (`src/image.ts`)                                   |
 | The image store                                                     | `infrastructure` (`src/images`)                             |
+| When an agent notifies, the notification's text                     | `domain` (`src/notification.ts`)                            |
+| The push watcher, subscribe and unsubscribe                         | `application` (`src/use-cases/notify*`, `push*`)            |
+| The push devices and keys, the Web Push sender                      | `infrastructure` (`src/push`)                               |
 | Pi's tools and instructions, the brainstorm turns                   | `application` (`src/tools`, `src/use-cases/brainstorm*`)    |
 | Pi's runtime and login, the chat file                               | `infrastructure` (`src/agent`, `src/brainstorm`)            |
 | `AgentsInbound`, `TasksInbound`, `IssuesInbound`, ports, use cases  | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
@@ -71,6 +77,13 @@ chat is one JSON file in the state folder, attached images are files in its `ima
   names every file itself (`<id>.<ext>`), opens only names of that shape that are plain files, and
   an image id from a request is only ever looked up, never joined into a path. The server checks
   an upload by its content (JPEG or PNG), never by its name or declared type.
+- Only `infrastructure/src/push` imports `web-push`. The VAPID private key stays between the push
+  store and the sender (`Push.layer` puts out the three ports only); never log it, put it in an
+  error or send it to the browser. A device's endpoint is its address: keep it out of logs too.
+  A broken `push/` file is reported, never replaced, because new keys end every subscription.
+- A push carries only the agent's name, its project and at most 120 characters of its question
+  or last message. Every push must show a notification on the device (the service worker in
+  `apps/comms-web/public/sw.js` never skips one), or the browser drops the subscription.
 - After a contract change run `pnpm nx run comms-server:openapi` and commit the document.
 
 ## Run and test
