@@ -1,0 +1,69 @@
+# Plan 018 — pocket-comms: push notifications when an agent needs you
+
+- **Spec:** [spec.md](./spec.md)
+- **Status:** `Approved` — approved by the owner together with the spec (2026-11-03)
+
+## 1. Affected projects
+
+| Path                            | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Nx tags                               |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `packages/comms/domain`         | New `src/notification.ts`: the pure rules. `watchStep(previous, snapshot, seen)` compares two readings and returns the pending changes (blocked, or done with a completion key); the first reading only sets the baseline (requirement 3). `stillHolds(change, agent, seen)` is the 10 s check (requirement 4). `notificationOf(agent, project, excerpt)` builds title, body (cut to 120 characters), `tag` (the pane id) and the conversation URL (requirements 7–9). `PushSubscription` schema (endpoint, `p256dh`, `auth`).                                                                                                                                                                                                                 | `scope:comms`, `layer:domain`         |
+| `packages/comms/application`    | Ports: `PushSubscriptionsOutbound` (list, add, remove by endpoint), `PushSenderOutbound` (`send(subscription, payload)` → sent or `Gone`), `PushKeysOutbound` (the public key). Inbound `PushInbound` and use case `push.use-case.ts`: subscribe, unsubscribe, public key. Use case `notify.use-case.ts`: a long-running effect that follows `HerdrOutbound.changes`, takes a `snapshot` each time, runs `watchStep`, sleeps 10 s per pending change, re-checks with a fresh snapshot and the `SeenOutbound` set, reads the excerpt through `TranscriptOutbound` (open question entry, else last assistant text; a failed read gives none) and sends to every subscription, removing the `Gone` ones (requirement 15). Fakes in `src/testing`. | `scope:comms`, `layer:application`    |
+| `packages/comms/infrastructure` | New `src/push`: `layerFile({ stateDir })` keeps `push/subscriptions.json` and `push/vapid.json` (created on first use with `web-push`'s `generateVAPIDKeys`, file mode `0600`), writes atomically (temp file + rename) like the brainstorm store; `layerWebPush` sends with the `web-push` library (TTL 1 h, urgency `high`), maps `404`/`410` to `Gone` and other failures to a logged error. Only this folder imports `web-push`.                                                                                                                                                                                                                                                                                                            | `scope:comms`, `layer:infrastructure` |
+| `packages/comms/contract`       | New group `push`: `GET /push/key` → `{ publicKey }`; `POST /push/subscriptions` with the subscription → `204`; `POST /push/subscriptions/remove` with `{ endpoint }` → `204`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `scope:contracts`                     |
+| `packages/comms/api`            | `push.handlers.ts` for the new group, behind the identity guard in `commsServerLayer` (requirement 17). The web-app route serves `/sw.js` from the build like any other file (`no-cache`, already the default for files outside `/assets/`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `scope:comms`, `layer:infrastructure` |
+| `apps/comms-server`             | Composition: provide the push layers with `stateDir`, and fork the notify use case for the server's lifetime (`Layer.effectDiscard` + `Effect.forkScoped`). Memory mode (`pnpm dev:memory`) uses the same file layers in its temporary state folder and a logging sender. Regenerate the OpenAPI document.                                                                                                                                                                                                                                                                                                                                                                                                                                     | `scope:comms`, `type:app`             |
+| `apps/comms-web`                | `public/sw.js`: `push` → `showNotification(title, { body, tag, data: { url }, icon })`; `notificationclick` → focus an open comms window and navigate it, else `openWindow(url)`. No `fetch` handler. `src/notifications.ts`: support check (`serviceWorker`, `PushManager`, `Notification`), register the worker, read permission and subscription, subscribe (with the server key) and unsubscribe; re-check on `visibilitychange` (requirement 13). `NotificationsRow` at the bottom of `ProjectsSheet.tsx`. The conversation route already shows "not found" for a gone agent; the click URL carries `?from=push` so the route can send a gone agent to the overview (requirement 9).                                                      | `scope:comms`, `type:web`             |
+| `packages/design/ui`            | Probably none: the row uses `Switch`, `Text` and `Stack`. If the hint needs its own look, it goes into the design system, not the app.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `scope:design`, `type:ui`             |
+| `packages/comms/AGENTS.md`      | Add spec 018, the files in the state folder, and the rules: only `infrastructure/src/push` imports `web-push`; the VAPID private key never leaves the server or reaches a log; a payload holds only name, project and the cut excerpt.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | —                                     |
+
+## 2. Contract changes
+
+A new `push` group in `CommsApi`, compatible within `/api/v1` (only additions). Unsubscribe is a
+`POST` with the endpoint in the body because an endpoint is a URL and does not fit a path
+parameter. `pnpm nx run comms-server:openapi` regenerates the document.
+
+## 3. Migrations
+
+None. Comms has no database; the two new files live in `COMMS_STATE_DIR/push/`.
+
+## 4. Test strategy
+
+- **Unit (domain):** `watchStep` for every status transition, a new agent that appears blocked, a
+  new completion while done, the first reading as baseline, an agent that disappears, and a
+  blocked spell that ends and starts again. `stillHolds` for each case of requirement 4.
+  `notificationOf` for both titles, the cut body, a missing excerpt and the URL.
+- **Unit (application):** the notify use case with a fake Herdr, a fake seen set, a fake
+  transcript, a recording sender and `TestClock`: the 10 s wait, a change that does not hold,
+  no repeat during one spell, Herdr unavailable and back (requirement 5), two subscriptions, a
+  `Gone` subscription removed while the other still gets it. The push use case: subscribe is
+  idempotent by endpoint, unsubscribe of an unknown endpoint is not an error.
+- **Infrastructure:** the file layer against a temporary folder (keys made once and reused across
+  layer instances, subscriptions survive a reload, a broken file is reported, not overwritten).
+  The web-push sender against a local fake push endpoint that answers `201`, `404` and `410`; the
+  test checks the encrypted request's headers (`TTL`, `Urgency`, VAPID `Authorization`), not the
+  payload.
+- **API / acceptance:** `comms-api.spec.ts` covers the three routes, including the identity guard
+  refusing a request without the Tailscale header.
+- **Web:** `projects-sheet.spec.tsx` with a stubbed `notifications.ts`: the row for unsupported,
+  denied, off and on; turning on calls subscribe with the server key, turning off unsubscribes.
+  `sw.js` stays small and untested in CI beyond a lint; its behaviour is the manual iPhone check.
+- **Boundaries:** dependency-cruiser and the Nx tags already forbid `web-push` outside
+  infrastructure use; the plan adds `web-push` only to `packages/comms/infrastructure`'s
+  `package.json`.
+
+## 5. Risks
+
+- **iOS behaviour can only be checked by hand.** The spec's manual check after deploying is the
+  gate for that. If iOS ignores `notificationclick` navigation of an existing window, the
+  fallback is `openWindow(url)`, which is enough on its own.
+- **A silent push revokes the subscription on iOS.** The service worker must call
+  `showNotification` for every push, also for a payload it cannot read (it then shows a generic
+  "An agent needs you"). The spec test of the worker is the manual check; the worker is kept to a
+  few lines so a review can see it.
+- **Volume.** Every finished turn notifies. The 10 s wait, the seen check and the per-agent `tag`
+  keep it bounded; filters are a later spec if needed.
+- **Herdr restart.** Agents that reappear after Herdr restarts count as new, and one that comes
+  back blocked notifies once. Accepted: it is rare and the notification is still true.
+- **New dependency.** `web-push` (MIT, no native code) is the only addition. It is a library in
+  one adapter behind a port, not an architecture decision, so no ADR.
