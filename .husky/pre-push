@@ -5,5 +5,5 @@ if ! git diff --quiet; then
   exit 1
 fi
 
-echo "🔎 Running local checks before push (see tools/verify-local.sh)…"
+echo "🔎 Running local checks before push (pocket-ci verify-local)…"
 pnpm verify:local

@@ -24,7 +24,7 @@
 │   ├── contracts/problem-details/   # the shared error schema
 │   └── design/{tokens,ui}/          # DTCG design tokens and the React UI kit, for web apps
 ├── blueprints/                      # runnable references; the bookmarks blueprint was removed
-├── tools/                           # boundary tests, ports check, OpenAPI gates, conventions, init
+├── tools/                           # template init (the gates: @smotastic/pocket-ci, ADR 0013)
 ├── .dependency-cruiser.cjs
 └── nx.json
 ```
@@ -59,15 +59,22 @@ separate agent on a different model. It fixes blocking findings and records foll
 
 ## Gates
 
-`pnpm verify:local` runs the fast checks on every push (Husky `pre-push`). CI
-([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)) runs the full set:
+The gates come from the shared CI package `@smotastic/pocket-ci` (ADR 0013), pinned in the
+catalog of `pnpm-workspace.yaml`. `pnpm verify:local` runs the fast checks on every push (Husky
+`pre-push`). CI ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)) runs the full set in
+one job, `pnpm verify`, and lists every failed step at the end:
 
-- conventions, lint, format, tests, build, test typecheck (`nx affected`);
-- architecture: `pnpm dep-cruise`, `pnpm test:boundaries`, `pnpm ports:check`, `pnpm test:ports`;
-- contracts: `pnpm openapi:check`, `pnpm openapi:lint`, `pnpm openapi:diff`, `pnpm test:openapi`;
-- design system: `pnpm tokens:check`, `pnpm test:tokens` (also in `verify:local`), Stylelint in
-  the UI kit's `lint`, and the component catalog build (`ladle-build`);
-- dependency policy: `syncpack`, `pnpm dedupe --check`, `nx sync:check`.
+- lint, format, tests, build, test typecheck (`nx affected`);
+- architecture: `pnpm dep-cruise`, `pnpm ports:check`;
+- contracts: `pnpm openapi:check`, `pnpm openapi:lint`, `pnpm openapi:diff`;
+- design system: `pnpm tokens:check` (also in `verify:local`), Stylelint in the UI kit's `lint`,
+  and the component catalog build (`ladle-build`);
+- dependency policy: `syncpack`, `pnpm dedupe --check`, `nx sync:check`;
+- the container image of every affected project with a `Dockerfile`.
+
+The self-tests that prove each gate fires live in the package's source repository, pocket-factory.
+The tests of this repository's own code stay with that code: the token build tests are the
+`design-tokens` project's, and the template tests are the `template` project's.
 
 A pull request with a database migration also needs the owner's approval (constitution
 principle 8); the reviewer checks the migration rules of ADR 0004.
