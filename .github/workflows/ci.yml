@@ -7,6 +7,9 @@ on:
 
 env:
   NODE_VERSION: '26'
+  # Two jobs share the runner VM's 4 CPUs. Without a bound, each job runs 3 Nx tasks and each
+  # Vitest run starts a worker per CPU.
+  NX_PARALLEL: '2'
 
 # Pipeline strategy:
 # - The first stage runs in parallel: lint, checks (conventions, boundaries, ports, dependency
@@ -34,6 +37,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - uses: ./.github/actions/nx-shas
+      - uses: ./.github/actions/nx-cache
       - run: pnpm nx affected --target=lint
       - run: pnpm format:check
 
@@ -75,8 +79,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - uses: ./.github/actions/nx-shas
+      - uses: ./.github/actions/nx-cache
       # Repository tests start PostgreSQL with Testcontainers on the runner's Docker.
-      - run: pnpm nx affected --target=test --coverage
+      - run: pnpm nx affected --target=test --coverage --maxWorkers=2
 
   # ── API contracts ──────────────────────────────────────────────────────────────
   # The committed OpenAPI documents must be current, must pass the repository rules and must not
@@ -122,6 +127,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - uses: ./.github/actions/nx-shas
+      - uses: ./.github/actions/nx-cache
       - run: pnpm nx affected:build
       # The component catalog (ADR 0009): every story must compile. Nothing is deployed.
       - run: pnpm nx affected --target=ladle-build
@@ -171,6 +177,7 @@ jobs:
           name: typescript-build-outputs-${{ github.sha }}
           path: .
       - uses: ./.github/actions/nx-shas
+      - uses: ./.github/actions/nx-cache
       - run: pnpm nx affected --target=test-typecheck
 
   # ── Validate gatekeeper wiring ────────────────────────────────────────────────
