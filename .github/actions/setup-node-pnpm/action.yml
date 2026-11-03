@@ -7,6 +7,12 @@ inputs:
   node-version:
     description: 'Node.js version to install'
     required: true
+  registry-token:
+    description: >
+      A token with read:package for the Gitea npm registry of `.npmrc`, which serves
+      `@smotastic/pocket-ci` to every repository but the one that holds its source
+    required: false
+    default: ''
   install-dependencies:
     description: 'Install workspace dependencies in the checkout'
     required: false
@@ -23,6 +29,15 @@ runs:
     - name: Enable Corepack
       shell: bash
       run: corepack enable
+    # Written to the user config, so the token never lands in a repository file.
+    - name: Authenticate to the package registry
+      if: ${{ inputs.registry-token != '' }}
+      shell: bash
+      env:
+        REGISTRY_TOKEN: ${{ inputs.registry-token }}
+      run: |
+        registry=$(pnpm config get @smotastic:registry)
+        pnpm config set --location=global "${registry#http*:}:_authToken" "$REGISTRY_TOKEN"
     - name: Get pnpm store directory
       id: pnpm-cache
       shell: bash
@@ -37,4 +52,4 @@ runs:
     - name: Install dependencies
       if: ${{ inputs.install-dependencies == 'true' }}
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: pnpm install --frozen-lockfile --prefer-offline

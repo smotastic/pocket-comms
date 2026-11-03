@@ -80,6 +80,8 @@ catalog:
   style-dictionary: ~5.7.0
 
   # Tooling
+  # The shared CI gates (ADR 0013); a CI change is a bump here.
+  '@smotastic/pocket-ci': 0.2.6
   '@redocly/cli': ~2.55.0
   husky: ^9.1.7
   prettier: ~3.8.4
@@ -119,3 +121,4 @@ minimumReleaseAgeExclude:
   - nx@23.3.0-beta.7
   - '@testcontainers/postgresql@12.2.0'
   - testcontainers@12.2.0
+  - '@smotastic/pocket-ci@0.2.6'

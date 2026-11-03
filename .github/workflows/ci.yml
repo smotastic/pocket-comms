@@ -5,33 +5,24 @@ on:
     branches: [master]
   pull_request:
 
-# A new push to the same pull request or branch cancels the run that is still going for the older
-# commit, so the single runner only works on the latest state.
+# A newer push to the same pull request or branch makes the running gate pointless.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 env:
   NODE_VERSION: '26'
-  # Two jobs share the runner VM's 4 CPUs. Without a bound, each job runs 3 Nx tasks and each
-  # Vitest run starts a worker per CPU.
+  # Two jobs share the runner VM's 4 CPUs. Without a bound, each job runs 3 Nx tasks.
   NX_PARALLEL: '2'
 
-# Pipeline strategy:
-# - The first stage runs in parallel: lint, checks (conventions, boundaries, ports, dependency
-#   policy), test, api-contracts, build and validate-ci-gatekeeper.
-# - test-typecheck waits for build so its test files can resolve dependency declarations from the
-#   uploaded TypeScript build outputs.
-# - ci-success always fans in every job. It is the single status check to require on `master`;
-#   tools/validate-ci-gatekeeper.py keeps its `needs` list complete.
-#
-# Add delivery jobs (container build, deployment) after the first stage and list them in
-# ci-success.needs.
+# The gate is one job (ADR 0012): one checkout and one install, then `pocket-ci verify` runs every
+# check of the shared CI package `@smotastic/pocket-ci` and reports every failed step at the end.
+# What runs is the package version in the lockfile, so a change to the gate is a dependency bump.
+# Require the status check `CI / verify` on `master`.
 
 jobs:
-  # ── Lint ─────────────────────────────────────────────────────────────────────
-  lint:
-    name: ESLint + Prettier
+  verify:
+    name: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,182 +33,7 @@ jobs:
       - uses: ./.github/actions/setup-node-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
+          registry-token: ${{ secrets.REGISTRY_TOKEN }}
       - uses: ./.github/actions/nx-shas
       - uses: ./.github/actions/nx-cache
-      - run: pnpm nx affected --target=lint
-      - run: pnpm format:check
-
-  # ── Repository checks ────────────────────────────────────────────────────────
-  # Git conventions, module boundaries (dependency-cruiser), the port structure (ADR 0006), the
-  # design tokens (ADR 0009), the dependency policy and the local dev tooling. Each gate also runs
-  # its own tests, which prove it fires on a violation.
-  checks:
-    name: Conventions, boundaries, ports, tokens, dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - run: pnpm test:conventions
-      - run: pnpm dep-cruise
-      - run: pnpm test:boundaries
-      - run: pnpm ports:check
-      - run: pnpm test:ports
-      - run: pnpm tokens:check
-      - run: pnpm test:tokens
-      - run: pnpm test:dev
-      - run: pnpm run syncpack:lint
-      - run: pnpm dedupe --check
-      - run: pnpm nx sync:check
-
-  # ── Tests ────────────────────────────────────────────────────────────────────
-  test:
-    name: Unit & domain tests
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - uses: ./.github/actions/nx-shas
-      - uses: ./.github/actions/nx-cache
-      # Repository tests start PostgreSQL with Testcontainers on the runner's Docker.
-      - run: pnpm nx affected --target=test --coverage --maxWorkers=2
-
-  # ── API contracts ──────────────────────────────────────────────────────────────
-  # The committed OpenAPI documents must be current, must pass the repository rules and must not
-  # break clients compared with `master` (ADR 0005). The diff runs oasdiff in Docker.
-  api-contracts:
-    name: OpenAPI contracts
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Documents are current
-        run: pnpm openapi:check
-      - name: Documents follow the repository rules
-        run: pnpm openapi:lint
-      - uses: ./.github/actions/nx-shas
-      # A pull request compares with the tip of master; a push to master compares with the commit
-      # before the push (or its parent, see nx-shas), because origin/master is the pushed commit
-      # itself.
-      - name: No breaking change against master
-        run: pnpm openapi:diff
-        env:
-          OPENAPI_BASE_REF: ${{ github.event_name == 'push' && env.NX_BASE || 'origin/master' }}
-      - name: The gates fire on broken documents
-        run: pnpm test:openapi
-
-  # ── Build ─────────────────────────────────────────────────────────────────────
-  build:
-    name: nx affected build
-    runs-on: ubuntu-latest
-    outputs:
-      has_typescript_outputs: ${{ steps.typescript_outputs.outputs.has_typescript_outputs }}
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - uses: ./.github/actions/nx-shas
-      - uses: ./.github/actions/nx-cache
-      - run: pnpm nx affected:build
-      # The component catalog (ADR 0009): every story must compile. Nothing is deployed.
-      - run: pnpm nx affected --target=ladle-build
-      - name: Detect TypeScript build outputs
-        id: typescript_outputs
-        shell: bash
-        run: |
-          if find apps packages blueprints -type f -path '*/dist/*' -print -quit | grep -q .; then
-            echo "has_typescript_outputs=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_typescript_outputs=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Upload TypeScript build outputs
-        if: ${{ steps.typescript_outputs.outputs.has_typescript_outputs == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: typescript-build-outputs-${{ github.sha }}
-          path: |
-            apps/**/dist
-            packages/**/dist
-            blueprints/**/dist
-            apps/**/tsconfig*.tsbuildinfo
-            packages/**/tsconfig*.tsbuildinfo
-            blueprints/**/tsconfig*.tsbuildinfo
-            !**/node_modules/**
-          if-no-files-found: error
-          retention-days: 1
-
-  # ── Test typecheck ─────────────────────────────────────────────────────────────
-  test-typecheck:
-    name: TypeScript test typecheck
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Download TypeScript build outputs
-        if: ${{ needs.build.outputs.has_typescript_outputs == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: typescript-build-outputs-${{ github.sha }}
-          path: .
-      - uses: ./.github/actions/nx-shas
-      - uses: ./.github/actions/nx-cache
-      - run: pnpm nx affected --target=test-typecheck
-
-  # ── Validate gatekeeper wiring ────────────────────────────────────────────────
-  # Fails the build if a job was added/removed without updating ci-success's
-  # `needs` list below, so an out-of-sync gatekeeper is caught in CI instead
-  # of silently merging without waiting for the new job.
-  validate-ci-gatekeeper:
-    name: Validate CI gatekeeper wiring
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      - run: pip install pyyaml
-      - run: python tools/validate-ci-gatekeeper.py
-
-  # ── Gatekeeper ────────────────────────────────────────────────────────────────
-  # The one status check branch protection requires. Skipped conditional jobs count as success;
-  # a failed or cancelled one fails the gate.
-  ci-success:
-    name: CI success
-    if: always()
-    needs: [lint, checks, test, api-contracts, build, test-typecheck, validate-ci-gatekeeper]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check job results
-        env:
-          RESULTS: ${{ toJSON(needs) }}
-        shell: bash
-        run: |
-          echo "$RESULTS"
-          if echo "$RESULTS" | grep -Eq '"result": "(failure|cancelled)"'; then
-            echo "::error::At least one required job failed or was cancelled."
-            exit 1
-          fi
-          echo "All required jobs succeeded or were skipped."
+      - run: pnpm exec pocket-ci verify

@@ -119,7 +119,8 @@ packages/comms/        the service: domain, application, infrastructure (Herdr s
 apps/comms-server/     composition root and the committed OpenAPI document
 apps/comms-web/        React + Vite web app (TanStack Router and Query)
 packages/design/       design tokens and the UI kit every screen is built from
-specs/                 feature specs; docs/ ADRs and conventions; tools/ the gates
+specs/                 feature specs; docs/ ADRs and conventions; tools/ template init
+                       (the gates come from @smotastic/pocket-ci, ADR 0013)
 ```
 
 ## Working in it
