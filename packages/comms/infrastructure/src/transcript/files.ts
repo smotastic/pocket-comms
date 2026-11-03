@@ -1,6 +1,7 @@
 import {
   TranscriptOutbound,
   TranscriptUnavailableError,
+  type SubagentMeta,
   type TranscriptSource,
 } from '@pocket-comms/comms-application';
 import type { BackgroundItem, TranscriptEntry } from '@pocket-comms/comms-domain';
@@ -15,7 +16,7 @@ import { existsSync } from 'node:fs';
 import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { claudeSessionPath, createClaudeParser } from './claude.js';
-import type { TranscriptParser } from './entries.js';
+import { stringField, type TranscriptParser } from './entries.js';
 import { createPiParser, piSessionFolder, piSessionId } from './pi.js';
 
 export interface FilesOptions {
@@ -28,7 +29,9 @@ export interface FilesOptions {
 }
 
 const parserFor = (source: TranscriptSource): TranscriptParser =>
-  source.format === 'claude' ? createClaudeParser(source.cwd) : createPiParser(source.cwd);
+  source.format === 'claude'
+    ? createClaudeParser(source.cwd, { sidechain: source.subagent !== undefined })
+    : createPiParser(source.cwd);
 
 // How long the background state of a session no one asked about is kept.
 const TRACKED_FOR_MS = 10 * 60_000;
@@ -53,23 +56,28 @@ const readAppended = async (path: string, offset: number) => {
   }
 };
 
+const SUBAGENT_ID = /^[a-z0-9]{1,64}$/u;
 const META_FILE = /^agent-([a-z0-9]{1,64})\.meta\.json$/u;
 
-// Claude keeps a subagent's files next to its session: `<session>/subagents/agent-<id>.*`. The
-// meta file names the call that started it, before the call's result does.
+// Claude keeps a subagent's files next to its session: `<session>/subagents/agent-<id>.*`.
+const subagentsFolder = (sessionPath: string) =>
+  join(dirname(sessionPath), basename(sessionPath, '.jsonl'), 'subagents');
+
+const readJson = (path: string): Promise<unknown> =>
+  readFile(path, 'utf8')
+    .then((text): unknown => JSON.parse(text))
+    .catch(() => undefined);
+
+// The meta file names the call that started a subagent, before the call's result does.
 const subagentIds = async (sessionPath: string): Promise<ReadonlyMap<string, string>> => {
-  const folder = join(dirname(sessionPath), basename(sessionPath, '.jsonl'), 'subagents');
+  const folder = subagentsFolder(sessionPath);
   const names = await readdir(folder).catch(() => []);
   const ids = new Map<string, string>();
   for (const name of names) {
     const id = META_FILE.exec(name)?.[1];
     if (id === undefined) continue;
-    const meta: unknown = await readFile(join(folder, name), 'utf8')
-      .then((text) => JSON.parse(text))
-      .catch(() => undefined);
-    const toolUseId =
-      typeof meta === 'object' && meta !== null ? Reflect.get(meta, 'toolUseId') : undefined;
-    if (typeof toolUseId === 'string') ids.set(toolUseId, id);
+    const toolUseId = stringField(await readJson(join(folder, name)), 'toolUseId');
+    if (toolUseId !== undefined) ids.set(toolUseId, id);
   }
   return ids;
 };
@@ -92,7 +100,16 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
     // A session file never moves, so a path once found is kept.
     const found = new Map<string, string>();
 
+    // A subagent's conversation lies next to its session's file, under an id of its own.
     const find = async (source: TranscriptSource): Promise<string | undefined> => {
+      const session = await findSession(source);
+      if (source.subagent === undefined || session === undefined) return session;
+      if (!SUBAGENT_ID.test(source.subagent)) return undefined;
+      const path = join(subagentsFolder(session), `agent-${source.subagent}.jsonl`);
+      return existsSync(path) ? path : undefined;
+    };
+
+    const findSession = async (source: TranscriptSource): Promise<string | undefined> => {
       const key = `${source.format}:${source.session}`;
       const known = found.get(key);
       if (known !== undefined) return known;
@@ -269,5 +286,22 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
       return items;
     });
 
-    return TranscriptOutbound.of({ read, follow, modifiedAt, background });
+    const subagentMeta = (source: TranscriptSource) =>
+      Effect.promise(async () => {
+        const session = await findSession(source);
+        const id = source.subagent;
+        if (session === undefined || id === undefined || !SUBAGENT_ID.test(id)) {
+          return Option.none<SubagentMeta>();
+        }
+        const meta = await readJson(join(subagentsFolder(session), `agent-${id}.meta.json`));
+        const description = stringField(meta, 'description');
+        if (description === undefined) return Option.none<SubagentMeta>();
+        return Option.some<SubagentMeta>({
+          description,
+          agentType: stringField(meta, 'agentType'),
+          inBackground: stringField(meta, 'requestShape') !== 'foreground',
+        });
+      });
+
+    return TranscriptOutbound.of({ read, follow, modifiedAt, background, subagentMeta });
   });

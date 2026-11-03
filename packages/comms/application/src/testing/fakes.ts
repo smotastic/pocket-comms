@@ -46,7 +46,11 @@ import {
   type StatusMark,
 } from '../ports/memory.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
-import { TranscriptOutbound, type TranscriptSource } from '../ports/transcript.outbound.port.js';
+import {
+  TranscriptOutbound,
+  type SubagentMeta,
+  type TranscriptSource,
+} from '../ports/transcript.outbound.port.js';
 
 /** One request the fake Herdr received, so a test can prove what was sent, and what was not. */
 export interface HerdrCall {
@@ -91,12 +95,15 @@ export class FakeState extends Context.Service<
         background?: ReadonlyArray<BackgroundItem>;
       }
     >;
+    /** What a subagent's meta file says, by `subagentKey`. */
+    readonly subagentMetas: Map<string, SubagentMeta>;
     /** Pane id to the Herdr error code that a command for it fails with. */
     readonly rejects: Map<string, string>;
     available: boolean;
     readonly calls: Array<HerdrCall>;
     readonly herdrChanges: PubSub.PubSub<void>;
     readonly transcriptAppends: PubSub.PubSub<{
+      /** The session, or a subagent's conversation by `subagentKey`. */
       readonly session: string;
       readonly entries: ReadonlyArray<TranscriptEntry>;
     }>;
@@ -229,9 +236,16 @@ const herdr = (state: FakeState['Service']) => {
   });
 };
 
+/** The key of a subagent's conversation in the fake's transcripts and its meta files. */
+export const subagentKey = (session: string, subagent: string) =>
+  `${session}/subagents/${subagent}`;
+
+const keyOf = (source: TranscriptSource) =>
+  source.subagent === undefined ? source.session : subagentKey(source.session, source.subagent);
+
 const transcripts = (state: FakeState['Service']) => {
   const find = (source: TranscriptSource) =>
-    Option.fromNullishOr(state.transcripts.get(source.session));
+    Option.fromNullishOr(state.transcripts.get(keyOf(source)));
   return TranscriptOutbound.of({
     read: (source) =>
       Effect.suspend(() =>
@@ -246,9 +260,9 @@ const transcripts = (state: FakeState['Service']) => {
       ),
     follow: (source) =>
       Stream.concat(
-        Stream.sync(() => state.transcripts.get(source.session)?.entries ?? []),
+        Stream.sync(() => state.transcripts.get(keyOf(source))?.entries ?? []),
         Stream.fromPubSub(state.transcriptAppends).pipe(
-          Stream.filter((append) => append.session === source.session),
+          Stream.filter((append) => append.session === keyOf(source)),
           Stream.map((append) => append.entries),
         ),
       ),
@@ -264,6 +278,8 @@ const transcripts = (state: FakeState['Service']) => {
           onSome: (transcript) => Effect.succeed(transcript.background ?? []),
         }),
       ),
+    subagentMeta: (source) =>
+      Effect.sync(() => Option.fromNullishOr(state.subagentMetas.get(keyOf(source)))),
   });
 };
 
@@ -513,6 +529,7 @@ export const fakeLayer = () => {
         workspaces: [...fakeWorkspaces],
         screens: new Map(),
         transcripts: new Map(),
+        subagentMetas: new Map(),
         rejects: new Map(),
         available: true,
         calls: [],

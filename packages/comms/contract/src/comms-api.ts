@@ -295,6 +295,62 @@ export const AgentEvent = Schema.Union([
   }),
 ]).annotate({ identifier: 'AgentEvent', description: 'One update of an open conversation.' });
 
+const SubagentFields = {
+  id: SubagentParam,
+  description: Schema.String.annotate({
+    description: 'What the parent asked it to do, in a few words.',
+    examples: ['Review the diff'],
+  }),
+  agentType: optional(Schema.String, {
+    description: 'The kind of subagent, when known.',
+    examples: ['general-purpose'],
+  }),
+  running: Schema.Boolean.annotate({ description: 'Whether it still runs.', examples: [true] }),
+  inBackground: Schema.Boolean.annotate({
+    description: 'False for a subagent its parent waits on.',
+    examples: [true],
+  }),
+};
+
+export const SubagentInfo = Schema.Struct(SubagentFields).annotate({
+  identifier: 'SubagentInfo',
+  description: 'A subagent of an agent.',
+});
+
+export const Subagent = Schema.Struct({
+  ...SubagentFields,
+  entries: Entries,
+  activity: Activity,
+}).annotate({
+  identifier: 'Subagent',
+  description: 'A subagent of an agent, with the latest entries of its own conversation.',
+});
+
+export const SubagentEvent = Schema.Union([
+  Schema.Struct({
+    type: Schema.tag('subagent').annotate({
+      description: 'The subagent changed, such as when it ended.',
+      examples: ['subagent'],
+    }),
+    subagent: SubagentInfo,
+  }),
+  Schema.Struct({
+    type: Schema.tag('entries').annotate({
+      description: 'Entries arrived or changed.',
+      examples: ['entries'],
+    }),
+    reset: Schema.Boolean.annotate({
+      description: 'The entries replace the ones the reader holds: the first event.',
+      examples: [true],
+    }),
+    entries: Entries,
+    activity: Activity,
+  }),
+]).annotate({
+  identifier: 'SubagentEvent',
+  description: "One update of an open subagent's conversation.",
+});
+
 export const Screen = Schema.Struct({
   text: Schema.String.annotate({
     description: "The pane's visible screen with its ANSI escape sequences.",
@@ -825,6 +881,32 @@ const group = HttpApiGroup.make('agents')
         summary: 'Follow a conversation',
         description:
           'Server-sent events: the agent after each change, and its session entries, starting with a reset.',
+      }),
+    ),
+    HttpApiEndpoint.get('subagent', '/agents/:agent/subagents/:subagent', {
+      params: { ...agent, subagent: SubagentParam },
+      success: Subagent,
+      error: problems,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Read a subagent's conversation",
+        description:
+          "A subagent of a Claude agent's session: what it is and the latest entries of its own conversation. Unknown subagents are 404.",
+      }),
+    ),
+    HttpApiEndpoint.get('subagentEvents', '/agents/:agent/subagents/:subagent/events', {
+      params: { ...agent, subagent: SubagentParam },
+      success: eventStream(
+        'subagent',
+        SubagentEvent,
+        '{"type":"entries","reset":true,"entries":[],"activity":"Thinking…"}',
+      ),
+      error: problems,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Follow a subagent's conversation",
+        description:
+          'Server-sent events: the subagent after each change, such as its end, and its entries, starting with a reset.',
       }),
     ),
     HttpApiEndpoint.get('screen', '/agents/:agent/screen', {

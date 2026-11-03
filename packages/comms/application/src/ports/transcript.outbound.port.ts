@@ -11,6 +11,15 @@ export interface TranscriptSource {
   readonly format: TranscriptFormat;
   readonly session: string;
   readonly cwd: string | undefined;
+  /** A subagent of the session, by id: its own conversation instead of the session's. */
+  readonly subagent?: string | undefined;
+}
+
+/** What Claude records about a subagent next to its conversation. */
+export interface SubagentMeta {
+  readonly description: string;
+  readonly agentType: string | undefined;
+  readonly inBackground: boolean;
 }
 
 export interface Transcript {
@@ -44,5 +53,7 @@ export class TranscriptOutbound extends Context.Service<
     readonly background: (
       source: TranscriptSource,
     ) => Effect.Effect<ReadonlyArray<BackgroundItem>, TranscriptUnavailableError>;
+    /** What Claude records about the subagent `source` names, or none without such a record. */
+    readonly subagentMeta: (source: TranscriptSource) => Effect.Effect<Option.Option<SubagentMeta>>;
   }
 >()('comms/application/TranscriptOutbound') {}

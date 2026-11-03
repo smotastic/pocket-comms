@@ -329,3 +329,80 @@ describe('Transcript.layerFiles background', () => {
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 });
+
+describe('Transcript.layerFiles subagents', () => {
+  // The session s1 with the subagent a0123456789abcdef: its conversation and its meta file.
+  const subagentHome = () => {
+    const { root, claudeFile } = home();
+    const folder = join(claudeFile.replace(/\.jsonl$/u, ''), 'subagents');
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(folder, 'agent-a0123456789abcdef.jsonl'), fixture('claude-subagent.jsonl'));
+    writeFileSync(
+      join(folder, 'agent-a0123456789abcdef.meta.json'),
+      JSON.stringify({
+        agentType: 'general-purpose',
+        description: 'Review the diff',
+        toolUseId: 'toolu-rev',
+        requestShape: 'background',
+      }),
+    );
+    return { root, folder };
+  };
+  const subagent = { ...claude, subagent: 'a0123456789abcdef' };
+
+  it.effect("reads a subagent's own conversation", () => {
+    const { root } = subagentHome();
+    return Effect.gen(function* () {
+      const transcript = yield* TranscriptOutbound.use((port) => port.read(subagent));
+
+      expect(transcript.entries.map((entry) => entry.type)).toEqual(['user', 'tool', 'assistant']);
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.effect('reads what Claude records about a subagent', () => {
+    const { root } = subagentHome();
+    return Effect.gen(function* () {
+      const meta = yield* TranscriptOutbound.use((port) => port.subagentMeta(subagent));
+
+      expect(meta).toEqual(
+        Option.some({
+          description: 'Review the diff',
+          agentType: 'general-purpose',
+          inBackground: true,
+        }),
+      );
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.effect('has no record of a subagent without a meta file', () => {
+    const { root } = subagentHome();
+    return Effect.gen(function* () {
+      const meta = yield* TranscriptOutbound.use((port) =>
+        port.subagentMeta({ ...claude, subagent: 'b2' }),
+      );
+
+      expect(meta).toEqual(Option.none());
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.effect('finds no conversation for an id that is no subagent id', () => {
+    const { root, folder } = subagentHome();
+    writeFileSync(join(folder, '..', 'x.jsonl'), fixture('claude-subagent.jsonl'));
+    return Effect.gen(function* () {
+      const error = yield* TranscriptOutbound.use((port) =>
+        port.read({ ...claude, subagent: '../x' }),
+      ).pipe(Effect.flip);
+      const modified = yield* TranscriptOutbound.use((port) =>
+        port.modifiedAt({ ...claude, subagent: '../x' }),
+      );
+
+      const meta = yield* TranscriptOutbound.use((port) =>
+        port.subagentMeta({ ...claude, subagent: '../x' }),
+      );
+
+      expect(error._tag).toBe('TranscriptUnavailableError');
+      expect(modified).toEqual(Option.none());
+      expect(meta).toEqual(Option.none());
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+});

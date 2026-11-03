@@ -57,6 +57,28 @@ export type AgentEventDto =
       readonly activity: string;
     };
 
+/** A subagent of an agent, as its conversation's top bar shows it. */
+export interface SubagentInfoDto {
+  readonly id: string;
+  /** What the parent asked it to do, in a few words. */
+  readonly description: string;
+  /** The kind of subagent, such as "Explore", when known. */
+  readonly agentType: string | undefined;
+  readonly running: boolean;
+  /** False for a subagent its parent waits on. */
+  readonly inBackground: boolean;
+}
+
+export interface SubagentDto extends SubagentInfoDto {
+  readonly entries: ReadonlyArray<TranscriptEntry>;
+  readonly activity: string;
+}
+
+/** One update of an open subagent conversation. */
+export type SubagentEventDto =
+  | { readonly type: 'subagent'; readonly subagent: SubagentInfoDto }
+  | Extract<AgentEventDto, { readonly type: 'entries' }>;
+
 /** The overview as a live stream sees it: available, or Herdr cannot be reached. */
 export type OverviewStateDto =
   | { readonly _tag: 'Available'; readonly overview: OverviewDto }

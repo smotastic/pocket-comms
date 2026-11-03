@@ -35,6 +35,12 @@ export class TranscriptUnavailableError extends Data.TaggedError('TranscriptUnav
   readonly reason: string;
 }> {}
 
+/** The agent's session has no subagent by that id, or its agent has no subagents at all. */
+export class SubagentNotFoundError extends Data.TaggedError('SubagentNotFoundError')<{
+  readonly ref: string;
+  readonly subagent: string;
+}> {}
+
 /** Git could not prepare the project, such as a failed fetch or no default remote branch. */
 export class ProjectGitError extends Data.TaggedError('ProjectGitError')<{
   readonly project: string;

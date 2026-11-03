@@ -24,7 +24,7 @@ in the task's own commit.
       running count; `background` on the contract's `Agent`, `subagent` on its tool entry
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`
 
-- [ ] **T05** — Subagent conversations on the server: the subagent `TranscriptSource`,
+- [x] **T05** — Subagent conversations on the server: the subagent `TranscriptSource`,
       `SubagentsInbound` (read, events), `SubagentNotFoundError`, the two endpoints and their
       handlers, the OpenAPI document
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`
