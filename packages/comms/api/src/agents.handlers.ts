@@ -48,6 +48,19 @@ export const agentsHandlers = HttpApiBuilder.group(
             Effect.catchTags(lookup),
           ),
       )
+      .handle('subagent', ({ params }) =>
+        agentsInbound
+          .subagent(params.agent, params.subagent)
+          .pipe(Effect.catchTags({ ...lookup, SubagentNotFoundError: problems.subagentNotFound })),
+      )
+      .handle('subagentEvents', ({ params }) =>
+        agentsInbound
+          .subagentEvents(params.agent, params.subagent)
+          .pipe(
+            Effect.map(Stream.map((data) => ({ event: 'subagent', data }))),
+            Effect.catchTags({ ...lookup, SubagentNotFoundError: problems.subagentNotFound }),
+          ),
+      )
       .handle('screen', ({ params }) =>
         agentsInbound.screen(params.agent).pipe(
           Effect.map((text) => ({ text })),

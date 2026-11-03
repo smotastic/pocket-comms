@@ -17,6 +17,8 @@ import {
   type OverviewView,
   type ProjectView,
   type ProposalDecision,
+  type SubagentEventView,
+  type SubagentView,
   type TaskCreatedView,
   type TranscriptView,
 } from './comms-client.js';
@@ -47,6 +49,7 @@ export const fakeAgent = (overrides: Partial<AgentView> = {}): AgentView => ({
   project: 'app',
   changedAt: Date.now() - 60_000,
   needsYou: false,
+  background: [],
   ...overrides,
 });
 
@@ -54,6 +57,8 @@ export interface FakeState {
   overview: OverviewView;
   readonly agents: Map<string, AgentView>;
   readonly transcripts: Map<string, TranscriptView>;
+  /** The subagents of each agent, by `<ref>/<id>`. */
+  readonly subagents: Map<string, SubagentView>;
   readonly screens: Map<string, string>;
   /** A failure for the next prompt, as the server would report it. */
   promptFailure?: string;
@@ -89,6 +94,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     overview: { needsYou: [], groups: [] },
     agents: new Map(),
     transcripts: new Map(),
+    subagents: new Map(),
     screens: new Map(),
     projects: [
       { name: 'pocket-comms', open: true },
@@ -129,6 +135,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
   const overviewFollowers = new Set<(state: OverviewStateView) => void>();
   const activityFollowers = new Set<(activity: ActivityView) => void>();
   const agentFollowers = new Map<string, Set<(event: AgentEventView) => void>>();
+  const subagentFollowers = new Map<string, Set<(event: SubagentEventView) => void>>();
 
   const find = (ref: string) => {
     const agent = state.agents.get(ref);
@@ -140,6 +147,11 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     overview: async () => state.overview,
     agent: async (ref) => find(ref),
     transcript: async (ref) => state.transcripts.get(ref) ?? { entries: [], activity: 'Thinking…' },
+    subagent: async (ref, id) => {
+      const subagent = state.subagents.get(`${ref}/${id}`);
+      if (subagent === undefined) throw new RequestError(`${ref} has no subagent ${id}.`, 404);
+      return subagent;
+    },
     screen: async (ref) => state.screens.get(ref) ?? '',
     prompt: async (ref, text, imageIds = []) => {
       if (state.promptFailure !== undefined) throw new RequestError(state.promptFailure, 409);
@@ -240,6 +252,14 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       onLive(true);
       return () => followers.delete(onEvent);
     },
+    followSubagent: (ref, id, onEvent, onLive) => {
+      const key = `${ref}/${id}`;
+      const followers = subagentFollowers.get(key) ?? new Set();
+      followers.add(onEvent);
+      subagentFollowers.set(key, followers);
+      onLive(true);
+      return () => followers.delete(onEvent);
+    },
   };
 
   return {
@@ -249,6 +269,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     emitOverview: (next: OverviewStateView) => overviewFollowers.forEach((follow) => follow(next)),
     emitAgent: (ref: string, event: AgentEventView) =>
       agentFollowers.get(ref)?.forEach((follow) => follow(event)),
+    emitSubagent: (ref: string, id: string, event: SubagentEventView) =>
+      subagentFollowers.get(`${ref}/${id}`)?.forEach((follow) => follow(event)),
     emitBrainstorm: (event: BrainstormEventView) =>
       brainstormFollowers.forEach((follow) => follow(event)),
     emitActivity: (next: ActivityView) => activityFollowers.forEach((follow) => follow(next)),

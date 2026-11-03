@@ -1,4 +1,4 @@
-import type { TranscriptEntry, TranscriptFormat } from '@pocket-comms/comms-domain';
+import type { BackgroundItem, TranscriptEntry, TranscriptFormat } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
@@ -11,6 +11,15 @@ export interface TranscriptSource {
   readonly format: TranscriptFormat;
   readonly session: string;
   readonly cwd: string | undefined;
+  /** A subagent of the session, by id: its own conversation instead of the session's. */
+  readonly subagent?: string | undefined;
+}
+
+/** What Claude records about a subagent next to its conversation. */
+export interface SubagentMeta {
+  readonly description: string;
+  readonly agentType: string | undefined;
+  readonly inBackground: boolean;
 }
 
 export interface Transcript {
@@ -37,5 +46,14 @@ export class TranscriptOutbound extends Context.Service<
     ) => Stream.Stream<ReadonlyArray<TranscriptEntry>, TranscriptUnavailableError>;
     /** When the session file last changed, or none when there is no such file. */
     readonly modifiedAt: (source: TranscriptSource) => Effect.Effect<Option.Option<number>>;
+    /**
+     * The background work of the whole session that has not ended, expired monitors included.
+     * Each subagent names its id once the session or its own files know it.
+     */
+    readonly background: (
+      source: TranscriptSource,
+    ) => Effect.Effect<ReadonlyArray<BackgroundItem>, TranscriptUnavailableError>;
+    /** What Claude records about the subagent `source` names, or none without such a record. */
+    readonly subagentMeta: (source: TranscriptSource) => Effect.Effect<Option.Option<SubagentMeta>>;
   }
 >()('comms/application/TranscriptOutbound') {}

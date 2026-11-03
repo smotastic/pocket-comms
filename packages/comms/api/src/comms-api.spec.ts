@@ -21,6 +21,7 @@ import {
   NotAWorktreeError,
   ProjectGitError,
   ProjectNotFoundError,
+  SubagentNotFoundError,
   ProposalDecidedError,
   ProposalNotFoundError,
   PushInbound,
@@ -59,6 +60,15 @@ const kirk: AgentDto = {
   worktree: 'feature',
   changedAt: 1_000,
   needsYou: true,
+  background: [
+    {
+      id: 'toolu-ci',
+      kind: 'shell',
+      description: 'Wait for CI',
+      startedAt: 900,
+      inBackground: true,
+    },
+  ],
 };
 const overview: OverviewDto = { needsYou: [kirk], groups: [] };
 
@@ -291,6 +301,50 @@ describe('the agents API', () => {
 
     expect(response.status).toBe(status);
     expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
+  });
+
+  it('reads a subagent of an agent', async () => {
+    const subagent = {
+      id: 'a1',
+      description: 'Review the diff',
+      agentType: 'general-purpose',
+      running: true,
+      inBackground: true,
+      entries: [],
+      activity: 'Thinking…',
+    };
+    const call = serve({
+      subagent: (ref, id) =>
+        ref === 'kirk' && id === 'a1'
+          ? Effect.succeed(subagent)
+          : Effect.fail(new SubagentNotFoundError({ ref, subagent: id })),
+    });
+
+    const found = await call('/api/v1/agents/kirk/subagents/a1');
+    const missing = await call('/api/v1/agents/kirk/subagents/b2');
+    const refused = await call('/api/v1/agents/kirk/subagents/a1', { login: null });
+
+    expect(found.status).toBe(200);
+    expect(await found.json()).toEqual(subagent);
+    expect(missing.status).toBe(404);
+    expect(((await missing.json()) as { type: string }).type).toContain('subagent-not-found');
+    expect(refused.status).toBe(403);
+  });
+
+  it("streams a subagent's conversation as server-sent events", async () => {
+    const event = {
+      type: 'entries',
+      reset: true,
+      entries: [],
+      activity: 'Thinking…',
+    } as const;
+    const call = serve({ subagentEvents: () => Effect.succeed(Stream.make(event)) });
+
+    const response = await call('/api/v1/agents/kirk/subagents/a1/events');
+
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    const text = await response.text();
+    expect(JSON.parse(text.slice(text.indexOf('data: ') + 6).split('\n')[0] ?? '')).toEqual(event);
   });
 
   it('streams the overview as server-sent events', async () => {

@@ -32,6 +32,19 @@ export const Rows: Story = () => (
         attention="done"
       />
     </AgentList>
+    <AgentList label="Waiting on background work">
+      <AgentRow
+        href="#scotty"
+        onNavigate={navigate}
+        status={{ tone: 'done', label: 'Done' }}
+        name="scotty-ci"
+        project="pocket-comms"
+        hue={1}
+        title="Ship once CI is green"
+        since="2m"
+        background={{ count: 2, label: '2 running in the background' }}
+      />
+    </AgentList>
     <AgentList label="Everything else">
       <AgentRow
         href="#spock"

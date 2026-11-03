@@ -7,6 +7,7 @@ export {
   type TranscriptFormat,
 } from './agent.js';
 export { isAllowedLogin } from './access.js';
+export { runningAt, type BackgroundItem, type BackgroundKind } from './background.js';
 export {
   IMAGE_EXTENSIONS,
   IMAGE_RETENTION_DAYS,

@@ -327,6 +327,301 @@ describe('createClaudeParser with attached images', () => {
   });
 });
 
+const lines = (name: string) =>
+  readFileSync(new URL(`../testing/fixtures/${name}`, import.meta.url), 'utf8').split('\n');
+
+const background = lines('claude-background.jsonl');
+const bgAt = (second: number) => Date.parse(`2026-10-30T16:00:${String(second).padStart(2, '0')}Z`);
+
+describe('createClaudeParser background work', () => {
+  const after = (count: number) => {
+    const parser = createClaudeParser('/work/app');
+    background.slice(0, count).forEach((line) => parser.push(line));
+    return parser;
+  };
+
+  it('tracks shells, monitors and subagents from their start', () => {
+    expect(after(8).background()).toEqual([
+      {
+        id: 'toolu-ci',
+        kind: 'shell',
+        description: 'Wait for CI',
+        startedAt: bgAt(2),
+        inBackground: true,
+      },
+      {
+        id: 'toolu-mon',
+        kind: 'monitor',
+        description: 'Watch the server log',
+        startedAt: bgAt(4),
+        inBackground: true,
+        expiresAt: bgAt(5) + 10 * 60_000,
+      },
+      {
+        id: 'toolu-rev',
+        kind: 'subagent',
+        description: 'Review the diff',
+        startedAt: bgAt(6),
+        inBackground: true,
+        subagent: 'a0123456789abcdef',
+      },
+      {
+        id: 'toolu-fg',
+        kind: 'subagent',
+        description: 'Find the config',
+        startedAt: bgAt(8),
+        inBackground: false,
+      },
+    ]);
+  });
+
+  it('counts a shell only once Claude reports it runs in the background', () => {
+    expect(after(2).background()).toEqual([]);
+  });
+
+  it('ends work on its notification, a returned subagent and a stopped task', () => {
+    const parser = after(background.length);
+
+    expect(parser.background().map((item) => item.id)).toEqual(['toolu-rev']);
+  });
+
+  it('ends work as soon as its notification is queued', () => {
+    expect(
+      after(8)
+        .background()
+        .map((item) => item.id),
+    ).toContain('toolu-ci');
+    expect(
+      after(9)
+        .background()
+        .map((item) => item.id),
+    ).not.toContain('toolu-ci');
+  });
+
+  it('ends work on a notification that arrived as an attachment during a turn', () => {
+    const parser = after(3);
+    parser.push(
+      JSON.stringify({
+        type: 'attachment',
+        isSidechain: false,
+        uuid: 'at-1',
+        timestamp: '2026-10-30T16:00:30.000Z',
+        attachment: {
+          type: 'queued_command',
+          commandMode: 'task-notification',
+          prompt:
+            '<task-notification>\n<task-id>bci1</task-id>\n<status>completed</status>\n</task-notification>',
+        },
+      }),
+    );
+
+    expect(parser.background()).toEqual([]);
+  });
+
+  it('ends nothing on an attachment that is no notification', () => {
+    const parser = after(3);
+    parser.push(
+      JSON.stringify({
+        type: 'attachment',
+        uuid: 'at-2',
+        timestamp: '2026-10-30T16:00:30.000Z',
+        attachment: {
+          type: 'queued_command',
+          commandMode: 'prompt',
+          prompt: '<task-id>bci1</task-id>',
+        },
+      }),
+    );
+
+    expect(parser.background().map((item) => item.id)).toEqual(['toolu-ci']);
+  });
+
+  it('keeps notifications out of the chat and names the subagent of each delegation', () => {
+    const parser = after(background.length);
+    const delegations = parser
+      .entries()
+      .filter((entry) => entry.type === 'tool' && entry.verb === 'Delegated');
+
+    expect(parser.entries().filter((entry) => entry.type === 'user')).toHaveLength(1);
+    expect(delegations).toEqual([
+      expect.objectContaining({ id: 'toolu-rev', subagent: 'a0123456789abcdef', outcome: 'ok' }),
+      expect.objectContaining({ id: 'toolu-fg', subagent: 'afedcba9876543210', outcome: 'ok' }),
+    ]);
+  });
+
+  const userLine = (uuid: string, content: unknown, extra: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      type: 'user',
+      uuid,
+      timestamp: '2026-10-30T16:00:40.000Z',
+      message: { role: 'user', content },
+      ...extra,
+    });
+  const assistantCall = (id: string, name: string, input: unknown) =>
+    JSON.stringify({
+      type: 'assistant',
+      uuid: `a-${id}`,
+      timestamp: '2026-10-30T16:00:30.000Z',
+      message: { role: 'assistant', content: [{ type: 'tool_use', id, name, input }] },
+    });
+  const toolResult = (id: string, text: string, details?: unknown, isError = false) =>
+    userLine(
+      `r-${id}`,
+      [{ type: 'tool_result', tool_use_id: id, content: text, is_error: isError }],
+      {
+        ...(details === undefined ? {} : { toolUseResult: details }),
+      },
+    );
+  const notice = (body: string) =>
+    userLine('n-x', `<task-notification>\n${body}\n</task-notification>`, {
+      origin: { kind: 'task-notification' },
+    });
+  const ids = (parser: ReturnType<typeof after>) => parser.background().map((item) => item.id);
+
+  it('keeps a monitor running through its event notifications', () => {
+    const parser = after(5);
+    parser.push(
+      notice(
+        '<task-id>bmon1</task-id>\n<summary>Monitor event: "Watch"</summary>\n<event>ok</event>',
+      ),
+    );
+
+    expect(ids(parser)).toContain('toolu-mon');
+  });
+
+  it('ends a task whose notification reports it failed', () => {
+    const parser = after(3);
+    parser.push(notice('<task-id>bci1</task-id>\n<status>failed</status>'));
+
+    expect(ids(parser)).toEqual([]);
+  });
+
+  it('ends a subagent named only by its task id', () => {
+    const parser = after(7);
+    parser.push(notice('<task-id>a0123456789abcdef</task-id>\n<status>completed</status>'));
+
+    expect(ids(parser)).toEqual(['toolu-ci', 'toolu-mon']);
+  });
+
+  it('counts a command Claude moved into the background without the flag', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(
+      assistantCall('toolu-long', 'Bash', { command: 'pnpm build', description: 'Build' }),
+    );
+    parser.push(
+      toolResult('toolu-long', 'Command running in background', { backgroundTaskId: 'blong' }),
+    );
+
+    expect(parser.background()).toEqual([
+      expect.objectContaining({ id: 'toolu-long', kind: 'shell', description: 'Build' }),
+    ]);
+  });
+
+  it('counts no shell whose call failed', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(assistantCall('toolu-bad', 'Bash', { command: 'x', run_in_background: true }));
+    parser.push(toolResult('toolu-bad', 'Error', { backgroundTaskId: 'bbad' }, true));
+
+    expect(parser.background()).toEqual([]);
+  });
+
+  it('ends a subagent whose launch failed, under its old name Task too', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(assistantCall('toolu-task', 'Task', { description: 'Old name', prompt: 'p' }));
+
+    expect(ids(parser)).toEqual(['toolu-task']);
+
+    parser.push(toolResult('toolu-task', 'Agent type not found', undefined, true));
+
+    expect(parser.background()).toEqual([]);
+  });
+
+  it('names no subagent whose id the app cannot address', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(assistantCall('toolu-odd', 'Agent', { description: 'Odd', prompt: 'p' }));
+    parser.push(toolResult('toolu-odd', 'Done', { status: 'completed', agentId: '../Evil ID' }));
+
+    expect(parser.entries()).toEqual([expect.objectContaining({ id: 'toolu-odd', outcome: 'ok' })]);
+    expect(parser.entries()[0]).not.toHaveProperty('subagent');
+  });
+
+  it('ends a shell stopped with KillShell', () => {
+    const parser = after(3);
+    parser.push(
+      JSON.stringify({
+        type: 'assistant',
+        uuid: 'a-k',
+        timestamp: '2026-10-30T16:00:20.000Z',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'tool_use', id: 'toolu-kill', name: 'KillShell', input: { shell_id: 'bci1' } },
+          ],
+        },
+      }),
+    );
+    parser.push(
+      JSON.stringify({
+        type: 'user',
+        uuid: 'r-k',
+        timestamp: '2026-10-30T16:00:21.000Z',
+        message: {
+          role: 'user',
+          content: [
+            { type: 'tool_result', tool_use_id: 'toolu-kill', content: 'Killed', is_error: false },
+          ],
+        },
+      }),
+    );
+
+    expect(parser.background()).toEqual([]);
+  });
+
+  it('keeps a monitor without an announced expiry open', () => {
+    const parser = after(4);
+    parser.push(
+      JSON.stringify({
+        type: 'user',
+        uuid: 'r-m',
+        timestamp: '2026-10-30T16:00:05.000Z',
+        message: {
+          role: 'user',
+          content: [
+            {
+              type: 'tool_result',
+              tool_use_id: 'toolu-mon',
+              content: 'Monitor started (task bmon1)',
+            },
+          ],
+        },
+      }),
+    );
+
+    const monitor = parser.background().find((item) => item.kind === 'monitor');
+    expect(monitor).toEqual(expect.objectContaining({ id: 'toolu-mon' }));
+    expect(monitor?.expiresAt).toBeUndefined();
+  });
+});
+
+describe('createClaudeParser for a subagent', () => {
+  const subagent = lines('claude-subagent.jsonl');
+
+  it('skips the lines of a subagent in the parent conversation', () => {
+    const parser = createClaudeParser('/work/app');
+    subagent.forEach((line) => parser.push(line));
+
+    expect(parser.entries()).toEqual([]);
+  });
+
+  it("reads a subagent's own conversation, its prompt first", () => {
+    const parser = createClaudeParser('/work/app', { sidechain: true });
+    subagent.forEach((line) => parser.push(line));
+
+    expect(parser.entries().map((entry) => entry.type)).toEqual(['user', 'tool', 'assistant']);
+    expect(parser.entries()[0]).toEqual(expect.objectContaining({ text: 'Review it' }));
+  });
+});
+
 describe('claudeSessionPath', () => {
   it('names the session file under the project folder of the working directory', () => {
     expect(claudeSessionPath('/home/me', '/Users/me/.herdr/worktrees/app', 'abc')).toBe(

@@ -32,6 +32,26 @@ describe('AgentRow', () => {
     ).toBeDefined();
   });
 
+  it('shows a marker with the count of background work and names it', () => {
+    row({ background: { count: 2, label: '2 running in the background' } });
+    expect(
+      screen.getByRole('link', {
+        name: 'kirk Idle 2 running in the background Ingestor MVP discussion 2h',
+      }),
+    ).toBeDefined();
+    expect(screen.getByText('2').getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('has no accessibility violations with a marker', async () => {
+    const { container } = row({ background: { count: 1, label: '1 running in the background' } });
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
+  it('shows no marker without background work', () => {
+    const { container } = row();
+    expect(container.querySelector(`.${styles.background}`)).toBeNull();
+  });
+
   it('shows the worktree after the name', () => {
     row({ worktree: 'fix-pwa-notch' });
     expect(link().textContent).toMatch(/kirk.*· fix-pwa-notch.*Idle/);

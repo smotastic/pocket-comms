@@ -16,6 +16,8 @@ import {
   type Overview,
   type Project,
   type ProposalDecisionRequest,
+  type Subagent,
+  SubagentEvent,
   type TaskCreated,
   type Transcript,
 } from '@pocket-comms/comms-contract';
@@ -34,6 +36,8 @@ export type OverviewView = typeof Overview.Type;
 export type OverviewStateView = typeof OverviewState.Type;
 export type TranscriptView = typeof Transcript.Type;
 export type AgentEventView = typeof AgentEvent.Type;
+export type SubagentView = typeof Subagent.Type;
+export type SubagentEventView = typeof SubagentEvent.Type;
 export type Key = (typeof KEYS)[number];
 export type ProjectView = typeof Project.Type;
 export type NewTask = typeof CreateTaskRequest.Type;
@@ -65,6 +69,8 @@ export interface CommsClient {
   readonly overview: () => Promise<OverviewView>;
   readonly agent: (ref: string) => Promise<AgentView>;
   readonly transcript: (ref: string) => Promise<TranscriptView>;
+  /** A subagent of the agent's session, with its own conversation. */
+  readonly subagent: (ref: string, id: string) => Promise<SubagentView>;
   readonly screen: (ref: string) => Promise<string>;
   /** Sends the text and the attached images, by the ids `uploadImage` gave them (spec 014). */
   readonly prompt: (ref: string, text: string, imageIds?: ReadonlyArray<string>) => Promise<void>;
@@ -113,6 +119,12 @@ export interface CommsClient {
   readonly followAgent: (
     ref: string,
     onEvent: (event: AgentEventView) => void,
+    onLive: OnLive,
+  ) => Unsubscribe;
+  readonly followSubagent: (
+    ref: string,
+    id: string,
+    onEvent: (event: SubagentEventView) => void,
     onLive: OnLive,
   ) => Unsubscribe;
 }
@@ -242,6 +254,8 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     overview: () => run((api) => api.agents.overview()),
     agent: (ref) => run((api) => api.agents.agent(agent(ref))),
     transcript: (ref) => run((api) => api.agents.transcript(agent(ref))),
+    subagent: (ref, id) =>
+      run((api) => api.agents.subagent({ params: { agent: ref, subagent: id } })),
     screen: (ref) => run((api) => api.agents.screen(agent(ref))).then((screen) => screen.text),
     prompt: (ref, text, imageIds = []) =>
       run((api) =>
@@ -302,6 +316,14 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
         `${baseUrl}/api/v1/agents/${encodeURIComponent(ref)}/events`,
         'agent',
         AgentEvent,
+        onEvent,
+        onLive,
+      ),
+    followSubagent: (ref, id, onEvent, onLive) =>
+      follow(
+        `${baseUrl}/api/v1/agents/${encodeURIComponent(ref)}/subagents/${encodeURIComponent(id)}/events`,
+        'subagent',
+        SubagentEvent,
         onEvent,
         onLive,
       ),

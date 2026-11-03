@@ -148,6 +148,21 @@
   text-overflow: ellipsis;
 }
 
+.background {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3xs);
+  color: var(--color-text-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.background svg {
+  width: var(--space-lg);
+  height: var(--space-lg);
+}
+
 .since {
   grid-row: 1;
   grid-column: 2;

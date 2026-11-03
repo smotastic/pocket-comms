@@ -1,5 +1,6 @@
 import { promptWithImages, type TranscriptEntry } from '@pocket-comms/comms-domain';
 import { join } from 'node:path';
+import { backgroundLog, subagentOf } from './claude-background.js';
 import {
   diffCounts,
   entryLog,
@@ -122,19 +123,65 @@ const patchCounts = (result: unknown) => {
   return diffCounts(lines);
 };
 
-export const createClaudeParser = (cwd: string | undefined): TranscriptParser => {
+// The text of a message or a tool result, whether a string or a list of blocks.
+const textOf = (content: unknown): string =>
+  typeof content === 'string'
+    ? content
+    : Array.isArray(content)
+      ? content
+          .filter(isRecord)
+          .map((block) => (block['type'] === 'text' ? (stringField(block, 'text') ?? '') : ''))
+          .join('\n')
+      : '';
+
+// Claude records a notice that a task ended up to three times: when it queues the notice, as an
+// attachment when the notice arrives during a turn, and as a user line between turns.
+const taskNoticeOf = (line: Record<string, unknown>): string | undefined => {
+  if (line['type'] === 'queue-operation' && line['operation'] === 'enqueue') {
+    const content = stringField(line, 'content');
+    return content?.trimStart().startsWith('<task-notification>') === true ? content : undefined;
+  }
+  const attachment = line['attachment'];
+  if (line['type'] === 'attachment' && isRecord(attachment)) {
+    return attachment['commandMode'] === 'task-notification'
+      ? stringField(attachment, 'prompt')
+      : undefined;
+  }
+  const origin = line['origin'];
+  if (line['type'] === 'user' && isRecord(origin) && origin['kind'] === 'task-notification') {
+    return textOf(isRecord(line['message']) ? line['message']['content'] : undefined);
+  }
+  return undefined;
+};
+
+export interface ClaudeParserOptions {
+  /** Read a subagent's own file, whose lines are all sidechain lines. */
+  readonly sidechain?: boolean;
+}
+
+export const createClaudeParser = (
+  cwd: string | undefined,
+  { sidechain = false }: ClaudeParserOptions = {},
+): TranscriptParser => {
   const log = entryLog();
+  const background = backgroundLog();
   // The latest prompt with images, its text without markers and the files named so far.
   let attached: { id: string; text: string; paths: Array<string> } | undefined;
 
   const push = (raw: string): ReadonlyArray<TranscriptEntry> => {
     const line = parseLine(raw);
     // Lines of a subagent's own conversation belong to that subagent, not to this chat.
-    if (line === undefined || line['isSidechain'] === true) return [];
+    if (line === undefined || (line['isSidechain'] === true) !== sidechain) return [];
     const id = stringField(line, 'uuid') ?? '';
     const at = Date.parse(stringField(line, 'timestamp') ?? '');
     const message = line['message'];
     const changed: Array<TranscriptEntry> = [];
+
+    const notice = taskNoticeOf(line);
+    if (notice !== undefined) {
+      background.notification(notice);
+      return [];
+    }
 
     if (line['type'] === 'user') {
       // The paths go back below the text, as the prompt was sent, so the chat shows the images.
@@ -165,11 +212,16 @@ export const createClaudeParser = (cwd: string | undefined): TranscriptParser =>
       }
       for (const block of blocksOf(message)) {
         if (block['type'] !== 'tool_result') continue;
+        const toolUseId = stringField(block, 'tool_use_id') ?? '';
+        const ok = block['is_error'] !== true;
+        const details = line['toolUseResult'];
+        background.result(toolUseId, ok, textOf(block['content']), details, at);
+        const subagent = subagentOf(details);
         const finished = log.finish(
-          stringField(block, 'tool_use_id') ?? '',
-          block['is_error'] === true ? 'error' : 'ok',
-          patchCounts(line['toolUseResult']),
-          answersOf(line['toolUseResult']),
+          toolUseId,
+          ok ? 'ok' : 'error',
+          { ...patchCounts(details), ...(subagent === undefined ? {} : { subagent }) },
+          answersOf(details),
         );
         if (finished !== undefined) changed.push(finished);
       }
@@ -184,11 +236,14 @@ export const createClaudeParser = (cwd: string | undefined): TranscriptParser =>
             changed.push(log.add({ type: 'assistant', id: `${id}:${index}`, at, text }));
           }
         } else if (block['type'] === 'tool_use') {
-          const summary = summarise(cwd, stringField(block, 'name') ?? 'a tool', block['input']);
+          const name = stringField(block, 'name') ?? 'a tool';
+          const toolUseId = stringField(block, 'id') ?? `${id}:${index}`;
+          background.call(toolUseId, name, block['input'], at);
+          const summary = summarise(cwd, name, block['input']);
           changed.push(
             log.add({
               type: 'tool',
-              id: stringField(block, 'id') ?? `${id}:${index}`,
+              id: toolUseId,
               at,
               ...summary,
               outcome: 'pending',
@@ -200,5 +255,5 @@ export const createClaudeParser = (cwd: string | undefined): TranscriptParser =>
     return changed;
   };
 
-  return { push, entries: log.entries };
+  return { push, entries: log.entries, background: background.items };
 };

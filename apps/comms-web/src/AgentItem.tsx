@@ -1,4 +1,5 @@
 import { AgentRow, type Hue } from '@pocket-comms/design-ui';
+import { backgroundMarker } from './background.js';
 import type { AgentView } from './comms-client.js';
 import { STATUS_LABELS } from './labels.js';
 import { projectLabel, rowName, rowWorktree } from './rows.js';
@@ -39,6 +40,7 @@ export const AgentItem = ({
       title={agent.title}
       since={since(agent.changedAt, now)}
       {...attentionOf(agent)}
+      {...backgroundMarker(agent)}
     />
   );
 };

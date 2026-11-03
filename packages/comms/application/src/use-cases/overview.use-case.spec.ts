@@ -48,6 +48,85 @@ describe('AgentsInbound.overview', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('keeps a done agent with running background work out of Needs you', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      yield* TestClock.setTime(10_000);
+      state.agents = [fakeAgent({ paneId: 'w1:p1', status: 'done', completion: 3, session: 's1' })];
+      state.transcripts.set('s1', {
+        entries: [],
+        modifiedAt: 1_000,
+        background: [
+          {
+            id: 't2',
+            kind: 'subagent',
+            description: 'Review',
+            startedAt: 2_000,
+            inBackground: true,
+          },
+          {
+            id: 't1',
+            kind: 'shell',
+            description: 'Wait for CI',
+            startedAt: 1_000,
+            inBackground: true,
+          },
+        ],
+      });
+
+      const overview = yield* AgentsInbound.use((inbound) => inbound.overview);
+
+      expect(overview.needsYou).toEqual([]);
+      expect(overview.groups[0]?.agents[0]).toMatchObject({
+        needsYou: false,
+        background: [
+          { id: 't1', kind: 'shell', description: 'Wait for CI' },
+          { id: 't2', kind: 'subagent', description: 'Review' },
+        ],
+      });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('drops a monitor from the background work once it expired', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.agents = [fakeAgent({ paneId: 'w1:p1', status: 'done', completion: 3, session: 's1' })];
+      state.transcripts.set('s1', {
+        entries: [],
+        modifiedAt: 1_000,
+        background: [
+          {
+            id: 'm1',
+            kind: 'monitor',
+            description: 'Watch',
+            startedAt: 1_000,
+            inBackground: true,
+            expiresAt: 60_000,
+          },
+        ],
+      });
+
+      yield* TestClock.setTime(59_999);
+      const before = yield* AgentsInbound.use((inbound) => inbound.overview);
+      yield* TestClock.setTime(60_000);
+      const after = yield* AgentsInbound.use((inbound) => inbound.overview);
+
+      expect(before.groups[0]?.agents[0]?.background).toHaveLength(1);
+      expect(after.needsYou.map((agent) => [agent.ref, agent.background])).toEqual([['w1:p1', []]]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('shows no background work for an agent whose session cannot be read', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.agents = [fakeAgent({ paneId: 'w1:p1', status: 'done', completion: 3, session: 's9' })];
+
+      const overview = yield* AgentsInbound.use((inbound) => inbound.overview);
+
+      expect(overview.needsYou[0]?.background).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('names the project and worktree of each agent', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

@@ -41,3 +41,23 @@
 .error {
   color: var(--color-text-danger);
 }
+
+.hint {
+  flex: none;
+  color: var(--color-text-accent);
+  font-size: var(--font-size-xs);
+}
+
+.link {
+  text-decoration: none;
+}
+
+.link:hover {
+  border-color: var(--color-border-control);
+  color: var(--color-text-default);
+}
+
+.link:focus-visible {
+  outline: var(--border-width-focus) solid var(--color-border-focus);
+  outline-offset: 0;
+}

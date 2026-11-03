@@ -58,5 +58,6 @@ export { Page, type PageProps } from './layout/Page.js';
 export { Stack, type StackProps } from './layout/Stack.js';
 export { Sheet, type SheetProps } from './sheet/Sheet.js';
 export { Disclosure, type DisclosureProps } from './disclosure/Disclosure.js';
+export { BackgroundStrip, type BackgroundStripProps } from './background-strip/BackgroundStrip.js';
 export { IssueCard, type IssueCardProps } from './issue-card/IssueCard.js';
 export { SheetHeader, type SheetHeaderProps } from './sheet/SheetHeader.js';

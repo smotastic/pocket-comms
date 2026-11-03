@@ -8,6 +8,8 @@ import type {
   AgentEventDto,
   OverviewDto,
   OverviewStateDto,
+  SubagentDto,
+  SubagentEventDto,
   TranscriptDto,
 } from '../dto/agent.dto.js';
 import type {
@@ -16,6 +18,7 @@ import type {
   HerdrUnavailableError,
   NotAWorktreeError,
   ProjectGitError,
+  SubagentNotFoundError,
   TranscriptUnavailableError,
   WorktreeHasChangesError,
 } from '../errors.js';
@@ -42,6 +45,15 @@ export class AgentsInbound extends Context.Service<
       ref: string,
     ) => Effect.Effect<TranscriptDto, Lookup | TranscriptUnavailableError>;
     readonly agentEvents: (ref: string) => Effect.Effect<Stream.Stream<AgentEventDto>, Lookup>;
+    /** A subagent of the agent's session, by id: what it is and its conversation. */
+    readonly subagent: (
+      ref: string,
+      id: string,
+    ) => Effect.Effect<SubagentDto, Lookup | SubagentNotFoundError>;
+    readonly subagentEvents: (
+      ref: string,
+      id: string,
+    ) => Effect.Effect<Stream.Stream<SubagentEventDto>, Lookup | SubagentNotFoundError>;
     readonly screen: (ref: string) => Effect.Effect<string, Lookup | HerdrRejectedError>;
     /** Sends the text and the paths of the attached images; the text may be blank with images. */
     readonly prompt: (

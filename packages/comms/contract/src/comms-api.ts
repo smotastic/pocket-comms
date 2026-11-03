@@ -41,6 +41,42 @@ export const AgentStatus = Schema.Literals([
   examples: ['working'],
 });
 
+export const SubagentParam = Schema.String.check(Schema.isPattern(/^[a-z0-9]{1,64}$/u)).annotate({
+  description: "A subagent's id, as Claude Code names it.",
+  examples: ['a0123456789abcdef'],
+});
+
+export const BackgroundItem = Schema.Struct({
+  id: Schema.String.annotate({
+    description: 'The tool call that started it.',
+    examples: ['toolu_01G3T6'],
+  }),
+  kind: Schema.Literals(['shell', 'monitor', 'subagent']).annotate({
+    description: 'A command, a monitor or a subagent.',
+    examples: ['shell'],
+  }),
+  description: Schema.String.annotate({
+    description: 'What it does, as the tool call describes it.',
+    examples: ['Wait for CI'],
+  }),
+  startedAt: Millis.annotate({ description: 'When it started, in epoch milliseconds.' }),
+  inBackground: Schema.Boolean.annotate({
+    description: 'False only for a subagent the agent waits on before it continues.',
+    examples: [true],
+  }),
+  expiresAt: optional(Millis, {
+    description: 'When a monitor stops by itself, in epoch milliseconds.',
+    examples: [1793391981245],
+  }),
+  subagent: optional(SubagentParam, {
+    description: "A subagent's id, once known; it opens the subagent's conversation.",
+    examples: ['a0123456789abcdef'],
+  }),
+}).annotate({
+  identifier: 'BackgroundItem',
+  description: 'Work an agent left running while it carries on or waits at its prompt.',
+});
+
 export const Agent = Schema.Struct({
   ref: AgentParam,
   paneId: Schema.String.annotate({ description: "The agent's Herdr pane.", examples: ['wJ:p1'] }),
@@ -78,8 +114,13 @@ export const Agent = Schema.Struct({
     description: 'When the agent last changed, in epoch milliseconds.',
   }),
   needsYou: Schema.Boolean.annotate({
-    description: 'Blocked, or done with a completion the owner has not seen yet.',
+    description:
+      'Blocked, or done with a completion the owner has not seen yet and no background work running.',
     examples: [false],
+  }),
+  background: Schema.Array(BackgroundItem).annotate({
+    description: 'The background work still running, oldest first.',
+    examples: [[]],
   }),
 }).annotate({ identifier: 'Agent', description: 'A live agent.' });
 
@@ -187,6 +228,10 @@ export const TranscriptEntry = Schema.Union([
     }),
     added: optional(Schema.Int, { description: 'Lines an edit added.', examples: [12] }),
     removed: optional(Schema.Int, { description: 'Lines an edit removed.', examples: [3] }),
+    subagent: optional(SubagentParam, {
+      description: 'The subagent a delegation started, once known; it opens its conversation.',
+      examples: ['a0123456789abcdef'],
+    }),
     questions: optional(
       Schema.Array(
         Schema.Struct({
@@ -249,6 +294,62 @@ export const AgentEvent = Schema.Union([
     activity: CurrentActivity,
   }),
 ]).annotate({ identifier: 'AgentEvent', description: 'One update of an open conversation.' });
+
+const SubagentFields = {
+  id: SubagentParam,
+  description: Schema.String.annotate({
+    description: 'What the parent asked it to do, in a few words.',
+    examples: ['Review the diff'],
+  }),
+  agentType: optional(Schema.String, {
+    description: 'The kind of subagent, when known.',
+    examples: ['general-purpose'],
+  }),
+  running: Schema.Boolean.annotate({ description: 'Whether it still runs.', examples: [true] }),
+  inBackground: Schema.Boolean.annotate({
+    description: 'False for a subagent its parent waits on.',
+    examples: [true],
+  }),
+};
+
+export const SubagentInfo = Schema.Struct(SubagentFields).annotate({
+  identifier: 'SubagentInfo',
+  description: 'A subagent of an agent.',
+});
+
+export const Subagent = Schema.Struct({
+  ...SubagentFields,
+  entries: Entries,
+  activity: CurrentActivity,
+}).annotate({
+  identifier: 'Subagent',
+  description: 'A subagent of an agent, with the latest entries of its own conversation.',
+});
+
+export const SubagentEvent = Schema.Union([
+  Schema.Struct({
+    type: Schema.tag('subagent').annotate({
+      description: 'The subagent changed, such as when it ended.',
+      examples: ['subagent'],
+    }),
+    subagent: SubagentInfo,
+  }),
+  Schema.Struct({
+    type: Schema.tag('entries').annotate({
+      description: 'Entries arrived or changed.',
+      examples: ['entries'],
+    }),
+    reset: Schema.Boolean.annotate({
+      description: 'The entries replace the ones the reader holds: the first event.',
+      examples: [true],
+    }),
+    entries: Entries,
+    activity: CurrentActivity,
+  }),
+]).annotate({
+  identifier: 'SubagentEvent',
+  description: "One update of an open subagent's conversation.",
+});
 
 export const Screen = Schema.Struct({
   text: Schema.String.annotate({
@@ -866,6 +967,32 @@ const group = HttpApiGroup.make('agents')
         summary: 'Follow a conversation',
         description:
           'Server-sent events: the agent after each change, and its session entries, starting with a reset.',
+      }),
+    ),
+    HttpApiEndpoint.get('subagent', '/agents/:agent/subagents/:subagent', {
+      params: { ...agent, subagent: SubagentParam },
+      success: Subagent,
+      error: problems,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Read a subagent's conversation",
+        description:
+          "A subagent of a Claude agent's session: what it is and the latest entries of its own conversation. Unknown subagents are 404.",
+      }),
+    ),
+    HttpApiEndpoint.get('subagentEvents', '/agents/:agent/subagents/:subagent/events', {
+      params: { ...agent, subagent: SubagentParam },
+      success: eventStream(
+        'subagent',
+        SubagentEvent,
+        '{"type":"entries","reset":true,"entries":[],"activity":"Thinking…"}',
+      ),
+      error: problems,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Follow a subagent's conversation",
+        description:
+          'Server-sent events: the subagent after each change, such as its end, and its entries, starting with a reset.',
       }),
     ),
     HttpApiEndpoint.get('screen', '/agents/:agent/screen', {

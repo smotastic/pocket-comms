@@ -438,3 +438,164 @@ describe('the brainstorm chat over a conversation', () => {
     );
   });
 });
+
+describe('background work in the conversation', () => {
+  const shell = {
+    id: 'toolu-ci',
+    kind: 'shell',
+    description: 'Wait for CI',
+    startedAt: Date.now() - 12 * 60_000,
+    inBackground: true,
+  } as const;
+  const review = {
+    id: 'toolu-rev',
+    kind: 'subagent',
+    description: 'Review the diff',
+    startedAt: Date.now() - 3 * 60_000,
+    inBackground: true,
+    subagent: 'a1',
+  } as const;
+  const delegations: TranscriptView = {
+    entries: [
+      {
+        type: 'tool',
+        id: 'toolu-rev',
+        at: 1,
+        verb: 'Delegated',
+        target: 'Review the diff',
+        outcome: 'ok',
+        subagent: 'a1',
+      },
+      {
+        type: 'tool',
+        id: 'toolu-old',
+        at: 2,
+        verb: 'Delegated',
+        target: 'Find the config',
+        outcome: 'ok',
+        subagent: 'b2',
+      },
+      { type: 'tool', id: 'toolu-x', at: 3, verb: 'Delegated', target: 'Unknown', outcome: 'ok' },
+    ],
+    activity: 'Thinking…',
+  };
+
+  const openWith = (agent: AgentView) => {
+    const fake = fakeClient({
+      agents: new Map([[agent.ref, agent]]),
+      transcripts: new Map([[agent.ref, delegations]]),
+    });
+    return { ...fake, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
+  };
+
+  it('shows a strip of the running work above the composer that opens to list it', async () => {
+    openWith(fakeAgent({ status: 'done', background: [shell, review] }));
+
+    const toggle = await screen.findByRole('button', { name: '2 running in the background' });
+    await userEvent.click(toggle);
+
+    const list = screen.getByRole('region', { name: '2 running in the background' });
+    expect(within(list).getByText('Wait for CI')).toBeDefined();
+    expect(within(list).getByText('12m')).toBeDefined();
+    expect(within(list).getAllByRole('link')).toHaveLength(1);
+    expect(within(list).getByRole('link').getAttribute('href')).toBe('/agents/kirk/subagents/a1');
+  });
+
+  it('shows no strip without background work', async () => {
+    openWith(fakeAgent({ status: 'done' }));
+
+    await screen.findByText('Find the config');
+    expect(screen.queryByRole('button', { name: /running in the background/u })).toBeNull();
+  });
+
+  it('removes the strip when the last item ends', async () => {
+    const fake = openWith(fakeAgent({ status: 'working', background: [shell] }));
+    await screen.findByRole('button', { name: '1 running in the background' });
+
+    act(() => fake.emitAgent('kirk', { type: 'agent', agent: fakeAgent({ status: 'working' }) }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /running in the background/u })).toBeNull(),
+    );
+  });
+
+  it("links each delegation to its subagent's conversation, with a hint while it runs", async () => {
+    openWith(fakeAgent({ status: 'done', background: [review] }));
+
+    const running = await screen.findByRole('link', {
+      name: 'Delegated Review the diff succeeded running in the background',
+    });
+    expect(running.getAttribute('href')).toBe('/agents/kirk/subagents/a1');
+    const ended = screen.getByRole('link', { name: 'Delegated Find the config succeeded' });
+    expect(ended.getAttribute('href')).toBe('/agents/kirk/subagents/b2');
+    expect(screen.queryByRole('link', { name: /Unknown/u })).toBeNull();
+  });
+
+  it("opens a subagent's conversation from its delegation", async () => {
+    const fake = fakeClient({
+      agents: new Map([['kirk', fakeAgent({ status: 'done' })]]),
+      transcripts: new Map([['kirk', delegations]]),
+      subagents: new Map([
+        [
+          'kirk/b2',
+          {
+            id: 'b2',
+            description: 'Find the config',
+            agentType: 'Explore',
+            running: false,
+            inBackground: false,
+            entries: [{ type: 'user', id: 'su1', at: 1, text: 'Where is the config?' }],
+            activity: 'Thinking…',
+          },
+        ],
+      ]),
+    });
+    renderApp({ client: fake.client, path: '/agents/kirk' });
+
+    await userEvent.click(
+      await screen.findByRole('link', { name: 'Delegated Find the config succeeded' }),
+    );
+
+    expect(await screen.findByText('Where is the config?')).toBeDefined();
+  });
+
+  it('notes a running subagent whose id is not known yet, without a link', async () => {
+    const pending: TranscriptView = {
+      entries: [
+        {
+          type: 'tool',
+          id: 'toolu-fg',
+          at: 1,
+          verb: 'Delegated',
+          target: 'Look',
+          outcome: 'pending',
+        },
+      ],
+      activity: 'Delegating Look…',
+    };
+    const fake = fakeClient({
+      agents: new Map([
+        [
+          'kirk',
+          fakeAgent({
+            status: 'working',
+            background: [
+              {
+                id: 'toolu-fg',
+                kind: 'subagent',
+                description: 'Look',
+                startedAt: 1,
+                inBackground: false,
+              },
+            ],
+          }),
+        ],
+      ]),
+      transcripts: new Map([['kirk', pending]]),
+    });
+    renderApp({ client: fake.client, path: '/agents/kirk' });
+
+    expect(await screen.findByText('running')).toBeDefined();
+    expect(screen.queryByRole('link', { name: /Look/u })).toBeNull();
+  });
+});

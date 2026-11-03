@@ -55,6 +55,8 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}/prompt',
       '/api/v1/agents/{agent}/screen',
       '/api/v1/agents/{agent}/seen',
+      '/api/v1/agents/{agent}/subagents/{subagent}',
+      '/api/v1/agents/{agent}/subagents/{subagent}/events',
       '/api/v1/agents/{agent}/transcript',
       '/api/v1/brainstorm',
       '/api/v1/brainstorm/events',

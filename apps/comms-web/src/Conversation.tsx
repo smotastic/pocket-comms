@@ -2,38 +2,38 @@ import {
   Activity,
   Alert,
   ApprovalPanel,
+  BackgroundStrip,
   Composer,
   DockedPage,
   IconButton,
-  ImageThumb,
   KeyPad,
-  Markdown,
-  QuestionCard,
   Segmented,
   Stack,
   StatusPill,
   TerminalScreen,
   Text,
-  ToolLine,
   TopBar,
-  UserMessage,
 } from '@pocket-comms/design-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { AgentView, CommsClient, Key, TranscriptView } from './comms-client.js';
+import type { AgentView, CommsClient, Key } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { AttachedImages } from './AttachedImages.js';
 import { useAttachments } from './attachments.js';
+import { delegationLink, stripItems } from './background.js';
+import { Chat } from './Chat.js';
 import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu } from './ConversationMenu.js';
 import { agentQuery, screenQuery, transcriptQuery } from './comms-queries.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
-import { useAgentLive } from './live.js';
+import { useAgentLive, useNow } from './live.js';
 
 export interface ConversationProps {
   readonly client: CommsClient;
   readonly agentRef: string;
   readonly onBack: () => void;
+  /** Opens a subagent's conversation, by its id. */
+  readonly onOpenSubagent: (id: string) => void;
   /** What the New task flow could not do for this agent, such as send the task (spec 005). */
   readonly note?: string | undefined;
   /**
@@ -58,82 +58,6 @@ const CTRL_C = { value: 'ctrl+c', label: 'Ctrl-C', accessibleLabel: 'Hold to sen
 
 const isKey = (value: string): value is Key =>
   value === CTRL_C.value || KEYS.some((key) => key.value === value);
-
-// A call that asked the owner questions waits while pending and failed when they never answered.
-const QUESTION_STATES = { pending: 'waiting', ok: 'answered', error: 'unanswered' } as const;
-
-const Chat = ({
-  transcript,
-  failed,
-  imageUrl,
-}: {
-  readonly transcript: TranscriptView | undefined;
-  /** Where an attached image of a prompt is served (spec 014). */
-  readonly imageUrl: (id: string) => string;
-  /** The session cannot be read, such as before the agent's first prompt. */
-  readonly failed: boolean;
-}) => {
-  if (transcript === undefined) {
-    return (
-      <Text tone="muted">{failed ? 'No conversation yet.' : 'Loading the conversation…'}</Text>
-    );
-  }
-  if (transcript.entries.length === 0) return <Text tone="muted">Nothing was said yet.</Text>;
-  return (
-    <>
-      {transcript.entries.map((entry) => {
-        switch (entry.type) {
-          case 'user':
-            return (
-              <UserMessage
-                key={entry.id}
-                {...(entry.images === undefined || entry.images.length === 0
-                  ? {}
-                  : {
-                      attachments: entry.images.map((id, index) => (
-                        <ImageThumb
-                          key={id}
-                          label={`Image ${index + 1}`}
-                          src={imageUrl(id)}
-                          href={imageUrl(id)}
-                        />
-                      )),
-                    })}
-              >
-                {entry.text}
-              </UserMessage>
-            );
-          case 'assistant':
-            return <Markdown key={entry.id} text={entry.text} />;
-          case 'tool':
-            if (entry.questions !== undefined) {
-              return (
-                <QuestionCard
-                  key={entry.id}
-                  questions={entry.questions.map(({ header, text, answer }) => ({
-                    text,
-                    ...(header === undefined ? {} : { header }),
-                    ...(answer === undefined ? {} : { answer }),
-                  }))}
-                  state={QUESTION_STATES[entry.outcome]}
-                />
-              );
-            }
-            return (
-              <ToolLine
-                key={entry.id}
-                verb={entry.verb}
-                {...(entry.target === undefined ? {} : { target: entry.target })}
-                {...(entry.added === undefined ? {} : { added: entry.added })}
-                {...(entry.removed === undefined ? {} : { removed: entry.removed })}
-                outcome={entry.outcome}
-              />
-            );
-        }
-      })}
-    </>
-  );
-};
 
 const Header = ({
   agent,
@@ -190,8 +114,17 @@ const Header = ({
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
  * the composer, or the approval keys while the agent is blocked. It updates live.
  */
-export const Conversation = ({ client, agentRef, onBack, note, onGone }: ConversationProps) => {
+export const Conversation = ({
+  client,
+  agentRef,
+  onBack,
+  onOpenSubagent,
+  note,
+  onGone,
+}: ConversationProps) => {
   useAgentLive(client, agentRef);
+  const now = useNow(60_000);
+  const [backgroundOpen, setBackgroundOpen] = useState(false);
   const agentResult = useQuery(agentQuery(client, agentRef));
   const agent = agentResult.data;
   const hasChat = agent?.format !== undefined;
@@ -297,6 +230,13 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
         <Stack gap="xs">
           {failure === null ? null : <Alert>{failure.message}</Alert>}
           {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
+          {agent.background.length === 0 ? null : (
+            <BackgroundStrip
+              items={stripItems(agent, now, onOpenSubagent)}
+              expanded={backgroundOpen}
+              onToggle={() => setBackgroundOpen(!backgroundOpen)}
+            />
+          )}
           {blocked || view === 'screen' ? (
             <KeyPad
               label="Keys"
@@ -353,6 +293,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
               transcript={transcript.data}
               failed={transcript.error !== null}
               imageUrl={client.imageUrl}
+              linkOf={delegationLink(agent, onOpenSubagent)}
             />
             {agent.status === 'working' ? (
               <Activity label={transcript.data?.activity ?? 'Thinking…'} />

@@ -5,6 +5,9 @@ export type {
   OverviewDto,
   OverviewGroupDto,
   OverviewStateDto,
+  SubagentDto,
+  SubagentEventDto,
+  SubagentInfoDto,
   TranscriptDto,
 } from './dto/agent.dto.js';
 export type {
@@ -45,6 +48,7 @@ export {
   HerdrUnavailableError,
   ImageNotFoundError,
   ImageNotSavedError,
+  SubagentNotFoundError,
   TranscriptUnavailableError,
   WorktreeHasChangesError,
 } from './errors.js';
@@ -98,5 +102,6 @@ export {
 export {
   TranscriptOutbound,
   type Transcript,
+  type SubagentMeta,
   type TranscriptSource,
 } from './ports/transcript.outbound.port.js';

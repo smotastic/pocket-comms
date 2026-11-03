@@ -2,9 +2,9 @@
 
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
 them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, it reads,
-closes and marks in progress the projects' Gitea issues, it runs the brainstorm chat with Pi, and it keeps the images
-the owner attaches to a prompt, and it pushes a notification to the owner's devices when an agent
-needs them. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
+closes and marks in progress the projects' Gitea issues, it runs the brainstorm chat with Pi, it keeps the images
+the owner attaches to a prompt, it pushes a notification to the owner's devices when an agent
+needs them, and it follows the background work and the subagents of Claude agents. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
 [spec 006](../../specs/006-comms-gitea-issues/spec.md),
 [spec 007](../../specs/007-comms-sessions-by-project/spec.md),
@@ -12,12 +12,14 @@ needs them. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md)
 [spec 011](../../specs/011-comms-close-agent/spec.md),
 [spec 013](../../specs/013-comms-brainstorm-chat/spec.md),
 [spec 014](../../specs/014-comms-images-in-chat/spec.md),
-[spec 015](../../specs/015-comms-issues-in-progress/spec.md) and
-[spec 017](../../specs/017-comms-activity-timeline/spec.md) and
-[spec 018](../../specs/018-comms-push-notifications/spec.md).
-It has no database. Seen completions and last status changes live in server memory; the brainstorm
-chat and the activity timeline are JSON files in the state folder, attached images are files in its
-`images` folder, and the push devices and the VAPID key pair are two JSON files in its `push` folder.
+[spec 015](../../specs/015-comms-issues-in-progress/spec.md),
+[spec 017](../../specs/017-comms-activity-timeline/spec.md),
+[spec 018](../../specs/018-comms-push-notifications/spec.md) and
+[spec 019](../../specs/019-comms-background-activity/spec.md).
+It has no database. Seen completions, last status changes and the background work read from each
+session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
+the state folder, attached images are files in its `images` folder, and the push devices and the
+VAPID key pair are two JSON files in its `push` folder.
 
 ## Where each file type goes
 
@@ -77,6 +79,10 @@ chat and the activity timeline are JSON files in the state folder, attached imag
   listens on `127.0.0.1` only. Do not add a route outside `commsServerLayer`.
 - Session file formats are undocumented. Parsers skip what they do not know; tests use the
   anonymised fixtures in `infrastructure/src/testing/fixtures`. Never commit a real transcript.
+- Background work comes from Claude's session file only (`transcript/claude-background.ts`); Herdr's
+  status stays as Herdr reports it, and the background work only keeps a done agent out of Needs
+  you. A subagent id from a request must match `^[a-z0-9]{1,64}$` before it names a file, and
+  only files below the session's own `subagents` folder are read.
 - Images go to an agent as absolute paths in the prompt (Herdr takes text only). The image store
   names every file itself (`<id>.<ext>`), opens only names of that shape that are plain files, and
   an image id from a request is only ever looked up, never joined into a path. The server checks

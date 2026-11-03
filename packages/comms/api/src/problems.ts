@@ -26,6 +26,14 @@ export const problems = {
         detail: `No live agent is named ${error.ref}.`,
       }),
     ),
+  subagentNotFound: (error: { readonly ref: string; readonly subagent: string }) =>
+    Effect.fail(
+      notFoundProblem({
+        slug: 'subagent-not-found',
+        title: 'Subagent not found',
+        detail: `${error.ref} has no subagent ${error.subagent}.`,
+      }),
+    ),
   transcriptUnavailable: (error: { readonly reason: string }) =>
     Effect.fail(
       notFoundProblem({

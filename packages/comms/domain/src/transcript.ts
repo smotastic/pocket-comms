@@ -48,6 +48,8 @@ export type TranscriptEntry =
        */
       readonly questions?: ReadonlyArray<Question> | undefined;
       readonly outcome: ToolOutcome;
+      /** The subagent a delegation started, by id, once known; it opens its conversation. */
+      readonly subagent?: string | undefined;
     };
 
 const PRESENT: Record<ToolVerb, string> = {

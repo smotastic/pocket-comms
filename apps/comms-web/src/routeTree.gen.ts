@@ -14,6 +14,7 @@ import { Route as ActivityRouteImport } from './routes/activity';
 import { Route as AgentsAgentRouteImport } from './routes/agents.$agent';
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index';
 import { Route as ProjectsProjectRouteImport } from './routes/projects.$project';
+import { Route as AgentsAgentSubagentsSubagentRouteImport } from './routes/agents.$agent_.subagents.$subagent';
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,12 @@ const ProjectsProjectRoute = ProjectsProjectRouteImport.update({
   path: '/projects/$project',
   getParentRoute: () => rootRouteImport,
 } as any);
+const AgentsAgentSubagentsSubagentRoute =
+  AgentsAgentSubagentsSubagentRouteImport.update({
+    id: '/agents/$agent_/subagents/$subagent',
+    path: '/agents/$agent/subagents/$subagent',
+    getParentRoute: () => rootRouteImport,
+  } as any);
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
@@ -47,6 +54,7 @@ export interface FileRoutesByFullPath {
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects/': typeof ProjectsIndexRoute;
+  '/agents/$agent/subagents/$subagent': typeof AgentsAgentSubagentsSubagentRoute;
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
@@ -54,6 +62,7 @@ export interface FileRoutesByTo {
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects': typeof ProjectsIndexRoute;
+  '/agents/$agent/subagents/$subagent': typeof AgentsAgentSubagentsSubagentRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -62,20 +71,33 @@ export interface FileRoutesById {
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects/': typeof ProjectsIndexRoute;
+  '/agents/$agent_/subagents/$subagent': typeof AgentsAgentSubagentsSubagentRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
-    '/' | '/activity' | '/agents/$agent' | '/projects/$project' | '/projects/';
+    | '/'
+    | '/activity'
+    | '/agents/$agent'
+    | '/projects/$project'
+    | '/projects/'
+    | '/agents/$agent/subagents/$subagent';
   fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/activity' | '/agents/$agent' | '/projects/$project' | '/projects';
+  to:
+    | '/'
+    | '/activity'
+    | '/agents/$agent'
+    | '/projects/$project'
+    | '/projects'
+    | '/agents/$agent/subagents/$subagent';
   id:
     | '__root__'
     | '/'
     | '/activity'
     | '/agents/$agent'
     | '/projects/$project'
-    | '/projects/';
+    | '/projects/'
+    | '/agents/$agent_/subagents/$subagent';
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -84,6 +106,7 @@ export interface RootRouteChildren {
   AgentsAgentRoute: typeof AgentsAgentRoute;
   ProjectsProjectRoute: typeof ProjectsProjectRoute;
   ProjectsIndexRoute: typeof ProjectsIndexRoute;
+  AgentsAgentSubagentsSubagentRoute: typeof AgentsAgentSubagentsSubagentRoute;
 }
 
 declare module '@tanstack/react-router' {
@@ -123,6 +146,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    '/agents/$agent_/subagents/$subagent': {
+      id: '/agents/$agent_/subagents/$subagent';
+      path: '/agents/$agent/subagents/$subagent';
+      fullPath: '/agents/$agent/subagents/$subagent';
+      preLoaderRoute: typeof AgentsAgentSubagentsSubagentRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
@@ -132,6 +162,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentsAgentRoute: AgentsAgentRoute,
   ProjectsProjectRoute: ProjectsProjectRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
+  AgentsAgentSubagentsSubagentRoute: AgentsAgentSubagentsSubagentRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
