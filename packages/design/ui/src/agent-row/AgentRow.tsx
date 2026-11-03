@@ -1,4 +1,5 @@
 import type { Hue } from '../hue.js';
+import { Icon } from '../icon-button/Icon.js';
 import { isPlainClick } from '../plain-click.js';
 import hidden from '../visually-hidden.module.css';
 import styles from './AgentRow.module.css';
@@ -43,6 +44,8 @@ export type AgentRowProps = {
   readonly title: string;
   /** Tints the row for something that needs the reader. */
   readonly attention?: 'blocked' | 'done';
+  /** Work the agent left running: a marker with the count; the label says it in words. */
+  readonly background?: { readonly count: number; readonly label: string };
 };
 
 /** One agent in a list: its status, name and project, and what it is doing. A link to its page. */
@@ -57,6 +60,7 @@ export const AgentRow = ({
   hue = 'neutral',
   title,
   attention,
+  background,
 }: AgentRowProps) => (
   <a
     href={href}
@@ -82,8 +86,19 @@ export const AgentRow = ({
           <span className={styles.worktree}>· {worktree}</span>
         </>
       )}
+      {background === undefined ? null : (
+        <span className={styles.background} aria-hidden="true">
+          <Icon name="background" />
+          {background.count}
+        </span>
+      )}
     </span>{' '}
     <span className={hidden.visuallyHidden}>{status.label}</span>{' '}
+    {background === undefined ? null : (
+      <>
+        <span className={hidden.visuallyHidden}>{background.label}</span>{' '}
+      </>
+    )}
     <span className={styles.second}>
       {project === undefined ? null : (
         <>

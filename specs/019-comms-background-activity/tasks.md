@@ -29,7 +29,7 @@ in the task's own commit.
       handlers, the OpenAPI document
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`
 
-- [ ] **T06** — Design kit: the `background` icon, the `AgentRow` marker, `BackgroundStrip`,
+- [x] **T06** — Design kit: the `background` icon, the `AgentRow` marker, `BackgroundStrip`,
       `ToolLine` with `href` and `hint`, stories
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 

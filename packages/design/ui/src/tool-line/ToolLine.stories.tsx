@@ -15,5 +15,13 @@ export const Calls: Story = () => (
     <ToolLine verb="Ran" target="pnpm install" outcome="ok" />
     <ToolLine verb="Ran" target="pnpm test" outcome="error" />
     <ToolLine verb="Ran" target="pnpm verify:local" outcome="pending" />
+    <ToolLine
+      verb="Delegated"
+      target="Review the images branch diff"
+      outcome="ok"
+      hint="running in the background"
+      href="#subagent"
+      onNavigate={() => undefined}
+    />
   </Stack>
 );

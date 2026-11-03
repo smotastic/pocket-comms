@@ -14,6 +14,7 @@ export const ICON_NAMES = [
   'brainstorm',
   'image',
   'retry',
+  'background',
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -37,6 +38,8 @@ const PATHS: Readonly<Record<IconName, string>> = {
   image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9.5h.01',
   // A circling arrow, for trying again.
   retry: 'M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5',
+  // Two stacked layers, for work that goes on behind the conversation.
+  background: 'M12 4l9 5-9 5-9-5zM3 14l9 5 9-5',
 };
 
 /** An icon that only decorates: its button or link carries the name. */
