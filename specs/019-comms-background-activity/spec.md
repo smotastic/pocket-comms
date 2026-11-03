@@ -1,6 +1,6 @@
 # Spec 019 — pocket-comms: show an agent's background work and its subagents
 
-- **Status:** `Approved` — approved by the owner (2026-11-03)
+- **Status:** `Done` — approved by the owner (2026-11-03); the owner's check on the phone at 390 px is still open
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (requirement 3: which agents need the
   owner), [spec 012](../012-comms-flat-overview/spec.md) (requirement 5: what an agent row shows)
   and the conversation of spec 004 (an `Agent` tool call becomes a link)

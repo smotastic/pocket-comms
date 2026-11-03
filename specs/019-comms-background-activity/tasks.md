@@ -40,6 +40,6 @@ in the task's own commit.
 - [x] **T08** — Web: the subagent route, `SubagentConversation` and its live stream
   - Gate: `pnpm nx test comms-web`, `pnpm verify:local`
 
-- [ ] **T09** — Docs: the service's `AGENTS.md` and README, spec status `Done` after the owner's
+- [x] **T09** — Docs: the service's `AGENTS.md` and README, spec status `Done` after the owner's
       check on the phone
   - Gate: `pnpm verify:local`

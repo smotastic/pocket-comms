@@ -1,7 +1,7 @@
 # Plan 019 — pocket-comms: show an agent's background work and its subagents
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner (2026-11-03)
+- **Status:** `Done` — approved by the owner (2026-11-03)
 
 ## 1. Affected projects
 
@@ -211,3 +211,8 @@ server memory.
 > ADR 0006 keeps one inbound port per resource, and a subagent belongs to its agent. Reads of
 > one session's background work run one after another, so two callers never feed its parser the
 > same lines.
+>
+> The web tasks T07 and T08 landed in one commit: the typed router needs the subagent route
+> before the strip and the delegations can link to it. A subagent's own conversation shows its
+> entries without links to its own subagents; deeper nesting, the spec's stretch goal, is left
+> out. A delegation whose subagent runs but has no known id yet shows "running" without a link.
