@@ -18,7 +18,7 @@ in the task's own commit.
       T07 adds the handlers.
   - Gate: `pnpm nx test comms-contract`
 
-- [ ] **T03** — Application: the push ports, `PushInbound` with subscribe (idempotent by endpoint),
+- [x] **T03** — Application: the push ports, `PushInbound` with subscribe (idempotent by endpoint),
       unsubscribe and public key, and the fakes in `src/testing`
   - Gate: `pnpm nx test comms-application`
 

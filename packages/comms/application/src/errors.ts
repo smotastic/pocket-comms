@@ -109,3 +109,8 @@ export class ImageNotSavedError extends Data.TaggedError('ImageNotSavedError')<{
 export class ImageNotFoundError extends Data.TaggedError('ImageNotFoundError')<{
   readonly id: string;
 }> {}
+
+/** The server cannot keep or read its push devices or its push keys. */
+export class PushStoreError extends Data.TaggedError('PushStoreError')<{
+  readonly reason: string;
+}> {}
