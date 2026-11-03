@@ -1,6 +1,6 @@
 # Spec 014 — pocket-comms: images in the agent chat
 
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02), implemented in #31, #32 and #34
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (the composer and the "You" card, requirements
   8 and 13) and [spec 005](../005-comms-new-task/spec.md) (the task's first prompt)
 
