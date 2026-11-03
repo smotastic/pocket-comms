@@ -14,7 +14,7 @@ in the task's own commit.
       and reads a subagent's own file; the anonymised fixtures
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T03** — Smoke check: run the parser against real Claude sessions with a background shell, a
+- [x] **T03** — Smoke check: run the parser against real Claude sessions with a background shell, a
       monitor, a background and a foreground subagent; record in the plan what was seen,
       especially the foreground subagent's meta file and result
   - Gate: the plan's risk note says what was seen

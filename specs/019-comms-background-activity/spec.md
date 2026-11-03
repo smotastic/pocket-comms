@@ -132,13 +132,20 @@ that work is, and to read a subagent's conversation from comms.
 - **What Claude Code writes** (seen in Claude Code 2.1.302 session files, 2026-11-03):
   - A background `Bash` call has `"run_in_background": true`. Its result arrives at once, with
     `toolUseResult.backgroundTaskId` and the text "Command running in background with ID: …".
+    Claude also moves a long command into the background by itself; its call has no flag, but
+    its result has the same `backgroundTaskId`.
   - A background `Agent` call has `"run_in_background": "true"` (a string). Its result has
     `toolUseResult.isAsync: true` and `agentId`.
   - A `Monitor` result reads "Monitor started (task …, expires in 10m unless the source ends
     first; …)".
-  - Each ends with a user line with `origin.kind: "task-notification"` whose content is a
-    `<task-notification>` with `<task-id>`, `<tool-use-id>`, `<status>` and `<summary>`. The same
-    text can also appear in `queue-operation` lines; only the user line counts.
+  - Each ends with a `<task-notification>` that holds a `<status>` (`completed`, `failed`, …),
+    `<task-id>` and, mostly, `<tool-use-id>`. Claude writes it up to three times: as a
+    `queue-operation` enqueue the moment the task ends, as an `attachment` line
+    (`commandMode: "task-notification"`) when it arrives during a turn, and as a user line with
+    `origin.kind: "task-notification"` between turns. Any copy ends the task; repeats change
+    nothing.
+  - A monitor also notifies on each event it sees, with `<task-id>`, `<summary>` and `<event>` but
+    no `<status>`. Such a notice does not end it.
   - `TaskStop` takes `{"task_id": …}`.
   - A subagent's entries are in `<session>/subagents/agent-<agentId>.jsonl` (lines with
     `isSidechain: true`). Next to it, `agent-<agentId>.meta.json` holds `description`,

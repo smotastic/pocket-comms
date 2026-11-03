@@ -170,15 +170,29 @@ server memory.
   - **If a start is missed,** no marker shows: today's behaviour.
   - **If an end is missed,** a marker stays until the pane closes or the session changes. A
     monitor's expiry bounds its own case.
-  - The fixtures pin today's shapes (Claude Code 2.1.302). An implementation task checks the
-    parser against real sessions before the web work and records the outcome here.
-- **Foreground subagents are unverified.** All 235 local meta files are `requestShape:
-"background"`. The same implementation task runs a foreground subagent and checks:
-  - that its meta file exists while it runs;
-  - that its result carries `agentId`.
+  - The fixtures pin today's shapes (Claude Code 2.1.302).
 
-  If neither holds, a running foreground subagent shows in the strip without a link until it
-  ends.
+  > **Seen in real sessions (2026-11-03).** The parser ran over all 126 local Claude sessions. In
+  > every session older than an hour, nothing it started is still open. It took two fixes to get
+  > there:
+  >
+  > - notices that arrive during a turn come as `attachment` lines, and the queue copy comes
+  >   first, so every copy now ends a task;
+  > - a monitor's event notices carry no `<status>` and no longer end it.
+  >
+  > 26 of 320 background shells had no `run_in_background` flag (Claude moved them itself), so a
+  > shell counts by its `backgroundTaskId` alone.
+
+- **Foreground subagents.** All 235 local meta files were `requestShape: "background"`.
+
+  > **Seen with a foreground subagent (2026-11-03,** a headless Claude run in a scratch folder).
+  > Its meta file says `requestShape: "foreground"` and holds the `toolUseId`. Its result carries
+  > `agentId`, the call's `run_in_background` is `false`, and the parser read both files as
+  > expected. The meta file has a `finished` flag, so it exists while the subagent runs.
+
+- **A resumed subagent.** A subagent notifies each time it stops, and the owner's agent can resume
+  it afterwards. A resumed subagent is not counted again until its next notice. This is accepted:
+  it is rare and the parent shows its own activity meanwhile.
 
 - **A resumed session.** If Claude is restarted into the same session file after a crash, items
   of the crashed run never get a notification. They stay until the pane closes or the session
