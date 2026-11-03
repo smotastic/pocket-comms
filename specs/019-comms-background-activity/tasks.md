@@ -9,7 +9,7 @@ in the task's own commit.
       `buildOverview` with the running count, `subagent` on the tool entry
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Infrastructure: the Claude parser tracks background work (shells, monitors,
+- [x] **T02** — Infrastructure: the Claude parser tracks background work (shells, monitors,
       subagents, notifications, `TaskStop`/`KillShell`), sets `subagent` on `Agent` tool entries,
       and reads a subagent's own file; the anonymised fixtures
   - Gate: `pnpm nx test comms-infrastructure`

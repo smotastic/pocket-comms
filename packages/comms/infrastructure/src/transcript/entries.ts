@@ -1,10 +1,17 @@
-import type { ToolOutcome, ToolVerb, TranscriptEntry } from '@pocket-comms/comms-domain';
+import type {
+  BackgroundItem,
+  ToolOutcome,
+  ToolVerb,
+  TranscriptEntry,
+} from '@pocket-comms/comms-domain';
 
 /** Reads one session file line by line and keeps the chat entries it found so far. */
 export interface TranscriptParser {
   /** Reads one line and returns the entries it added or changed; a line it cannot read adds none. */
   readonly push: (line: string) => ReadonlyArray<TranscriptEntry>;
   readonly entries: () => ReadonlyArray<TranscriptEntry>;
+  /** The background work started in the lines read so far that has not ended yet. */
+  readonly background: () => ReadonlyArray<BackgroundItem>;
 }
 
 export type ToolEntry = Extract<TranscriptEntry, { type: 'tool' }>;
@@ -80,13 +87,14 @@ export const entryLog = () => {
       return entry;
     },
     /**
-     * Sets the outcome of a tool call, the line counts a result reports and the answers to its
-     * questions, each found by the question's text; none for an unknown id.
+     * Sets the outcome of a tool call, what its result reports (line counts, the subagent it
+     * started) and the answers to its questions, each found by the question's text; none for an
+     * unknown id.
      */
     finish: (
       id: string,
       outcome: ToolOutcome,
-      counts?: { readonly added: number; readonly removed: number },
+      details?: Pick<ToolEntry, 'added' | 'removed' | 'subagent'>,
       answerOf: (question: string) => string | undefined = () => undefined,
     ): TranscriptEntry | undefined => {
       const index = tools.get(id);
@@ -99,7 +107,7 @@ export const entryLog = () => {
       const finished: ToolEntry = {
         ...entry,
         outcome,
-        ...counts,
+        ...details,
         ...(questions === undefined ? {} : { questions }),
       };
       entries[index] = finished;

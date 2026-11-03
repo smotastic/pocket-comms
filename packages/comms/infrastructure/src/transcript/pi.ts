@@ -128,5 +128,6 @@ export const createPiParser = (cwd: string | undefined): TranscriptParser => {
     return changed;
   };
 
-  return { push, entries: log.entries };
+  // Pi has no tools that keep running after their call returns.
+  return { push, entries: log.entries, background: () => [] };
 };
