@@ -3,6 +3,7 @@ export * as Brainstorm from './brainstorm/index.js';
 export * as Gitea from './gitea/index.js';
 export * as Herdr from './herdr/index.js';
 export * as Images from './images/index.js';
+export * as Push from './push/index.js';
 export * as Projects from './projects/index.js';
 export * as Seen from './memory/seen.js';
 export * as StatusHistory from './memory/status-history.js';

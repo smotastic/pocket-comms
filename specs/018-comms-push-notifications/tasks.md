@@ -26,7 +26,7 @@ in the task's own commit.
       unavailable, excerpt from the transcript, every subscription, `Gone` removed)
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T05** — Infrastructure: the push file store in the state folder (keys made once,
+- [x] **T05** — Infrastructure: the push file store in the state folder (keys made once,
       subscriptions kept, atomic writes, a broken file reported)
   - Gate: `pnpm nx test comms-infrastructure`
 
