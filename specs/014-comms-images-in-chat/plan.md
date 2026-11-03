@@ -1,7 +1,7 @@
 # Plan 014 — pocket-comms: images in the agent chat
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner (2026-11-02)
+- **Status:** `Done` — approved by the owner (2026-11-02), implemented in #31, #32 and #34
 
 ## 1. Affected projects
 
@@ -97,7 +97,10 @@ None. The service has no database; images are files in the state folder.
   > `[Image #n]` marker per image at its start, and an `image` block per image. A separate `isMeta`
   > user line right after it names each file as `[Image: source: <path>]`. The Claude parser puts
   > those paths back below the text, without the markers, so the "You" card shows the thumbnails as
-  > for an agent that keeps the paths. Pi has not been checked yet.
+  > for an agent that keeps the paths (#32).
+  >
+  > **Seen with Pi (2026-11-03).** Pi keeps the paths in the prompt text, so the "You" card shows
+  > the thumbnails without a change. The owner checked both on the phone.
 
 - **Permission prompts.** Claude Code may ask to read a file outside its working folder. That is an
   ordinary approval in the approval panel, not a failure.

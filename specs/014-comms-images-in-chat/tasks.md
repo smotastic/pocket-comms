@@ -21,7 +21,7 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       document
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`
 
-- [ ] **T05** — Smoke check: send a prompt with an image path to a real Claude and Pi agent and
+- [x] **T05** — Smoke check: send a prompt with an image path to a real Claude and Pi agent and
       record in the plan how each stores it in its session file
   - Gate: the plan's risk note says what was seen
 
@@ -33,5 +33,5 @@ Each task is small and independently testable. Tick its checkbox in the task's o
       and thumbnails in the "You" card
   - Gate: `pnpm nx test comms-web`, `pnpm verify:local`
 
-- [ ] **T08** — Docs: the service's `AGENTS.md` rules and the README, spec status `Done`
+- [x] **T08** — Docs: the service's `AGENTS.md` rules and the README, spec status `Done`
   - Gate: `pnpm verify:local`
