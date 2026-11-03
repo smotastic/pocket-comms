@@ -31,7 +31,7 @@ and the installed sources win. pnpm keeps them in
   `effect/Record`, `effect/Struct`, `effect/Predicate`, `effect/Function`, `effect/Match`,
   `effect/DateTime`, `effect/BigDecimal`. Never the `effect` barrel: dependency-cruiser sees
   modules, not names, so the barrel would hide a forbidden import. `no-framework-imports-in-domain`
-  and its ESLint mirror enforce this; `pnpm test:boundaries` proves they fire.
+  and its ESLint mirror enforce this; the self-tests of `@smotastic/pocket-ci` prove they fire.
 - Outside the domain, import modules by subpath too (`import * as Effect from 'effect/Effect'`).
   The unstable modules live under `effect/http`, `effect/http-api` and `effect/sql`.
 

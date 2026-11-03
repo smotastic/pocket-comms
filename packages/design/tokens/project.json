@@ -11,6 +11,12 @@
       "outputs": ["{projectRoot}/src/generated"],
       "cache": true,
       "options": { "command": "node style-dictionary.mjs", "cwd": "{projectRoot}" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["default"],
+      "cache": true,
+      "options": { "command": "node --test test/*.test.mjs", "cwd": "{projectRoot}" }
     }
   }
 }

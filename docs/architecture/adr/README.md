@@ -34,3 +34,4 @@ Accepting an ADR needs the human owner's approval.
 | [0010](0010-observability-with-effects-otlp-exporter.md)                | Observability with Effect's OTLP exporter               | Accepted                              |
 | [0011](0011-tanstack-router-and-query-for-web-apps.md)                  | TanStack Router and Query for web apps                  | Accepted                              |
 | [0012](0012-an-agent-runtime-port-with-a-pi-adapter.md)                 | An agent runtime port with a Pi adapter                 | Accepted                              |
+| [0013](0013-adopt-the-shared-ci-package-and-a-single-job-gate.md)       | Adopt the shared CI package and a single-job gate       | Accepted                              |

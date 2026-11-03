@@ -53,10 +53,10 @@ port errors or defects; a library error never reaches a use case signature.
 key is `<service>/application/<PortName>`.
 
 **Enforcement.** Dependency-cruiser and the Nx module boundaries enforce the import direction
-`domain ← application ← infrastructure`. `pnpm ports:check` (`tools/ports/check.mjs`) enforces
+`domain ← application ← infrastructure`. `pnpm ports:check` (`pocket-ci ports`, ADR 0013) enforces
 what imports cannot: where ports are declared, their file names, exports, keys and suffixes, the
-use case layer of each inbound port, and the adapter rules. `pnpm test:ports` proves each rule on
-a deliberate violation.
+use case layer of each inbound port, and the adapter rules. The self-tests of `@smotastic/pocket-ci`
+prove each rule on a deliberate violation.
 
 ## Consequences
 

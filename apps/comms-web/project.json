@@ -22,11 +22,10 @@
         "{projectRoot}/src/routes/**/*",
         "{projectRoot}/src/routeTree.gen.ts",
         "{projectRoot}/tsr.config.json",
-        "{workspaceRoot}/tools/routes/check.mjs",
         { "externalDependencies": ["@tanstack/router-cli"] }
       ],
       "cache": true,
-      "options": { "command": "node ../../tools/routes/check.mjs", "cwd": "{projectRoot}" }
+      "options": { "command": "pnpm exec pocket-ci routes", "cwd": "{projectRoot}" }
     },
     "dev": {
       "executor": "nx:run-commands",

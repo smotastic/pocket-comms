@@ -32,10 +32,8 @@ existed (spec 004, T23). Its shapes live on in `packages/comms/` and `apps/comms
 
 `blueprints/bookmarks/` was the Golden Path. Keep it as a
 reference, or delete it once your first service exists. When you delete it, also remove its spec
-`specs/001-bookmarks-blueprint/`, its `scope:bookmarks` constraint in `eslint.config.mjs`, and
-point the tests in `tools/boundaries/` and `tools/openapi/` at your own service, and list its
-document in `tools/openapi/retired.json` so `pnpm openapi:diff` accepts the removal; then run
-`pnpm nx sync`. The OpenAPI gates need at least one server app with a committed document. The root
+`specs/001-bookmarks-blueprint/` and its `scope:bookmarks` constraint in `eslint.config.mjs`;
+then run `pnpm nx sync`. The OpenAPI gates need at least one server app with a committed document. The root
 `pnpm dev` scripts name no app and stay: they run the `dev` targets of your own apps (see the
 blueprint's "Run it locally").
 
@@ -55,9 +53,15 @@ ADRs 0001 to 0009 record the ruleset and the stack. Keep them, or supersede one 
 
 The workflow runs on GitHub Actions and on Gitea Actions unchanged. In the repository settings:
 protect `master`, allow squash merges only with the pull request title as the commit subject, and
-require the `CI success` status check. If the repository is not on Gitea, replace the `tea`
+require the `CI / verify` status check. If the repository is not on Gitea, replace the `tea`
 commands in `docs/engineering/git-and-pr-conventions.md` and the skills with your forge's CLI.
 
 To release the bookmarks images (`.github/workflows/release.yml`), add the Actions variable
 `REGISTRY_HOST` (the container registry's host) and the Actions secret `REGISTRY_TOKEN` (a token
 that can write packages). Delete the workflow when you delete the blueprint.
+
+The gates come from the published CI package `@smotastic/pocket-ci` (ADR 0013), pinned in the
+catalog of `pnpm-workspace.yaml`. Installing it needs a token with `read:package` for the Gitea
+npm registry in `.npmrc`: add it as the Actions secret `REGISTRY_TOKEN`, and once on your machine
+with `pnpm config set //mac-mini-von-nils.local:3000/api/packages/smotastic/npm/:_authToken <token>`.
+A CI change is a bump of that catalog entry.

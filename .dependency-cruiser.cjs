@@ -1,12 +1,12 @@
 // Architecture-boundary rules for the workspace. This file is the source of truth for them
 // (ADR 0003, ADR 0007): it is the only tool here that sees the transitive import graph and cycles.
 // `eslint.config.mjs` mirrors the layer directions at the project level for inline editor
-// feedback — add a new rule here first, and prove it fires in `tools/boundaries/` before relying
+// feedback — add a new rule here first, and prove it fires in the self-tests of `@smotastic/pocket-ci` before relying
 // on it.
 
-// The layer path shapes live in `tools/boundaries/layer-paths.cjs`, which the port structure check
+// The layer path shapes live in `@smotastic/pocket-ci/layer-paths`, which the port structure check
 // shares.
-const { layerLevel } = require('./tools/boundaries/layer-paths.cjs');
+const { layerLevel } = require('@smotastic/pocket-ci/layer-paths');
 
 const DOMAIN_LEVEL = layerLevel('domain');
 const APPLICATION_LEVEL = layerLevel('application');
