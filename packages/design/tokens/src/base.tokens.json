@@ -73,6 +73,10 @@
       "fab": {
         "$value": "{size.56}",
         "$description": "The floating round button."
+      },
+      "thumb": {
+        "$value": "{size.64}",
+        "$description": "An image thumbnail, such as one attached to a message."
       }
     }
   },

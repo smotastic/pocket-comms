@@ -62,7 +62,12 @@ export interface CommsClient {
   readonly agent: (ref: string) => Promise<AgentView>;
   readonly transcript: (ref: string) => Promise<TranscriptView>;
   readonly screen: (ref: string) => Promise<string>;
-  readonly prompt: (ref: string, text: string) => Promise<void>;
+  /** Sends the text and the attached images, by the ids `uploadImage` gave them (spec 014). */
+  readonly prompt: (ref: string, text: string, imageIds?: ReadonlyArray<string>) => Promise<void>;
+  /** Uploads one image and answers its id. */
+  readonly uploadImage: (image: Blob) => Promise<string>;
+  /** Where an uploaded image is served. */
+  readonly imageUrl: (id: string) => string;
   readonly keys: (ref: string, keys: ReadonlyArray<Key>) => Promise<void>;
   readonly seen: (ref: string) => Promise<void>;
   /** Removes the agent's worktree and closes its workspace; `force` discards its changes. */
@@ -224,8 +229,18 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     agent: (ref) => run((api) => api.agents.agent(agent(ref))),
     transcript: (ref) => run((api) => api.agents.transcript(agent(ref))),
     screen: (ref) => run((api) => api.agents.screen(agent(ref))).then((screen) => screen.text),
-    prompt: (ref, text) =>
-      run((api) => api.agents.prompt({ ...agent(ref), payload: { text } })).then(() => undefined),
+    prompt: (ref, text, imageIds = []) =>
+      run((api) =>
+        api.agents.prompt({
+          ...agent(ref),
+          payload: imageIds.length === 0 ? { text } : { text, imageIds },
+        }),
+      ).then(() => undefined),
+    uploadImage: async (image) => {
+      const bytes = new Uint8Array(await image.arrayBuffer());
+      return run((api) => api.images.upload({ payload: bytes })).then((uploaded) => uploaded.id);
+    },
+    imageUrl: (id) => `${baseUrl}/api/v1/images/${encodeURIComponent(id)}`,
     keys: (ref, keys) =>
       run((api) => api.agents.keys({ ...agent(ref), payload: { keys } })).then(() => undefined),
     seen: (ref) => run((api) => api.agents.seen(agent(ref))).then(() => undefined),

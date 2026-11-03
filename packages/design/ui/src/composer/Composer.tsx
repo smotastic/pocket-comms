@@ -1,4 +1,5 @@
 import { useId, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { AttachButton } from '../attach-button/AttachButton.js';
 import { IconButton } from '../icon-button/IconButton.js';
 import hidden from '../visually-hidden.module.css';
 import styles from './Composer.module.css';
@@ -22,6 +23,16 @@ export type ComposerProps = {
   readonly disabled?: boolean;
   /** Names the send button. Default "Send". */
   readonly sendLabel?: string;
+  /** Above the text, inside the field, such as the thumbnails of attached images. */
+  readonly attachments?: ReactNode;
+  /** Shows an attach button that opens the image picker; called with the picked files. */
+  readonly onAttach?: (files: ReadonlyArray<File>) => void;
+  /** Names the attach button. Default "Attach image". */
+  readonly attachLabel?: string;
+  /** The attach button is shown but cannot be used, such as when no more images fit. */
+  readonly attachDisabled?: boolean;
+  /** The message can be sent without text, such as when it has attached images. */
+  readonly sendable?: boolean;
 };
 
 /**
@@ -39,11 +50,16 @@ export const Composer = ({
   locked = false,
   disabled = false,
   sendLabel = 'Send',
+  attachments,
+  onAttach,
+  attachLabel = 'Attach image',
+  attachDisabled = false,
+  sendable = false,
 }: ComposerProps) => {
   const id = useId();
   const hintId = `${id}-hint`;
   const text = value.trim();
-  const canSend = !locked && !disabled && text !== '';
+  const canSend = !locked && !disabled && (text !== '' || sendable);
 
   const send = () => {
     if (canSend) onSend(text);
@@ -63,7 +79,15 @@ export const Composer = ({
     <form className={styles.composer} onSubmit={onSubmit}>
       <div className={styles.field}>
         {context === undefined ? null : <div className={styles.context}>{context}</div>}
+        {attachments === undefined ? null : <div className={styles.attachments}>{attachments}</div>}
         <div className={styles.row}>
+          {onAttach === undefined ? null : (
+            <AttachButton
+              label={attachLabel}
+              onFiles={onAttach}
+              disabled={disabled || attachDisabled}
+            />
+          )}
           <label htmlFor={id} className={hidden.visuallyHidden}>
             {label}
           </label>

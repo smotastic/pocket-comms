@@ -55,7 +55,7 @@ export const agentsHandlers = HttpApiBuilder.group(
         ),
       )
       .handle('prompt', ({ params, payload }) =>
-        agentsInbound.prompt(params.agent, payload.text).pipe(
+        agentsInbound.prompt(params.agent, payload.text, payload.imageIds ?? []).pipe(
           Effect.catchTags({
             ...lookup,
             HerdrRejectedError: problems.herdrRejected,

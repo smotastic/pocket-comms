@@ -19,6 +19,7 @@ import {
   type TaskCreatedView,
   type TranscriptView,
 } from './comms-client.js';
+import { ImageHandlingContext, UnreadableImageError, type ImageHandling } from './attachments.js';
 import { createAppRouter } from './router.js';
 
 // The kit loads its Markdown renderer lazily; on a cold CI runner that first import alone can take
@@ -49,6 +50,8 @@ export interface FakeState {
   readonly screens: Map<string, string>;
   /** A failure for the next prompt, as the server would report it. */
   promptFailure?: string;
+  /** A failure for the next image upload. */
+  uploadFailure?: string;
   projects: ReadonlyArray<ProjectView>;
   /** What the next task creation answers: the created worktree, or a failure. */
   created: TaskCreatedView | RequestError;
@@ -89,6 +92,9 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
   };
   const calls = {
     prompts: [] as Array<[string, string]>,
+    /** The image ids of each prompt, in the order of `prompts`. */
+    promptImages: [] as Array<ReadonlyArray<string>>,
+    uploads: [] as Array<Blob>,
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
     seen: [] as Array<string>,
     tasks: [] as Array<NewTask>,
@@ -119,10 +125,19 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     agent: async (ref) => find(ref),
     transcript: async (ref) => state.transcripts.get(ref) ?? { entries: [], activity: 'Thinking…' },
     screen: async (ref) => state.screens.get(ref) ?? '',
-    prompt: async (ref, text) => {
+    prompt: async (ref, text, imageIds = []) => {
       if (state.promptFailure !== undefined) throw new RequestError(state.promptFailure, 409);
       calls.prompts.push([ref, text]);
+      calls.promptImages.push(imageIds);
     },
+    uploadImage: async (image) => {
+      const failure = state.uploadFailure;
+      state.uploadFailure = undefined;
+      if (failure !== undefined) throw new RequestError(failure, 422);
+      calls.uploads.push(image);
+      return `image-${calls.uploads.length}`;
+    },
+    imageUrl: (id) => `/api/v1/images/${id}`,
     keys: async (ref, keys) => {
       calls.keys.push([ref, keys]);
     },
@@ -205,6 +220,22 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
 };
 
 /**
+ * Image handling without a canvas: an image is sent as it was picked, a file named `broken.*`
+ * cannot be read, one named `slow.*` takes a moment, and a thumbnail is named after the file.
+ */
+export const fakeImageHandling: ImageHandling = {
+  prepare: async (file) => {
+    if (file.name.startsWith('slow.')) await new Promise((resolve) => setTimeout(resolve, 50));
+    if (file.name.startsWith('broken.')) {
+      throw new UnreadableImageError(`${file.name} cannot be read as an image.`);
+    }
+    return file;
+  },
+  preview: (blob) => `blob:${blob instanceof File ? blob.name : 'image'}`,
+  release: () => undefined,
+};
+
+/**
  * Renders the whole app at `path` with `client`, through the router and a fresh query cache that
  * does not retry, so a failed request shows at once.
  */
@@ -222,7 +253,9 @@ export const renderApp = ({
   });
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ImageHandlingContext.Provider value={fakeImageHandling}>
+        <RouterProvider router={router} />
+      </ImageHandlingContext.Provider>
     </QueryClientProvider>,
   );
   return { router, queryClient };

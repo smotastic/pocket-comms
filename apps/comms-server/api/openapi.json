@@ -431,6 +431,25 @@
             "minLength": 1,
             "type": "string"
           },
+          "imageIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "The id the server gave an uploaded image.",
+                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                  "pattern": "^[a-z2-7]{26}$",
+                  "type": "string"
+                },
+                "maxItems": 5,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Up to five uploaded images for the agent's first prompt; they need an agent.",
+            "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+          },
           "project": {
             "description": "The name of a project of `GET /projects`.",
             "examples": ["pocket-comms"],
@@ -946,11 +965,29 @@
         "additionalProperties": false,
         "description": "A prompt for the agent.",
         "properties": {
+          "imageIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "The id the server gave an uploaded image.",
+                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                  "pattern": "^[a-z2-7]{26}$",
+                  "type": "string"
+                },
+                "maxItems": 5,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Up to five uploaded images; their paths follow the text, one per line.",
+            "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+          },
           "text": {
-            "description": "The prompt; it is sent trimmed and must not be blank.",
+            "description": "The prompt; it is sent trimmed and must not be blank unless images are attached.",
             "examples": ["Run the tests and fix what fails."],
             "maxLength": 20000,
-            "minLength": 1,
             "type": "string"
           }
         },
@@ -1246,8 +1283,26 @@
                 "examples": ["u-1"],
                 "type": "string"
               },
+              "images": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "description": "The id the server gave an uploaded image.",
+                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                      "pattern": "^[a-z2-7]{26}$",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The images the prompt attached, by id, in order.",
+                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+              },
               "text": {
-                "description": "The owner's prompt.",
+                "description": "The owner's prompt, without the paths of its attached images.",
                 "examples": ["Run the tests"],
                 "type": "string"
               },
@@ -1394,6 +1449,20 @@
           }
         ],
         "description": "One entry of the chat."
+      },
+      "UploadedImage": {
+        "additionalProperties": false,
+        "description": "The uploaded image, by the id a prompt attaches it with.",
+        "properties": {
+          "id": {
+            "description": "The id the server gave an uploaded image.",
+            "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+            "pattern": "^[a-z2-7]{26}$",
+            "type": "string"
+          }
+        },
+        "required": ["id"],
+        "type": "object"
       },
       "ValidationProblemEncoded": {
         "additionalProperties": false,
@@ -2692,6 +2761,136 @@
         "tags": ["Agents"]
       }
     },
+    "/api/v1/images": {
+      "post": {
+        "description": "Keeps one JPEG or PNG image, checked by its content, under an id the server makes. A prompt or a task attaches it by that id.",
+        "operationId": "images.upload",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedImage"
+                }
+              }
+            },
+            "description": "The uploaded image, by the id a prompt attaches it with."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Upload an image",
+        "tags": ["Images"]
+      }
+    },
+    "/api/v1/images/{image}": {
+      "get": {
+        "description": "An uploaded image, with its own content type. Images go after 30 days.",
+        "operationId": "images.read",
+        "parameters": [
+          {
+            "description": "The id the server gave an uploaded image.",
+            "example": "k5w3x7q2m4n6p3r2s4t6v5x2z4",
+            "in": "path",
+            "name": "image",
+            "required": true,
+            "schema": {
+              "description": "The id the server gave an uploaded image.",
+              "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+              "pattern": "^[a-z2-7]{26}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The image, as `image/jpeg` or `image/png`."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Read an image",
+        "tags": ["Images"]
+      }
+    },
     "/api/v1/projects": {
       "get": {
         "description": "The git repositories below the projects root that a task can start in.",
@@ -3111,6 +3310,10 @@
     {
       "description": "Brainstorm with Pi and turn ideas into Gitea issues the owner approves.",
       "name": "Brainstorm"
+    },
+    {
+      "description": "Images the owner attaches to a prompt or a task.",
+      "name": "Images"
     }
   ]
 }

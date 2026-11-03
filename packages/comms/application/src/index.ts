@@ -20,6 +20,7 @@ export type {
   BrainstormStateDto,
   ProposalDecisionInput,
 } from './dto/brainstorm.dto.js';
+export type { ImageDto } from './dto/image.dto.js';
 export type { CreateTaskInput, ProjectDto, TaskAgentDto, TaskCreatedDto } from './dto/task.dto.js';
 export {
   AgentNotFoundError,
@@ -39,6 +40,8 @@ export {
   ProposalNotFoundError,
   HerdrRejectedError,
   HerdrUnavailableError,
+  ImageNotFoundError,
+  ImageNotSavedError,
   TranscriptUnavailableError,
   WorktreeHasChangesError,
 } from './errors.js';
@@ -70,6 +73,8 @@ export {
   type CreatedIssue,
   type LinkedRepository,
 } from './ports/gitea.outbound.port.js';
+export { ImagesInbound } from './ports/images.inbound.port.js';
+export { ImagesOutbound, type StoredImage } from './ports/images.outbound.port.js';
 export { IssuesInbound } from './ports/issues.inbound.port.js';
 export { ProjectsOutbound } from './ports/projects.outbound.port.js';
 export { TasksInbound } from './ports/tasks.inbound.port.js';

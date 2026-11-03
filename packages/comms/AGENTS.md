@@ -2,16 +2,18 @@
 
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
 them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, it reads,
-closes and marks in progress the projects' Gitea issues, and it runs the brainstorm chat with Pi. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
+closes and marks in progress the projects' Gitea issues, it runs the brainstorm chat with Pi, and it keeps the images
+the owner attaches to a prompt. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
 [spec 006](../../specs/006-comms-gitea-issues/spec.md),
 [spec 007](../../specs/007-comms-sessions-by-project/spec.md),
 [spec 010](../../specs/010-comms-close-issues/spec.md),
 [spec 011](../../specs/011-comms-close-agent/spec.md),
-[spec 013](../../specs/013-comms-brainstorm-chat/spec.md) and
+[spec 013](../../specs/013-comms-brainstorm-chat/spec.md),
+[spec 014](../../specs/014-comms-images-in-chat/spec.md) and
 [spec 015](../../specs/015-comms-issues-in-progress/spec.md).
 It has no database. Seen completions and last status changes live in server memory; the brainstorm
-chat is one JSON file in the state folder.
+chat is one JSON file in the state folder, attached images are files in its `images` folder.
 
 ## Where each file type goes
 
@@ -22,6 +24,8 @@ chat is one JSON file in the state folder.
 | New task rules (projects order, branch, task, agent name)           | `domain` (`src/task.ts`)                                    |
 | Issue rules (remote, order, branch, task text, work per issue)      | `domain` (`src/issue.ts`)                                   |
 | Brainstorm entries, proposals, issue drafts, project docs           | `domain` (`src/brainstorm.ts`)                              |
+| Image rules (kinds, ids, limits, paths in a prompt)                 | `domain` (`src/image.ts`)                                   |
+| The image store                                                     | `infrastructure` (`src/images`)                             |
 | Pi's tools and instructions, the brainstorm turns                   | `application` (`src/tools`, `src/use-cases/brainstorm*`)    |
 | Pi's runtime and login, the chat file                               | `infrastructure` (`src/agent`, `src/brainstorm`)            |
 | `AgentsInbound`, `TasksInbound`, `IssuesInbound`, ports, use cases  | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
@@ -63,6 +67,10 @@ chat is one JSON file in the state folder.
   listens on `127.0.0.1` only. Do not add a route outside `commsServerLayer`.
 - Session file formats are undocumented. Parsers skip what they do not know; tests use the
   anonymised fixtures in `infrastructure/src/testing/fixtures`. Never commit a real transcript.
+- Images go to an agent as absolute paths in the prompt (Herdr takes text only). The image store
+  names every file itself (`<id>.<ext>`), opens only names of that shape that are plain files, and
+  an image id from a request is only ever looked up, never joined into a path. The server checks
+  an upload by its content (JPEG or PNG), never by its name or declared type.
 - After a contract change run `pnpm nx run comms-server:openapi` and commit the document.
 
 ## Run and test

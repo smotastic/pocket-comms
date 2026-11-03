@@ -14,10 +14,13 @@ const isAgentKey = Schema.is(AgentKey);
 const invalid = (field: string, message: string) =>
   Result.fail(new InvalidInputError({ issues: [{ field, message }] }));
 
-/** A prompt is sent trimmed; it must say something and stay within the limit. */
-export const parsePrompt = (text: string): Result.Result<string, InvalidInputError> => {
+/**
+ * A prompt is sent trimmed; it must say something and stay within the limit. With `images`
+ * attached the text may be blank (spec 014).
+ */
+export const parsePrompt = (text: string, images = 0): Result.Result<string, InvalidInputError> => {
   const trimmed = text.trim();
-  if (trimmed === '') return invalid('text', 'Write a message first.');
+  if (trimmed === '' && images === 0) return invalid('text', 'Write a message first.');
   if (trimmed.length > MAX_PROMPT_LENGTH) {
     return invalid('text', `The message is longer than ${MAX_PROMPT_LENGTH} characters.`);
   }

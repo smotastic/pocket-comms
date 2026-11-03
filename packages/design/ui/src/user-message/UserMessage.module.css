@@ -13,6 +13,13 @@
   text-transform: uppercase;
 }
 
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding-top: var(--space-xs);
+}
+
 .text {
   overflow-wrap: anywhere;
   white-space: pre-wrap;

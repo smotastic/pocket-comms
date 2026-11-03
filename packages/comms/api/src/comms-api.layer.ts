@@ -4,10 +4,12 @@ import type * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import { HttpApiBuilder, HttpApiScalar } from 'effect/http-api';
 import { agentsHandlers } from './agents.handlers.js';
+import { bodyLimit } from './body-limit.js';
 import { brainstormHandlers } from './brainstorm.handlers.js';
 import { issuesHandlers } from './issues.handlers.js';
 import { tasksHandlers } from './tasks.handlers.js';
 import { healthLayer } from './health.handlers.js';
+import { imageSweepLayer, imagesHandlers } from './images.handlers.js';
 import { identityGuard, tailscaleIdentityLayer } from './identity.js';
 import { webAppLayer } from './web-app.js';
 
@@ -23,7 +25,13 @@ export interface CommsServerOptions<E, R> {
 /** The API routes with the handlers' middleware. The caller provides the inbound ports. */
 export const commsApiLayer = (allowedLogin: string) =>
   HttpApiBuilder.layer(CommsApi, { openapiPath: '/docs/openapi.json' }).pipe(
-    Layer.provide([agentsHandlers, tasksHandlers, issuesHandlers, brainstormHandlers]),
+    Layer.provide([
+      agentsHandlers,
+      tasksHandlers,
+      issuesHandlers,
+      brainstormHandlers,
+      imagesHandlers,
+    ]),
     Layer.provide(tailscaleIdentityLayer(allowedLogin)),
     Layer.provide(validationMiddlewareLayer),
   );
@@ -41,6 +49,8 @@ export const commsServerLayer = <E, R>({
     commsApiLayer(allowedLogin),
     HttpApiScalar.layer(CommsApi, { path: '/docs' }),
     healthLayer(readiness),
+    imageSweepLayer,
     webDist === undefined ? Layer.empty : webAppLayer(webDist),
     identityGuard(allowedLogin),
+    bodyLimit,
   );

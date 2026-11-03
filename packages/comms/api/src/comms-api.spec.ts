@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from '@effect/vitest';
+import { afterEach, describe, expect, it, vi } from '@effect/vitest';
 import {
   AgentNotFoundError,
   AgentsInbound,
@@ -10,6 +10,9 @@ import {
   GiteaUnavailableError,
   HerdrRejectedError,
   HerdrUnavailableError,
+  ImageNotFoundError,
+  ImageNotSavedError,
+  ImagesInbound,
   IssueClosedError,
   IssueNotFoundError,
   IssuesInbound,
@@ -77,6 +80,7 @@ const serve = (
   tasks: Partial<TasksInbound['Service']> = {},
   issues: Partial<IssuesInbound['Service']> = {},
   brainstorm: Partial<BrainstormInbound['Service']> = {},
+  images: Partial<ImagesInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -88,6 +92,7 @@ const serve = (
       Layer.provide(Layer.mock(TasksInbound, tasks)),
       Layer.provide(Layer.mock(IssuesInbound, issues)),
       Layer.provide(Layer.mock(BrainstormInbound, brainstorm)),
+      Layer.provide(Layer.mock(ImagesInbound, { sweep: Effect.void, ...images })),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -740,5 +745,180 @@ describe('the web app', () => {
     const script = await call('/assets/app.js');
 
     expect(await script.text()).toBe('console.log(1)');
+  });
+});
+
+describe('the images routes (spec 014)', () => {
+  const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
+  const ID = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
+
+  const upload = (bytes: Uint8Array) => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: new Uint8Array(bytes),
+  });
+
+  it('keeps an uploaded image and answers its id with 201', async () => {
+    let received: Uint8Array | undefined;
+    const call = serve(
+      {},
+      undefined,
+      {},
+      {},
+      {},
+      {
+        upload: (bytes) => {
+          received = bytes;
+          return Effect.succeed({ id: ID });
+        },
+      },
+    );
+
+    const response = await call('/api/v1/images', upload(PNG));
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ id: ID });
+    expect(Array.from(received ?? [])).toEqual(Array.from(PNG));
+  });
+
+  it('answers a validation problem for an image the use case refuses', async () => {
+    const call = serve(
+      {},
+      undefined,
+      {},
+      {},
+      {},
+      {
+        upload: () =>
+          Effect.fail(
+            new InvalidInputError({
+              issues: [{ field: 'file', message: 'Only JPEG and PNG images can be attached.' }],
+            }),
+          ),
+      },
+    );
+
+    const response = await call('/api/v1/images', upload(new TextEncoder().encode('text')));
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:invalid-request',
+    });
+  });
+
+  it('sweeps the old images when the server starts', async () => {
+    let sweeps = 0;
+    const call = serve(
+      {},
+      undefined,
+      {},
+      {},
+      {},
+      {
+        sweep: Effect.sync(() => {
+          sweeps += 1;
+        }),
+      },
+    );
+
+    await call('/health/live');
+
+    // The sweep runs in a fiber of its own, next to the requests.
+    await vi.waitFor(() => expect(sweeps).toBe(1));
+  });
+
+  it('answers 503 when the image cannot be kept', async () => {
+    const call = serve(
+      {},
+      undefined,
+      {},
+      {},
+      {},
+      {
+        upload: () => Effect.fail(new ImageNotSavedError({ reason: 'No space left on device' })),
+      },
+    );
+
+    const response = await call('/api/v1/images', upload(PNG));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:image-not-saved',
+      detail: 'No space left on device',
+    });
+  });
+
+  it('serves an image with its own content type', async () => {
+    const call = serve(
+      {},
+      undefined,
+      {},
+      {},
+      {},
+      {
+        read: (id) =>
+          id === ID ? Effect.succeed({ kind: 'png', bytes: PNG }) : Effect.die('unexpected id'),
+      },
+    );
+
+    const response = await call(`/api/v1/images/${ID}`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('image/png');
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(PNG);
+  });
+
+  it('answers 404 for an unknown image', async () => {
+    const call = serve(
+      {},
+      undefined,
+      {},
+      {},
+      {},
+      {
+        read: (id) => Effect.fail(new ImageNotFoundError({ id })),
+      },
+    );
+
+    const response = await call(`/api/v1/images/${ID}`);
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:image-not-found',
+    });
+  });
+
+  it('rejects a request without the login with 403', async () => {
+    const call = serve({}, undefined, {}, {}, {}, { read: () => Effect.die('not reached') });
+
+    const response = await call(`/api/v1/images/${ID}`, { login: null });
+
+    expect(response.status).toBe(403);
+  });
+
+  it('sends a prompt with its images', async () => {
+    let sent: unknown;
+    const call = serve({
+      prompt: (ref, text, imageIds) => {
+        sent = { ref, text, imageIds };
+        return Effect.void;
+      },
+    });
+
+    const response = await call('/api/v1/agents/kirk/prompt', json({ text: '', imageIds: [ID] }));
+
+    expect(response.status).toBe(204);
+    expect(sent).toEqual({ ref: 'kirk', text: '', imageIds: [ID] });
+  });
+
+  it('refuses more than five images in a prompt', async () => {
+    const call = serve({ prompt: () => Effect.die('not reached') });
+
+    const response = await call(
+      '/api/v1/agents/kirk/prompt',
+      json({ text: 'hi', imageIds: Array.from({ length: 6 }, () => ID) }),
+    );
+
+    expect(response.status).toBe(422);
   });
 });
