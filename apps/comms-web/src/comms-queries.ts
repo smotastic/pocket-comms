@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { CommsClient } from './comms-client.js';
+import { RequestError, type CommsClient } from './comms-client.js';
 
 // Query keys and options. The live streams write into the same keys (`live.ts`), so a screen
 // reads one cache whether the data came from a request or an event.
@@ -8,6 +8,7 @@ export const overviewKey = ['overview'] as const;
 export const agentKey = (ref: string) => ['agent', ref] as const;
 export const transcriptKey = (ref: string) => ['transcript', ref] as const;
 export const screenKey = (ref: string) => ['screen', ref] as const;
+export const subagentKey = (ref: string, id: string) => ['subagent', ref, id] as const;
 export const projectsKey = ['projects'] as const;
 export const issuesKey = (project: string) => ['issues', project] as const;
 export const brainstormKey = ['brainstorm'] as const;
@@ -20,6 +21,15 @@ export const agentQuery = (client: CommsClient, ref: string) =>
 
 export const transcriptQuery = (client: CommsClient, ref: string) =>
   queryOptions({ queryKey: transcriptKey(ref), queryFn: () => client.transcript(ref) });
+
+/** A subagent that does not exist will not appear on a second try, so a 404 is not retried. */
+export const subagentQuery = (client: CommsClient, ref: string, id: string) =>
+  queryOptions({
+    queryKey: subagentKey(ref, id),
+    queryFn: () => client.subagent(ref, id),
+    retry: (failures, error) =>
+      !(error instanceof RequestError && error.status === 404) && failures < 3,
+  });
 
 /** The screen is read again about once a second while it is shown (spec 004, requirement 10). */
 export const screenQuery = (client: CommsClient, ref: string) =>

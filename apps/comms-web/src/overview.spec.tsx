@@ -61,6 +61,25 @@ describe('the overview', () => {
     ).toEqual(['/agents/kirk', '/agents/w4%3Ap1']);
   });
 
+  it('marks a row whose agent has background work running', async () => {
+    const waiting = fakeAgent({
+      status: 'done',
+      background: [
+        { id: 't1', kind: 'shell', description: 'Wait for CI', startedAt: 1, inBackground: true },
+        { id: 't2', kind: 'monitor', description: 'Watch', startedAt: 2, inBackground: true },
+      ],
+    });
+    renderApp({
+      client: fakeClient({
+        overview: { needsYou: [], groups: [{ key: 'app', name: 'app', agents: [waiting] }] },
+      }).client,
+    });
+
+    expect(
+      await screen.findByRole('link', { name: /kirk Done 2 running in the background/u }),
+    ).toBeDefined();
+  });
+
   it('shows the two groups, each with its count, and no project cards or projects list', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 

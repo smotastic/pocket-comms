@@ -33,11 +33,11 @@ in the task's own commit.
       `ToolLine` with `href` and `hint`, stories
   - Gate: `pnpm nx run-many -t lint test -p design-ui`
 
-- [ ] **T07** — Web: the row marker on the overview and the project page, the strip in the
+- [x] **T07** — Web: the row marker on the overview and the project page, the strip in the
       conversation, the delegation links
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T08** — Web: the subagent route, `SubagentConversation` and its live stream
+- [x] **T08** — Web: the subagent route, `SubagentConversation` and its live stream
   - Gate: `pnpm nx test comms-web`, `pnpm verify:local`
 
 - [ ] **T09** — Docs: the service's `AGENTS.md` and README, spec status `Done` after the owner's

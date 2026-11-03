@@ -5,9 +5,16 @@ import type {
   BrainstormEventView,
   BrainstormStateView,
   CommsClient,
+  SubagentView,
   TranscriptView,
 } from './comms-client.js';
-import { agentKey, brainstormKey, overviewKey, transcriptKey } from './comms-queries.js';
+import {
+  agentKey,
+  brainstormKey,
+  overviewKey,
+  subagentKey,
+  transcriptKey,
+} from './comms-queries.js';
 
 type EntriesEvent = Extract<AgentEventView, { readonly type: 'entries' }>;
 
@@ -75,6 +82,38 @@ export const useAgentLive = (client: CommsClient, ref: string) => {
       ),
     [client, queryClient, ref],
   );
+  return { live };
+};
+
+/**
+ * Follows a subagent's stream into the query cache while `active`: what it is, and its entries.
+ * Entries that arrive before the first read are not lost: the subagent is read again.
+ */
+export const useSubagentLive = (client: CommsClient, ref: string, id: string, active: boolean) => {
+  const queryClient = useQueryClient();
+  const [live, setLive] = useState(false);
+  useEffect(() => {
+    if (!active) return undefined;
+    const key = subagentKey(ref, id);
+    return client.followSubagent(
+      ref,
+      id,
+      (event) => {
+        const held = queryClient.getQueryData<SubagentView>(key);
+        if (held === undefined) {
+          if (event.type === 'entries') void queryClient.invalidateQueries({ queryKey: key });
+          return;
+        }
+        queryClient.setQueryData<SubagentView>(
+          key,
+          event.type === 'subagent'
+            ? { ...held, ...event.subagent }
+            : { ...held, ...mergeEntries(held, event) },
+        );
+      },
+      setLive,
+    );
+  }, [client, queryClient, ref, id, active]);
   return { live };
 };
 
