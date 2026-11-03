@@ -13,6 +13,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AgentItem } from './AgentItem.js';
+import { BrainstormAction } from './Brainstorm.js';
 import type { AgentView, CommsClient } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { overviewQuery, projectsQuery } from './comms-queries.js';
@@ -101,7 +102,12 @@ export const Overview = ({ client, onOpen, onProject, onStarted }: OverviewProps
       <TopBar
         title="pocket-comms"
         subtitle={<LiveIndicator live={live} label={live ? 'Mac mini · live' : 'Connecting…'} />}
-        end={<IconButton icon="menu" label="Projects" onClick={() => setProjectsOpen(true)} />}
+        end={
+          <>
+            <BrainstormAction />
+            <IconButton icon="menu" label="Projects" onClick={() => setProjectsOpen(true)} />
+          </>
+        }
       />
       <ProjectsSheet
         client={client}

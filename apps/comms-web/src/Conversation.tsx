@@ -25,6 +25,7 @@ import { RequestError } from './comms-client.js';
 import { AttachedImages } from './AttachedImages.js';
 import { useAttachments } from './attachments.js';
 import { CloseAgent } from './CloseAgent.js';
+import { ConversationMenu } from './ConversationMenu.js';
 import { agentQuery, screenQuery, transcriptQuery } from './comms-queries.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive } from './live.js';
@@ -163,9 +164,11 @@ const Header = ({
               onChange={(value) => onView(value === 'screen' ? 'screen' : 'chat')}
             />
           )}
-          {agent?.worktree === undefined || onClose === undefined ? null : (
-            <IconButton icon="trash" label={`Close ${agent.ref}`} onClick={onClose} />
-          )}
+          <ConversationMenu
+            {...(agent?.worktree === undefined || onClose === undefined
+              ? {}
+              : { close: { label: `Close ${agent.ref}`, onClose } })}
+          />
         </>
       }
     />

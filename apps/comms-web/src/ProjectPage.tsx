@@ -20,6 +20,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AgentItem } from './AgentItem.js';
+import { BrainstormAction } from './Brainstorm.js';
 import { projectHue } from './rows.js';
 import type {
   AgentView,
@@ -243,7 +244,7 @@ export const ProjectPage = ({
   if (unknown) {
     return (
       <>
-        <TopBar start={back} title={project} />
+        <TopBar start={back} title={project} end={<BrainstormAction />} />
         <Page>
           <Text>{project} is not a project.</Text>
         </Page>
@@ -260,14 +261,17 @@ export const ProjectPage = ({
           ? {}
           : { subtitle: `${repository.owner}/${repository.name} on Gitea` })}
         end={
-          <IconButton
-            icon="plus"
-            label="New task"
-            onClick={() => {
-              setNotice(undefined);
-              setCreating(true);
-            }}
-          />
+          <>
+            <BrainstormAction />
+            <IconButton
+              icon="plus"
+              label="New task"
+              onClick={() => {
+                setNotice(undefined);
+                setCreating(true);
+              }}
+            />
+          </>
         }
       />
       <NewTask
