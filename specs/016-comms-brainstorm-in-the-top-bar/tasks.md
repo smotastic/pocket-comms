@@ -21,7 +21,7 @@ in the task's own commit.
       first; the close tests go through More
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T04** — A conversation's composer draft survives opening and closing the brainstorm chat
+- [x] **T04** — A conversation's composer draft survives opening and closing the brainstorm chat
   - Gate: `pnpm nx test comms-web`
 
 ## Wrap-up

@@ -418,3 +418,23 @@ describe('the More menu', () => {
     expect(fake.calls.closedAgents).toEqual([]);
   });
 });
+
+describe('the brainstorm chat over a conversation', () => {
+  it('leaves the draft in the composer', async () => {
+    open();
+    const box = await screen.findByRole('textbox', { name: 'Message' });
+    await userEvent.type(box, 'half a thought');
+
+    await userEvent.click(
+      within(await openMore()).getByRole('button', { name: 'Brainstorm with Pi' }),
+    );
+    const sheet = await screen.findByRole('dialog', { name: 'Brainstorm' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Brainstorm' })).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveProperty(
+      'value',
+      'half a thought',
+    );
+  });
+});
