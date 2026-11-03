@@ -5,6 +5,12 @@ on:
     branches: [master]
   pull_request:
 
+# A new push to the same pull request or branch cancels the run that is still going for the older
+# commit, so the single runner only works on the latest state.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '26'
   # Two jobs share the runner VM's 4 CPUs. Without a bound, each job runs 3 Nx tasks and each
