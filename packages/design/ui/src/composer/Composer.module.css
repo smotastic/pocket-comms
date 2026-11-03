@@ -42,10 +42,15 @@
   gap: var(--space-sm);
 }
 
-/* The field draws the edge and the focus state, so the text box has none of its own. */
+/* The field draws the edge and the focus state, so the text box has none of its own. One line is
+   as high as the buttons beside it. */
 .input {
   flex: 1 1 auto;
+  box-sizing: border-box;
   min-width: 0;
+  min-height: var(--control-height-md);
+  max-height: var(--control-height-composer);
+  overflow-y: auto;
   padding: var(--space-sm) 0;
   border: 0;
   outline: none;
@@ -53,6 +58,7 @@
   color: inherit;
   font: inherit;
   font-size: var(--font-size-base);
+  line-height: var(--font-line-height-body);
   resize: none;
 }
 

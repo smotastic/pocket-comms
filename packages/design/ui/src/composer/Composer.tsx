@@ -1,4 +1,11 @@
-import { useId, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { AttachButton } from '../attach-button/AttachButton.js';
 import { IconButton } from '../icon-button/IconButton.js';
 import hidden from '../visually-hidden.module.css';
@@ -37,7 +44,8 @@ export type ComposerProps = {
 
 /**
  * The rounded field where a message is written, with a round send button inside it. Enter sends
- * and Shift+Enter starts a new line.
+ * and Shift+Enter starts a new line. The text box starts one line high, level with the buttons,
+ * and grows with its text up to a limit, then scrolls.
  */
 export const Composer = ({
   label,
@@ -57,9 +65,18 @@ export const Composer = ({
   sendable = false,
 }: ComposerProps) => {
   const id = useId();
+  const input = useRef<HTMLTextAreaElement>(null);
   const hintId = `${id}-hint`;
   const text = value.trim();
   const canSend = !locked && !disabled && (text !== '' || sendable);
+
+  // The box is as high as its text; the stylesheet sets the least and the most.
+  useLayoutEffect(() => {
+    const box = input.current;
+    if (box === null) return;
+    box.style.height = 'auto';
+    box.style.height = `${box.scrollHeight}px`;
+  }, [value]);
 
   const send = () => {
     if (canSend) onSend(text);
@@ -92,9 +109,10 @@ export const Composer = ({
             {label}
           </label>
           <textarea
+            ref={input}
             id={id}
             className={styles.input}
-            rows={2}
+            rows={1}
             value={value}
             placeholder={placeholder}
             disabled={disabled}

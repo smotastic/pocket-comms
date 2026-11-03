@@ -77,6 +77,10 @@
       "thumb": {
         "$value": "{size.64}",
         "$description": "An image thumbnail, such as one attached to a message."
+      },
+      "composer": {
+        "$value": "{size.160}",
+        "$description": "The tallest the composer's text box grows before it scrolls."
       }
     }
   },
