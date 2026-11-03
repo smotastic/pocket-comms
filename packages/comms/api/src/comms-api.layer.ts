@@ -11,6 +11,7 @@ import { tasksHandlers } from './tasks.handlers.js';
 import { healthLayer } from './health.handlers.js';
 import { imageSweepLayer, imagesHandlers } from './images.handlers.js';
 import { identityGuard, tailscaleIdentityLayer } from './identity.js';
+import { pushHandlers, pushWatchLayer } from './push.handlers.js';
 import { webAppLayer } from './web-app.js';
 
 export interface CommsServerOptions<E, R> {
@@ -31,6 +32,7 @@ export const commsApiLayer = (allowedLogin: string) =>
       issuesHandlers,
       brainstormHandlers,
       imagesHandlers,
+      pushHandlers,
     ]),
     Layer.provide(tailscaleIdentityLayer(allowedLogin)),
     Layer.provide(validationMiddlewareLayer),
@@ -50,6 +52,7 @@ export const commsServerLayer = <E, R>({
     HttpApiScalar.layer(CommsApi, { path: '/docs' }),
     healthLayer(readiness),
     imageSweepLayer,
+    pushWatchLayer,
     webDist === undefined ? Layer.empty : webAppLayer(webDist),
     identityGuard(allowedLogin),
     bodyLimit,

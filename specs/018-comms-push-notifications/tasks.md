@@ -34,9 +34,10 @@ in the task's own commit.
       against a local fake push endpoint
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T07** — API handlers behind the identity guard, and the composition: push layers from the
-      state folder, the notify use case forked for the server's lifetime, memory mode with a
-      logging sender; the regenerated OpenAPI document
+- [x] **T07** — API handlers behind the identity guard, and the composition: push layers from the
+      state folder, the notify use case forked for the server's lifetime; the regenerated OpenAPI
+      document. (The plan's memory mode does not exist: `dev` runs the real server, which keeps its
+      push files in its state folder like the deployed one.)
   - Gate: `pnpm nx test comms-api`, `pnpm nx test comms-server` and
     `pnpm nx run comms-server:openapi`
 

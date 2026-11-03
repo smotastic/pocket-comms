@@ -1075,7 +1075,10 @@ export const PushSubscription = Schema.Struct({
   keys: Schema.Struct({
     p256dh: PushKey("The device's public key, base64url.", 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA'),
     auth: PushKey("The device's auth secret, base64url.", 'tBHItJI5svbpez7KI4CCXg'),
-  }).annotate({ description: 'The keys that encrypt a push for this device.' }),
+  }).annotate({
+    description: 'The keys that encrypt a push for this device.',
+    examples: [{ p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA', auth: 'tBHItJI5svbpez7KI4CCXg' }],
+  }),
 }).annotate({
   identifier: 'PushSubscription',
   description:

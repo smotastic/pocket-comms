@@ -5,6 +5,7 @@ import {
   HerdrOutbound,
   ImagesInbound,
   IssuesInbound,
+  PushInbound,
   TasksInbound,
 } from '@pocket-comms/comms-application';
 import {
@@ -14,6 +15,7 @@ import {
   Herdr,
   Images,
   Projects,
+  Push,
   Seen,
   StatusHistory,
   Transcript,
@@ -22,6 +24,12 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 
 // The composition root of the server: it wires the adapters. It holds no business logic.
+
+/**
+ * Who runs the server, as every push names it. Push services take only an `https:` or `mailto:`
+ * address, and Apple refuses a made-up one.
+ */
+const PUSH_SUBJECT = 'https://github.com/smotastic/pocket-comms';
 
 export interface ServerOptions {
   readonly allowedLogin: string;
@@ -34,7 +42,7 @@ export interface ServerOptions {
   readonly agentArgs: ReadonlyArray<string>;
   /** The Gitea server whose issues the app reads (spec 006). */
   readonly gitea: Gitea.HttpOptions;
-  /** The folder of the server's stored state: the brainstorm chat (spec 013) and images (spec 014). */
+  /** The folder of the server's stored state: the brainstorm chat, images and push devices. */
   readonly stateDir: string;
   /** The brainstorm chat's model (spec 013). */
   readonly pi: Agent.PiOptions;
@@ -43,8 +51,8 @@ export interface ServerOptions {
 
 /**
  * The adapters: Herdr over its socket, session files below `home`, git below `projectsRoot`,
- * Gitea over HTTP, Pi in process, the brainstorm chat and the images in `stateDir`, and memory
- * for the rest.
+ * Gitea over HTTP, Pi in process, the brainstorm chat, the images and the push devices in
+ * `stateDir`, Web Push to the devices, and memory for the rest.
  */
 export const services = ({
   socketPath,
@@ -63,6 +71,7 @@ export const services = ({
     Agent.layerPi(pi),
     Brainstorm.layerFile({ folder: stateDir }),
     Images.layerFolder({ stateDir }),
+    Push.layer({ stateDir, subject: PUSH_SUBJECT }),
     Seen.layerMemory,
     StatusHistory.layerMemory,
   );
@@ -85,6 +94,7 @@ export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
       IssuesInbound.layer,
       BrainstormInbound.layer,
       ImagesInbound.layer,
+      PushInbound.layer,
     ]),
     Layer.provideMerge(services(adapters)),
   );
