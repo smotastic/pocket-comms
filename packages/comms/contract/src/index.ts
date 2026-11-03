@@ -1,4 +1,7 @@
 export {
+  PushKeyView,
+  PushSubscription,
+  PushUnsubscribeRequest,
   Agent,
   AgentEvent,
   AgentParam,

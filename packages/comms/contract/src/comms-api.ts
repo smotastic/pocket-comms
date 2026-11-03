@@ -1051,6 +1051,94 @@ const images = HttpApiGroup.make('images')
     }),
   );
 
+const PushEndpoint = Schema.String.check(
+  Schema.isPattern(/^https:\/\/\S+$/u),
+  Schema.isMaxLength(2000),
+).annotate({
+  description: "The URL of the browser's push service for one device.",
+  examples: ['https://web.push.apple.com/QGuQyavXutnMH'],
+});
+
+const PushKey = (description: string, example: string) =>
+  Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200)).annotate({
+    description,
+    examples: [example],
+  });
+
+export const PushSubscription = Schema.Struct({
+  endpoint: PushEndpoint,
+  expirationTime: optional(Schema.NullOr(Millis), {
+    description:
+      'When the push service ends the subscription, if it says so. The server ignores it.',
+    examples: [null],
+  }),
+  keys: Schema.Struct({
+    p256dh: PushKey("The device's public key, base64url.", 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA'),
+    auth: PushKey("The device's auth secret, base64url.", 'tBHItJI5svbpez7KI4CCXg'),
+  }).annotate({ description: 'The keys that encrypt a push for this device.' }),
+}).annotate({
+  identifier: 'PushSubscription',
+  description:
+    "One device's push subscription, as the browser's `PushSubscription.toJSON()` gives it.",
+});
+
+export const PushUnsubscribeRequest = Schema.Struct({ endpoint: PushEndpoint }).annotate({
+  identifier: 'PushUnsubscribeRequest',
+  description: 'The device to stop notifying, by its push endpoint.',
+});
+
+export const PushKeyView = Schema.Struct({
+  publicKey: Schema.String.annotate({
+    description: "The server's VAPID public key, base64url, to subscribe a device with.",
+    examples: [
+      'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
+    ],
+  }),
+}).annotate({ identifier: 'PushKey', description: 'What a device needs to subscribe.' });
+
+const push = HttpApiGroup.make('push')
+  .add(
+    HttpApiEndpoint.get('key', '/push/key', {
+      success: PushKeyView,
+      error: Problems.ServiceUnavailable,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Read the push key',
+        description: "The server's public key, which a device subscribes with.",
+      }),
+    ),
+    HttpApiEndpoint.post('subscribe', '/push/subscriptions', {
+      payload: PushSubscription,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Subscribe a device',
+        description:
+          'Notifies this device when an agent needs the owner. Subscribing the same endpoint again replaces its keys.',
+      }),
+    ),
+    HttpApiEndpoint.post('unsubscribe', '/push/subscriptions/remove', {
+      payload: PushUnsubscribeRequest,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Unsubscribe a device',
+        description: 'Stops notifying the device. An unknown endpoint is not an error.',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Push',
+      description: 'The devices that get a notification when an agent needs the owner.',
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
@@ -1058,6 +1146,7 @@ export const CommsApi = HttpApi.make('comms')
   .add(issues)
   .add(brainstorm)
   .add(images)
+  .add(push)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

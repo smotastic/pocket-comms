@@ -13,6 +13,8 @@ import {
   ProjectParam,
   ProposalDecisionRequest,
   ProposalParam,
+  PushSubscription,
+  PushUnsubscribeRequest,
   TranscriptEntry,
 } from './index.js';
 
@@ -27,11 +29,14 @@ const operationsOf = (paths: ReadonlyArray<[string, unknown]>) =>
 
 const operations = () => operationsOf(Object.entries(document().paths));
 
-// The brainstorm chat (spec 013) and the images (spec 014) live in the server and need no Herdr.
+// The brainstorm chat, the images and the push subscriptions live in the server and need no Herdr.
 const herdrOperations = () =>
   operationsOf(
     Object.entries(document().paths).filter(
-      ([path]) => !path.startsWith('/api/v1/brainstorm') && !path.startsWith('/api/v1/images'),
+      ([path]) =>
+        !['/api/v1/brainstorm', '/api/v1/images', '/api/v1/push'].some((prefix) =>
+          path.startsWith(prefix),
+        ),
     ),
   );
 
@@ -59,6 +64,9 @@ describe('CommsApi', () => {
       '/api/v1/projects/{project}/issues',
       '/api/v1/projects/{project}/issues/{number}/close',
       '/api/v1/projects/{project}/issues/{number}/implement',
+      '/api/v1/push/key',
+      '/api/v1/push/subscriptions',
+      '/api/v1/push/subscriptions/remove',
       '/api/v1/tasks',
     ]);
   });
@@ -113,6 +121,68 @@ describe('CommsApi', () => {
 
   it('accepts only the keys of the approval panel', () => {
     expect(KEYS).toEqual(['1', '2', '3', 'up', 'down', 'enter', 'esc', 'ctrl+c']);
+  });
+});
+
+describe('push wire schemas', () => {
+  // Strict like the API's payloads, so an undeclared field fails here too.
+  const decode = Schema.decodeUnknownSync(PushSubscription, { onExcessProperty: 'error' });
+  const subscription = {
+    endpoint: 'https://web.push.apple.com/QGuQyavXutnMH',
+    keys: { p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA', auth: 'tBHItJI5svbpez7KI4CCXg' },
+  };
+
+  it("takes a browser push subscription as the browser's toJSON gives it", () => {
+    expect(decode(subscription)).toEqual(subscription);
+    expect(decode({ ...subscription, expirationTime: null })).toEqual({
+      ...subscription,
+      expirationTime: null,
+    });
+    expect(decode({ ...subscription, expirationTime: 1793391381245 })).toMatchObject(subscription);
+  });
+
+  it('takes only an https endpoint of at most 2000 characters', () => {
+    for (const endpoint of [
+      'http://web.push.apple.com/x',
+      'HTTPS://web.push.apple.com/x',
+      'https://',
+      'https://web.push.apple.com/a b',
+      `https://web.push.apple.com/${'x'.repeat(2000)}`,
+    ]) {
+      expect(() => decode({ ...subscription, endpoint }), endpoint).toThrow(/endpoint/u);
+    }
+  });
+
+  it('takes only keys that are not empty and at most 200 characters', () => {
+    expect(() => decode({ ...subscription, keys: { ...subscription.keys, auth: '' } })).toThrow(
+      /auth/u,
+    );
+    expect(() =>
+      decode({ ...subscription, keys: { ...subscription.keys, p256dh: 'x'.repeat(201) } }),
+    ).toThrow(/p256dh/u);
+    expect(() => decode({ endpoint: subscription.endpoint })).toThrow(/keys/u);
+  });
+
+  it('unsubscribes by an https endpoint alone', () => {
+    const unsubscribe = Schema.decodeUnknownSync(PushUnsubscribeRequest, {
+      onExcessProperty: 'error',
+    });
+
+    expect(unsubscribe({ endpoint: subscription.endpoint })).toEqual({
+      endpoint: subscription.endpoint,
+    });
+    expect(() => unsubscribe({ endpoint: 'http://web.push.apple.com/x' })).toThrow(/endpoint/u);
+  });
+
+  it('answers 503 when the server cannot keep or read the devices', () => {
+    for (const [path, method] of [
+      ['/api/v1/push/key', 'get'],
+      ['/api/v1/push/subscriptions', 'post'],
+      ['/api/v1/push/subscriptions/remove', 'post'],
+    ] as const) {
+      const item = document().paths[path] as Record<string, Operation> | undefined;
+      expect(Object.keys(item?.[method]?.responses ?? {}), path).toContain('503');
+    }
   });
 });
 

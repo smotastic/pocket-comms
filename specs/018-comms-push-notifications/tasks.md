@@ -12,10 +12,11 @@ in the task's own commit.
       (titles, body cut to 120 characters, tag, URL) and the `PushSubscription` type
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Contract: the `push` group (`GET /push/key`, `POST /push/subscriptions`,
-      `POST /push/subscriptions/remove`), the `PushSubscription` wire schema (`https` endpoint,
-      keys not empty) and the regenerated OpenAPI document
-  - Gate: `pnpm nx test comms-contract` and `pnpm nx run comms-server:openapi`
+- [x] **T02** — Contract: the `push` group (`GET /push/key`, `POST /push/subscriptions`,
+      `POST /push/subscriptions/remove`) and the `PushSubscription` wire schema (`https` endpoint,
+      keys not empty). The server builds again, and the OpenAPI document is regenerated, once
+      T07 adds the handlers.
+  - Gate: `pnpm nx test comms-contract`
 
 - [ ] **T03** — Application: the push ports, `PushInbound` with subscribe (idempotent by endpoint),
       unsubscribe and public key, and the fakes in `src/testing`
@@ -35,8 +36,9 @@ in the task's own commit.
 
 - [ ] **T07** — API handlers behind the identity guard, and the composition: push layers from the
       state folder, the notify use case forked for the server's lifetime, memory mode with a
-      logging sender
-  - Gate: `pnpm nx test comms-api` and `pnpm nx test comms-server`
+      logging sender; the regenerated OpenAPI document
+  - Gate: `pnpm nx test comms-api`, `pnpm nx test comms-server` and
+    `pnpm nx run comms-server:openapi`
 
 ## Web app
 
