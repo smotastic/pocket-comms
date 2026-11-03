@@ -1446,6 +1446,100 @@
           }
         ]
       },
+      "PushKey": {
+        "additionalProperties": false,
+        "description": "What a device needs to subscribe.",
+        "properties": {
+          "publicKey": {
+            "description": "The server's VAPID public key, base64url, to subscribe a device with.",
+            "examples": [
+              "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U"
+            ],
+            "type": "string"
+          }
+        },
+        "required": ["publicKey"],
+        "type": "object"
+      },
+      "PushSubscription": {
+        "additionalProperties": false,
+        "description": "One device's push subscription, as the browser's `PushSubscription.toJSON()` gives it.",
+        "properties": {
+          "endpoint": {
+            "description": "The URL of the browser's push service for one device.",
+            "examples": ["https://web.push.apple.com/QGuQyavXutnMH"],
+            "maxLength": 2000,
+            "pattern": "^https:\\/\\/\\S+$",
+            "type": "string"
+          },
+          "expirationTime": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "description": "A moment in epoch milliseconds.",
+                    "examples": [1793391381245],
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the push service ends the subscription, if it says so. The server ignores it.",
+            "examples": [null]
+          },
+          "keys": {
+            "additionalProperties": false,
+            "description": "The keys that encrypt a push for this device.",
+            "examples": [
+              {
+                "auth": "tBHItJI5svbpez7KI4CCXg",
+                "p256dh": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA"
+              }
+            ],
+            "properties": {
+              "auth": {
+                "description": "The device's auth secret, base64url.",
+                "examples": ["tBHItJI5svbpez7KI4CCXg"],
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "p256dh": {
+                "description": "The device's public key, base64url.",
+                "examples": ["BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA"],
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": ["p256dh", "auth"],
+            "type": "object"
+          }
+        },
+        "required": ["endpoint", "keys"],
+        "type": "object"
+      },
+      "PushUnsubscribeRequest": {
+        "additionalProperties": false,
+        "description": "The device to stop notifying, by its push endpoint.",
+        "properties": {
+          "endpoint": {
+            "description": "The URL of the browser's push service for one device.",
+            "examples": ["https://web.push.apple.com/QGuQyavXutnMH"],
+            "maxLength": 2000,
+            "pattern": "^https:\\/\\/\\S+$",
+            "type": "string"
+          }
+        },
+        "required": ["endpoint"],
+        "type": "object"
+      },
       "Question": {
         "additionalProperties": false,
         "description": "One question and its answer.",
@@ -4066,6 +4160,168 @@
         "tags": ["Issues"]
       }
     },
+    "/api/v1/push/key": {
+      "get": {
+        "description": "The server's public key, which a device subscribes with.",
+        "operationId": "push.key",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushKey"
+                }
+              }
+            },
+            "description": "What a device needs to subscribe."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read the push key",
+        "tags": ["Push"]
+      }
+    },
+    "/api/v1/push/subscriptions": {
+      "post": {
+        "description": "Notifies this device when an agent needs the owner. Subscribing the same endpoint again replaces its keys.",
+        "operationId": "push.subscribe",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushSubscription"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Subscribe a device",
+        "tags": ["Push"]
+      }
+    },
+    "/api/v1/push/subscriptions/remove": {
+      "post": {
+        "description": "Stops notifying the device. An unknown endpoint is not an error.",
+        "operationId": "push.unsubscribe",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushUnsubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Unsubscribe a device",
+        "tags": ["Push"]
+      }
+    },
     "/api/v1/tasks": {
       "post": {
         "description": "Creates a Herdr worktree on a new branch from the project's default remote branch, without moving the focus, and optionally starts an agent in it with the task as its first prompt.",
@@ -4164,6 +4420,10 @@
     {
       "description": "A timeline of what happened across the agents.",
       "name": "Activity"
+    },
+    {
+      "description": "The devices that get a notification when an agent needs the owner.",
+      "name": "Push"
     }
   ]
 }

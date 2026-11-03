@@ -3,7 +3,7 @@ import * as Layer from 'effect/Layer';
 import { HttpRouter, HttpServer } from 'effect/http';
 import * as Option from 'effect/Option';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Projects } from '@pocket-comms/comms-infrastructure';
@@ -30,7 +30,10 @@ const projectsRoot = () => {
 };
 
 // The server as `main.ts` composes it, served in process, with Herdr away and no Gitea token.
-const serve = (projects = mkdtempSync(join(tmpdir(), 'projects-'))) => {
+const serve = (
+  projects = mkdtempSync(join(tmpdir(), 'projects-')),
+  stateDir = mkdtempSync(join(tmpdir(), 'state-')),
+) => {
   const web = HttpRouter.toWebHandler(
     server({
       allowedLogin: 'smotastic@',
@@ -39,7 +42,7 @@ const serve = (projects = mkdtempSync(join(tmpdir(), 'projects-'))) => {
       projectsRoot: projects,
       agentArgs: [],
       gitea: { url: 'http://127.0.0.1:9', token: Option.none(), hosts: ['gitea'] },
-      stateDir: mkdtempSync(join(tmpdir(), 'state-')),
+      stateDir,
       pi: {
         provider: Option.none(),
         model: Option.none(),
@@ -101,6 +104,19 @@ describe('the composed server', () => {
 
   it('is not ready while Herdr is away', async () => {
     expect((await serve()('/health/ready')).status).toBe(503);
+  });
+
+  it('makes the push keys in the state folder and keeps them', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'state-'));
+    const first = await serve(undefined, stateDir)('/api/v1/push/key');
+    const { publicKey } = (await first.json()) as { publicKey: string };
+    await dispose?.();
+
+    const again = await serve(undefined, stateDir)('/api/v1/push/key');
+
+    expect(first.status).toBe(200);
+    expect(await again.json()).toEqual({ publicKey });
+    expect(existsSync(join(stateDir, 'push', 'vapid.json'))).toBe(true);
   });
 
   it('is live while it runs', async () => {

@@ -3,13 +3,15 @@
 A phone web app to **read and drive the Herdr coding agents** on the Mac mini, over Tailscale. It
 lists every live agent, shows Claude and Pi sessions as a chat, shows any agent's terminal screen,
 sends prompts and key presses, starts new tasks in fresh Herdr worktrees, and lists each project's
-open Gitea issues with "Implement with Claude" and "Close" actions. Install it to the iPhone home screen. It complements the Moshi
-terminal app, which keeps push notifications, approvals and the raw terminal.
+open Gitea issues with "Implement with Claude" and "Close" actions. Install it to the iPhone home screen,
+and it pushes a notification when an agent needs you or is done. It complements the Moshi terminal
+app, which keeps approvals and the raw terminal.
 
 The behaviour is [spec 004](specs/004-pocket-comms-v1/spec.md), for new tasks
 [spec 005](specs/005-comms-new-task/spec.md), for Gitea issues
 [spec 006](specs/006-comms-gitea-issues/spec.md) and [spec 010](specs/010-comms-close-issues/spec.md) and for the overview by project
-[spec 007](specs/007-comms-sessions-by-project/spec.md); the approved look is spec 004's
+[spec 007](specs/007-comms-sessions-by-project/spec.md), and for push notifications
+[spec 018](specs/018-comms-push-notifications/spec.md); the approved look is spec 004's
 [mockup](specs/004-pocket-comms-v1/mockup.html).
 
 ## Run it
@@ -39,7 +41,7 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 | `COMMS_GITEA_URL`           | `http://localhost:3000`      | The Gitea server whose issues the app reads                                                        |
 | `COMMS_GITEA_TOKEN`         | none                         | A Gitea token with `write:issue` and `read:repository`; without it the issue lists say so          |
 | `COMMS_GITEA_HOSTS`         | `gitea`                      | Further host names (such as SSH aliases) of that Gitea in git remotes, comma-separated             |
-| `COMMS_STATE_DIR`           | `~/.pocket-comms`            | Where the server keeps `brainstorm.json`, `activity.json` and the images (`images/`, 30 days)      |
+| `COMMS_STATE_DIR`           | `~/.pocket-comms`            | `brainstorm.json`, `activity.json`, images (`images/`, 30 days), push devices (`push/`)            |
 | `COMMS_BRAINSTORM_PROVIDER` | none                         | The brainstorm chat's model provider, such as `openai`; without it the chat says it is not set up  |
 | `COMMS_BRAINSTORM_MODEL`    | none                         | The brainstorm chat's model, such as `gpt-6-luna`                                                  |
 | `COMMS_BRAINSTORM_API_KEY`  | none                         | An API key for that provider; without it the server uses your Pi login                             |
@@ -60,6 +62,12 @@ in with Pi once (`pi`, then `/login`) and set the provider and the model, for ex
 `COMMS_BRAINSTORM_PROVIDER=openai` and `COMMS_BRAINSTORM_MODEL=gpt-6-luna`. Pi only reads the
 project list, a project's open issues and its `README.md` and `AGENTS.md`; an issue is created only
 when you tap **Create issue** on its proposal.
+
+Notifications are switched on per device at the bottom of the Projects sheet. On the iPhone that
+works only in the app added to the home screen (iOS 16.4 or later); Safari alone offers no Web Push.
+The server makes its push key pair itself in `COMMS_STATE_DIR/push/` and pushes when an agent has
+been blocked, or done without you looking, for 10 seconds. Keep that folder: new keys would end
+every device's subscription.
 
 The API is documented at `/docs` (the OpenAPI document at `/docs/openapi.json`), behind the same
 login check.

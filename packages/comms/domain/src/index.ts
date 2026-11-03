@@ -98,3 +98,15 @@ export {
   type Observed,
   type RecordedStatus,
 } from './activity.js';
+export {
+  excerptOf,
+  MAX_EXCERPT_LENGTH,
+  notificationOf,
+  stillHolds,
+  watchStep,
+  type Attention,
+  type Change,
+  type Notification,
+  type PushSubscription,
+  type Reading,
+} from './notification.js';

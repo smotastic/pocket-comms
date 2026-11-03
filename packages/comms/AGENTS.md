@@ -3,7 +3,8 @@
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
 them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, it reads,
 closes and marks in progress the projects' Gitea issues, it runs the brainstorm chat with Pi, it keeps the images
-the owner attaches to a prompt, and it follows the background work and the subagents of Claude agents. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
+the owner attaches to a prompt, it pushes a notification to the owner's devices when an agent
+needs them, and it follows the background work and the subagents of Claude agents. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
 [spec 006](../../specs/006-comms-gitea-issues/spec.md),
 [spec 007](../../specs/007-comms-sessions-by-project/spec.md),
@@ -12,11 +13,13 @@ the owner attaches to a prompt, and it follows the background work and the subag
 [spec 013](../../specs/013-comms-brainstorm-chat/spec.md),
 [spec 014](../../specs/014-comms-images-in-chat/spec.md),
 [spec 015](../../specs/015-comms-issues-in-progress/spec.md),
-[spec 017](../../specs/017-comms-activity-timeline/spec.md) and
+[spec 017](../../specs/017-comms-activity-timeline/spec.md),
+[spec 018](../../specs/018-comms-push-notifications/spec.md) and
 [spec 019](../../specs/019-comms-background-activity/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
-the state folder, attached images are files in its `images` folder.
+the state folder, attached images are files in its `images` folder, and the push devices and the
+VAPID key pair are two JSON files in its `push` folder.
 
 ## Where each file type goes
 
@@ -32,6 +35,9 @@ the state folder, attached images are files in its `images` folder.
 | Activity rules (snapshot diff, what is kept, prompt excerpts)       | `domain` (`src/activity.ts`)                                |
 | The activity recorder and timeline                                  | `application` (`src/use-cases/activity*`)                   |
 | The activity file                                                   | `infrastructure` (`src/activity`)                           |
+| When an agent notifies, the notification's text                     | `domain` (`src/notification.ts`)                            |
+| The push watcher, subscribe and unsubscribe                         | `application` (`src/use-cases/notify*`, `push*`)            |
+| The push devices and keys, the Web Push sender                      | `infrastructure` (`src/push`)                               |
 | Pi's tools and instructions, the brainstorm turns                   | `application` (`src/tools`, `src/use-cases/brainstorm*`)    |
 | Pi's runtime and login, the chat file                               | `infrastructure` (`src/agent`, `src/brainstorm`)            |
 | `AgentsInbound`, `TasksInbound`, `IssuesInbound`, ports, use cases  | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
@@ -84,6 +90,13 @@ the state folder, attached images are files in its `images` folder.
 - The activity recorder runs in `ActivityInbound`'s layer scope from server start and records only
   what the server observes: Herdr snapshots and the prompts and keys Herdr took from the app. The
   timeline keeps a prompt's first line, at most 80 characters, never the whole prompt.
+- Only `infrastructure/src/push` imports `web-push`. The VAPID private key stays between the push
+  store and the sender (`Push.layer` puts out the three ports only); never log it, put it in an
+  error or send it to the browser. A device's endpoint is its address: keep it out of logs too.
+  A broken `push/` file is reported, never replaced, because new keys end every subscription.
+- A push carries only the agent's name, its project and at most 120 characters of its question
+  or last message. Every push must show a notification on the device (the service worker in
+  `apps/comms-web/public/sw.js` never skips one), or the browser drops the subscription.
 - After a contract change run `pnpm nx run comms-server:openapi` and commit the document.
 
 ## Run and test

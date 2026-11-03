@@ -194,6 +194,14 @@ export const problems = {
         detail: error.reason,
       }),
     ),
+  pushStoreUnavailable: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'push-store-unavailable',
+        title: 'The push devices cannot be kept',
+        detail: error.reason,
+      }),
+    ),
   imageNotFound: (error: { readonly id: string }) =>
     Effect.fail(
       notFoundProblem({
