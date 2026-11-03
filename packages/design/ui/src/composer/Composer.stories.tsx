@@ -65,3 +65,17 @@ export const Disabled: Story = () => (
     disabled
   />
 );
+
+export const WithAttachButton: Story = () => {
+  const [text, setText] = useState('');
+  return (
+    <Composer
+      label="Message"
+      placeholder="Message w2X:p2"
+      value={text}
+      onChange={setText}
+      onSend={() => setText('')}
+      onAttach={() => undefined}
+    />
+  );
+};
