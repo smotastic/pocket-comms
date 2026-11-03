@@ -36,5 +36,14 @@ in the task's own commit.
 
 ## Wrap-up
 
-- [ ] **T07** — README and comms `AGENTS.md`; local check at 390 px; spec status `Done`
+- [x] **T07** — README and comms `AGENTS.md`; local check at 390 px; spec status `Done`
   - Gate: `pnpm format:check`, the check's notes in the pull request
+
+## Verification notes
+
+- **T07** (2026-11-03): the built server on a spare port with a scratch state folder and the real
+  Herdr. The first snapshot recorded nothing. Events seeded into `activity.json` survived a
+  restart. At 390 px the Activity link sits above the projects, the page has no sideways scroll,
+  a live agent's event opens its conversation, a gone agent's event opens `/projects/pocket-comms`,
+  and a gone agent without a project is a plain row. The empty page says "Nothing happened in the
+  last 24 hours."

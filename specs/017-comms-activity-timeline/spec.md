@@ -1,6 +1,6 @@
 # Spec 017 — pocket-comms: an activity timeline across agents
 
-- **Status:** `Approved` — approved by the owner (2026-11-03)
+- **Status:** `Done` — approved by the owner (2026-11-03); checked locally at 390 px on 2026-11-03
 - **Changes:** [spec 012](../012-comms-flat-overview/spec.md) (the projects sheet gets an
   Activity entry)
 - **Issue:** Gitea #27

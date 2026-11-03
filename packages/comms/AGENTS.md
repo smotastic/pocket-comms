@@ -10,10 +10,12 @@ the owner attaches to a prompt. Its behaviour is [spec 004](../../specs/004-pock
 [spec 010](../../specs/010-comms-close-issues/spec.md),
 [spec 011](../../specs/011-comms-close-agent/spec.md),
 [spec 013](../../specs/013-comms-brainstorm-chat/spec.md),
-[spec 014](../../specs/014-comms-images-in-chat/spec.md) and
-[spec 015](../../specs/015-comms-issues-in-progress/spec.md).
+[spec 014](../../specs/014-comms-images-in-chat/spec.md),
+[spec 015](../../specs/015-comms-issues-in-progress/spec.md) and
+[spec 017](../../specs/017-comms-activity-timeline/spec.md).
 It has no database. Seen completions and last status changes live in server memory; the brainstorm
-chat is one JSON file in the state folder, attached images are files in its `images` folder.
+chat and the activity timeline are JSON files in the state folder, attached images are files in its
+`images` folder.
 
 ## Where each file type goes
 
@@ -26,6 +28,9 @@ chat is one JSON file in the state folder, attached images are files in its `ima
 | Brainstorm entries, proposals, issue drafts, project docs           | `domain` (`src/brainstorm.ts`)                              |
 | Image rules (kinds, ids, limits, paths in a prompt)                 | `domain` (`src/image.ts`)                                   |
 | The image store                                                     | `infrastructure` (`src/images`)                             |
+| Activity rules (snapshot diff, what is kept, prompt excerpts)       | `domain` (`src/activity.ts`)                                |
+| The activity recorder and timeline                                  | `application` (`src/use-cases/activity*`)                   |
+| The activity file                                                   | `infrastructure` (`src/activity`)                           |
 | Pi's tools and instructions, the brainstorm turns                   | `application` (`src/tools`, `src/use-cases/brainstorm*`)    |
 | Pi's runtime and login, the chat file                               | `infrastructure` (`src/agent`, `src/brainstorm`)            |
 | `AgentsInbound`, `TasksInbound`, `IssuesInbound`, ports, use cases  | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
@@ -71,6 +76,9 @@ chat is one JSON file in the state folder, attached images are files in its `ima
   names every file itself (`<id>.<ext>`), opens only names of that shape that are plain files, and
   an image id from a request is only ever looked up, never joined into a path. The server checks
   an upload by its content (JPEG or PNG), never by its name or declared type.
+- The activity recorder runs in `ActivityInbound`'s layer scope from server start and records only
+  what the server observes: Herdr snapshots and the prompts and keys Herdr took from the app. The
+  timeline keeps a prompt's first line, at most 80 characters, never the whole prompt.
 - After a contract change run `pnpm nx run comms-server:openapi` and commit the document.
 
 ## Run and test

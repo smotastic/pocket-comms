@@ -350,15 +350,19 @@ export const ProjectsSheet = ({
       </SheetHeader>
     }
   >
-    <Link href="/activity" onClick={navigateOnPlainClick(onActivity)}>
-      Activity
-    </Link>
-    {projectsError !== undefined ? (
-      <Alert>{projectsError}</Alert>
-    ) : projects === undefined ? (
-      <Text tone="muted">Loading the projects…</Text>
-    ) : (
-      <ProjectList projects={projects} {...props} />
-    )}
+    <Stack gap="md">
+      <Link href="/activity" onClick={navigateOnPlainClick(onActivity)}>
+        Activity
+      </Link>
+      <div>
+        {projectsError !== undefined ? (
+          <Alert>{projectsError}</Alert>
+        ) : projects === undefined ? (
+          <Text tone="muted">Loading the projects…</Text>
+        ) : (
+          <ProjectList projects={projects} {...props} />
+        )}
+      </div>
+    </Stack>
   </Sheet>
 );

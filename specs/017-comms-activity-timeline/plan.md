@@ -1,7 +1,7 @@
 # Plan 017 — pocket-comms: an activity timeline across agents
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner (2026-11-03)
+- **Status:** `Done` — approved by the owner (2026-11-03); checked locally at 390 px on 2026-11-03
 
 ## 1. Affected projects
 
