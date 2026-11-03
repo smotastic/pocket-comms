@@ -30,7 +30,7 @@ in the task's own commit.
 - [x] **T05** — Design system: `AgentRow` without a link
   - Gate: `pnpm nx test design-ui`
 
-- [ ] **T06** — Web: client, query, live hook, `/activity` page, Activity link in the projects
+- [x] **T06** — Web: client, query, live hook, `/activity` page, Activity link in the projects
       sheet
   - Gate: `pnpm nx test comms-web`
 

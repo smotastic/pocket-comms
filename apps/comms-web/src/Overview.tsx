@@ -30,6 +30,8 @@ export interface OverviewProps {
   readonly onProject: (project: string, notice?: string) => void;
   /** Opens the conversation of an agent the projects sheet started, with its note. */
   readonly onStarted: (ref: string, note: string | undefined) => void;
+  /** Opens the activity timeline. */
+  readonly onActivity: () => void;
 }
 
 const Group = ({
@@ -71,10 +73,10 @@ const Group = ({
 
 /**
  * `/`: every live agent in two groups, Needs you and Everything else, the latter by project and
- * narrowed by a project filter. Its Projects action opens every project in a side sheet. It
- * updates live.
+ * narrowed by a project filter. Its Projects action opens every project and the activity
+ * timeline in a side sheet. It updates live.
  */
-export const Overview = ({ client, onOpen, onProject, onStarted }: OverviewProps) => {
+export const Overview = ({ client, onOpen, onProject, onStarted, onActivity }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
   const overview = useQuery(overviewQuery(client));
   const projects = useQuery(projectsQuery(client));
@@ -117,6 +119,7 @@ export const Overview = ({ client, onOpen, onProject, onStarted }: OverviewProps
         projects={projects.data?.map(({ name }) => name)}
         projectsError={projects.error?.message}
         onProject={onProject}
+        onActivity={onActivity}
         onStarted={(project, created) => {
           setProjectsOpen(false);
           // A start without a running agent says so on the project's page.
