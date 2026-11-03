@@ -62,5 +62,14 @@ and Close? Is a tall sheet enough room once the keyboard is up?
 
 ## Verdict
 
-_To be filled in by the owner after trying the variants on a phone: the chosen direction, the
-trade-offs accepted, and anything that needs another iteration._
+First round: the owner picked `header`, with one change. In a conversation the top bar is already
+full (back, name, status, Chat/Screen, Close), and one more icon leaves no room for the agent's
+name. So there:
+
+- the overview and project pages keep the brainstorm icon in the top bar, outside the Projects
+  menu;
+- a conversation shows a menu icon instead, which opens a side sheet with only "Brainstorm with Pi"
+  and "Close <agent>". Close no longer has an icon of its own.
+
+The second round is on the prototype (`?variant=header`). Still open: with Chat/Screen, a long
+agent name is still cut short at phone width.

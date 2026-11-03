@@ -1,4 +1,13 @@
-import { Button, Fab, IconButton, Segmented, Stack, Text } from '@pocket-comms/design-ui';
+import {
+  Button,
+  Fab,
+  IconButton,
+  Segmented,
+  Sheet,
+  SheetHeader,
+  Stack,
+  Text,
+} from '@pocket-comms/design-ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Brainstorm, BrainstormSheet } from './Brainstorm.js';
@@ -119,6 +128,57 @@ export const BrainstormHeaderAction = () => {
   return variant === 'header' ? (
     <IconButton icon="brainstorm" label="Brainstorm" onClick={openSheet} />
   ) : null;
+};
+
+/**
+ * A conversation's top bar has no room for one more icon: in the header variant its Close and
+ * Brainstorm sit behind a menu; elsewhere Close stays an icon of its own.
+ */
+export const ConversationMenu = ({
+  close,
+}: {
+  /** Closes the agent; only an agent in a linked worktree can be closed. */
+  readonly close?: { readonly label: string; readonly onClose: () => void };
+}) => {
+  const { variant, openSheet } = usePlacement();
+  const [open, setOpen] = useState(false);
+  if (variant !== 'header') {
+    return close === undefined ? null : (
+      <IconButton icon="trash" label={close.label} onClick={close.onClose} />
+    );
+  }
+  const pick = (action: () => void) => () => {
+    setOpen(false);
+    action();
+  };
+  return (
+    <>
+      <IconButton icon="menu" label="More" onClick={() => setOpen(true)} />
+      <Sheet
+        open={open}
+        side="end"
+        label="More"
+        bodyLabel="More actions"
+        onClose={() => setOpen(false)}
+        header={
+          <SheetHeader title="More">
+            <IconButton icon="close" label="Close" onClick={() => setOpen(false)} />
+          </SheetHeader>
+        }
+      >
+        <Stack gap="sm">
+          <Button variant="secondary" onClick={pick(openSheet)}>
+            Brainstorm with Pi
+          </Button>
+          {close === undefined ? null : (
+            <Button variant="danger" onClick={pick(close.onClose)}>
+              {close.label}
+            </Button>
+          )}
+        </Stack>
+      </Sheet>
+    </>
+  );
 };
 
 /** The menu variant's entry, at the top of the projects sheet. */
