@@ -25,6 +25,9 @@ export default defineConfig({
     name: 'comms-web',
     environment: 'jsdom',
     include: ['src/**/*.spec.{ts,tsx}'],
+    // Longer than the five seconds a `findBy` waits (see testing.tsx), so a slow first render on a
+    // busy runner fails on what it waited for, not on the test's own timeout.
+    testTimeout: 15_000,
     coverage: { reportsDirectory: './test-output/vitest/coverage', provider: 'v8' },
   },
 });
