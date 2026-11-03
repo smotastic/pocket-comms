@@ -1,6 +1,6 @@
 # Spec 016 — pocket-comms: open the brainstorm chat from the top bar
 
-- **Status:** `Draft` — not yet approved (human gate pending)
+- **Status:** `Approved` — approved by the owner (2026-11-03)
 - **Changes:** [spec 013](../013-comms-brainstorm-chat/spec.md) (requirements 1 and 2: the
   floating bubble and the sheet it opens) and [spec 011](../011-comms-close-agent/spec.md)
   (requirement 1: the conversation's Close action)
