@@ -13,6 +13,7 @@ const issue = (overrides: Partial<IssueView> & Pick<IssueView, 'number'>): Issue
   url: `http://gitea.test/smotastic/beta/issues/${overrides.number}`,
   branch: `feat/${overrides.number}-issue`,
   work: [],
+  inProgress: false,
   ...overrides,
 });
 
@@ -52,6 +53,7 @@ const betaIssues = listed(
         agents: [{ ref: 'beta-7', status: 'working' }],
       },
     ],
+    inProgress: true,
   }),
   issue({ number: 3, title: 'Dark mode' }),
 );
@@ -106,8 +108,8 @@ describe('the projects sheet', () => {
         .getAllByRole('article')
         .map((card) => card.getAttribute('aria-labelledby') && card.textContent),
     ).toEqual([
-      expect.stringMatching(/^#8 feat: issue list/u),
       expect.stringMatching(/^#7 Login breaks/u),
+      expect.stringMatching(/^#8 feat: issue list/u),
       expect.stringMatching(/^#3 Dark mode/u),
     ]);
     expect(within(panel).getByRole('button', { name: 'New task' })).toBeDefined();
@@ -131,6 +133,43 @@ describe('the projects sheet', () => {
     const seven = within(sheet).getByRole('article', { name: '#7 Login breaks' });
     expect(seven.textContent).toContain('beta-7 is on it');
     expect(within(seven).queryByRole('button', { name: 'Implement #7' })).toBeNull();
+  });
+
+  it('shows the issues in progress apart, above the open ones', async () => {
+    open();
+    const sheet = await openSheet();
+    await userEvent.click(entry(sheet, 'beta'));
+
+    const progress = await within(sheet).findByRole('region', { name: 'In progress' });
+    const others = within(sheet).getByRole('region', { name: 'Open' });
+    const titles = (group: HTMLElement) =>
+      within(group)
+        .getAllByRole('article')
+        .map(
+          (card) =>
+            document.getElementById(card.getAttribute('aria-labelledby') ?? '')?.textContent,
+        );
+    expect(within(progress).getByRole('heading', { name: 'In progress 1' })).toBeDefined();
+    expect(titles(progress)).toEqual(['#7 Login breaks']);
+    expect(within(others).getByRole('heading', { name: 'Open 2' })).toBeDefined();
+    expect(titles(others)).toEqual(['#8 feat: issue list', '#3 Dark mode']);
+  });
+
+  it('shows no in-progress label on a card', async () => {
+    open({
+      issues: new Map<string, IssueListView | RequestError>([
+        [
+          'beta',
+          listed(issue({ number: 9, labels: ['Status/In-Progress', 'ui'], inProgress: true })),
+        ],
+      ]),
+    });
+    const sheet = await openSheet();
+    await userEvent.click(entry(sheet, 'beta'));
+
+    const nine = await within(sheet).findByRole('article', { name: '#9 Issue 9' });
+    expect(nine.textContent).toContain('ui');
+    expect(nine.textContent).not.toContain('Status/In-Progress');
   });
 
   it('says what a project without issues shows', async () => {

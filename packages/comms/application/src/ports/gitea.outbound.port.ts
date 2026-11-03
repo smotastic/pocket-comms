@@ -22,8 +22,8 @@ export interface CreatedIssue {
 }
 
 /**
- * The app's Gitea server. It reads, closes issues (spec 010) and creates them (spec 013); no
- * other method writes.
+ * The app's Gitea server. It reads, closes issues (spec 010), creates them (spec 013) and marks
+ * them in progress (spec 015); no other method writes.
  */
 export class GiteaOutbound extends Context.Service<
   GiteaOutbound,
@@ -40,6 +40,14 @@ export class GiteaOutbound extends Context.Service<
     ) => Effect.Effect<Issue, Failure | IssueNotFoundError>;
     /** Sets the issue's state to closed and changes nothing else. */
     readonly closeIssue: (
+      repository: GiteaRepository,
+      number: number,
+    ) => Effect.Effect<void, Failure | IssueNotFoundError>;
+    /**
+     * Adds the repository's in-progress label to the issue, creating the label when the
+     * repository has none, and keeps the issue's other labels.
+     */
+    readonly markInProgress: (
       repository: GiteaRepository,
       number: number,
     ) => Effect.Effect<void, Failure | IssueNotFoundError>;

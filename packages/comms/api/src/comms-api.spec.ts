@@ -424,6 +424,7 @@ describe('the issues API', () => {
             agents: [{ ref: 'feat-8-issue-list', status: 'working' }],
           },
         ],
+        inProgress: true,
       },
     ],
   };
@@ -432,6 +433,7 @@ describe('the issues API', () => {
     branch: 'feat/8-issue-list',
     path: '/worktrees/feat-8-issue-list',
     agent: { ref: 'feat-8-issue-list', started: true, prompted: true, note: undefined },
+    markNote: undefined,
   };
   const issues = (inbound: Partial<IssuesInbound['Service']>) => serve({}, undefined, {}, inbound);
 
@@ -477,8 +479,26 @@ describe('the issues API', () => {
     );
 
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ ...created, agent: { prompted: true } });
+    expect(await response.json()).toMatchObject({
+      workspace: created.workspace,
+      branch: created.branch,
+      path: created.path,
+      agent: { prompted: true },
+    });
     expect(asked).toEqual([{ project: 'pocket-comms', number: 8, branch: 'feat/8-issue-list' }]);
+  });
+
+  it('says why a started issue was not marked in progress', async () => {
+    const markNote = '#8 was not marked in progress: Gitea refused the token (403).';
+    const call = issues({ implement: () => Effect.succeed({ ...created, markNote }) });
+
+    const response = await call(
+      '/api/v1/projects/pocket-comms/issues/8/implement',
+      json({ branch: 'feat/8-issue-list' }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ branch: 'feat/8-issue-list', markNote });
   });
 
   it.each([

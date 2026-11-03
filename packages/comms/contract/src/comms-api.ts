@@ -425,6 +425,11 @@ export const Issue = Schema.Struct({
     description: "The project's worktrees on a branch of this issue.",
     examples: [[]],
   }),
+  inProgress: Schema.Boolean.annotate({
+    description:
+      'The issue has the `status/in-progress` label or a worktree on one of its branches.',
+    examples: [false],
+  }),
 }).annotate({ identifier: 'Issue', description: 'An open issue of the project.' });
 
 export const IssueList = Schema.Union([
@@ -487,6 +492,17 @@ export const ImplementIssueRequest = Schema.Struct({
 }).annotate({
   identifier: 'ImplementIssueRequest',
   description: 'Implement the issue with Claude in a new worktree on this branch.',
+});
+
+export const IssueTaskCreated = Schema.Struct({
+  ...TaskCreated.fields,
+  markNote: optional(Schema.String, {
+    description: 'Why the issue was not marked in progress, when it was not.',
+    examples: ['#8 was not marked in progress: Gitea refused the token (403).'],
+  }),
+}).annotate({
+  identifier: 'IssueTaskCreated',
+  description: 'The new worktree and its agent, and whether the issue was marked in progress.',
 });
 
 // ── The brainstorm chat (spec 013) ─────────────────────────────────────────────────────────
@@ -876,13 +892,13 @@ const issues = HttpApiGroup.make('issues')
       OpenApi.annotations({
         summary: "List a project's issues",
         description:
-          "The open Gitea issues of the project's `origin` repository, each with its suggested branch and the worktrees and agents that work on it.",
+          "The open Gitea issues of the project's `origin` repository, each with its suggested branch, the worktrees and agents that work on it, and whether it is in progress.",
       }),
     ),
     HttpApiEndpoint.post('implement', '/projects/:project/issues/:number/implement', {
       params: { ...project, number: IssueNumberParam },
       payload: ImplementIssueRequest,
-      success: TaskCreated.pipe(HttpApiSchema.status(201)),
+      success: IssueTaskCreated.pipe(HttpApiSchema.status(201)),
       error: [
         Problems.NotFound,
         Problems.Conflict,
@@ -893,7 +909,7 @@ const issues = HttpApiGroup.make('issues')
       OpenApi.annotations({
         summary: 'Implement an issue with Claude',
         description:
-          'Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt.',
+          'Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt. Then it adds the `status/in-progress` label to the issue, creating the label when the repository has none; a failed label write leaves the task started and is reported in `markNote`.',
       }),
     ),
     HttpApiEndpoint.post('close', '/projects/:project/issues/:number/close', {

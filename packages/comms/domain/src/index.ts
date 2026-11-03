@@ -47,6 +47,11 @@ export {
   type Task,
 } from './task.js';
 export {
+  hasInProgressLabel,
+  IN_PROGRESS_LABEL,
+  IN_PROGRESS_LABEL_STYLE,
+  isInProgress,
+  isInProgressLabel,
   issueBranch,
   issueNumberOf,
   issueTask,
