@@ -41,6 +41,42 @@ export const AgentStatus = Schema.Literals([
   examples: ['working'],
 });
 
+export const SubagentParam = Schema.String.check(Schema.isPattern(/^[a-z0-9]{1,64}$/u)).annotate({
+  description: "A subagent's id, as Claude Code names it.",
+  examples: ['a0123456789abcdef'],
+});
+
+export const BackgroundItem = Schema.Struct({
+  id: Schema.String.annotate({
+    description: 'The tool call that started it.',
+    examples: ['toolu_01G3T6'],
+  }),
+  kind: Schema.Literals(['shell', 'monitor', 'subagent']).annotate({
+    description: 'A command, a monitor or a subagent.',
+    examples: ['shell'],
+  }),
+  description: Schema.String.annotate({
+    description: 'What it does, as the tool call describes it.',
+    examples: ['Wait for CI'],
+  }),
+  startedAt: Millis.annotate({ description: 'When it started, in epoch milliseconds.' }),
+  inBackground: Schema.Boolean.annotate({
+    description: 'False only for a subagent the agent waits on before it continues.',
+    examples: [true],
+  }),
+  expiresAt: optional(Millis, {
+    description: 'When a monitor stops by itself, in epoch milliseconds.',
+    examples: [1793391981245],
+  }),
+  subagent: optional(SubagentParam, {
+    description: "A subagent's id, once known; it opens the subagent's conversation.",
+    examples: ['a0123456789abcdef'],
+  }),
+}).annotate({
+  identifier: 'BackgroundItem',
+  description: 'Work an agent left running while it carries on or waits at its prompt.',
+});
+
 export const Agent = Schema.Struct({
   ref: AgentParam,
   paneId: Schema.String.annotate({ description: "The agent's Herdr pane.", examples: ['wJ:p1'] }),
@@ -78,8 +114,13 @@ export const Agent = Schema.Struct({
     description: 'When the agent last changed, in epoch milliseconds.',
   }),
   needsYou: Schema.Boolean.annotate({
-    description: 'Blocked, or done with a completion the owner has not seen yet.',
+    description:
+      'Blocked, or done with a completion the owner has not seen yet and no background work running.',
     examples: [false],
+  }),
+  background: Schema.Array(BackgroundItem).annotate({
+    description: 'The background work still running, oldest first.',
+    examples: [[]],
   }),
 }).annotate({ identifier: 'Agent', description: 'A live agent.' });
 
@@ -187,6 +228,10 @@ export const TranscriptEntry = Schema.Union([
     }),
     added: optional(Schema.Int, { description: 'Lines an edit added.', examples: [12] }),
     removed: optional(Schema.Int, { description: 'Lines an edit removed.', examples: [3] }),
+    subagent: optional(SubagentParam, {
+      description: 'The subagent a delegation started, once known; it opens its conversation.',
+      examples: ['a0123456789abcdef'],
+    }),
     questions: optional(
       Schema.Array(
         Schema.Struct({

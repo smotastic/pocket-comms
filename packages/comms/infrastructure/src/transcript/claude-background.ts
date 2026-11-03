@@ -22,6 +22,15 @@ const runsInBackground = (input: unknown) => {
   return flag === true || flag === 'true';
 };
 
+// The ids the API accepts for a subagent; another value names no subagent the app can open.
+const SUBAGENT_ID = /^[a-z0-9]{1,64}$/u;
+
+/** The subagent a delegation's result names, when its id is one the app can address. */
+export const subagentOf = (details: unknown): string | undefined => {
+  const id = stringField(details, 'agentId');
+  return id !== undefined && SUBAGENT_ID.test(id) ? id : undefined;
+};
+
 const descriptionOf = (input: unknown) =>
   stringField(input, 'description') ?? oneLine(stringField(input, 'command') ?? '');
 
@@ -101,7 +110,7 @@ export const backgroundLog = () => {
         }
         case 'Agent':
         case 'Task': {
-          const subagent = stringField(details, 'agentId');
+          const subagent = subagentOf(details);
           const item = running.get(id);
           if (ok && item !== undefined && isRecord(details) && details['isAsync'] === true) {
             start(

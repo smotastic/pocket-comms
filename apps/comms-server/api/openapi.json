@@ -5,6 +5,14 @@
         "additionalProperties": false,
         "description": "A live agent.",
         "properties": {
+          "background": {
+            "description": "The background work still running, oldest first.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/BackgroundItem"
+            },
+            "type": "array"
+          },
           "changedAt": {
             "description": "When the agent last changed, in epoch milliseconds.",
             "examples": [1793391381245],
@@ -60,7 +68,7 @@
             "examples": ["kirk"]
           },
           "needsYou": {
-            "description": "Blocked, or done with a completion the owner has not seen yet.",
+            "description": "Blocked, or done with a completion the owner has not seen yet and no background work running.",
             "examples": [false],
             "type": "boolean"
           },
@@ -116,7 +124,16 @@
             "examples": ["ingestor-mvp"]
           }
         },
-        "required": ["ref", "paneId", "status", "title", "workspace", "changedAt", "needsYou"],
+        "required": [
+          "ref",
+          "paneId",
+          "status",
+          "title",
+          "workspace",
+          "changedAt",
+          "needsYou",
+          "background"
+        ],
         "type": "object"
       },
       "AgentEventEncoded": {
@@ -139,6 +156,69 @@
           }
         },
         "required": ["kind"],
+        "type": "object"
+      },
+      "BackgroundItem": {
+        "additionalProperties": false,
+        "description": "Work an agent left running while it carries on or waits at its prompt.",
+        "properties": {
+          "description": {
+            "description": "What it does, as the tool call describes it.",
+            "examples": ["Wait for CI"],
+            "type": "string"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "description": "A moment in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When a monitor stops by itself, in epoch milliseconds.",
+            "examples": [1793391981245]
+          },
+          "id": {
+            "description": "The tool call that started it.",
+            "examples": ["toolu_01G3T6"],
+            "type": "string"
+          },
+          "inBackground": {
+            "description": "False only for a subagent the agent waits on before it continues.",
+            "examples": [true],
+            "type": "boolean"
+          },
+          "kind": {
+            "description": "A command, a monitor or a subagent.",
+            "enum": ["shell", "monitor", "subagent"],
+            "examples": ["shell"],
+            "type": "string"
+          },
+          "startedAt": {
+            "description": "When it started, in epoch milliseconds.",
+            "examples": [1793391381245],
+            "type": "integer"
+          },
+          "subagent": {
+            "anyOf": [
+              {
+                "description": "A subagent's id, as Claude Code names it.",
+                "examples": ["a0123456789abcdef"],
+                "pattern": "^[a-z0-9]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A subagent's id, once known; it opens the subagent's conversation.",
+            "examples": ["a0123456789abcdef"]
+          }
+        },
+        "required": ["id", "kind", "description", "startedAt", "inBackground"],
         "type": "object"
       },
       "BrainstormEntry": {
@@ -1409,6 +1489,21 @@
                 ],
                 "description": "Lines an edit removed.",
                 "examples": [3]
+              },
+              "subagent": {
+                "anyOf": [
+                  {
+                    "description": "A subagent's id, as Claude Code names it.",
+                    "examples": ["a0123456789abcdef"],
+                    "pattern": "^[a-z0-9]{1,64}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The subagent a delegation started, once known; it opens its conversation.",
+                "examples": ["a0123456789abcdef"]
               },
               "target": {
                 "anyOf": [

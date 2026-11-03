@@ -536,6 +536,15 @@ describe('createClaudeParser background work', () => {
     expect(parser.background()).toEqual([]);
   });
 
+  it('names no subagent whose id the app cannot address', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(assistantCall('toolu-odd', 'Agent', { description: 'Odd', prompt: 'p' }));
+    parser.push(toolResult('toolu-odd', 'Done', { status: 'completed', agentId: '../Evil ID' }));
+
+    expect(parser.entries()).toEqual([expect.objectContaining({ id: 'toolu-odd', outcome: 'ok' })]);
+    expect(parser.entries()[0]).not.toHaveProperty('subagent');
+  });
+
   it('ends a shell stopped with KillShell', () => {
     const parser = after(3);
     parser.push(

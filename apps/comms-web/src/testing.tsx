@@ -40,6 +40,7 @@ export const fakeAgent = (overrides: Partial<AgentView> = {}): AgentView => ({
   project: 'app',
   changedAt: Date.now() - 60_000,
   needsYou: false,
+  background: [],
   ...overrides,
 });
 

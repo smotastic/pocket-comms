@@ -1,6 +1,7 @@
 import {
   agentRef,
   needsYou,
+  runningAt,
   transcriptFormatOf,
   type Agent,
   type Workspace,
@@ -61,33 +62,50 @@ export const makeLoadAgents = Effect.gen(function* () {
     );
   });
 
+  // The work an agent left running. A session that cannot be read shows none, as before the
+  // app knew about background work.
+  const backgroundOf = Effect.fnUntraced(function* (agent: Agent) {
+    const items = yield* Option.match(sourceOf(agent), {
+      onNone: () => Effect.succeed([]),
+      onSome: (source) =>
+        transcriptOutbound
+          .background(source)
+          .pipe(Effect.catchTag('TranscriptUnavailableError', () => Effect.succeed([]))),
+    });
+    return runningAt(items, yield* Clock.currentTimeMillis);
+  });
+
   const load = Effect.fn('AgentsInbound.loadAgents')(function* () {
     const snapshot = yield* herdrOutbound.snapshot;
     const seen = yield* seenOutbound.seen;
     const workspaces = new Map(snapshot.workspaces.map((workspace) => [workspace.id, workspace]));
     const views = yield* Effect.forEach(snapshot.agents, (agent) =>
-      Effect.map(changedAt(agent), (at): AgentView => {
-        const workspace = workspaces.get(agent.workspaceId);
-        return {
-          agent,
-          workspace,
-          dto: {
-            ref: agentRef(agent),
-            paneId: agent.paneId,
-            name: agent.name,
-            kind: agent.kind,
-            format: transcriptFormatOf(agent),
-            status: agent.status,
-            title: agent.title,
-            cwd: agent.cwd,
-            workspace: workspace?.label ?? agent.workspaceId,
-            project: workspace?.project,
-            worktree: workspace?.worktree,
-            changedAt: at,
-            needsYou: needsYou(agent, seen, 0),
-          },
-        };
-      }),
+      Effect.map(
+        Effect.all([changedAt(agent), backgroundOf(agent)]),
+        ([at, background]): AgentView => {
+          const workspace = workspaces.get(agent.workspaceId);
+          return {
+            agent,
+            workspace,
+            dto: {
+              ref: agentRef(agent),
+              paneId: agent.paneId,
+              name: agent.name,
+              kind: agent.kind,
+              format: transcriptFormatOf(agent),
+              status: agent.status,
+              title: agent.title,
+              cwd: agent.cwd,
+              workspace: workspace?.label ?? agent.workspaceId,
+              project: workspace?.project,
+              worktree: workspace?.worktree,
+              changedAt: at,
+              needsYou: needsYou(agent, seen, background.length),
+              background,
+            },
+          };
+        },
+      ),
     );
     return {
       views,

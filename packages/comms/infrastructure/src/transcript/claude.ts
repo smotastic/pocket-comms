@@ -1,6 +1,6 @@
 import { promptWithImages, type TranscriptEntry } from '@pocket-comms/comms-domain';
 import { join } from 'node:path';
-import { backgroundLog } from './claude-background.js';
+import { backgroundLog, subagentOf } from './claude-background.js';
 import {
   diffCounts,
   entryLog,
@@ -216,7 +216,7 @@ export const createClaudeParser = (
         const ok = block['is_error'] !== true;
         const details = line['toolUseResult'];
         background.result(toolUseId, ok, textOf(block['content']), details, at);
-        const subagent = stringField(details, 'agentId');
+        const subagent = subagentOf(details);
         const finished = log.finish(
           toolUseId,
           ok ? 'ok' : 'error',

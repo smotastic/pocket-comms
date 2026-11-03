@@ -188,7 +188,9 @@ server memory.
   > **Seen with a foreground subagent (2026-11-03,** a headless Claude run in a scratch folder).
   > Its meta file says `requestShape: "foreground"` and holds the `toolUseId`. Its result carries
   > `agentId`, the call's `run_in_background` is `false`, and the parser read both files as
-  > expected. The meta file has a `finished` flag, so it exists while the subagent runs.
+  > expected. The meta file's `finished` flag suggests Claude writes it at the start; that was
+  > not watched while the subagent ran. Without it, the strip shows the subagent without a link
+  > until its result arrives.
 
 - **A resumed subagent.** A subagent notifies each time it stops, and the owner's agent can resume
   it afterwards. A resumed subagent is not counted again until its next notice. This is accepted:
@@ -201,3 +203,11 @@ server memory.
   - Every 2 s, each Claude agent's session file is checked for appended bytes. That is one `stat`,
     plus a read only when it grew.
   - The meta folder is listed only while a subagent item or a "Delegated" entry lacks its id.
+- **Memory.** Each Claude session someone looked at in the last 10 minutes keeps its parser,
+  with all of that session's chat entries, in server memory. That is a few MB for long sessions,
+  and accepted for a handful of agents.
+
+> **As-built note.** The subagent use cases join `AgentsInbound`, not a port of their own:
+> ADR 0006 keeps one inbound port per resource, and a subagent belongs to its agent. Reads of
+> one session's background work run one after another, so two callers never feed its parser the
+> same lines.

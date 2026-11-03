@@ -3,7 +3,8 @@ import {
   TranscriptUnavailableError,
   type TranscriptSource,
 } from '@pocket-comms/comms-application';
-import type { TranscriptEntry } from '@pocket-comms/comms-domain';
+import type { BackgroundItem, TranscriptEntry } from '@pocket-comms/comms-domain';
+import * as Clock from 'effect/Clock';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
@@ -12,7 +13,7 @@ import * as Schedule from 'effect/Schedule';
 import * as Stream from 'effect/Stream';
 import { existsSync } from 'node:fs';
 import { open, readdir, readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { claudeSessionPath, createClaudeParser } from './claude.js';
 import type { TranscriptParser } from './entries.js';
 import { createPiParser, piSessionFolder, piSessionId } from './pi.js';
@@ -28,6 +29,50 @@ export interface FilesOptions {
 
 const parserFor = (source: TranscriptSource): TranscriptParser =>
   source.format === 'claude' ? createClaudeParser(source.cwd) : createPiParser(source.cwd);
+
+// How long the background state of a session no one asked about is kept.
+const TRACKED_FOR_MS = 10 * 60_000;
+
+// The complete lines appended to a file since `offset`, and the offset after them. A line still
+// being written is left for the next read, once it is whole.
+const readAppended = async (path: string, offset: number) => {
+  const { size } = await stat(path);
+  if (size <= offset) return { lines: [], offset, size };
+  const handle = await open(path, 'r');
+  try {
+    const chunk = Buffer.alloc(size - offset);
+    await handle.read(chunk, 0, chunk.length, offset);
+    const complete = chunk.lastIndexOf(0x0a) + 1;
+    return {
+      lines: chunk.subarray(0, complete).toString('utf8').split('\n'),
+      offset: offset + complete,
+      size,
+    };
+  } finally {
+    await handle.close();
+  }
+};
+
+const META_FILE = /^agent-([a-z0-9]{1,64})\.meta\.json$/u;
+
+// Claude keeps a subagent's files next to its session: `<session>/subagents/agent-<id>.*`. The
+// meta file names the call that started it, before the call's result does.
+const subagentIds = async (sessionPath: string): Promise<ReadonlyMap<string, string>> => {
+  const folder = join(dirname(sessionPath), basename(sessionPath, '.jsonl'), 'subagents');
+  const names = await readdir(folder).catch(() => []);
+  const ids = new Map<string, string>();
+  for (const name of names) {
+    const id = META_FILE.exec(name)?.[1];
+    if (id === undefined) continue;
+    const meta: unknown = await readFile(join(folder, name), 'utf8')
+      .then((text) => JSON.parse(text))
+      .catch(() => undefined);
+    const toolUseId =
+      typeof meta === 'object' && meta !== null ? Reflect.get(meta, 'toolUseId') : undefined;
+    if (typeof toolUseId === 'string') ids.set(toolUseId, id);
+  }
+  return ids;
+};
 
 // The first folder below `root` that holds a file `matches` accepts, or none.
 const search = async (root: string, matches: (name: string) => boolean) => {
@@ -131,22 +176,13 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
 
           const readNew = Effect.tryPromise({
             try: async () => {
-              const { size } = await stat(path);
-              if (size <= offset) return [];
-              const handle = await open(path, 'r');
-              try {
-                const chunk = Buffer.alloc(size - offset);
-                await handle.read(chunk, 0, chunk.length, offset);
-                const complete = chunk.lastIndexOf(0x0a) + 1;
-                offset += complete;
-                const changed = new Map<string, TranscriptEntry>();
-                for (const line of chunk.subarray(0, complete).toString('utf8').split('\n')) {
-                  for (const entry of parser.push(line)) changed.set(entry.id, entry);
-                }
-                return [...changed.values()];
-              } finally {
-                await handle.close();
+              const appended = await readAppended(path, offset);
+              offset = appended.offset;
+              const changed = new Map<string, TranscriptEntry>();
+              for (const line of appended.lines) {
+                for (const entry of parser.push(line)) changed.set(entry.id, entry);
               }
+              return [...changed.values()];
             },
             catch: failed(source),
           });
@@ -180,5 +216,58 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
         );
       });
 
-    return TranscriptOutbound.of({ read, follow, modifiedAt });
+    // Background work needs every line since the session started, so each session keeps its
+    // parser and how far it has read; later calls read only what was appended.
+    const tracked = new Map<string, { parser: TranscriptParser; offset: number; usedAt: number }>();
+    // The reads of one session run one after another, so no line reaches its parser twice.
+    const reading = new Map<string, Promise<unknown>>();
+    const inTurn = <A>(path: string, task: () => Promise<A>): Promise<A> => {
+      const next = (reading.get(path) ?? Promise.resolve()).then(task, task);
+      reading.set(path, next);
+      void next
+        .finally(() => {
+          if (reading.get(path) === next) reading.delete(path);
+        })
+        .catch(() => undefined);
+      return next;
+    };
+
+    const background = Effect.fn('Transcript.background')(function* (source: TranscriptSource) {
+      if (source.format !== 'claude') return [];
+      const path = yield* locate(source);
+      const now = yield* Clock.currentTimeMillis;
+      for (const [key, state] of tracked) {
+        if (now - state.usedAt > TRACKED_FOR_MS) tracked.delete(key);
+      }
+      const items = yield* Effect.tryPromise({
+        try: () =>
+          inTurn(path, async (): Promise<ReadonlyArray<BackgroundItem>> => {
+            const fresh = () => ({ parser: parserFor(source), offset: 0, usedAt: now });
+            let state = tracked.get(path) ?? fresh();
+            let appended = await readAppended(path, state.offset);
+            // Session files only grow; one shorter than what was read was rewritten, so it is read
+            // again from its start.
+            if (appended.size < state.offset) {
+              state = fresh();
+              appended = await readAppended(path, 0);
+            }
+            for (const line of appended.lines) state.parser.push(line);
+            tracked.set(path, { ...state, offset: appended.offset, usedAt: now });
+            const items = state.parser.background();
+            if (items.every((item) => item.kind !== 'subagent' || item.subagent !== undefined)) {
+              return items;
+            }
+            const ids = await subagentIds(path);
+            return items.map((item) => {
+              const subagent =
+                item.kind === 'subagent' ? (item.subagent ?? ids.get(item.id)) : undefined;
+              return subagent === undefined ? item : { ...item, subagent };
+            });
+          }),
+        catch: failed(source),
+      });
+      return items;
+    });
+
+    return TranscriptOutbound.of({ read, follow, modifiedAt, background });
   });

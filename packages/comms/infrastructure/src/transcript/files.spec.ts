@@ -214,3 +214,118 @@ describe('Transcript.layerFiles', () => {
     }).pipe(Effect.provide(layerFiles({ home: root, pollInterval: '20 millis' })));
   });
 });
+
+describe('Transcript.layerFiles background', () => {
+  // A session whose background work starts before the 300 latest entries.
+  const backgroundHome = () => {
+    const { root, claudeFile } = home();
+    const lines = fixture('claude-background.jsonl').split('\n');
+    // Up to the foreground subagent's call: a shell, a monitor and two subagents run.
+    writeFileSync(claudeFile, `${lines.slice(0, 8).join('\n')}\n`);
+    for (let index = 0; index < 400; index++)
+      appendFileSync(claudeFile, line(`Step ${index}`, `x-${index}`));
+    return { root, claudeFile, lines };
+  };
+
+  it.effect('finds work started before the latest entries a chat shows', () => {
+    const { root } = backgroundHome();
+    return Effect.gen(function* () {
+      const items = yield* TranscriptOutbound.use((port) => port.background(claude));
+
+      expect(items.map((item) => item.id)).toEqual([
+        'toolu-ci',
+        'toolu-mon',
+        'toolu-rev',
+        'toolu-fg',
+      ]);
+    }).pipe(Effect.provide(layerFiles({ home: root, maxEntries: 300 })));
+  });
+
+  it.effect('reads only what was appended since the last call', () => {
+    const { root, claudeFile, lines } = backgroundHome();
+    return Effect.gen(function* () {
+      const port = yield* TranscriptOutbound;
+      yield* port.background(claude);
+      appendFileSync(claudeFile, `${lines.slice(8).join('\n')}\n`);
+
+      const items = yield* port.background(claude);
+
+      expect(items.map((item) => item.id)).toEqual(['toolu-rev']);
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.effect('reads a replaced session file again from its start', () => {
+    const { root, claudeFile, lines } = backgroundHome();
+    return Effect.gen(function* () {
+      const port = yield* TranscriptOutbound;
+      yield* port.background(claude);
+      writeFileSync(claudeFile, `${lines.slice(0, 3).join('\n')}\n`);
+
+      const items = yield* port.background(claude);
+
+      expect(items.map((item) => item.id)).toEqual(['toolu-ci']);
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.effect('gives the same answer to reads of one session at the same time', () => {
+    const { root, claudeFile, lines } = backgroundHome();
+    return Effect.gen(function* () {
+      const port = yield* TranscriptOutbound;
+      appendFileSync(claudeFile, `${lines.slice(8).join('\n')}\n`);
+
+      const answers = yield* Effect.all(
+        Array.from({ length: 5 }, () => port.background(claude)),
+        { concurrency: 'unbounded' },
+      );
+
+      for (const items of answers) expect(items.map((item) => item.id)).toEqual(['toolu-rev']);
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.effect('names a running subagent by its meta file', () => {
+    const { root, claudeFile } = backgroundHome();
+    const folder = join(claudeFile.replace(/\.jsonl$/u, ''), 'subagents');
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(
+      join(folder, 'agent-afedcba9876543210.meta.json'),
+      JSON.stringify({
+        agentType: 'Explore',
+        description: 'Find the config',
+        toolUseId: 'toolu-fg',
+      }),
+    );
+    writeFileSync(join(folder, 'agent-broken.meta.json'), '{ not json');
+    return Effect.gen(function* () {
+      const items = yield* TranscriptOutbound.use((port) => port.background(claude));
+
+      expect(items.find((item) => item.id === 'toolu-fg')?.subagent).toBe('afedcba9876543210');
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.effect('shows a subagent without a meta file without its id', () => {
+    const { root } = backgroundHome();
+    return Effect.gen(function* () {
+      const items = yield* TranscriptOutbound.use((port) => port.background(claude));
+
+      expect(items.find((item) => item.id === 'toolu-fg')?.subagent).toBeUndefined();
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.effect('has no background work for a Pi session', () => {
+    const { root } = home();
+    return Effect.gen(function* () {
+      expect(yield* TranscriptOutbound.use((port) => port.background(pi))).toEqual([]);
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
+  it.effect('fails for a session without a file', () => {
+    const { root } = home();
+    return Effect.gen(function* () {
+      const error = yield* TranscriptOutbound.use((port) =>
+        port.background({ ...claude, session: 'missing' }),
+      ).pipe(Effect.flip);
+
+      expect(error._tag).toBe('TranscriptUnavailableError');
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+});

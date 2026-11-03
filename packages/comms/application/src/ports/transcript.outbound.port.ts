@@ -1,4 +1,4 @@
-import type { TranscriptEntry, TranscriptFormat } from '@pocket-comms/comms-domain';
+import type { BackgroundItem, TranscriptEntry, TranscriptFormat } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
@@ -37,5 +37,12 @@ export class TranscriptOutbound extends Context.Service<
     ) => Stream.Stream<ReadonlyArray<TranscriptEntry>, TranscriptUnavailableError>;
     /** When the session file last changed, or none when there is no such file. */
     readonly modifiedAt: (source: TranscriptSource) => Effect.Effect<Option.Option<number>>;
+    /**
+     * The background work of the whole session that has not ended, expired monitors included.
+     * Each subagent names its id once the session or its own files know it.
+     */
+    readonly background: (
+      source: TranscriptSource,
+    ) => Effect.Effect<ReadonlyArray<BackgroundItem>, TranscriptUnavailableError>;
   }
 >()('comms/application/TranscriptOutbound') {}

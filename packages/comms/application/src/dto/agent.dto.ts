@@ -1,4 +1,9 @@
-import type { AgentStatus, TranscriptEntry, TranscriptFormat } from '@pocket-comms/comms-domain';
+import type {
+  AgentStatus,
+  BackgroundItem,
+  TranscriptEntry,
+  TranscriptFormat,
+} from '@pocket-comms/comms-domain';
 
 /** An agent as the app shows it. */
 export interface AgentDto {
@@ -20,6 +25,8 @@ export interface AgentDto {
   /** When the agent last changed, in epoch milliseconds. */
   readonly changedAt: number;
   readonly needsYou: boolean;
+  /** The background work still running, oldest first; none for an agent without a session. */
+  readonly background: ReadonlyArray<BackgroundItem>;
 }
 
 export interface OverviewGroupDto {

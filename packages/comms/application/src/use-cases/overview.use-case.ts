@@ -17,6 +17,7 @@ export const makeOverview = Effect.gen(function* () {
       views.map((view) => ({ ...view.agent, dto: view.dto })),
       workspaces,
       seen,
+      (agent) => agent.dto.background.length,
     );
     const toDto = (agent: { readonly dto: AgentView['dto'] }) => agent.dto;
     return {

@@ -3,6 +3,7 @@ import {
   OTHER_GROUP,
   parseRemote,
   type Agent,
+  type BackgroundItem,
   type Issue,
   type Project,
   type TranscriptEntry,
@@ -82,7 +83,14 @@ export class FakeState extends Context.Service<
     workspaces: Array<Workspace>;
     readonly screens: Map<string, string>;
     /** Session id to transcript. */
-    readonly transcripts: Map<string, { entries: Array<TranscriptEntry>; modifiedAt: number }>;
+    readonly transcripts: Map<
+      string,
+      {
+        entries: Array<TranscriptEntry>;
+        modifiedAt: number;
+        background?: ReadonlyArray<BackgroundItem>;
+      }
+    >;
     /** Pane id to the Herdr error code that a command for it fails with. */
     readonly rejects: Map<string, string>;
     available: boolean;
@@ -246,6 +254,16 @@ const transcripts = (state: FakeState['Service']) => {
       ),
     modifiedAt: (source) =>
       Effect.sync(() => Option.map(find(source), (transcript) => transcript.modifiedAt)),
+    background: (source) =>
+      Effect.suspend(() =>
+        Option.match(find(source), {
+          onNone: () =>
+            Effect.fail(
+              new TranscriptUnavailableError({ ref: source.ref, reason: 'No session file.' }),
+            ),
+          onSome: (transcript) => Effect.succeed(transcript.background ?? []),
+        }),
+      ),
   });
 };
 

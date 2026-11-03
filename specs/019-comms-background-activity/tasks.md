@@ -19,7 +19,7 @@ in the task's own commit.
       especially the foreground subagent's meta file and result
   - Gate: the plan's risk note says what was seen
 
-- [ ] **T04** — Background on agents: `TranscriptOutbound.background` and the incremental read per
+- [x] **T04** — Background on agents: `TranscriptOutbound.background` and the incremental read per
       session in the files adapter, the meta mapping, `AgentDto.background`, `needsYou` with the
       running count; `background` on the contract's `Agent`, `subagent` on its tool entry
   - Gate: `pnpm nx run-many -t test -p 'comms-*'`, `pnpm openapi:check`

@@ -55,6 +55,15 @@ const kirk: AgentDto = {
   worktree: 'feature',
   changedAt: 1_000,
   needsYou: true,
+  background: [
+    {
+      id: 'toolu-ci',
+      kind: 'shell',
+      description: 'Wait for CI',
+      startedAt: 900,
+      inBackground: true,
+    },
+  ],
 };
 const overview: OverviewDto = { needsYou: [kirk], groups: [] };
 
