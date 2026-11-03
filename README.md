@@ -55,7 +55,7 @@ start with Implement with Claude as `status/in-progress` (creating that label in
 first time). It never removes a label. A token with `read:issue` still lists the issues, but
 closing, creating or marking one then fails; a failed mark leaves the started agent running.
 
-The brainstorm chat (the bulb at the bottom right of every screen) runs Pi inside the server. Sign
+The brainstorm chat (the bulb in the top bar, or More in a conversation) runs Pi inside the server. Sign
 in with Pi once (`pi`, then `/login`) and set the provider and the model, for example
 `COMMS_BRAINSTORM_PROVIDER=openai` and `COMMS_BRAINSTORM_MODEL=gpt-6-luna`. Pi only reads the
 project list, a project's open issues and its `README.md` and `AGENTS.md`; an issue is created only

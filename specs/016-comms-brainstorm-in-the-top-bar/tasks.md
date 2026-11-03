@@ -26,6 +26,6 @@ in the task's own commit.
 
 ## Wrap-up
 
-- [ ] **T05** — Docs that describe the bubble; the top bars checked at 390 px; spec, plan status
+- [x] **T05** — Docs that describe the bubble; the top bars checked at 390 px; spec, plan status
       `Done`
   - Gate: `pnpm verify:local`

@@ -1,7 +1,7 @@
 # Plan 016 — pocket-comms: open the brainstorm chat from the top bar
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner (2026-11-03)
+- **Status:** `Done` — approved by the owner (2026-11-03); top bars checked at 390 px on real data on 2026-11-03
 
 ## 1. Affected projects
 
