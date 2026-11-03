@@ -1,0 +1,14 @@
+name: 'Nx cache'
+description: >
+  Restores the local Nx cache from earlier runs of the same job and saves it again after the job,
+  so `nx affected` replays unchanged targets instead of running them. Each job keeps its own
+  entry; a run restores the newest entry of its job from any branch.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v4
+      with:
+        path: .nx/cache
+        key: ${{ runner.os }}-nx-${{ github.job }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-nx-${{ github.job }}-
