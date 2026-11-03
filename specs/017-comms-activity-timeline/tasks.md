@@ -27,7 +27,7 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T05** — Design system: `AgentRow` without a link
+- [x] **T05** — Design system: `AgentRow` without a link
   - Gate: `pnpm nx test design-ui`
 
 - [ ] **T06** — Web: client, query, live hook, `/activity` page, Activity link in the projects

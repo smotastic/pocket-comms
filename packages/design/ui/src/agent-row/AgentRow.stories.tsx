@@ -84,3 +84,16 @@ export const Hues: Story = () => (
     ))}
   </AgentList>
 );
+
+export const WithoutALink: Story = () => (
+  <AgentList label="Activity">
+    <AgentRow
+      status={{ tone: 'unknown', label: 'Gone' }}
+      name="scotty"
+      worktree="fix-notch"
+      hue="neutral"
+      title="Gone"
+      since="2h"
+    />
+  </AgentList>
+);
