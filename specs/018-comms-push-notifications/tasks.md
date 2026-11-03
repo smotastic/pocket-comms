@@ -43,7 +43,7 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T08** — `public/sw.js` (show every push, tap opens the conversation), `notifications.ts`
+- [x] **T08** — `public/sw.js` (show every push, tap opens the conversation), `notifications.ts`
       and the Notifications row at the bottom of the Projects sheet (unsupported, denied, off, on;
       re-check when comms comes to the front); a tap on a gone agent lands on the overview
   - Gate: `pnpm nx test comms-web`

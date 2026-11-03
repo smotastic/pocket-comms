@@ -27,6 +27,7 @@ import { ImplementIssue } from './ImplementIssue.js';
 import { groupIssues, shownLabels } from './issue-groups.js';
 import { navigateOnPlainClick } from './links.js';
 import { NewTask } from './NewTask.js';
+import { NotificationsRow } from './NotificationsRow.js';
 import { projectHue } from './rows.js';
 
 export interface ProjectsSheetProps {
@@ -326,7 +327,7 @@ const ProjectList = ({
 
 /**
  * Every project, sliding in from the side. A project opens in place to its open issues, with
- * Implement, New task and a link to its page.
+ * Implement, New task and a link to its page. This device's notifications sit at the bottom.
  */
 export const ProjectsSheet = ({
   open,
@@ -347,12 +348,15 @@ export const ProjectsSheet = ({
       </SheetHeader>
     }
   >
-    {projectsError !== undefined ? (
-      <Alert>{projectsError}</Alert>
-    ) : projects === undefined ? (
-      <Text tone="muted">Loading the projects…</Text>
-    ) : (
-      <ProjectList projects={projects} {...props} />
-    )}
+    <Stack gap="xl">
+      {projectsError !== undefined ? (
+        <Alert>{projectsError}</Alert>
+      ) : projects === undefined ? (
+        <Text tone="muted">Loading the projects…</Text>
+      ) : (
+        <ProjectList projects={projects} {...props} />
+      )}
+      <NotificationsRow client={props.client} />
+    </Stack>
   </Sheet>
 );

@@ -24,6 +24,7 @@ import * as Exit from 'effect/Exit';
 import * as Schema from 'effect/Schema';
 import { FetchHttpClient } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
+import type { PushSubscriptionView } from './notifications.js';
 
 export type AgentView = typeof Agent.Type;
 export type OverviewView = typeof Overview.Type;
@@ -88,6 +89,10 @@ export interface CommsClient {
   readonly decideProposal: (id: string, decision: ProposalDecision) => Promise<void>;
   /** Starts an empty brainstorm chat. */
   readonly resetBrainstorm: () => Promise<void>;
+  /** The server's public key, which a device subscribes to push with. */
+  readonly pushKey: () => Promise<string>;
+  readonly subscribePush: (subscription: PushSubscriptionView) => Promise<void>;
+  readonly unsubscribePush: (endpoint: string) => Promise<void>;
   readonly followBrainstorm: (
     onEvent: (event: BrainstormEventView) => void,
     onLive: OnLive,
@@ -271,6 +276,11 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
           : api.brainstorm.decide({ params: { proposal: id }, payload: decision }),
       ).then(() => undefined),
     resetBrainstorm: () => run((api) => api.brainstorm.reset()).then(() => undefined),
+    pushKey: () => run((api) => api.push.key()).then((key) => key.publicKey),
+    subscribePush: (subscription) =>
+      run((api) => api.push.subscribe({ payload: subscription })).then(() => undefined),
+    unsubscribePush: (endpoint) =>
+      run((api) => api.push.unsubscribe({ payload: { endpoint } })).then(() => undefined),
     followBrainstorm: (onEvent, onLive) =>
       follow(`${baseUrl}/api/v1/brainstorm/events`, 'brainstorm', BrainstormEvent, onEvent, onLive),
     followOverview: (onState, onLive) =>
