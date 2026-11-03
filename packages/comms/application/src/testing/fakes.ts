@@ -147,6 +147,8 @@ export class FakeState extends Context.Service<
     readonly pushPublicKey: string;
     /** Why the push store fails, when it does. */
     pushStoreFailure: string | undefined;
+    /** Why only removing a device fails, when it does. */
+    pushRemoveFailure: string | undefined;
     /** Every push sent, with when it was sent in epoch milliseconds. */
     readonly pushes: Array<{
       readonly endpoint: string;
@@ -333,11 +335,13 @@ const pushSubscriptions = (state: FakeState['Service']): PushSubscriptionsOutbou
     ),
   remove: (endpoint) =>
     Effect.suspend(() =>
-      pushStore(state, () => {
-        state.pushSubscriptions = state.pushSubscriptions.filter(
-          (kept) => kept.endpoint !== endpoint,
-        );
-      }),
+      state.pushRemoveFailure !== undefined
+        ? Effect.fail(new PushStoreError({ reason: state.pushRemoveFailure }))
+        : pushStore(state, () => {
+            state.pushSubscriptions = state.pushSubscriptions.filter(
+              (kept) => kept.endpoint !== endpoint,
+            );
+          }),
     ),
 });
 
@@ -583,6 +587,7 @@ export const fakeLayer = () => {
         pushSubscriptions: [],
         pushPublicKey: 'BFakePublicKey',
         pushStoreFailure: undefined,
+        pushRemoveFailure: undefined,
         pushes: [],
         goneEndpoints: new Set(),
       };

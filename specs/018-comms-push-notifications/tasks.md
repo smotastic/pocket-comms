@@ -22,7 +22,7 @@ in the task's own commit.
       unsubscribe and public key, and the fakes in `src/testing`
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T04** — Application: the notify use case (10 s wait, re-check, one push per spell, Herdr
+- [x] **T04** — Application: the notify use case (10 s wait, re-check, one push per spell, Herdr
       unavailable, excerpt from the transcript, every subscription, `Gone` removed)
   - Gate: `pnpm nx test comms-application`
 
