@@ -20,7 +20,7 @@ in the task's own commit.
 
 ## API and server
 
-- [ ] **T04** — Contract `activity` group; handlers; acceptance test; server wiring; OpenAPI
+- [x] **T04** — Contract `activity` group; handlers; acceptance test; server wiring; OpenAPI
       document
   - Gate: `pnpm nx test comms-contract`, `pnpm nx test comms-api`, `pnpm openapi:check`,
     `pnpm openapi:lint`
