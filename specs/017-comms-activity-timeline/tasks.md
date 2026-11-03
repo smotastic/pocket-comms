@@ -7,7 +7,7 @@ in the task's own commit.
 
 ## Backend
 
-- [ ] **T01** — Domain: activity shapes, `activityBetween`, `keepActivity`, `promptExcerpt`,
+- [x] **T01** — Domain: activity shapes, `activityBetween`, `keepActivity`, `promptExcerpt`,
       `isLiveIn`
   - Gate: `pnpm nx test comms-domain`
 
