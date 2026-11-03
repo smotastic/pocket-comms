@@ -42,6 +42,9 @@ catalogs:
     '@redocly/cli':
       specifier: ~2.55.0
       version: 2.55.0
+    '@smotastic/pocket-ci':
+      specifier: 0.1.0
+      version: 0.1.0
     '@tanstack/react-query':
       specifier: ~5.90.21
       version: 5.90.21
@@ -182,6 +185,9 @@ importers:
       '@redocly/cli':
         specifier: 'catalog:'
         version: 2.55.0
+      '@smotastic/pocket-ci':
+        specifier: 'catalog:'
+        version: 0.1.0(typescript@6.0.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.2
@@ -2223,6 +2229,12 @@ packages:
   '@smithy/types@4.19.0':
     resolution: {integrity: sha512-r7jh49VJxGerfAcTQA6gXcKc+98zOp/tqRwzYjgOE+iSQsP6cEU1hq2QzbuipmP68QtYdY9wKEhiCQZIzHgZ4Q==}
     engines: {node: '>=18.0.0'}
+
+  '@smotastic/pocket-ci@0.1.0':
+    resolution: {integrity: sha512-RhBrmwOh6HMs4uIT4F2+6kBaC5sJRYP7PchV7zaA/Iacqc6F52QnSODoFKs9Mo/C1mAEqpOWTbBnGe112PQVdA==}
+    hasBin: true
+    peerDependencies:
+      typescript: '>=5.9'
 
   '@stablelib/base64@1.0.1':
     resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
@@ -7941,6 +7953,10 @@ snapshots:
   '@smithy/types@4.19.0':
     dependencies:
       tslib: 2.8.1
+
+  '@smotastic/pocket-ci@0.1.0(typescript@6.0.3)':
+    dependencies:
+      typescript: 6.0.3
 
   '@stablelib/base64@1.0.1': {}
 

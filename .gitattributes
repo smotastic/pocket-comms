@@ -1,7 +1,7 @@
 # Enforce LF line endings for all text files regardless of local core.autocrlf
 # settings (matches Prettier's "endOfLine": "lf" in .prettierrc). This prevents
 # Windows checkouts from converting files to CRLF and failing the
-# `prettier --check` step in .husky/pre-push (tools/verify-local.sh).
+# `prettier --check` step in .husky/pre-push (`pocket-ci verify-local`).
 * text=auto eol=lf
 
 # Explicit binary types (not subject to EOL normalization)
