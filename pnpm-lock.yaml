@@ -43,8 +43,8 @@ catalogs:
       specifier: ~2.55.0
       version: 2.55.0
     '@smotastic/pocket-ci':
-      specifier: 0.1.0
-      version: 0.1.0
+      specifier: 0.2.1
+      version: 0.2.1
     '@tanstack/react-query':
       specifier: ~5.90.21
       version: 5.90.21
@@ -187,7 +187,7 @@ importers:
         version: 2.55.0
       '@smotastic/pocket-ci':
         specifier: 'catalog:'
-        version: 0.1.0(typescript@6.0.3)
+        version: 0.2.1(typescript@6.0.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.2
@@ -2230,8 +2230,8 @@ packages:
     resolution: {integrity: sha512-r7jh49VJxGerfAcTQA6gXcKc+98zOp/tqRwzYjgOE+iSQsP6cEU1hq2QzbuipmP68QtYdY9wKEhiCQZIzHgZ4Q==}
     engines: {node: '>=18.0.0'}
 
-  '@smotastic/pocket-ci@0.1.0':
-    resolution: {integrity: sha512-RhBrmwOh6HMs4uIT4F2+6kBaC5sJRYP7PchV7zaA/Iacqc6F52QnSODoFKs9Mo/C1mAEqpOWTbBnGe112PQVdA==}
+  '@smotastic/pocket-ci@0.2.1':
+    resolution: {integrity: sha512-umzbwnHW2psFXGuzrAkBND072oOaiamTFDG/Vez8omDwTI9WgqcOgYbhqODbRqLF91eFuQikLwcblgHaeeDtMQ==}
     hasBin: true
     peerDependencies:
       typescript: '>=5.9'
@@ -7954,7 +7954,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@smotastic/pocket-ci@0.1.0(typescript@6.0.3)':
+  '@smotastic/pocket-ci@0.2.1(typescript@6.0.3)':
     dependencies:
       typescript: 6.0.3
 
