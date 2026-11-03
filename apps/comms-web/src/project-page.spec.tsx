@@ -80,5 +80,23 @@ describe('the project page', () => {
     expect(await screen.findByText('nope is not a project.')).toBeDefined();
     expect(screen.queryByRole('button', { name: 'New task' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Back to all agents' })).toBeDefined();
+    expect(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Brainstorm' }),
+    ).toBeDefined();
+  });
+
+  it('opens the brainstorm chat from the top bar, right before New task', async () => {
+    renderApp({ client: fakeClient().client, path: '/projects/pocket-home' });
+    const banner = await screen.findByRole('banner');
+
+    expect(within(banner).getAllByRole('button')).toEqual([
+      within(banner).getByRole('button', { name: 'Back to all agents' }),
+      within(banner).getByRole('button', { name: 'Brainstorm' }),
+      within(banner).getByRole('button', { name: 'New task' }),
+    ]);
+
+    await userEvent.click(within(banner).getByRole('button', { name: 'Brainstorm' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Brainstorm' })).toBeDefined();
   });
 });

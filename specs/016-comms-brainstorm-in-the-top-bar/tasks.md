@@ -12,7 +12,7 @@ in the task's own commit.
       existing chat tests open the chat from the overview
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T02** — Brainstorm before New task on the project page, also for a name that is not a
+- [x] **T02** — Brainstorm before New task on the project page, also for a name that is not a
       project
   - Gate: `pnpm nx test comms-web`
 
