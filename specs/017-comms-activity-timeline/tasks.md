@@ -11,7 +11,7 @@ in the task's own commit.
       `isLiveIn`
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application: `ActivityStoreOutbound`, `ActivityInbound` with the recorder,
+- [x] **T02** — Application: `ActivityStoreOutbound`, `ActivityInbound` with the recorder,
       `Input` records prompts and keys, fakes
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
