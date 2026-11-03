@@ -144,6 +144,16 @@ describe('buildOverview', () => {
     expect(overview.needsYou.map((a) => a.paneId)).toEqual(['w1:p1']);
   });
 
+  it('keeps a done agent with running background work out of Needs you', () => {
+    const working = agent({ paneId: 'w1:p1', status: 'done', completion: 4 });
+    const blocked = agent({ paneId: 'w1:p2', status: 'blocked' });
+
+    const overview = buildOverview([working, blocked], workspaces, none, () => 1);
+
+    expect(overview.needsYou.map((a) => a.paneId)).toEqual(['w1:p2']);
+    expect(overview.groups[0]?.agents).toEqual([working]);
+  });
+
   it('omits groups that have no agent left', () => {
     const overview = buildOverview(
       [agent({ paneId: 'w3:p1', workspaceId: 'w3', status: 'blocked' })],

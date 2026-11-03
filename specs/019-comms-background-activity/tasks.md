@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Domain: `background.ts` (kinds, items, `runningAt`), `needsYou` and
+- [x] **T01** — Domain: `background.ts` (kinds, items, `runningAt`), `needsYou` and
       `buildOverview` with the running count, `subagent` on the tool entry
   - Gate: `pnpm nx test comms-domain`
 
