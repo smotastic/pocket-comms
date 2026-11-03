@@ -15,7 +15,7 @@ in the task's own commit.
       `Input` records prompts and keys, fakes
   - Gate: `pnpm nx test comms-application`, `pnpm ports:check`
 
-- [ ] **T03** — Infrastructure: `Activity.layerFile`
+- [x] **T03** — Infrastructure: `Activity.layerFile`
   - Gate: `pnpm nx test comms-infrastructure`
 
 ## API and server
