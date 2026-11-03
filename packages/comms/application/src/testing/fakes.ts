@@ -1,4 +1,5 @@
 import {
+  type ActivityEvent,
   IN_PROGRESS_LABEL,
   OTHER_GROUP,
   parseRemote,
@@ -30,6 +31,7 @@ import {
   PushStoreError,
   TranscriptUnavailableError,
 } from '../errors.js';
+import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
 import {
   AgentRuntimeOutbound,
   type RuntimeEvent,
@@ -142,6 +144,9 @@ export class FakeState extends Context.Service<
     saves: number;
     /** The kept images by id, with when each was saved in epoch milliseconds. */
     readonly images: Map<string, StoredImage & { readonly savedAt: number }>;
+    /** The kept activity events, oldest first. */
+    activity: ReadonlyArray<ActivityEvent>;
+    readonly activityChanges: PubSub.PubSub<void>;
     /** The subscribed devices, in the order they subscribed. */
     pushSubscriptions: Array<PushSubscription>;
     readonly pushPublicKey: string;
@@ -584,6 +589,8 @@ export const fakeLayer = () => {
         storedChat: undefined,
         saves: 0,
         images: new Map(),
+        activity: [],
+        activityChanges: yield* PubSub.unbounded<void>(),
         pushSubscriptions: [],
         pushPublicKey: 'BFakePublicKey',
         pushStoreFailure: undefined,
@@ -615,6 +622,15 @@ export const fakeLayer = () => {
             }),
         }),
         Context.add(ImagesOutbound, images(fake)),
+        Context.add(ActivityStoreOutbound, {
+          events: Effect.sync(() => fake.activity),
+          update: (change) =>
+            Effect.suspend(() => {
+              fake.activity = change(fake.activity);
+              return PubSub.publish(fake.activityChanges, undefined);
+            }).pipe(Effect.asVoid),
+          changes: Stream.fromPubSub(fake.activityChanges),
+        }),
         Context.add(PushSubscriptionsOutbound, pushSubscriptions(fake)),
         Context.add(PushKeysOutbound, {
           publicKey: Effect.suspend(() => pushStore(fake, () => fake.pushPublicKey)),

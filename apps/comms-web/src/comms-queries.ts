@@ -11,6 +11,7 @@ export const screenKey = (ref: string) => ['screen', ref] as const;
 export const projectsKey = ['projects'] as const;
 export const issuesKey = (project: string) => ['issues', project] as const;
 export const brainstormKey = ['brainstorm'] as const;
+export const activityKey = ['activity'] as const;
 
 export const overviewQuery = (client: CommsClient) =>
   queryOptions({ queryKey: overviewKey, queryFn: () => client.overview() });
@@ -50,3 +51,7 @@ export const issuesQuery = (client: CommsClient, project: string) =>
 /** The brainstorm chat, read when its sheet opens; the stream keeps it current while open. */
 export const brainstormQuery = (client: CommsClient) =>
   queryOptions({ queryKey: brainstormKey, queryFn: () => client.brainstorm(), staleTime: 0 });
+
+/** The activity timeline; its stream keeps it current while the page is open. */
+export const activityQuery = (client: CommsClient) =>
+  queryOptions({ queryKey: activityKey, queryFn: () => client.activity() });

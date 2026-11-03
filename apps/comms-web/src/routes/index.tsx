@@ -17,6 +17,7 @@ export const Route = createFileRoute('/')({
             state: (previous) => ({ ...previous, notice }),
           })
         }
+        onActivity={() => void navigate({ to: '/activity' })}
         onStarted={(agent, note) =>
           void navigate({
             to: '/agents/$agent',

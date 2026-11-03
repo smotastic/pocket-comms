@@ -2,6 +2,7 @@ import { describe, expect, it } from '@effect/vitest';
 import * as Schema from 'effect/Schema';
 import { OpenApi } from 'effect/http-api';
 import {
+  Activity,
   AgentEvent,
   AGENTS_TO_START,
   BrainstormEntry,
@@ -29,20 +30,23 @@ const operationsOf = (paths: ReadonlyArray<[string, unknown]>) =>
 
 const operations = () => operationsOf(Object.entries(document().paths));
 
-// The brainstorm chat, the images and the push subscriptions live in the server and need no Herdr.
+// The brainstorm chat (spec 013), the images (spec 014), the activity timeline (spec 017) and the
+// push subscriptions (spec 018) live in the server and need no Herdr.
 const herdrOperations = () =>
   operationsOf(
     Object.entries(document().paths).filter(
       ([path]) =>
-        !['/api/v1/brainstorm', '/api/v1/images', '/api/v1/push'].some((prefix) =>
-          path.startsWith(prefix),
+        !['/api/v1/brainstorm', '/api/v1/images', '/api/v1/activity', '/api/v1/push'].some(
+          (prefix) => path.startsWith(prefix),
         ),
     ),
   );
 
 describe('CommsApi', () => {
-  it('serves the agents, the tasks, the issues, the brainstorm chat and the images under /api/v1', () => {
+  it('serves the agents, the tasks, the issues, the brainstorm chat, the images and the activity under /api/v1', () => {
     expect(Object.keys(document().paths).sort()).toEqual([
+      '/api/v1/activity',
+      '/api/v1/activity/events',
       '/api/v1/agents',
       '/api/v1/agents/{agent}',
       '/api/v1/agents/{agent}/close',
@@ -93,10 +97,30 @@ describe('CommsApi', () => {
       '/api/v1/events',
       '/api/v1/agents/{agent}/events',
       '/api/v1/brainstorm/events',
+      '/api/v1/activity/events',
     ]) {
       const ok = document().paths[path]?.get?.responses?.['200'] as Operation['responses'];
       expect(Object.keys(ok?.['content'] ?? {})).toEqual(['text/event-stream']);
     }
+  });
+
+  it('tells the kinds of activity apart and leaves out the names an agent has not', () => {
+    const decode = Schema.decodeUnknownSync(Activity);
+    const agent = { ref: 'w1:p1', paneId: 'w1:p1', workspace: 'notes' };
+    const common = { id: 'e1', at: 1, agent, live: false };
+
+    expect(
+      decode({
+        events: [
+          { type: 'keys', ...common, keys: ['enter'] },
+          { type: 'prompt', ...common, excerpt: 'Fix it', images: 0 },
+          { type: 'status', ...common, status: 'done' },
+          { type: 'gone', ...common },
+        ],
+      }).events.map((event) => event.type),
+    ).toEqual(['keys', 'prompt', 'status', 'gone']);
+    expect(() => decode({ events: [{ type: 'status', ...common, status: 'idle' }] })).toThrow();
+    expect(() => decode({ events: [{ type: 'keys', ...common, keys: ['x'] }] })).toThrow();
   });
 
   it('documents the 403 of the Tailscale identity check on every operation', () => {

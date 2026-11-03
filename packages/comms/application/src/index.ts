@@ -1,3 +1,4 @@
+export type { ActivityDto, ActivityEventDto } from './dto/activity.dto.js';
 export type {
   AgentDto,
   AgentEventDto,
@@ -47,6 +48,8 @@ export {
   TranscriptUnavailableError,
   WorktreeHasChangesError,
 } from './errors.js';
+export { ActivityInbound } from './ports/activity.inbound.port.js';
+export { ActivityStoreOutbound } from './ports/activity-store.outbound.port.js';
 export { AgentsInbound } from './ports/agents.inbound.port.js';
 export {
   AgentRuntimeOutbound,

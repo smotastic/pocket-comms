@@ -1,4 +1,7 @@
 export {
+  Activity,
+  ActivityAgent,
+  ActivityEvent,
   PushKeyView,
   PushSubscription,
   PushUnsubscribeRequest,

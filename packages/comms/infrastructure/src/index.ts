@@ -1,3 +1,4 @@
+export * as Activity from './activity/index.js';
 export * as Agent from './agent/index.js';
 export * as Brainstorm from './brainstorm/index.js';
 export * as Gitea from './gitea/index.js';

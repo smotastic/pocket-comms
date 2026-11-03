@@ -13,10 +13,11 @@ needs them. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md)
 [spec 013](../../specs/013-comms-brainstorm-chat/spec.md),
 [spec 014](../../specs/014-comms-images-in-chat/spec.md),
 [spec 015](../../specs/015-comms-issues-in-progress/spec.md) and
+[spec 017](../../specs/017-comms-activity-timeline/spec.md) and
 [spec 018](../../specs/018-comms-push-notifications/spec.md).
 It has no database. Seen completions and last status changes live in server memory; the brainstorm
-chat is one JSON file in the state folder, attached images are files in its `images` folder, and
-the push devices and the VAPID key pair are two JSON files in its `push` folder.
+chat and the activity timeline are JSON files in the state folder, attached images are files in its
+`images` folder, and the push devices and the VAPID key pair are two JSON files in its `push` folder.
 
 ## Where each file type goes
 
@@ -29,6 +30,9 @@ the push devices and the VAPID key pair are two JSON files in its `push` folder.
 | Brainstorm entries, proposals, issue drafts, project docs           | `domain` (`src/brainstorm.ts`)                              |
 | Image rules (kinds, ids, limits, paths in a prompt)                 | `domain` (`src/image.ts`)                                   |
 | The image store                                                     | `infrastructure` (`src/images`)                             |
+| Activity rules (snapshot diff, what is kept, prompt excerpts)       | `domain` (`src/activity.ts`)                                |
+| The activity recorder and timeline                                  | `application` (`src/use-cases/activity*`)                   |
+| The activity file                                                   | `infrastructure` (`src/activity`)                           |
 | When an agent notifies, the notification's text                     | `domain` (`src/notification.ts`)                            |
 | The push watcher, subscribe and unsubscribe                         | `application` (`src/use-cases/notify*`, `push*`)            |
 | The push devices and keys, the Web Push sender                      | `infrastructure` (`src/push`)                               |
@@ -77,6 +81,9 @@ the push devices and the VAPID key pair are two JSON files in its `push` folder.
   names every file itself (`<id>.<ext>`), opens only names of that shape that are plain files, and
   an image id from a request is only ever looked up, never joined into a path. The server checks
   an upload by its content (JPEG or PNG), never by its name or declared type.
+- The activity recorder runs in `ActivityInbound`'s layer scope from server start and records only
+  what the server observes: Herdr snapshots and the prompts and keys Herdr took from the app. The
+  timeline keeps a prompt's first line, at most 80 characters, never the whole prompt.
 - Only `infrastructure/src/push` imports `web-push`. The VAPID private key stays between the push
   store and the sender (`Push.layer` puts out the three ports only); never log it, put it in an
   error or send it to the browser. A device's endpoint is its address: keep it out of logs too.
