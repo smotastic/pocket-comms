@@ -7,13 +7,14 @@ in the task's own commit.
 
 ## Server
 
-- [ ] **T01** — Domain `notification.ts`: `watchStep` (baseline, blocked spells, new completions
-      while done, agents that appear or leave), `stillHolds`, `notificationOf` (titles, body cut to
-      120 characters, tag, URL) and the `PushSubscription` schema
+- [x] **T01** — Domain `notification.ts`: `watchStep` (baseline, blocked spells, new completions
+      while done, agents that appear or leave), `stillHolds`, `excerptOf`, `notificationOf`
+      (titles, body cut to 120 characters, tag, URL) and the `PushSubscription` type
   - Gate: `pnpm nx test comms-domain`
 
 - [ ] **T02** — Contract: the `push` group (`GET /push/key`, `POST /push/subscriptions`,
-      `POST /push/subscriptions/remove`) and the regenerated OpenAPI document
+      `POST /push/subscriptions/remove`), the `PushSubscription` wire schema (`https` endpoint,
+      keys not empty) and the regenerated OpenAPI document
   - Gate: `pnpm nx test comms-contract` and `pnpm nx run comms-server:openapi`
 
 - [ ] **T03** — Application: the push ports, `PushInbound` with subscribe (idempotent by endpoint),
