@@ -103,7 +103,11 @@ export const promptExcerpt = (text: string): string => {
       .split('\n')
       .map((part) => part.replace(/\s+/gu, ' ').trim())
       .find((part) => part !== '') ?? '';
-  return line.length > EXCERPT_LENGTH ? `${line.slice(0, EXCERPT_LENGTH - 1)}…` : line;
+  // Cut by code point, so an emoji at the cut is never left half.
+  const characters = Array.from(line);
+  return characters.length > EXCERPT_LENGTH
+    ? `${characters.slice(0, EXCERPT_LENGTH - 1).join('')}…`
+    : line;
 };
 
 /** Whether the agent of an event still runs: its pane runs an agent of the same name. */

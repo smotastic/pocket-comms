@@ -182,6 +182,11 @@ describe('promptExcerpt', () => {
     expect(excerpt).toBe(`${'a'.repeat(79)}…`);
   });
 
+  it('never cuts a character in half', () => {
+    const excerpt = promptExcerpt(`${'a'.repeat(78)}😀😀😀`);
+    expect(excerpt).toBe(`${'a'.repeat(78)}😀…`);
+  });
+
   it('keeps a line of exactly 80 characters', () => {
     expect(promptExcerpt('b'.repeat(80))).toBe('b'.repeat(80));
   });
