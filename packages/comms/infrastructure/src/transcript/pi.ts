@@ -20,6 +20,16 @@ import {
 export const piSessionFolder = (home: string, cwd: string): string =>
   join(home, '.pi', 'agent', 'sessions', `--${cwd.replace(/^\//, '').replace(/\//g, '-')}--`);
 
+/**
+ * The id of a Pi session. Herdr names it by its id or by its file's path; a file is named
+ * `<timestamp>_<id>.jsonl`, so only the part after the last `_` counts.
+ */
+export const piSessionId = (session: string): string => {
+  if (!session.endsWith('.jsonl')) return session;
+  const name = session.slice(session.lastIndexOf('/') + 1, -'.jsonl'.length);
+  return name.slice(name.lastIndexOf('_') + 1);
+};
+
 const summarise = (cwd: string | undefined, name: string, args: unknown): ToolSummary => {
   const field = (key: string) => stringField(args, key);
   const path = (key: string) => {

@@ -15,7 +15,7 @@ import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { claudeSessionPath, createClaudeParser } from './claude.js';
 import type { TranscriptParser } from './entries.js';
-import { createPiParser, piSessionFolder } from './pi.js';
+import { createPiParser, piSessionFolder, piSessionId } from './pi.js';
 
 export interface FilesOptions {
   /** The home folder that holds `.claude/` and `.pi/`. */
@@ -65,7 +65,7 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
                 (name) => name === `${source.session}.jsonl`,
               );
       } else {
-        const matches = (name: string) => name.endsWith(`_${source.session}.jsonl`);
+        const matches = (name: string) => name.endsWith(`_${piSessionId(source.session)}.jsonl`);
         const folder = source.cwd === undefined ? undefined : piSessionFolder(home, source.cwd);
         const names = folder === undefined ? [] : await readdir(folder).catch(() => []);
         const name = names.find(matches);

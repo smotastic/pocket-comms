@@ -92,6 +92,7 @@ export const tokens = {
       md: 'var(--control-height-md)',
       fab: 'var(--control-height-fab)',
       thumb: 'var(--control-height-thumb)',
+      composer: 'var(--control-height-composer)',
     },
   },
   layout: {

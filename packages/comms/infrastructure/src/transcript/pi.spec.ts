@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest';
 import { readFileSync } from 'node:fs';
-import { createPiParser, piSessionFolder } from './pi.js';
+import { createPiParser, piSessionFolder, piSessionId } from './pi.js';
 
 const fixture = readFileSync(
   new URL('../testing/fixtures/pi-session.jsonl', import.meta.url),
@@ -88,5 +88,18 @@ describe('piSessionFolder', () => {
     expect(piSessionFolder('/home/me', '/Users/me/.herdr/worktrees/app')).toBe(
       '/home/me/.pi/agent/sessions/--Users-me-.herdr-worktrees-app--',
     );
+  });
+});
+
+describe('piSessionId', () => {
+  it.each([
+    ['01a1a03e-8dc0', '01a1a03e-8dc0'],
+    [
+      '/home/me/.pi/agent/sessions/--work-app--/2026-11-03T07-10-16-514Z_01a1a03e-8dc0.jsonl',
+      '01a1a03e-8dc0',
+    ],
+    ['2026-11-03T07-10-16-514Z_s2.jsonl', 's2'],
+  ])('takes the id of %j', (session, id) => {
+    expect(piSessionId(session)).toBe(id);
   });
 });

@@ -38,6 +38,24 @@ const box = () => screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Mess
 const send = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Send' });
 
 describe('Composer', () => {
+  it('starts one line high and grows with its text', async () => {
+    // jsdom lays nothing out, so the text's height is what this says.
+    const height = vi
+      .spyOn(HTMLTextAreaElement.prototype, 'scrollHeight', 'get')
+      .mockImplementation(function (this: HTMLTextAreaElement) {
+        return 24 * (this.value.split('\n').length + 1);
+      });
+    render(<Controlled />);
+
+    expect(box().rows).toBe(1);
+    expect(box().style.height).toBe('48px');
+
+    await userEvent.type(box(), 'one{Shift>}{Enter}{/Shift}two');
+
+    expect(box().style.height).toBe('72px');
+    height.mockRestore();
+  });
+
   it('is a multi-line text box named by its label, with a round send button', () => {
     render(<Controlled />);
     expect(box().tagName).toBe('TEXTAREA');

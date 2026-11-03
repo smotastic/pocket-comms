@@ -87,6 +87,17 @@ describe('Transcript.layerFiles', () => {
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
+  it.effect('reads a Pi session that Herdr names by its file path', () => {
+    const { root, piFile } = home();
+    // Only the id in the file name counts; the path is never opened as it is.
+    const named: TranscriptSource = { ...pi, session: `/elsewhere/${piFile.split('/').pop()}` };
+    return Effect.gen(function* () {
+      const transcript = yield* TranscriptOutbound.use((port) => port.read(named));
+
+      expect(transcript.entries[0]).toMatchObject({ type: 'user', text: 'Port the chat kit' });
+    }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+
   it.effect('finds a Claude session in another project folder', () => {
     const { root } = home();
     const moved: TranscriptSource = { ...claude, cwd: '/work/app/packages/web' };
