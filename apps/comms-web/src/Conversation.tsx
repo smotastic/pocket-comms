@@ -19,7 +19,7 @@ import {
   UserMessage,
 } from '@pocket-comms/design-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AgentView, CommsClient, Key, TranscriptView } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { AttachedImages } from './AttachedImages.js';
@@ -36,6 +36,11 @@ export interface ConversationProps {
   readonly onBack: () => void;
   /** What the New task flow could not do for this agent, such as send the task (spec 005). */
   readonly note?: string | undefined;
+  /**
+   * Called once, in place of saying so, when the agent turns out to be gone before it was ever
+   * shown; one that ends while it is open still says that it is not running any more.
+   */
+  readonly onGone?: (() => void) | undefined;
 }
 
 type View = 'chat' | 'screen';
@@ -185,7 +190,7 @@ const Header = ({
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
  * the composer, or the approval keys while the agent is blocked. It updates live.
  */
-export const Conversation = ({ client, agentRef, onBack, note }: ConversationProps) => {
+export const Conversation = ({ client, agentRef, onBack, note, onGone }: ConversationProps) => {
   useAgentLive(client, agentRef);
   const agentResult = useQuery(agentQuery(client, agentRef));
   const agent = agentResult.data;
@@ -232,7 +237,19 @@ export const Conversation = ({ client, agentRef, onBack, note }: ConversationPro
     keys.mutate(key);
   };
 
-  if (agentResult.error instanceof RequestError && agentResult.error.status === 404) {
+  const gone = agentResult.error instanceof RequestError && agentResult.error.status === 404;
+  const shown = useRef(false);
+  if (agent !== undefined) shown.current = true;
+  const leave = useRef(onGone);
+  leave.current = onGone;
+  useEffect(() => {
+    if (!gone || shown.current) return;
+    const gonePage = leave.current;
+    leave.current = undefined;
+    gonePage?.();
+  }, [gone]);
+
+  if (gone) {
     return (
       <DockedPage
         label="Conversation"

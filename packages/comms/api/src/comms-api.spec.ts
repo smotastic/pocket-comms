@@ -23,6 +23,8 @@ import {
   ProjectNotFoundError,
   ProposalDecidedError,
   ProposalNotFoundError,
+  PushInbound,
+  PushStoreError,
   TasksInbound,
   WorktreeHasChangesError,
   type CloseIssueInput,
@@ -84,6 +86,7 @@ const serve = (
   brainstorm: Partial<BrainstormInbound['Service']> = {},
   images: Partial<ImagesInbound['Service']> = {},
   activity: Partial<ActivityInbound['Service']> = {},
+  push: Partial<PushInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -97,6 +100,7 @@ const serve = (
       Layer.provide(Layer.mock(BrainstormInbound, brainstorm)),
       Layer.provide(Layer.mock(ImagesInbound, { sweep: Effect.void, ...images })),
       Layer.provide(Layer.mock(ActivityInbound, activity)),
+      Layer.provide(Layer.mock(PushInbound, { watch: Effect.never, ...push })),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -1008,5 +1012,91 @@ describe('the images routes (spec 014)', () => {
     );
 
     expect(response.status).toBe(422);
+  });
+});
+
+describe('the push routes', () => {
+  const subscription = {
+    endpoint: 'https://web.push.apple.com/QGuQyavXutnMH',
+    expirationTime: null,
+    keys: { p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA', auth: 'tBHItJI5svbpez7KI4CCXg' },
+  };
+  const pushOnly = (push: Partial<PushInbound['Service']>) =>
+    serve({}, undefined, {}, {}, {}, {}, {}, push);
+
+  it("answers the server's public key", async () => {
+    const call = pushOnly({ key: Effect.succeed({ publicKey: 'BKey' }) });
+
+    const response = await call('/api/v1/push/key');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ publicKey: 'BKey' });
+  });
+
+  it('subscribes a device as the browser sends it, and unsubscribes it', async () => {
+    const subscribed: Array<unknown> = [];
+    const unsubscribed: Array<string> = [];
+    const call = pushOnly({
+      subscribe: (device) => Effect.sync(() => void subscribed.push(device)),
+      unsubscribe: (endpoint) => Effect.sync(() => void unsubscribed.push(endpoint)),
+    });
+
+    const created = await call('/api/v1/push/subscriptions', json(subscription));
+    const removed = await call(
+      '/api/v1/push/subscriptions/remove',
+      json({ endpoint: subscription.endpoint }),
+    );
+
+    expect([created.status, removed.status]).toEqual([204, 204]);
+    // The handler passes on what the server keeps; the browser's expiry is not part of it.
+    expect(subscribed).toEqual([{ endpoint: subscription.endpoint, keys: subscription.keys }]);
+    expect(unsubscribed).toEqual([subscription.endpoint]);
+  });
+
+  it('answers 422 for an endpoint that is not https', async () => {
+    const call = pushOnly({ subscribe: () => Effect.void });
+
+    const response = await call(
+      '/api/v1/push/subscriptions',
+      json({ ...subscription, endpoint: 'http://web.push.apple.com/x' }),
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  it('answers 503 when the devices cannot be kept', async () => {
+    const call = pushOnly({
+      key: Effect.fail(new PushStoreError({ reason: 'EACCES' })),
+      subscribe: () => Effect.fail(new PushStoreError({ reason: 'EACCES' })),
+    });
+
+    const key = await call('/api/v1/push/key');
+    const subscribed = await call('/api/v1/push/subscriptions', json(subscription));
+
+    expect([key.status, subscribed.status]).toEqual([503, 503]);
+    expect(await key.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:push-store-unavailable',
+    });
+  });
+
+  it('rejects a request without the allowed login', async () => {
+    const call = pushOnly({ key: Effect.succeed({ publicKey: 'BKey' }) });
+
+    const response = await call('/api/v1/push/key', { login: null });
+
+    expect(response.status).toBe(403);
+  });
+
+  it('watches the agents for as long as the server runs', async () => {
+    let watching = false;
+    const call = pushOnly({
+      watch: Effect.sync(() => {
+        watching = true;
+      }).pipe(Effect.andThen(Effect.never)),
+    });
+
+    await call('/health/live');
+
+    await vi.waitFor(() => expect(watching).toBe(true));
   });
 });

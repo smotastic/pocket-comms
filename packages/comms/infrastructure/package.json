@@ -19,10 +19,12 @@
     "@pocket-comms/comms-domain": "workspace:*",
     "effect": "catalog:",
     "proper-lockfile": "catalog:",
-    "typebox": "catalog:"
+    "typebox": "catalog:",
+    "web-push": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
-    "@types/proper-lockfile": "catalog:"
+    "@types/proper-lockfile": "catalog:",
+    "@types/web-push": "catalog:"
   }
 }

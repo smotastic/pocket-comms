@@ -1,0 +1,56 @@
+# Tasks 018 — pocket-comms: push notifications when an agent needs you
+
+- **Plan:** [plan.md](./plan.md)
+
+Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
+in the task's own commit.
+
+## Server
+
+- [x] **T01** — Domain `notification.ts`: `watchStep` (baseline, blocked spells, new completions
+      while done, agents that appear or leave), `stillHolds`, `excerptOf`, `notificationOf`
+      (titles, body cut to 120 characters, tag, URL) and the `PushSubscription` type
+  - Gate: `pnpm nx test comms-domain`
+
+- [x] **T02** — Contract: the `push` group (`GET /push/key`, `POST /push/subscriptions`,
+      `POST /push/subscriptions/remove`) and the `PushSubscription` wire schema (`https` endpoint,
+      keys not empty). The server builds again, and the OpenAPI document is regenerated, once
+      T07 adds the handlers.
+  - Gate: `pnpm nx test comms-contract`
+
+- [x] **T03** — Application: the push ports, `PushInbound` with subscribe (idempotent by endpoint),
+      unsubscribe and public key, and the fakes in `src/testing`
+  - Gate: `pnpm nx test comms-application`
+
+- [x] **T04** — Application: the notify use case (10 s wait, re-check, one push per spell, Herdr
+      unavailable, excerpt from the transcript, every subscription, `Gone` removed)
+  - Gate: `pnpm nx test comms-application`
+
+- [x] **T05** — Infrastructure: the push file store in the state folder (keys made once,
+      subscriptions kept, atomic writes, a broken file reported)
+  - Gate: `pnpm nx test comms-infrastructure`
+
+- [x] **T06** — Infrastructure: the `web-push` sender (`TTL`, `Urgency`, `404`/`410` as `Gone`)
+      against a local fake push endpoint
+  - Gate: `pnpm nx test comms-infrastructure`
+
+- [x] **T07** — API handlers behind the identity guard, and the composition: push layers from the
+      state folder, the notify use case forked for the server's lifetime; the regenerated OpenAPI
+      document. (The plan's memory mode does not exist: `dev` runs the real server, which keeps its
+      push files in its state folder like the deployed one.)
+  - Gate: `pnpm nx test comms-api`, `pnpm nx test comms-server` and
+    `pnpm nx run comms-server:openapi`
+
+## Web app
+
+- [x] **T08** — `public/sw.js` (show every push, tap opens the conversation), `notifications.ts`
+      and the Notifications row at the bottom of the Projects sheet (unsupported, denied, off, on;
+      re-check when comms comes to the front); a tap on a gone agent lands on the overview
+  - Gate: `pnpm nx test comms-web`
+
+## Wrap-up
+
+- [x] **T09** — `packages/comms/AGENTS.md` and the README name spec 018 and the push rules;
+      `pnpm verify:local`. Spec and plan stay `Approved` until the owner's manual iPhone check
+      after the deploy; that check sets them `Done`.
+  - Gate: `pnpm verify:local`

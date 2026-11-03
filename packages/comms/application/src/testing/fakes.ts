@@ -5,7 +5,9 @@ import {
   parseRemote,
   type Agent,
   type Issue,
+  type Notification,
   type Project,
+  type PushSubscription,
   type TranscriptEntry,
   type Workspace,
   type Worktree,
@@ -26,6 +28,7 @@ import {
   IssueNotFoundError,
   HerdrUnavailableError,
   ProjectGitError,
+  PushStoreError,
   TranscriptUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
@@ -47,6 +50,11 @@ import {
   type StatusMark,
 } from '../ports/memory.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
+import {
+  PushKeysOutbound,
+  PushSenderOutbound,
+  PushSubscriptionsOutbound,
+} from '../ports/push.outbound.port.js';
 import { TranscriptOutbound, type TranscriptSource } from '../ports/transcript.outbound.port.js';
 
 /** One request the fake Herdr received, so a test can prove what was sent, and what was not. */
@@ -139,6 +147,21 @@ export class FakeState extends Context.Service<
     /** The kept activity events, oldest first. */
     activity: ReadonlyArray<ActivityEvent>;
     readonly activityChanges: PubSub.PubSub<void>;
+    /** The subscribed devices, in the order they subscribed. */
+    pushSubscriptions: Array<PushSubscription>;
+    readonly pushPublicKey: string;
+    /** Why the push store fails, when it does. */
+    pushStoreFailure: string | undefined;
+    /** Why only removing a device fails, when it does. */
+    pushRemoveFailure: string | undefined;
+    /** Every push sent, with when it was sent in epoch milliseconds. */
+    readonly pushes: Array<{
+      readonly endpoint: string;
+      readonly notification: Notification;
+      readonly at: number;
+    }>;
+    /** The endpoints whose push service answers that the subscription is gone. */
+    readonly goneEndpoints: Set<string>;
   }
 >()('comms/application/testing/FakeState') {}
 
@@ -292,6 +315,40 @@ const projects = (state: FakeState['Service']) => {
 // The fake Gitea is the host `gitea`, at `http://gitea.test`.
 /** The folder of the fake image store. */
 export const FAKE_IMAGES_FOLDER = '/state/images';
+
+/** A device's subscription whose endpoint ends in `name`. */
+export const fakeSubscription = (name: string): PushSubscription => ({
+  endpoint: `https://push.example/${name}`,
+  keys: { p256dh: `p256dh-${name}`, auth: `auth-${name}` },
+});
+
+const pushStore = <A>(state: FakeState['Service'], result: () => A) =>
+  state.pushStoreFailure === undefined
+    ? Effect.sync(result)
+    : Effect.fail(new PushStoreError({ reason: state.pushStoreFailure }));
+
+const pushSubscriptions = (state: FakeState['Service']): PushSubscriptionsOutbound['Service'] => ({
+  list: Effect.suspend(() => pushStore(state, () => [...state.pushSubscriptions])),
+  save: (subscription) =>
+    Effect.suspend(() =>
+      pushStore(state, () => {
+        const others = state.pushSubscriptions.filter(
+          (kept) => kept.endpoint !== subscription.endpoint,
+        );
+        state.pushSubscriptions = [...others, subscription];
+      }),
+    ),
+  remove: (endpoint) =>
+    Effect.suspend(() =>
+      state.pushRemoveFailure !== undefined
+        ? Effect.fail(new PushStoreError({ reason: state.pushRemoveFailure }))
+        : pushStore(state, () => {
+            state.pushSubscriptions = state.pushSubscriptions.filter(
+              (kept) => kept.endpoint !== endpoint,
+            );
+          }),
+    ),
+});
 
 // Ids count up, padded to the store's id shape.
 const images = (state: FakeState['Service']): ImagesOutbound['Service'] => ({
@@ -534,6 +591,12 @@ export const fakeLayer = () => {
         images: new Map(),
         activity: [],
         activityChanges: yield* PubSub.unbounded<void>(),
+        pushSubscriptions: [],
+        pushPublicKey: 'BFakePublicKey',
+        pushStoreFailure: undefined,
+        pushRemoveFailure: undefined,
+        pushes: [],
+        goneEndpoints: new Set(),
       };
     }),
   );
@@ -567,6 +630,19 @@ export const fakeLayer = () => {
               return PubSub.publish(fake.activityChanges, undefined);
             }).pipe(Effect.asVoid),
           changes: Stream.fromPubSub(fake.activityChanges),
+        }),
+        Context.add(PushSubscriptionsOutbound, pushSubscriptions(fake)),
+        Context.add(PushKeysOutbound, {
+          publicKey: Effect.suspend(() => pushStore(fake, () => fake.pushPublicKey)),
+        }),
+        Context.add(PushSenderOutbound, {
+          send: (subscription, notification) =>
+            Effect.gen(function* () {
+              if (fake.goneEndpoints.has(subscription.endpoint)) return 'gone' as const;
+              const at = yield* Clock.currentTimeMillis;
+              fake.pushes.push({ endpoint: subscription.endpoint, notification, at });
+              return 'sent' as const;
+            }),
         }),
         Context.add(SeenOutbound, {
           seen: Effect.sync(() => new Set(fake.seen)),

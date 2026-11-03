@@ -21,6 +21,12 @@ import {
   type TranscriptView,
 } from './comms-client.js';
 import { ImageHandlingContext, UnreadableImageError, type ImageHandling } from './attachments.js';
+import {
+  DevicePushContext,
+  type DevicePush,
+  type DevicePushState,
+  type PushSubscriptionView,
+} from './notifications.js';
 import { createAppRouter } from './router.js';
 
 // The kit loads its Markdown renderer lazily; on a cold CI runner that first import alone can take
@@ -70,6 +76,8 @@ export interface FakeState {
   brainstormFailure?: RequestError;
   /** The activity timeline as the server holds it, newest first. */
   activity: ActivityView;
+  /** A failure for the next push subscription. */
+  subscribeFailure?: RequestError;
 }
 
 /**
@@ -108,6 +116,9 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     brainstormMessages: [] as Array<string>,
     decisions: [] as Array<[string, ProposalDecision]>,
     brainstormResets: 0,
+    pushKeys: 0,
+    subscribed: [] as Array<PushSubscriptionView>,
+    unsubscribed: [] as Array<string>,
   };
   const brainstormFollowers = new Set<(event: BrainstormEventView) => void>();
   const failBrainstorm = () => {
@@ -193,6 +204,19 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     resetBrainstorm: async () => {
       calls.brainstormResets += 1;
     },
+    pushKey: async () => {
+      calls.pushKeys += 1;
+      return 'BServerKey';
+    },
+    subscribePush: async (subscription) => {
+      const failure = state.subscribeFailure;
+      state.subscribeFailure = undefined;
+      if (failure !== undefined) throw failure;
+      calls.subscribed.push(subscription);
+    },
+    unsubscribePush: async (endpoint) => {
+      calls.unsubscribed.push(endpoint);
+    },
     followBrainstorm: (onEvent, onLive) => {
       brainstormFollowers.add(onEvent);
       onLive(true);
@@ -248,15 +272,51 @@ export const fakeImageHandling: ImageHandling = {
 };
 
 /**
+ * A device's push support as the browser would report it. `subscribe` resolves to the
+ * subscription unless the owner denies, which `answer` decides.
+ */
+export const fakeDevicePush = (initial: DevicePushState) => {
+  const device = {
+    state: initial,
+    answer: 'granted' as NotificationPermission,
+    /** The server keys each subscribe got. */
+    keys: [] as Array<string>,
+  };
+  const subscription: PushSubscriptionView = {
+    endpoint: 'https://push.example/this-device',
+    keys: { p256dh: 'p256dh', auth: 'auth' },
+  };
+  const push: DevicePush = {
+    state: async () => device.state,
+    subscribe: async (serverKey) => {
+      if (device.answer !== 'granted') {
+        device.state = { _tag: 'Denied' };
+        return undefined;
+      }
+      device.keys.push(await serverKey());
+      device.state = { _tag: 'Ready', subscribed: true };
+      return subscription;
+    },
+    unsubscribe: async () => {
+      device.state = { _tag: 'Ready', subscribed: false };
+      return subscription.endpoint;
+    },
+  };
+  return { device, push };
+};
+
+/**
  * Renders the whole app at `path` with `client`, through the router and a fresh query cache that
  * does not retry, so a failed request shows at once.
  */
 export const renderApp = ({
   client,
   path = '/',
+  devicePush = fakeDevicePush({ _tag: 'Unsupported' }).push,
 }: {
   readonly client: CommsClient;
   readonly path?: string;
+  readonly devicePush?: DevicePush;
 }) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createAppRouter({
@@ -266,7 +326,9 @@ export const renderApp = ({
   render(
     <QueryClientProvider client={queryClient}>
       <ImageHandlingContext.Provider value={fakeImageHandling}>
-        <RouterProvider router={router} />
+        <DevicePushContext.Provider value={devicePush}>
+          <RouterProvider router={router} />
+        </DevicePushContext.Provider>
       </ImageHandlingContext.Provider>
     </QueryClientProvider>,
   );

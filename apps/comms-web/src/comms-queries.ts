@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { CommsClient } from './comms-client.js';
+import { RequestError, type CommsClient } from './comms-client.js';
 
 // Query keys and options. The live streams write into the same keys (`live.ts`), so a screen
 // reads one cache whether the data came from a request or an event.
@@ -16,8 +16,14 @@ export const activityKey = ['activity'] as const;
 export const overviewQuery = (client: CommsClient) =>
   queryOptions({ queryKey: overviewKey, queryFn: () => client.overview() });
 
+/** An agent that is gone is not asked for again, so its screen says so at once. */
 export const agentQuery = (client: CommsClient, ref: string) =>
-  queryOptions({ queryKey: agentKey(ref), queryFn: () => client.agent(ref) });
+  queryOptions({
+    queryKey: agentKey(ref),
+    queryFn: () => client.agent(ref),
+    retry: (failures, error) =>
+      !(error instanceof RequestError && error.status === 404) && failures < 3,
+  });
 
 export const transcriptQuery = (client: CommsClient, ref: string) =>
   queryOptions({ queryKey: transcriptKey(ref), queryFn: () => client.transcript(ref) });
