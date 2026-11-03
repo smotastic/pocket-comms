@@ -3,7 +3,6 @@ import {
   Alert,
   Button,
   Composer,
-  Fab,
   IconButton,
   Inline,
   Markdown,
@@ -15,7 +14,7 @@ import {
   UserMessage,
 } from '@pocket-comms/design-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import type {
   BrainstormEntryView,
   BrainstormStateView,
@@ -25,7 +24,7 @@ import type {
 import { brainstormQuery, projectsQuery } from './comms-queries.js';
 import { useBrainstormLive } from './live.js';
 
-// The brainstorm chat (spec 013): a bubble on every screen that opens one ongoing chat with Pi.
+// The brainstorm chat (spec 013): one ongoing chat with Pi, opened from the top bars (spec 016).
 
 type Ready = Extract<BrainstormStateView, { readonly _tag: 'Ready' }>;
 
@@ -156,8 +155,27 @@ const Footer = ({
   );
 };
 
-/** The bubble on every screen and the chat sheet it opens. */
-export const Brainstorm = ({ client }: { readonly client: CommsClient }) => {
+const OpenBrainstorm = createContext<() => void>(() => undefined);
+
+/** Opens the brainstorm chat over the current screen. */
+export const useOpenBrainstorm = () => useContext(OpenBrainstorm);
+
+/** The Brainstorm action for a screen's top bar. */
+export const BrainstormAction = () => (
+  <IconButton icon="brainstorm" label="Brainstorm" onClick={useOpenBrainstorm()} />
+);
+
+/**
+ * Holds the one chat sheet for every screen below it. Closing the sheet unmounts nothing there,
+ * so the screen stays as it was.
+ */
+export const Brainstorm = ({
+  client,
+  children,
+}: {
+  readonly client: CommsClient;
+  readonly children: ReactNode;
+}) => {
   const [open, setOpen] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const chat = useQuery({ ...brainstormQuery(client), enabled: open });
@@ -169,8 +187,8 @@ export const Brainstorm = ({ client }: { readonly client: CommsClient }) => {
   };
 
   return (
-    <>
-      {open ? null : <Fab icon="brainstorm" label="Brainstorm" onClick={() => setOpen(true)} />}
+    <OpenBrainstorm.Provider value={() => setOpen(true)}>
+      {children}
       <Sheet
         open={open}
         size="full"
@@ -204,6 +222,6 @@ export const Brainstorm = ({ client }: { readonly client: CommsClient }) => {
           />
         ) : null}
       </Sheet>
-    </>
+    </OpenBrainstorm.Provider>
   );
 };

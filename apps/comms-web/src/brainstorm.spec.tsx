@@ -27,15 +27,25 @@ const openChat = async (brainstorm: BrainstormStateView = ready(), path = '/') =
   return { ...fake, sheet };
 };
 
-describe('the brainstorm bubble', () => {
-  it('shows on the overview, a conversation and a project page', async () => {
+describe('the way into the brainstorm chat', () => {
+  it('is the overview’s top bar action and nothing else', async () => {
+    renderApp({ client: fakeClient().client, path: '/' });
+    const bar = await screen.findByRole('banner');
+
+    expect(screen.getAllByRole('button', { name: 'Brainstorm' })).toEqual([
+      within(bar).getByRole('button', { name: 'Brainstorm' }),
+    ]);
+  });
+
+  it('floats over no screen', async () => {
     const agent = fakeAgent();
-    for (const path of ['/', `/agents/${agent.ref}`, '/projects/pocket-comms']) {
-      const fake = fakeClient({ agents: new Map([[agent.ref, agent]]) });
-      renderApp({ client: fake.client, path });
-      expect(await screen.findByRole('button', { name: 'Brainstorm' })).toBeDefined();
-      cleanup();
-    }
+    renderApp({
+      client: fakeClient({ agents: new Map([[agent.ref, agent]]) }).client,
+      path: `/agents/${agent.ref}`,
+    });
+    await screen.findByRole('heading', { name: agent.ref });
+
+    expect(screen.queryByRole('button', { name: 'Brainstorm' })).toBeNull();
   });
 
   it('opens the chat ready to type, and closing returns to the screen', async () => {
@@ -47,7 +57,9 @@ describe('the brainstorm bubble', () => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
 
     expect(screen.queryByRole('dialog', { name: 'Brainstorm' })).toBeNull();
-    expect(await screen.findByRole('button', { name: 'Brainstorm' })).toBeDefined();
+    expect(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Brainstorm' }),
+    ).toBeDefined();
   });
 });
 

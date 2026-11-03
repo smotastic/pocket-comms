@@ -3,14 +3,13 @@ import { Page, Text } from '@pocket-comms/design-ui';
 import { Brainstorm } from '../Brainstorm.js';
 import type { RouterContext } from '../router-context.js';
 
-/** Every screen, with the brainstorm bubble over it (spec 013). */
+/** Every screen, each able to open the brainstorm chat over it (specs 013 and 016). */
 const Root = () => {
   const { client } = Route.useRouteContext();
   return (
-    <>
+    <Brainstorm client={client}>
       <Outlet />
-      <Brainstorm client={client} />
-    </>
+    </Brainstorm>
   );
 };
 

@@ -7,7 +7,7 @@ in the task's own commit.
 
 ## Web app
 
-- [ ] **T01** — `Brainstorm` becomes a provider at the root with `useOpenBrainstorm` and
+- [x] **T01** — `Brainstorm` becomes a provider at the root with `useOpenBrainstorm` and
       `BrainstormAction`; no floating bubble; Brainstorm before Projects on the overview; the
       existing chat tests open the chat from the overview
   - Gate: `pnpm nx test comms-web`

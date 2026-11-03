@@ -208,11 +208,12 @@ describe('the overview', () => {
 });
 
 describe('the projects on the overview', () => {
-  it('has only the Projects action in the top bar', async () => {
+  it('has only the Brainstorm and Projects actions in the top bar, in that order', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
     const banner = await screen.findByRole('banner');
     expect(within(banner).getAllByRole('button')).toEqual([
+      within(banner).getByRole('button', { name: 'Brainstorm' }),
       within(banner).getByRole('button', { name: 'Projects' }),
     ]);
   });
