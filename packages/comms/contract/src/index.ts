@@ -1,4 +1,7 @@
 export {
+  Activity,
+  ActivityAgent,
+  ActivityEvent,
   Agent,
   AgentEvent,
   AgentParam,

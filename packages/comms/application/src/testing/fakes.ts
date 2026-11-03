@@ -1,4 +1,5 @@
 import {
+  type ActivityEvent,
   IN_PROGRESS_LABEL,
   OTHER_GROUP,
   parseRemote,
@@ -27,6 +28,7 @@ import {
   ProjectGitError,
   TranscriptUnavailableError,
 } from '../errors.js';
+import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
 import {
   AgentRuntimeOutbound,
   type RuntimeEvent,
@@ -134,6 +136,9 @@ export class FakeState extends Context.Service<
     saves: number;
     /** The kept images by id, with when each was saved in epoch milliseconds. */
     readonly images: Map<string, StoredImage & { readonly savedAt: number }>;
+    /** The kept activity events, oldest first. */
+    activity: ReadonlyArray<ActivityEvent>;
+    readonly activityChanges: PubSub.PubSub<void>;
   }
 >()('comms/application/testing/FakeState') {}
 
@@ -527,6 +532,8 @@ export const fakeLayer = () => {
         storedChat: undefined,
         saves: 0,
         images: new Map(),
+        activity: [],
+        activityChanges: yield* PubSub.unbounded<void>(),
       };
     }),
   );
@@ -552,6 +559,15 @@ export const fakeLayer = () => {
             }),
         }),
         Context.add(ImagesOutbound, images(fake)),
+        Context.add(ActivityStoreOutbound, {
+          events: Effect.sync(() => fake.activity),
+          update: (change) =>
+            Effect.suspend(() => {
+              fake.activity = change(fake.activity);
+              return PubSub.publish(fake.activityChanges, undefined);
+            }).pipe(Effect.asVoid),
+          changes: Stream.fromPubSub(fake.activityChanges),
+        }),
         Context.add(SeenOutbound, {
           seen: Effect.sync(() => new Set(fake.seen)),
           markSeen: (key) =>

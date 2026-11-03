@@ -39,7 +39,7 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 | `COMMS_GITEA_URL`           | `http://localhost:3000`      | The Gitea server whose issues the app reads                                                        |
 | `COMMS_GITEA_TOKEN`         | none                         | A Gitea token with `write:issue` and `read:repository`; without it the issue lists say so          |
 | `COMMS_GITEA_HOSTS`         | `gitea`                      | Further host names (such as SSH aliases) of that Gitea in git remotes, comma-separated             |
-| `COMMS_STATE_DIR`           | `~/.pocket-comms`            | Where the server keeps the brainstorm chat (`brainstorm.json`) and images (`images/`, 30 days)     |
+| `COMMS_STATE_DIR`           | `~/.pocket-comms`            | Where the server keeps `brainstorm.json`, `activity.json` and the images (`images/`, 30 days)      |
 | `COMMS_BRAINSTORM_PROVIDER` | none                         | The brainstorm chat's model provider, such as `openai`; without it the chat says it is not set up  |
 | `COMMS_BRAINSTORM_MODEL`    | none                         | The brainstorm chat's model, such as `gpt-6-luna`                                                  |
 | `COMMS_BRAINSTORM_API_KEY`  | none                         | An API key for that provider; without it the server uses your Pi login                             |
@@ -101,6 +101,11 @@ the server running after a log-out, add a launch agent for `pnpm start` yourself
   a New task with a Claude agent and the issue, ending in a `Closes #<number>` line, as its first
   prompt. **Close** asks first, warns about agents still on the issue (it leaves them running),
   then closes the issue in Gitea. The app never deletes issues and writes nothing else to Gitea.
+- **Activity (`/activity`, from the projects sheet):** what happened across the agents in the last
+  24 hours, newest first: new and gone agents, agents that started working, need you or finished,
+  and the prompts (their first line) and keys you sent from the app. The server records it while
+  it runs, whether or not the app is open, and keeps the newest 100 events in `activity.json`. An
+  event opens its agent's conversation, or its project when the agent is gone.
 - Nothing in the app moves the Herdr focus on the desktop. The "seen" state lives in server memory.
 
 ## Structure

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root';
 import { Route as IndexRouteImport } from './routes/index';
+import { Route as ActivityRouteImport } from './routes/activity';
 import { Route as AgentsAgentRouteImport } from './routes/agents.$agent';
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index';
 import { Route as ProjectsProjectRouteImport } from './routes/projects.$project';
@@ -17,6 +18,11 @@ import { Route as ProjectsProjectRouteImport } from './routes/projects.$project'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => rootRouteImport,
 } as any);
 const AgentsAgentRoute = AgentsAgentRouteImport.update({
@@ -37,12 +43,14 @@ const ProjectsProjectRoute = ProjectsProjectRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
+  '/activity': typeof ActivityRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects/': typeof ProjectsIndexRoute;
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
+  '/activity': typeof ActivityRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects': typeof ProjectsIndexRoute;
@@ -50,20 +58,29 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/': typeof IndexRoute;
+  '/activity': typeof ActivityRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects/': typeof ProjectsIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/agents/$agent' | '/projects/$project' | '/projects/';
+  fullPaths:
+    '/' | '/activity' | '/agents/$agent' | '/projects/$project' | '/projects/';
   fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/agents/$agent' | '/projects/$project' | '/projects';
-  id: '__root__' | '/' | '/agents/$agent' | '/projects/$project' | '/projects/';
+  to: '/' | '/activity' | '/agents/$agent' | '/projects/$project' | '/projects';
+  id:
+    | '__root__'
+    | '/'
+    | '/activity'
+    | '/agents/$agent'
+    | '/projects/$project'
+    | '/projects/';
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  ActivityRoute: typeof ActivityRoute;
   AgentsAgentRoute: typeof AgentsAgentRoute;
   ProjectsProjectRoute: typeof ProjectsProjectRoute;
   ProjectsIndexRoute: typeof ProjectsIndexRoute;
@@ -76,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/';
       fullPath: '/';
       preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/activity': {
+      id: '/activity';
+      path: '/activity';
+      fullPath: '/activity';
+      preLoaderRoute: typeof ActivityRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     '/agents/$agent': {
@@ -104,6 +128,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivityRoute: ActivityRoute,
   AgentsAgentRoute: AgentsAgentRoute,
   ProjectsProjectRoute: ProjectsProjectRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,

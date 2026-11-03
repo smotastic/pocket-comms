@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from '@effect/vitest';
 import {
+  ActivityInbound,
   AgentNotFoundError,
   AgentsInbound,
   BrainstormBusyError,
@@ -27,6 +28,7 @@ import {
   type CloseIssueInput,
   type ImplementIssueInput,
   type IssueListDto,
+  type ActivityDto,
   type AgentDto,
   type CreateTaskInput,
   type OverviewDto,
@@ -81,6 +83,7 @@ const serve = (
   issues: Partial<IssuesInbound['Service']> = {},
   brainstorm: Partial<BrainstormInbound['Service']> = {},
   images: Partial<ImagesInbound['Service']> = {},
+  activity: Partial<ActivityInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -93,6 +96,7 @@ const serve = (
       Layer.provide(Layer.mock(IssuesInbound, issues)),
       Layer.provide(Layer.mock(BrainstormInbound, brainstorm)),
       Layer.provide(Layer.mock(ImagesInbound, { sweep: Effect.void, ...images })),
+      Layer.provide(Layer.mock(ActivityInbound, activity)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -591,6 +595,90 @@ describe('the issues API', () => {
       (await call('/api/v1/projects/pocket-comms/issues/8/close', { method: 'POST', login: null }))
         .status,
     ).toBe(403);
+  });
+});
+
+describe('the activity API', () => {
+  const timeline: ActivityDto = {
+    events: [
+      {
+        id: 'e1',
+        at: 2_000,
+        type: 'prompt',
+        excerpt: 'Fix the build',
+        images: 1,
+        agent: {
+          paneId: 'w1:p1',
+          ref: 'kirk',
+          name: 'kirk',
+          workspace: 'feature',
+          project: 'app',
+          worktree: 'feature',
+        },
+        live: true,
+      },
+      {
+        id: 'e0',
+        at: 1_000,
+        type: 'gone',
+        agent: {
+          paneId: 'w3:p1',
+          ref: 'w3:p1',
+          name: undefined,
+          workspace: 'notes',
+          project: undefined,
+          worktree: undefined,
+        },
+        live: false,
+      },
+    ],
+  };
+
+  // A JSON body has no `undefined`: a name the agent has not goes over the wire as `null`.
+  const wire = {
+    events: [
+      timeline.events[0],
+      {
+        ...timeline.events[1],
+        agent: {
+          paneId: 'w3:p1',
+          ref: 'w3:p1',
+          workspace: 'notes',
+          name: null,
+          project: null,
+          worktree: null,
+        },
+      },
+    ],
+  };
+
+  it('answers the timeline', async () => {
+    const call = serve({}, undefined, {}, {}, {}, {}, { activity: Effect.succeed(timeline) });
+
+    const response = await call('/api/v1/activity');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(wire);
+  });
+
+  it('streams the timeline as server-sent events', async () => {
+    const call = serve({}, undefined, {}, {}, {}, {}, { activityChanges: Stream.make(timeline) });
+
+    const response = await call('/api/v1/activity/events');
+
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    const text = await response.text();
+    expect(text).toContain('event: activity');
+    // An event's data is plain JSON text, which leaves a missing name out.
+    expect(JSON.parse(text.slice(text.indexOf('data: ') + 6).split('\n')[0] ?? '')).toEqual(
+      JSON.parse(JSON.stringify(timeline)),
+    );
+  });
+
+  it('rejects a request without the allowed login', async () => {
+    const call = serve({}, undefined, {}, {}, {}, {}, { activity: Effect.succeed(timeline) });
+
+    expect((await call('/api/v1/activity', { login: null })).status).toBe(403);
   });
 });
 
