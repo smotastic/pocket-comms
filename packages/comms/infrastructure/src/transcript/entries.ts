@@ -72,6 +72,13 @@ export const entryLog = () => {
       entries.push(entry);
       return entry;
     },
+    /** The latest entry, which a later line may still complete. */
+    last: (): TranscriptEntry | undefined => entries[entries.length - 1],
+    /** Puts `entry` in place of the latest entry, which has the same id. */
+    replaceLast: (entry: TranscriptEntry): TranscriptEntry => {
+      entries[entries.length - 1] = entry;
+      return entry;
+    },
     /**
      * Sets the outcome of a tool call, the line counts a result reports and the answers to its
      * questions, each found by the question's text; none for an unknown id.

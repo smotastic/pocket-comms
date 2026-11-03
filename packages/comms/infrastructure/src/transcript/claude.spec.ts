@@ -243,6 +243,90 @@ describe('createClaudeParser with AskUserQuestion', () => {
   });
 });
 
+describe('createClaudeParser with attached images', () => {
+  const IMAGES = '/home/me/.pocket-comms/images';
+  // Claude shows each image path of a prompt as a marker, and names its file on a meta line.
+  const prompt = (text: string, images = 1) =>
+    JSON.stringify({
+      type: 'user',
+      uuid: 'u-img',
+      timestamp: '2026-10-30T15:17:01Z',
+      origin: { kind: 'human' },
+      message: {
+        role: 'user',
+        content: [
+          { type: 'text', text },
+          ...Array.from({ length: images }, () => ({
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/jpeg', data: '/9j/' },
+          })),
+        ],
+      },
+    });
+  const sources = (...paths: ReadonlyArray<string>) =>
+    JSON.stringify({
+      type: 'user',
+      isMeta: true,
+      uuid: 'u-src',
+      timestamp: '2026-10-30T15:17:01Z',
+      message: {
+        role: 'user',
+        content: paths.map((path) => ({ type: 'text', text: `[Image: source: ${path}]` })),
+      },
+    });
+  const user = (text: string) => ({
+    type: 'user',
+    id: 'u-img',
+    at: Date.parse('2026-10-30T15:17:01Z'),
+    text,
+  });
+
+  it('puts the image paths back in place of the markers', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(prompt('[Image #1][Image #2] Why is this red?', 2));
+
+    const changed = parser.push(sources(`${IMAGES}/a.jpg`, `${IMAGES}/b.png`));
+
+    const text = `Why is this red?\n\n${IMAGES}/a.jpg\n${IMAGES}/b.png`;
+    expect(changed).toEqual([user(text)]);
+    expect(parser.entries()).toEqual([user(text)]);
+  });
+
+  it('takes the paths of several meta lines', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(prompt('[Image #1][Image #2]', 2));
+    parser.push(sources(`${IMAGES}/a.jpg`));
+    parser.push(sources(`${IMAGES}/b.png`));
+
+    expect(parser.entries()).toEqual([user(`${IMAGES}/a.jpg\n${IMAGES}/b.png`)]);
+  });
+
+  it('keeps the markers while no meta line names the files', () => {
+    const parser = createClaudeParser('/work/app');
+
+    parser.push(prompt('[Image #1]Look'));
+
+    expect(parser.entries()).toEqual([user('[Image #1]Look')]);
+  });
+
+  it('keeps a meta line that is no image source out of the chat', () => {
+    const parser = createClaudeParser('/work/app');
+    parser.push(prompt('[Image #1]Look'));
+
+    const changed = parser.push(sources('/a.jpg').replace('[Image: source: ', '[Note: '));
+
+    expect(changed).toEqual([]);
+    expect(parser.entries()).toEqual([user('[Image #1]Look')]);
+  });
+
+  it('names no image for a meta line after an entry that is not a prompt', () => {
+    const parser = createClaudeParser('/work/app');
+
+    expect(parser.push(sources(`${IMAGES}/a.jpg`))).toEqual([]);
+    expect(parser.entries()).toEqual([]);
+  });
+});
+
 describe('claudeSessionPath', () => {
   it('names the session file under the project folder of the working directory', () => {
     expect(claudeSessionPath('/home/me', '/Users/me/.herdr/worktrees/app', 'abc')).toBe(

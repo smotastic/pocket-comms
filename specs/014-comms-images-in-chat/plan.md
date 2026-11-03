@@ -92,6 +92,13 @@ None. The service has no database; images are files in the state folder.
   arrives as a paste, the "You" card would not find our paths. The parser then shows one "image"
   placeholder per image block of a Claude user entry, without the picture. An implementation task
   checks this against the real Claude and Pi before the web work and records the outcome here.
+
+  > **Seen with Claude Code (2026-11-03).** It does: the prompt line holds the text with one
+  > `[Image #n]` marker per image at its start, and an `image` block per image. A separate `isMeta`
+  > user line right after it names each file as `[Image: source: <path>]`. The Claude parser puts
+  > those paths back below the text, without the markers, so the "You" card shows the thumbnails as
+  > for an agent that keeps the paths. Pi has not been checked yet.
+
 - **Permission prompts.** Claude Code may ask to read a file outside its working folder. That is an
   ordinary approval in the approval panel, not a failure.
 - **Disk use.** Shrunk images are about 0.5 MB; the 30-day sweep bounds the folder.
