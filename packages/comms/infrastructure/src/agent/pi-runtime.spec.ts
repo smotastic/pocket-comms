@@ -49,6 +49,7 @@ const turn = (
   instructions: 'Teach Tulu with the two principles.',
   state,
   input,
+  images: [],
   tools,
 });
 
@@ -219,6 +220,45 @@ describe('the Pi runtime', () => {
 });
 
 describe('scrubSecrets', () => {
+  it.effect(
+    'gives a model that takes pictures the turn’s images with the text, and keeps them',
+    () =>
+      Effect.gen(function* () {
+        const { faux, runtime } = setup();
+        const seen: Array<unknown> = [];
+        faux.setResponses([
+          (context) => {
+            seen.push(context.messages.at(-1));
+            return fauxAssistantMessage('A blue door.');
+          },
+        ]);
+        const events = yield* run(runtime, {
+          ...turn([], 'What is this? [Picture 1 attached]'),
+          images: [{ kind: 'png', bytes: new Uint8Array([1, 2, 3]) }],
+        });
+        expect(runtime.seesImages).toBe(true);
+        expect(seen).toEqual([
+          expect.objectContaining({
+            role: 'user',
+            content: [
+              { type: 'text', text: 'What is this? [Picture 1 attached]' },
+              { type: 'image', data: 'AQID', mimeType: 'image/png' },
+            ],
+          }),
+        ]);
+        const ended = events.at(-1);
+        expect(JSON.stringify(ended?._tag === 'ended' && ended.state)).toContain('"data":"AQID"');
+      }),
+  );
+
+  it('says whether the model takes pictures', () => {
+    const faux = fauxProvider();
+    const models = createModels();
+    models.setProvider(faux.provider);
+    const textOnly = makePiRuntime({ models, model: { ...faux.getModel(), input: ['text'] } });
+    expect(textOnly.seesImages).toBe(false);
+  });
+
   it('removes the API key and anything that looks like a provider key from a reason', () => {
     expect(scrubSecrets('Bad key my-own-secret-value given', 'my-own-secret-value')).toBe(
       'Bad key [redacted] given',

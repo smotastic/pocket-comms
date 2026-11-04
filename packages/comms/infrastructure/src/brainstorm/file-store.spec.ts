@@ -9,10 +9,12 @@ import { layerFile } from './file-store.js';
 
 const folder = () => join(mkdtempSync(join(tmpdir(), 'comms-state-')), 'state');
 
+const PICTURE = 'a'.repeat(26);
+
 const chat: StoredChat = {
   id: 'chat-1',
   entries: [
-    { type: 'user', id: 'u1', at: 1, text: 'Idea' },
+    { type: 'user', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] },
     { type: 'assistant', id: 'a1', at: 2, text: '**Nice**' },
     {
       type: 'proposal',
@@ -22,7 +24,21 @@ const chat: StoredChat = {
       project: 'app',
       title: 'Dark mode',
       body: 'A toggle.',
+      pictures: [PICTURE],
+      attached: [{ image: PICTURE, url: 'http://gitea.test/attachments/u-1' }],
       state: { _tag: 'created', number: 12, url: 'http://gitea.test/owner/app/issues/12' },
+    },
+    {
+      type: 'proposal',
+      kind: 'issue',
+      id: 'p2',
+      at: 3,
+      project: 'app',
+      title: 'Blue door',
+      body: 'Paint it.',
+      pictures: [PICTURE],
+      attached: [],
+      state: { _tag: 'attaching', number: 13, url: 'http://gitea.test/owner/app/issues/13' },
     },
     { type: 'failed', id: 'f1', at: 4, reason: 'The model cannot be reached.' },
     {
@@ -36,6 +52,8 @@ const chat: StoredChat = {
       title: 'Orchestrator',
       body: 'New.',
       base: { title: 'Orchestrator', body: 'Old.' },
+      pictures: [],
+      attached: [],
       state: { _tag: 'updated', url: 'http://gitea.test/owner/app/issues/11' },
     },
   ],
@@ -114,12 +132,55 @@ describe('the brainstorm file store', () => {
               project: 'app',
               title: 'Dark mode',
               body: 'A toggle.',
+              pictures: [],
+              attached: [],
               state: { _tag: 'open' },
             },
           ],
           reads: [],
           runtime: Option.none(),
         }),
+      );
+    }),
+  );
+
+  it.effect('loads a chat saved before pictures, with no pictures anywhere', () =>
+    Effect.gen(function* () {
+      const path = folder();
+      const outbound = yield* store(path);
+      yield* outbound.save(chat);
+      writeFileSync(
+        join(path, 'brainstorm.json'),
+        JSON.stringify({
+          version: 2,
+          id: 'chat-2',
+          entries: [
+            { type: 'user', id: 'u1', at: 1, text: 'Idea' },
+            {
+              type: 'proposal',
+              kind: 'edit',
+              id: 'e1',
+              at: 2,
+              project: 'app',
+              number: 11,
+              url: 'http://gitea.test/owner/app/issues/11',
+              title: 'T',
+              body: 'B',
+              base: { title: 'T', body: 'A' },
+              state: { _tag: 'open' },
+            },
+          ],
+          reads: [],
+          runtime: null,
+        }),
+      );
+
+      const loaded = yield* outbound.load;
+      expect(Option.map(loaded, (stored) => stored.entries)).toEqual(
+        Option.some([
+          { type: 'user', id: 'u1', at: 1, text: 'Idea', images: [] },
+          expect.objectContaining({ kind: 'edit', pictures: [], attached: [] }),
+        ]),
       );
     }),
   );

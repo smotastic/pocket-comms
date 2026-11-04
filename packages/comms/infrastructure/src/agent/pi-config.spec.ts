@@ -54,6 +54,7 @@ describe('the Pi runtime settings', () => {
           instructions: '',
           state: Option.none(),
           input: 'Hi',
+          images: [],
           tools: [],
         }),
       ).pipe(Effect.flip);

@@ -1,4 +1,4 @@
-import type { GiteaRepository, Issue, IssueText } from '@pocket-comms/comms-domain';
+import type { GiteaRepository, ImageKind, Issue, IssueText } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
@@ -21,9 +21,16 @@ export interface CreatedIssue {
   readonly url: string;
 }
 
+/** A picture to attach to an issue, with the file name Gitea shows. */
+export interface IssuePicture {
+  readonly name: string;
+  readonly kind: ImageKind;
+  readonly bytes: Uint8Array;
+}
+
 /**
- * The app's Gitea server. It reads issues, closes them, creates them, marks them in progress and
- * changes their title and body; no other method writes.
+ * The app's Gitea server. It reads issues, closes them, creates them, marks them in progress,
+ * changes their title and body and attaches pictures to them; no other method writes.
  */
 export class GiteaOutbound extends Context.Service<
   GiteaOutbound,
@@ -62,5 +69,11 @@ export class GiteaOutbound extends Context.Service<
       number: number,
       text: IssueText,
     ) => Effect.Effect<void, Failure | IssueNotFoundError>;
+    /** Uploads the picture as an attachment of the issue and answers its link in Gitea. */
+    readonly attachImage: (
+      repository: GiteaRepository,
+      number: number,
+      picture: IssuePicture,
+    ) => Effect.Effect<string, Failure | IssueNotFoundError>;
   }
 >()('comms/application/GiteaOutbound') {}

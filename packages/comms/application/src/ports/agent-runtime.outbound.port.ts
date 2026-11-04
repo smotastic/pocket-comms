@@ -4,6 +4,7 @@ import type * as Option from 'effect/Option';
 import type * as Schema from 'effect/Schema';
 import type * as Stream from 'effect/Stream';
 import type { AgentRuntimeError } from '../errors.js';
+import type { StoredImage } from './images.outbound.port.js';
 
 /** What an agent runtime keeps between turns. The service stores it without reading it. */
 export interface RuntimeState {
@@ -29,12 +30,16 @@ export interface RuntimeTool {
   readonly run: (input: unknown) => Effect.Effect<ToolOutcome>;
 }
 
-/** One turn: the history lives in `state`; `input` is what the owner just said or did. */
+/**
+ * One turn: the history lives in `state`; `input` is what the owner just said or did, and
+ * `images` the pictures that came with it. Only a runtime that `seesImages` gets any.
+ */
 export interface TurnInput {
   readonly sessionId: string;
   readonly instructions: string;
   readonly state: Option.Option<RuntimeState>;
   readonly input: string;
+  readonly images: ReadonlyArray<StoredImage>;
   readonly tools: ReadonlyArray<RuntimeTool>;
 }
 
@@ -60,12 +65,14 @@ export type RuntimeEvent =
 /**
  * Runs an agent's turns (ADR 0012). The service defines the tools and stores what happens; the
  * runtime drives the model and offers it only the given tools. `notSetUp` names the missing
- * setting when the server has no model; `runTurn` then fails.
+ * setting when the server has no model; `runTurn` then fails. `seesImages` says whether the model
+ * takes pictures.
  */
 export class AgentRuntimeOutbound extends Context.Service<
   AgentRuntimeOutbound,
   {
     readonly notSetUp: Option.Option<string>;
+    readonly seesImages: boolean;
     readonly runTurn: (turn: TurnInput) => Stream.Stream<RuntimeEvent, AgentRuntimeError>;
   }
 >()('comms/application/AgentRuntimeOutbound') {}
