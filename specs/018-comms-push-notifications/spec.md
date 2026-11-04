@@ -1,6 +1,6 @@
 # Spec 018 — pocket-comms: push notifications when an agent needs you
 
-- **Status:** `Approved` — approved by the owner (2026-11-03)
+- **Status:** `Done` — approved by the owner (2026-11-03), implemented in #38, checked on the iPhone (2026-11-04)
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (the web app becomes an installable PWA
   with a service worker) and [spec 012](../012-comms-flat-overview/spec.md) (the Projects sheet
   gets a Notifications row)
