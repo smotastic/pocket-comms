@@ -186,6 +186,14 @@ export const problems = {
         detail: `The proposal ${error.id} was created or discarded already.`,
       }),
     ),
+  issueChanged: (error: { readonly number: number }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'issue-changed',
+        title: 'The issue changed',
+        detail: `Issue #${error.number} changed since Pi read it, so the edit was not applied. Discard it and ask Pi to read the issue again.`,
+      }),
+    ),
   imageNotSaved: (error: { readonly reason: string }) =>
     Effect.fail(
       serviceUnavailableProblem({

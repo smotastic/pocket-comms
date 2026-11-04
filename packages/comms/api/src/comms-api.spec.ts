@@ -14,6 +14,7 @@ import {
   ImageNotFoundError,
   ImageNotSavedError,
   ImagesInbound,
+  IssueChangedError,
   IssueClosedError,
   IssueNotFoundError,
   IssuesInbound,
@@ -824,6 +825,8 @@ describe('the brainstorm API', () => {
     [new NoGiteaRemoteError({ project: 'p' }), 409, 'no-gitea-remote'],
     [new GiteaNotConfiguredError(), 409, 'gitea-not-configured'],
     [new GiteaUnavailableError({ reason: 'Gitea answered 500.' }), 503, 'gitea-unavailable'],
+    [new IssueChangedError({ number: 11 }), 409, 'issue-changed'],
+    [new IssueNotFoundError({ number: 11 }), 404, 'issue-not-found'],
   ] as const)('maps the decision failure %s to %i', async (error, status, slug) => {
     const call = brainstorm({ decide: () => Effect.fail(error) });
 

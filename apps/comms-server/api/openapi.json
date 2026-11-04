@@ -577,6 +577,12 @@
                 "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
                 "type": "string"
               },
+              "kind": {
+                "description": "A new issue.",
+                "enum": ["issue"],
+                "examples": ["issue"],
+                "type": "string"
+              },
               "project": {
                 "description": "The project the issue is for, by name.",
                 "examples": ["pocket-home"],
@@ -600,7 +606,100 @@
                 "type": "string"
               }
             },
-            "required": ["type", "id", "at", "project", "title", "body", "state"],
+            "required": ["type", "kind", "id", "at", "project", "title", "body", "state"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was added, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "base": {
+                "additionalProperties": false,
+                "description": "The issue's title and body as Pi read them; the edit applies only while they are unchanged.",
+                "examples": [
+                  {
+                    "body": "An orchestrator agent.",
+                    "title": "Orchestrator mode"
+                  }
+                ],
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["title", "body"],
+                "type": "object"
+              },
+              "body": {
+                "description": "The issue's whole new body in Markdown.",
+                "examples": ["Control the agents from the brainstorm chat."],
+                "maxLength": 20000,
+                "type": "string"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
+                "type": "string"
+              },
+              "kind": {
+                "description": "A new title and body for an existing issue.",
+                "enum": ["edit"],
+                "examples": ["edit"],
+                "type": "string"
+              },
+              "number": {
+                "description": "The issue's number.",
+                "examples": [11],
+                "type": "integer"
+              },
+              "project": {
+                "description": "The project the issue is for, by name.",
+                "examples": ["pocket-home"],
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              "state": {
+                "$ref": "#/components/schemas/EditState"
+              },
+              "title": {
+                "description": "The issue's whole new title; it must not be blank.",
+                "examples": ["Orchestrator mode from the brainstorm chat"],
+                "maxLength": 255,
+                "type": "string"
+              },
+              "type": {
+                "description": "An edit Pi proposes.",
+                "enum": ["proposal"],
+                "examples": ["proposal"],
+                "type": "string"
+              },
+              "url": {
+                "description": "The issue's page in Gitea.",
+                "examples": ["http://localhost:3000/smotastic/pocket-comms/issues/11"],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "kind",
+              "id",
+              "at",
+              "project",
+              "number",
+              "url",
+              "title",
+              "body",
+              "base",
+              "state"
+            ],
             "type": "object"
           },
           {
@@ -826,6 +925,60 @@
         },
         "required": ["project", "task", "branch"],
         "type": "object"
+      },
+      "EditState": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "The owner has not decided yet.",
+                "enum": ["open"],
+                "examples": ["open"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "The owner applied the edit and Gitea saved the issue's new title and body.",
+                "enum": ["updated"],
+                "examples": ["updated"],
+                "type": "string"
+              },
+              "url": {
+                "description": "The issue's page in Gitea.",
+                "examples": ["http://localhost:3000/smotastic/pocket-comms/issues/11"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag", "url"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "The owner discarded the edit.",
+                "enum": ["discarded"],
+                "examples": ["discarded"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag"],
+            "type": "object"
+          }
+        ],
+        "description": "Whether the edit was decided.",
+        "examples": [
+          {
+            "_tag": "open"
+          }
+        ]
       },
       "FieldError": {
         "additionalProperties": false,
@@ -1375,7 +1528,32 @@
             "additionalProperties": false,
             "properties": {
               "_tag": {
-                "description": "Create nothing.",
+                "description": "Set the issue to exactly this title and body.",
+                "enum": ["Apply"],
+                "examples": ["Apply"],
+                "type": "string"
+              },
+              "body": {
+                "description": "The issue's whole new body in Markdown.",
+                "examples": ["Control the agents from the brainstorm chat."],
+                "maxLength": 20000,
+                "type": "string"
+              },
+              "title": {
+                "description": "The issue's whole new title; it must not be blank.",
+                "examples": ["Orchestrator mode from the brainstorm chat"],
+                "maxLength": 255,
+                "type": "string"
+              }
+            },
+            "required": ["_tag", "title", "body"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "Create or change nothing.",
                 "enum": ["Discard"],
                 "examples": ["Discard"],
                 "type": "string"
@@ -3453,7 +3631,7 @@
     },
     "/api/v1/brainstorm/proposals/{proposal}/decision": {
       "post": {
-        "description": "Creates the proposed issue as shown, with only its title and body, in the project's Gitea repository, or discards it; then tells Pi. A proposal is decided once.",
+        "description": "Creates the proposed issue as shown, with only its title and body, in the project's Gitea repository; or applies a proposed edit, setting only the issue's title and body, when they are unchanged since Pi read them; or discards either. Then tells Pi. A proposal is decided once.",
         "operationId": "brainstorm.decide",
         "parameters": [
           {

@@ -13,6 +13,8 @@ import type {
   BrainstormNotSetUpError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
+  IssueChangedError,
+  IssueNotFoundError,
   NoGiteaRemoteError,
   ProposalDecidedError,
   ProposalNotFoundError,
@@ -32,7 +34,10 @@ export class BrainstormInbound extends Context.Service<
     readonly send: (
       text: string,
     ) => Effect.Effect<void, BrainstormNotSetUpError | BrainstormBusyError | InvalidInputError>;
-    /** Creates or discards an open proposal, then tells Pi in a new turn. */
+    /**
+     * Creates the issue of an open proposal, applies an open edit while the issue's title and body
+     * are unchanged since Pi read them, or discards either; then tells Pi in a new turn.
+     */
     readonly decide: (
       id: string,
       decision: ProposalDecisionInput,
@@ -46,6 +51,8 @@ export class BrainstormInbound extends Context.Service<
       | NoGiteaRemoteError
       | GiteaNotConfiguredError
       | GiteaUnavailableError
+      | IssueNotFoundError
+      | IssueChangedError
     >;
     /** Stops a running answer and starts an empty chat. */
     readonly reset: () => Effect.Effect<void>;

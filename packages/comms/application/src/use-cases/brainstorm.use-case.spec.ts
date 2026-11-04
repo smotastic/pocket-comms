@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import type { BrainstormEntry, ProposalEntry } from '@pocket-comms/comms-domain';
+import type { BrainstormEntry, Issue, ProposalEntry } from '@pocket-comms/comms-domain';
 import * as Deferred from 'effect/Deferred';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
@@ -11,10 +11,13 @@ import {
   BrainstormBusyError,
   BrainstormNotSetUpError,
   GiteaUnavailableError,
+  IssueChangedError,
+  IssueNotFoundError,
   NoGiteaRemoteError,
   ProposalDecidedError,
   ProposalNotFoundError,
 } from '../errors.js';
+import { MAX_ISSUE_BODY } from '@pocket-comms/comms-domain';
 import { fakeIssue, fakeLayer, FakeState } from '../testing/fakes.js';
 import { collect } from '../testing/streams.js';
 import { BRAINSTORM_INSTRUCTIONS, makeBrainstorm } from './brainstorm.use-case.js';
@@ -65,6 +68,14 @@ const run = (
   }).pipe(Effect.scoped, Effect.provide(fakeLayer()));
 
 const propose = (input: Record<string, string>) => ({ tool: 'propose_issue', input });
+const readIssue = (project: string, number: number) => ({
+  tool: 'read_issue',
+  input: { project, number },
+});
+const proposeEdit = (input: { project: string; number: number; title: string; body: string }) => ({
+  tool: 'propose_issue_edit',
+  input,
+});
 
 describe('the brainstorm chat', () => {
   it.effect('adds the message, streams Pi’s answer and saves the chat', () =>
@@ -88,7 +99,9 @@ describe('the brainstorm chat', () => {
           'list_projects',
           'list_open_issues',
           'read_project_doc',
+          'read_issue',
           'propose_issue',
+          'propose_issue_edit',
         ]);
         expect(state.storedChat?.entries).toHaveLength(2);
         expect(state.storedChat?.runtime).toEqual(Option.some({ adapter: 'scripted', state: 1 }));
@@ -196,6 +209,7 @@ describe('the brainstorm chat', () => {
         state.storedChat = {
           id: 'chat-1',
           entries: [{ type: 'user', id: 'u1', at: 1, text: 'Kept' }],
+          reads: [],
           runtime: Option.some({ adapter: 'scripted', state: 4 }),
         };
       },
@@ -218,6 +232,7 @@ describe('the brainstorm chat', () => {
           live: '',
         });
         expect(state.storedChat?.entries).toEqual([]);
+        expect(state.storedChat?.reads).toEqual([]);
         expect(state.storedChat?.runtime).toEqual(Option.none());
       }),
     ),
@@ -308,7 +323,7 @@ describe('the brainstorm tools', () => {
     ];
     state.docs.set('app/AGENTS.md', '# App agents');
     state.issues.set('owner/app', [
-      fakeIssue({ number: 3, title: 'Login' }),
+      fakeIssue({ number: 3, title: 'Login', body: 'Users sign in.' }),
       fakeIssue({ number: 4, title: 'A pull', pull: true }),
     ]);
   };
@@ -381,6 +396,7 @@ describe('the brainstorm tools', () => {
             { type: 'assistant', text: 'Let me file that.' },
             {
               type: 'proposal',
+              kind: 'issue',
               project: 'app',
               title: 'Dark mode',
               body: 'A toggle.',
@@ -405,6 +421,117 @@ describe('the brainstorm tools', () => {
           ]);
           expect(outcomes.map((outcome) => outcome.isError)).toEqual([true, true]);
           expect(proposalIn(yield* entries(brainstorm))).toBeUndefined();
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('read an issue, open or closed, and refuse a pull request or a missing issue', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          state.issues.set('owner/app', [
+            ...(state.issues.get('owner/app') ?? []),
+            fakeIssue({ number: 5, title: 'Old', body: 'Done.', state: 'closed' }),
+          ]);
+          yield* brainstorm.send('Look at issues');
+          yield* idle(brainstorm);
+
+          const outcomes = yield* outputsOf(state, [
+            readIssue('app', 3),
+            readIssue('app', 5),
+            readIssue('app', 4),
+            readIssue('app', 99),
+            readIssue('notes', 1),
+          ]);
+
+          expect(outcomes.slice(0, 2)).toEqual([
+            {
+              output: {
+                number: 3,
+                title: 'Login',
+                body: 'Users sign in.',
+                state: 'open',
+                url: 'http://gitea.test/owner/app/issues/3',
+              },
+              isError: false,
+              pause: false,
+            },
+            {
+              output: {
+                number: 5,
+                title: 'Old',
+                body: 'Done.',
+                state: 'closed',
+                url: 'http://gitea.test/owner/app/issues/5',
+              },
+              isError: false,
+              pause: false,
+            },
+          ]);
+          expect(outcomes.slice(2).map((outcome) => outcome.isError)).toEqual([true, true, true]);
+          expect(state.storedChat?.reads.map((read) => read.number)).toEqual([3, 5]);
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('cut a long issue body and say that it cannot be edited', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          state.issues.set('owner/app', [
+            fakeIssue({ number: 7, title: 'Long', body: 'x'.repeat(MAX_ISSUE_BODY + 5) }),
+          ]);
+          yield* brainstorm.send('Read it');
+          yield* idle(brainstorm);
+
+          const [read, edit] = yield* outputsOf(state, [
+            readIssue('app', 7),
+            proposeEdit({ project: 'app', number: 7, title: 'Long', body: 'Short' }),
+          ]);
+          expect(read?.isError).toBe(false);
+          expect(read?.output).toMatchObject({
+            body: 'x'.repeat(MAX_ISSUE_BODY),
+            note: expect.stringContaining('cut'),
+          });
+          expect(edit?.isError).toBe(true);
+          expect(proposalIn(yield* entries(brainstorm))).toBeUndefined();
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('propose an edit only for an issue read in this chat, with what was read as base', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          state.script.push([
+            readIssue('app', 3),
+            proposeEdit({ project: 'app', number: 3, title: ' Login v2 ', body: 'New body.' }),
+            { text: 'Never said.' },
+          ]);
+          yield* brainstorm.send('Update login');
+          yield* idle(brainstorm);
+
+          expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
+            type: 'proposal',
+            kind: 'edit',
+            project: 'app',
+            number: 3,
+            url: 'http://gitea.test/owner/app/issues/3',
+            title: 'Login v2',
+            body: 'New body.',
+            base: { title: 'Login', body: 'Users sign in.' },
+            state: { _tag: 'open' },
+          });
+          expect(state.giteaCalls.filter((call) => call.startsWith('updateIssue'))).toEqual([]);
+
+          const [unread, blank] = yield* outputsOf(state, [
+            proposeEdit({ project: 'app', number: 5, title: 'X', body: '' }),
+            proposeEdit({ project: 'app', number: 3, title: ' ', body: '' }),
+          ]);
+          expect([unread?.isError, blank?.isError]).toEqual([true, true]);
         }),
       arrange,
     ),
@@ -545,6 +672,206 @@ describe('a decision on a proposal', () => {
         expect(error._tag).toBe('InvalidInputError');
         expect(created(state)).toEqual([]);
       }),
+    ),
+  );
+});
+
+describe('a decision on an edit', () => {
+  const arrange = (state: FakeState['Service']) => {
+    state.issues.set('owner/app', [
+      fakeIssue({ number: 11, title: 'Orchestrator', body: '## Idea\n\nRun agents.' }),
+    ]);
+  };
+
+  // Pi reads #11 of `app` and proposes a new body in the first turn.
+  const proposed = (brainstorm: Brainstorm, state: FakeState['Service']) =>
+    Effect.gen(function* () {
+      state.script.push([
+        readIssue('app', 11),
+        proposeEdit({
+          project: 'app',
+          number: 11,
+          title: 'Orchestrator',
+          body: '## Idea\n\nRun agents from the chat.',
+        }),
+      ]);
+      yield* brainstorm.send('Update #11');
+      yield* idle(brainstorm);
+      const proposal = proposalIn(yield* entries(brainstorm));
+      if (proposal === undefined) throw new Error('Pi proposed nothing.');
+      return proposal;
+    });
+
+  const updates = (state: FakeState['Service']) =>
+    state.giteaCalls.filter((call) => call.startsWith('updateIssue'));
+
+  const changeIssue = (state: FakeState['Service'], change: Partial<Issue>) => {
+    const issues = state.issues.get('owner/app') ?? [];
+    state.issues.set(
+      'owner/app',
+      issues.map((issue) => (issue.number === 11 ? { ...issue, ...change } : issue)),
+    );
+  };
+
+  it.effect('applies exactly the shown title and body and tells Pi', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+
+          yield* brainstorm.decide(proposal.id, {
+            _tag: 'Apply',
+            title: ' Orchestrator mode ',
+            body: 'Edited.',
+          });
+          yield* idle(brainstorm);
+
+          expect(updates(state)).toEqual([
+            'updateIssue owner/app 11 {"title":"Orchestrator mode","body":"Edited."}',
+          ]);
+          expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
+            title: 'Orchestrator mode',
+            body: 'Edited.',
+            state: { _tag: 'updated', url: 'http://gitea.test/owner/app/issues/11' },
+          });
+          expect(turnInputs(state)[1]).toContain('The owner updated the issue #11 in app');
+          expect(state.storedChat?.reads).toEqual([
+            {
+              project: 'app',
+              number: 11,
+              url: 'http://gitea.test/owner/app/issues/11',
+              title: 'Orchestrator mode',
+              body: 'Edited.',
+              cut: false,
+            },
+          ]);
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('refuses to apply when the title or body changed since Pi read the issue', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          changeIssue(state, { body: 'Someone else wrote this.' });
+
+          expect(
+            yield* brainstorm
+              .decide(proposal.id, { _tag: 'Apply', title: 'Orchestrator', body: 'Mine.' })
+              .pipe(Effect.flip),
+          ).toEqual(new IssueChangedError({ number: 11 }));
+          expect(updates(state)).toEqual([]);
+          expect(proposalIn(yield* entries(brainstorm))?.state).toEqual({ _tag: 'open' });
+          expect(state.turns).toHaveLength(1);
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('applies when only comments or labels changed the issue', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          changeIssue(state, { updatedAt: 99, labels: ['status/in-progress'] });
+
+          yield* brainstorm.decide(proposal.id, {
+            _tag: 'Apply',
+            title: 'Orchestrator',
+            body: 'Mine.',
+          });
+          yield* idle(brainstorm);
+          expect(updates(state)).toHaveLength(1);
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('discards without a Gitea write and tells Pi', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          const calls = state.giteaCalls.length;
+
+          yield* brainstorm.decide(proposal.id, { _tag: 'Discard' });
+          yield* idle(brainstorm);
+
+          expect(state.giteaCalls).toHaveLength(calls);
+          expect(proposalIn(yield* entries(brainstorm))?.state).toEqual({ _tag: 'discarded' });
+          expect(turnInputs(state)[1]).toBe(
+            'The owner discarded your edit of the issue #11 in app.',
+          );
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('refuses a decision that does not fit the proposal', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          const error = yield* brainstorm
+            .decide(proposal.id, {
+              _tag: 'Create',
+              draft: { project: 'app', title: 'X', body: '' },
+            })
+            .pipe(Effect.flip);
+          expect(error._tag).toBe('InvalidInputError');
+
+          state.script.push([propose({ project: 'app', title: 'New', body: '' })]);
+          yield* brainstorm.send('And a new one');
+          yield* idle(brainstorm);
+          const issue = (yield* entries(brainstorm)).find(
+            (entry): entry is ProposalEntry => entry.type === 'proposal' && entry.kind === 'issue',
+          );
+          const wrong = yield* brainstorm
+            .decide(issue?.id ?? '', { _tag: 'Apply', title: 'X', body: '' })
+            .pipe(Effect.flip);
+          expect(wrong._tag).toBe('InvalidInputError');
+          expect(state.giteaCalls.filter((call) => !call.startsWith('issue '))).toEqual([]);
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('keeps the card open when the issue is gone or Gitea fails', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          const apply = { _tag: 'Apply', title: 'Orchestrator', body: 'Mine.' } as const;
+
+          state.giteaFailure = 'Gitea answered 403.';
+          expect(yield* brainstorm.decide(proposal.id, apply).pipe(Effect.flip)).toEqual(
+            new GiteaUnavailableError({ reason: 'Gitea answered 403.' }),
+          );
+          state.giteaFailure = undefined;
+
+          state.issues.set('owner/app', []);
+          expect(yield* brainstorm.decide(proposal.id, apply).pipe(Effect.flip)).toEqual(
+            new IssueNotFoundError({ number: 11 }),
+          );
+
+          expect(updates(state)).toEqual([]);
+          expect(proposalIn(yield* entries(brainstorm))?.state).toEqual({ _tag: 'open' });
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('forgets the reads on New chat', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          yield* proposed(brainstorm, state);
+          yield* brainstorm.reset();
+          expect(state.storedChat?.reads).toEqual([]);
+        }),
+      arrange,
     ),
   );
 });

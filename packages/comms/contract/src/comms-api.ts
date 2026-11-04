@@ -724,6 +724,17 @@ const DraftFields = {
   }),
 };
 
+const EditFields = {
+  title: Schema.String.check(Schema.isMaxLength(255)).annotate({
+    description: "The issue's whole new title; it must not be blank.",
+    examples: ['Orchestrator mode from the brainstorm chat'],
+  }),
+  body: Schema.String.check(Schema.isMaxLength(20_000)).annotate({
+    description: "The issue's whole new body in Markdown.",
+    examples: ['Control the agents from the brainstorm chat.'],
+  }),
+};
+
 export const IssueDraft = Schema.Struct(DraftFields).annotate({
   identifier: 'IssueDraft',
   description: 'An issue as the owner edited it: exactly what is created.',
@@ -760,6 +771,35 @@ export const ProposalState = Schema.Union([
   examples: [{ _tag: 'open' }],
 });
 
+export const EditState = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.tag('open').annotate({
+      description: 'The owner has not decided yet.',
+      examples: ['open'],
+    }),
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('updated').annotate({
+      description: "The owner applied the edit and Gitea saved the issue's new title and body.",
+      examples: ['updated'],
+    }),
+    url: Schema.String.annotate({
+      description: "The issue's page in Gitea.",
+      examples: ['http://localhost:3000/smotastic/pocket-comms/issues/11'],
+    }),
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('discarded').annotate({
+      description: 'The owner discarded the edit.',
+      examples: ['discarded'],
+    }),
+  }),
+]).annotate({
+  identifier: 'EditState',
+  description: 'Whether the edit was decided.',
+  examples: [{ _tag: 'open' }],
+});
+
 export const BrainstormEntry = Schema.Union([
   Schema.Struct({
     type: Schema.tag('user').annotate({ description: "The owner's message.", examples: ['user'] }),
@@ -787,10 +827,39 @@ export const BrainstormEntry = Schema.Union([
       description: 'An issue Pi proposes.',
       examples: ['proposal'],
     }),
+    kind: Schema.tag('issue').annotate({
+      description: 'A new issue.',
+      examples: ['issue'],
+    }),
     id: entryId,
     at: entryAt,
     ...DraftFields,
     state: ProposalState,
+  }),
+  Schema.Struct({
+    type: Schema.tag('proposal').annotate({
+      description: 'An edit Pi proposes.',
+      examples: ['proposal'],
+    }),
+    kind: Schema.tag('edit').annotate({
+      description: 'A new title and body for an existing issue.',
+      examples: ['edit'],
+    }),
+    id: entryId,
+    at: entryAt,
+    project: DraftFields.project,
+    number: Schema.Int.annotate({ description: "The issue's number.", examples: [11] }),
+    url: Schema.String.annotate({
+      description: "The issue's page in Gitea.",
+      examples: ['http://localhost:3000/smotastic/pocket-comms/issues/11'],
+    }),
+    ...EditFields,
+    base: Schema.Struct({ title: Schema.String, body: Schema.String }).annotate({
+      description:
+        "The issue's title and body as Pi read them; the edit applies only while they are unchanged.",
+      examples: [{ title: 'Orchestrator mode', body: 'An orchestrator agent.' }],
+    }),
+    state: EditState,
   }),
   Schema.Struct({
     type: Schema.tag('failed').annotate({
@@ -875,8 +944,15 @@ export const ProposalDecisionRequest = Schema.Union([
     draft: IssueDraft,
   }),
   Schema.Struct({
+    _tag: Schema.tag('Apply').annotate({
+      description: 'Set the issue to exactly this title and body.',
+      examples: ['Apply'],
+    }),
+    ...EditFields,
+  }),
+  Schema.Struct({
     _tag: Schema.tag('Discard').annotate({
-      description: 'Create nothing.',
+      description: 'Create or change nothing.',
       examples: ['Discard'],
     }),
   }),
@@ -1191,7 +1267,7 @@ const brainstorm = HttpApiGroup.make('brainstorm')
       OpenApi.annotations({
         summary: 'Decide on a proposal',
         description:
-          "Creates the proposed issue as shown, with only its title and body, in the project's Gitea repository, or discards it; then tells Pi. A proposal is decided once.",
+          "Creates the proposed issue as shown, with only its title and body, in the project's Gitea repository; or applies a proposed edit, setting only the issue's title and body, when they are unchanged since Pi read them; or discards either. Then tells Pi. A proposal is decided once.",
       }),
     ),
     HttpApiEndpoint.post('reset', '/brainstorm/reset', {

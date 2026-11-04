@@ -278,6 +278,7 @@ describe('brainstorm wire schemas', () => {
       { type: 'assistant', id: 'a1', at: 2, text: '**Nice**' },
       {
         type: 'proposal',
+        kind: 'issue',
         id: 'p1',
         at: 3,
         project: 'pocket-home',
@@ -285,7 +286,20 @@ describe('brainstorm wire schemas', () => {
         body: 'A toggle.',
         state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
       },
-      { type: 'failed', id: 'f1', at: 4, reason: 'The model cannot be reached.' },
+      {
+        type: 'proposal',
+        kind: 'edit',
+        id: 'e1',
+        at: 4,
+        project: 'pocket-comms',
+        number: 11,
+        url: 'http://gitea/i/11',
+        title: 'Orchestrator',
+        body: 'New.',
+        base: { title: 'Orchestrator', body: 'Old.' },
+        state: { _tag: 'updated', url: 'http://gitea/i/11' },
+      },
+      { type: 'failed', id: 'f1', at: 5, reason: 'The model cannot be reached.' },
     ];
     const codec = Schema.Array(BrainstormEntry);
     expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(entries))).toEqual(entries);
@@ -297,10 +311,16 @@ describe('brainstorm wire schemas', () => {
     expect(['..', 'a/b', ''].map(proposal)).toEqual([false, false, false]);
   });
 
-  it('takes a decision to create with a draft, or to discard', () => {
+  it('takes a decision to create with a draft, to apply an edit, or to discard', () => {
     const decode = Schema.decodeUnknownSync(ProposalDecisionRequest);
     expect(decode({ _tag: 'Discard' })).toEqual({ _tag: 'Discard' });
+    expect(decode({ _tag: 'Apply', title: 'T', body: 'B' })).toEqual({
+      _tag: 'Apply',
+      title: 'T',
+      body: 'B',
+    });
     expect(() => decode({ _tag: 'Create' })).toThrow();
+    expect(() => decode({ _tag: 'Apply', title: 'x'.repeat(256), body: '' })).toThrow();
     expect(() =>
       decode({ _tag: 'Create', draft: { project: 'a', title: 'x'.repeat(256), body: '' } }),
     ).toThrow();

@@ -5,7 +5,7 @@ import * as Stream from 'effect/Stream';
 import { HttpApiBuilder } from 'effect/http-api';
 import { problems } from './problems.js';
 
-/** Implements the `brainstorm` group (spec 013); the wire shapes equal the application DTOs. */
+/** Implements the `brainstorm` group; the wire shapes equal the application DTOs. */
 export const brainstormHandlers = HttpApiBuilder.group(
   CommsApi,
   'brainstorm',
@@ -39,6 +39,8 @@ export const brainstormHandlers = HttpApiBuilder.group(
             NoGiteaRemoteError: problems.noGiteaRemote,
             GiteaNotConfiguredError: problems.giteaNotConfigured,
             GiteaUnavailableError: problems.giteaUnavailable,
+            IssueChangedError: problems.issueChanged,
+            IssueNotFoundError: problems.issueNotFound,
           }),
         ),
       )

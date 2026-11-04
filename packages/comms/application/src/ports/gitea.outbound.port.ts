@@ -1,4 +1,4 @@
-import type { GiteaRepository, Issue } from '@pocket-comms/comms-domain';
+import type { GiteaRepository, Issue, IssueText } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
@@ -22,8 +22,8 @@ export interface CreatedIssue {
 }
 
 /**
- * The app's Gitea server. It reads, closes issues (spec 010), creates them (spec 013) and marks
- * them in progress (spec 015); no other method writes.
+ * The app's Gitea server. It reads issues, closes them, creates them, marks them in progress and
+ * changes their title and body; no other method writes.
  */
 export class GiteaOutbound extends Context.Service<
   GiteaOutbound,
@@ -56,5 +56,11 @@ export class GiteaOutbound extends Context.Service<
       repository: GiteaRepository,
       issue: { readonly title: string; readonly body: string },
     ) => Effect.Effect<CreatedIssue, Failure>;
+    /** Sets the issue's title and body to exactly these, and changes nothing else. */
+    readonly updateIssue: (
+      repository: GiteaRepository,
+      number: number,
+      text: IssueText,
+    ) => Effect.Effect<void, Failure | IssueNotFoundError>;
   }
 >()('comms/application/GiteaOutbound') {}
