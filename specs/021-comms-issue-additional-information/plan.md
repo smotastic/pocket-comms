@@ -35,7 +35,7 @@ None. Nothing is stored (requirement 6).
   or anything is created, then passes it to `issueTask`.
 - **Web.** `ImplementForm` keeps the text in its own state next to the branch; the form is
   already keyed by the issue number and unmounted on close, so the text never reaches another
-  issue (requirement 7). The `TextArea` of `@pocket-comms/design-ui` with `maxLength` 4 000.
+  issue (requirement 7). The `TextArea` of `@pocket-comms/design-ui`; as in the New task sheet, the server checks the limit.
   `implementIssue(project, number, branch, additionalInformation?)` sends the field only when it
   is not blank. A server issue on `additionalInformation` shows under the field.
 

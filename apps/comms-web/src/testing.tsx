@@ -116,7 +116,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
     seen: [] as Array<string>,
     tasks: [] as Array<NewTask>,
-    implemented: [] as Array<[string, number, string]>,
+    implemented: [] as Array<[string, number, string, string?]>,
     closed: [] as Array<[string, number]>,
     closedAgents: [] as Array<[string, boolean]>,
     brainstormMessages: [] as Array<string>,
@@ -183,8 +183,12 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       if (list instanceof RequestError) throw list;
       return list;
     },
-    implementIssue: async (project, number, branch) => {
-      calls.implemented.push([project, number, branch]);
+    implementIssue: async (project, number, branch, additionalInformation) => {
+      calls.implemented.push(
+        additionalInformation === undefined
+          ? [project, number, branch]
+          : [project, number, branch, additionalInformation],
+      );
       if (state.implemented instanceof RequestError) throw state.implemented;
       return state.implemented;
     },

@@ -204,18 +204,77 @@ describe('Implement with Claude', () => {
     expect(await screen.findByText('fix/8-x is ready in a new worktree.')).toBeTruthy();
   });
 
-  it('keeps the branch and shows why starting failed', async () => {
+  it('sends the additional information the owner typed, with its line breaks', async () => {
+    const { calls } = open(listed(issue({ number: 8, branch: 'feat/8-issue' })));
+
+    const sheet = await startSheet(8);
+    await userEvent.type(
+      within(sheet).getByRole('textbox', { name: 'Additional information' }),
+      'Use the list.{Enter}{Enter}Keep it small.',
+    );
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Start Claude' }));
+
+    expect(calls.implemented).toEqual([
+      ['pocket-comms', 8, 'feat/8-issue', 'Use the list.\n\nKeep it small.'],
+    ]);
+  });
+
+  it('starts every sheet with empty additional information', async () => {
+    const { calls } = open(
+      listed(
+        issue({ number: 8, branch: 'feat/8-issue' }),
+        issue({ number: 3, branch: 'feat/3-x' }),
+      ),
+    );
+
+    let sheet = await startSheet(8);
+    await userEvent.type(
+      within(sheet).getByRole('textbox', { name: 'Additional information' }),
+      'Only for #8.',
+    );
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
+    sheet = await startSheet(3);
+    const field = within(sheet).getByRole('textbox', { name: 'Additional information' });
+    expect((field as HTMLTextAreaElement).value).toBe('');
+    await userEvent.type(field, '   ');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Start Claude' }));
+
+    expect(calls.implemented).toEqual([['pocket-comms', 3, 'feat/3-x']]);
+  });
+
+  it('keeps the branch and the additional information and shows why starting failed', async () => {
     open(listed(issue({ number: 8, branch: 'feat/8-issue' })), {
       implemented: new RequestError('The branch exists already', 409),
     });
 
     const sheet = await startSheet(8);
+    const extra = within(sheet).getByRole('textbox', { name: 'Additional information' });
+    await userEvent.type(extra, 'A hint.');
     await userEvent.click(within(sheet).getByRole('button', { name: 'Start Claude' }));
 
     expect(await within(sheet).findByText('The branch exists already')).toBeTruthy();
     expect((within(sheet).getByRole('textbox', { name: 'Branch' }) as HTMLInputElement).value).toBe(
       'feat/8-issue',
     );
+    expect((extra as HTMLTextAreaElement).value).toBe('A hint.');
+  });
+
+  it('shows additional information the server refuses next to the field', async () => {
+    open(listed(issue({ number: 8 })), {
+      implemented: new RequestError('The request is invalid', 422, [
+        {
+          field: 'additionalInformation',
+          message: 'The additional information is longer than 4000 characters.',
+        },
+      ]),
+    });
+
+    const sheet = await startSheet(8);
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Start Claude' }));
+
+    expect(
+      await within(sheet).findByText('The additional information is longer than 4000 characters.'),
+    ).toBeTruthy();
   });
 
   it('shows a branch the server refuses next to the field', async () => {
