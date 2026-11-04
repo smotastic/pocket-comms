@@ -882,6 +882,19 @@
         "additionalProperties": false,
         "description": "Implement the issue with Claude in a new worktree on this branch.",
         "properties": {
+          "additionalInformation": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Added to the agent's first prompt under `## Additional information`, for this launch only; it is sent trimmed, and blank text counts as none.",
+            "examples": ["Start with the domain tests."]
+          },
           "branch": {
             "description": "The new branch, `<type>/<kebab-description>`; it must not exist yet.",
             "examples": ["feat/8-per-project-gitea-issue-list"],

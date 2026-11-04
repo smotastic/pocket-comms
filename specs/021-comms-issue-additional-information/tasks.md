@@ -15,5 +15,5 @@ in the task's own commit.
 - [x] **T03** — Web: the Additional information field in the Implement sheet
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T04** — Docs: the comms service guide; the spec's status `Done`
+- [x] **T04** — Docs: the comms service guide; the spec's status `Done`
   - Gate: `pnpm verify:local`

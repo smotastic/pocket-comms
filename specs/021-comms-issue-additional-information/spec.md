@@ -1,6 +1,6 @@
 # Spec 021 — pocket-comms: additional information when implementing an issue
 
-- **Status:** `Approved` — approved by the owner (2026-11-04)
+- **Status:** `Done` — approved by the owner (2026-11-04)
 - **Changes:** [spec 006](../006-comms-gitea-issues/spec.md) (requirements 10 and 13: the
   Implement with Claude sheet and the task an issue gives the agent)
 - **Issue:** smotastic/pocket-comms#48
