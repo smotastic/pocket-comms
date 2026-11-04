@@ -2,18 +2,24 @@ import { describe, expect, it } from '@effect/vitest';
 import * as Result from 'effect/Result';
 import {
   baseChanged,
+  chatPictures,
   cutDoc,
   cutIssueBody,
   isProjectDoc,
   MAX_DOC_LENGTH,
   MAX_ISSUE_BODY,
   MAX_ISSUE_TITLE,
+  MAX_PROPOSAL_PICTURES,
+  missingPictures,
   parseIssueDraft,
   parseIssueEdit,
+  parsePictureChoice,
+  picturesByNumber,
   proposalOf,
   readOf,
   rememberRead,
   settleProposal,
+  withPictures,
   type BrainstormEntry,
   type IssueProposal,
   type IssueRead,
@@ -27,11 +33,13 @@ const proposal = (id: string, state: IssueProposal['state'] = { _tag: 'open' }):
   project: 'pocket-home',
   title: 'Dark mode',
   body: 'A toggle.',
+  pictures: [],
+  attached: [],
   state,
 });
 
 const entries: ReadonlyArray<BrainstormEntry> = [
-  { type: 'user', id: 'u1', at: 1, text: 'Idea: dark mode' },
+  { type: 'user', id: 'u1', at: 1, text: 'Idea: dark mode', images: [] },
   proposal('p1'),
   proposal('p2', { _tag: 'discarded' }),
 ];
@@ -165,5 +173,75 @@ describe('project docs', () => {
     const cut = cutDoc('x'.repeat(MAX_DOC_LENGTH + 10));
     expect(cut.startsWith('x'.repeat(MAX_DOC_LENGTH))).toBe(true);
     expect(cut.endsWith('[cut: the file is longer]')).toBe(true);
+  });
+});
+
+describe('pictures', () => {
+  const imageA = 'a'.repeat(26);
+  const imageB = 'b'.repeat(26);
+  const imageC = 'c'.repeat(26);
+  const chat: ReadonlyArray<BrainstormEntry> = [
+    { type: 'user', id: 'u1', at: 1, text: 'Like this?', images: [imageA, imageB] },
+    { type: 'assistant', id: 'a1', at: 2, text: 'Nice.' },
+    { type: 'user', id: 'u2', at: 3, text: '', images: [imageC] },
+  ];
+
+  it('numbers the pictures of the chat from 1 in the order they were sent', () => {
+    expect(chatPictures(chat)).toEqual([
+      { id: imageA, number: 1 },
+      { id: imageB, number: 2 },
+      { id: imageC, number: 3 },
+    ]);
+    expect(chatPictures(entries)).toEqual([]);
+  });
+
+  it('finds the pictures Pi names by number, in their order', () => {
+    expect(picturesByNumber(chat, [3, 1])).toEqual(Result.succeed([imageA, imageC]));
+  });
+
+  it('refuses a number that is no picture of the chat, a repeat, and more than five', () => {
+    expect(Result.isFailure(picturesByNumber(chat, [4]))).toBe(true);
+    expect(Result.isFailure(picturesByNumber(chat, [0]))).toBe(true);
+    expect(Result.isFailure(picturesByNumber(chat, [1, 1]))).toBe(true);
+    expect(Result.isFailure(picturesByNumber(chat, [1, 2, 3, 1, 2, 3]))).toBe(true);
+  });
+
+  it('checks the owner choice by id and puts it in number order', () => {
+    expect(parsePictureChoice(chat, [imageC, imageB])).toEqual(Result.succeed([imageB, imageC]));
+    expect(parsePictureChoice(chat, [])).toEqual(Result.succeed([]));
+    expect(Result.isFailure(parsePictureChoice(chat, ['z'.repeat(26)]))).toBe(true);
+    expect(Result.isFailure(parsePictureChoice(chat, [imageA, imageA]))).toBe(true);
+  });
+
+  it('refuses more than five chosen pictures', () => {
+    const many: ReadonlyArray<BrainstormEntry> = [
+      {
+        type: 'user',
+        id: 'u1',
+        at: 1,
+        text: '',
+        images: ['a', 'b', 'c', 'd', 'e', 'f'].map((letter) => letter.repeat(26)),
+      },
+    ];
+    const ids = chatPictures(many).map((picture) => picture.id);
+    expect(Result.isFailure(parsePictureChoice(many, ids))).toBe(true);
+    expect(MAX_PROPOSAL_PICTURES).toBe(5);
+  });
+
+  it('appends a Pictures block to the body, and keeps the body without pictures', () => {
+    expect(withPictures('The idea.', [])).toBe('The idea.');
+    expect(
+      withPictures('The idea.', [
+        { number: 1, url: 'https://gitea.test/attachments/1' },
+        { number: 3, url: 'https://gitea.test/attachments/3' },
+      ]),
+    ).toBe(
+      'The idea.\n\n## Pictures\n\n![Picture 1](https://gitea.test/attachments/1)\n![Picture 3](https://gitea.test/attachments/3)',
+    );
+    expect(withPictures('', [{ number: 2, url: 'u' }])).toBe('## Pictures\n\n![Picture 2](u)');
+  });
+
+  it('names the chosen pictures that are not attached yet', () => {
+    expect(missingPictures([imageA, imageB], [{ image: imageA, url: 'u' }])).toEqual([imageB]);
   });
 });

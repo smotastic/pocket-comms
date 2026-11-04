@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Domain: a user entry's images, the chat's pictures by number, a proposal's
+- [x] **T01** — Domain: a user entry's images, the chat's pictures by number, a proposal's
       pictures and attached pictures, the `attaching` state, `parsePictureChoice` and
       `withPictures`
   - Gate: `pnpm nx test comms-domain`
