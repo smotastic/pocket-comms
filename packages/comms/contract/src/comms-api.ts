@@ -854,7 +854,16 @@ export const BrainstormEntry = Schema.Union([
       examples: ['http://localhost:3000/smotastic/pocket-comms/issues/11'],
     }),
     ...EditFields,
-    base: Schema.Struct({ title: Schema.String, body: Schema.String }).annotate({
+    base: Schema.Struct({
+      title: Schema.String.annotate({
+        description: "The issue's title as Pi read it.",
+        examples: ['Orchestrator mode'],
+      }),
+      body: Schema.String.annotate({
+        description: "The issue's body as Pi read it.",
+        examples: ['An orchestrator agent.'],
+      }),
+    }).annotate({
       description:
         "The issue's title and body as Pi read them; the edit applies only while they are unchanged.",
       examples: [{ title: 'Orchestrator mode', body: 'An orchestrator agent.' }],
@@ -944,17 +953,17 @@ export const ProposalDecisionRequest = Schema.Union([
     draft: IssueDraft,
   }),
   Schema.Struct({
+    _tag: Schema.tag('Discard').annotate({
+      description: 'Create nothing.',
+      examples: ['Discard'],
+    }),
+  }),
+  Schema.Struct({
     _tag: Schema.tag('Apply').annotate({
       description: 'Set the issue to exactly this title and body.',
       examples: ['Apply'],
     }),
     ...EditFields,
-  }),
-  Schema.Struct({
-    _tag: Schema.tag('Discard').annotate({
-      description: 'Create or change nothing.',
-      examples: ['Discard'],
-    }),
   }),
 ]).annotate({
   identifier: 'ProposalDecisionRequest',

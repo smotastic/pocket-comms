@@ -1,6 +1,6 @@
 # Spec 022 — pocket-comms: the brainstorm chat edits existing issues
 
-- **Status:** `Approved` — approved by the owner (2026-11-04)
+- **Status:** `Done` — approved by the owner (2026-11-04), implemented in the pull request for Gitea #44
 - **Changes:** [spec 013](../013-comms-brainstorm-chat/spec.md) (requirements 10 and 11: Pi's
   tools; the out-of-scope "editing issues"; the app's Gitea writes gain an issue's title and body)
 - **Issue:** Gitea #44
@@ -108,6 +108,10 @@ overwrites a change someone else made in the meantime.
 - The check and the write are two requests; Gitea has no conditional update. A change made in
   the moment between them is not caught. The owner accepted this.
 - Gitea's update is `PATCH /repos/{owner}/{repo}/issues/{index}` with only `title` and `body`.
+- **The new entry in the chat's state** is a breaking change to the OpenAPI diff gate: a reader of
+  `GET /api/v1/brainstorm` meets a proposal kind it did not know. The web app is the only reader
+  and ships with the server, so the owner accepted it in `.pocket-ci/openapi-accepted-changes.txt`
+  (2026-11-04). The line goes once `master` carries the change.
 - **Owner's decisions of 2026-11-04:** compare title and body; refuse on a change, with no
   overwrite; editable fields plus a collapsed current version, no diff; full title and body, both
   required; open and closed issues, no pull requests, no comments; the base is Pi's last read in

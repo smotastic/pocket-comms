@@ -24,5 +24,5 @@ in the task's own commit.
 - [x] **T05** — Web: `IssueEditCard` in the design system and the brainstorm sheet shows it
   - Gate: `pnpm nx run-many -t test -p design-ui comms-web`
 
-- [ ] **T06** — Docs: the comms service guide; the spec's status `Done`
+- [x] **T06** — Docs: the comms service guide; the spec's status `Done`
   - Gate: `pnpm verify:local`

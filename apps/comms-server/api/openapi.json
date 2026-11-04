@@ -628,9 +628,13 @@
                 ],
                 "properties": {
                   "body": {
+                    "description": "The issue's body as Pi read it.",
+                    "examples": ["An orchestrator agent."],
                     "type": "string"
                   },
                   "title": {
+                    "description": "The issue's title as Pi read it.",
+                    "examples": ["Orchestrator mode"],
                     "type": "string"
                   }
                 },
@@ -1528,6 +1532,19 @@
             "additionalProperties": false,
             "properties": {
               "_tag": {
+                "description": "Create nothing.",
+                "enum": ["Discard"],
+                "examples": ["Discard"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
                 "description": "Set the issue to exactly this title and body.",
                 "enum": ["Apply"],
                 "examples": ["Apply"],
@@ -1547,19 +1564,6 @@
               }
             },
             "required": ["_tag", "title", "body"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "_tag": {
-                "description": "Create or change nothing.",
-                "enum": ["Discard"],
-                "examples": ["Discard"],
-                "type": "string"
-              }
-            },
-            "required": ["_tag"],
             "type": "object"
           }
         ],

@@ -2,7 +2,7 @@
 
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
 them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, it reads,
-closes and marks in progress the projects' Gitea issues, it runs the brainstorm chat with Pi, it keeps the images
+closes and marks in progress the projects' Gitea issues, it runs the brainstorm chat with Pi, which proposes new issues and edits of existing ones, it keeps the images
 the owner attaches to a prompt, it pushes a notification to the owner's devices when an agent
 needs them, and it follows the background work and the subagents of Claude agents. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
@@ -15,8 +15,9 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 015](../../specs/015-comms-issues-in-progress/spec.md),
 [spec 017](../../specs/017-comms-activity-timeline/spec.md),
 [spec 018](../../specs/018-comms-push-notifications/spec.md),
-[spec 019](../../specs/019-comms-background-activity/spec.md) and
-[spec 020](../../specs/020-comms-push-after-background-work/spec.md).
+[spec 019](../../specs/019-comms-background-activity/spec.md),
+[spec 020](../../specs/020-comms-push-after-background-work/spec.md) and
+[spec 022](../../specs/022-comms-brainstorm-edits-issues/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, and the push devices and the
@@ -30,7 +31,7 @@ VAPID key pair are two JSON files in its `push` folder.
 | Agents, the overview rules, input rules, transcript entries, access | `domain`                                                    |
 | New task rules (projects order, branch, task, agent name)           | `domain` (`src/task.ts`)                                    |
 | Issue rules (remote, order, branch, task text, work per issue)      | `domain` (`src/issue.ts`)                                   |
-| Brainstorm entries, proposals, issue drafts, project docs           | `domain` (`src/brainstorm.ts`)                              |
+| Brainstorm entries, proposals, issue drafts and edits, issue reads  | `domain` (`src/brainstorm.ts`)                              |
 | Image rules (kinds, ids, limits, paths in a prompt)                 | `domain` (`src/image.ts`)                                   |
 | The image store                                                     | `infrastructure` (`src/images`)                             |
 | Activity rules (snapshot diff, what is kept, prompt excerpts)       | `domain` (`src/activity.ts`)                                |
@@ -55,9 +56,10 @@ VAPID key pair are two JSON files in its `push` folder.
   the projects port lists; never accept a path from a request.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
-- `GiteaOutbound` reads, and writes only `closeIssue` (spec 010), `createIssue` (spec 013) and
-  `markInProgress` (spec 015): the HTTP adapter sends `GET`, a `PATCH` with exactly
-  `{"state":"closed"}`, a `POST` with exactly `{"title","body"}`, a `POST` that creates the
+- `GiteaOutbound` reads, and writes only `closeIssue` (spec 010), `createIssue` (spec 013),
+  `markInProgress` (spec 015) and `updateIssue` (spec 022): the HTTP adapter sends `GET`, a
+  `PATCH` with exactly `{"state":"closed"}`, a `PATCH` with exactly `{"title","body"}`, a `POST`
+  with exactly `{"title","body"}`, a `POST` that creates the
   `status/in-progress` label and a `POST` that adds it to an issue; never a `PUT` (it would replace
   an issue's labels) or a `DELETE`, and it follows no redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
   header; never log it, put it in an error or send it to the browser. Tests use the anonymised
@@ -70,9 +72,13 @@ VAPID key pair are two JSON files in its `push` folder.
   marks the issue in progress only after the task exists, and a failed mark never fails the start.
   Whether an issue is in progress is `isInProgress` in the domain; the web app only groups by it.
 - Pi runs through `AgentRuntimeOutbound` (ADR 0012); only `infrastructure` imports
-  `@earendil-works/*`, never `pi-coding-agent`. Pi's tools only read (projects, open issues,
-  `README.md` and `AGENTS.md`), none takes a path, and `propose_issue` ends the turn. Only the
-  owner's decision on a proposal creates an issue. Do not give Pi a tool that writes.
+  `@earendil-works/*`, never `pi-coding-agent`. Pi's tools only read (projects, open issues, one
+  issue, `README.md` and `AGENTS.md`), none takes a path, and `propose_issue` and
+  `propose_issue_edit` end the turn. Only the owner's decision on a proposal creates or changes an
+  issue. Do not give Pi a tool that writes.
+- An edit applies only while the issue's title and body equal the ones Pi read (`baseChanged`);
+  the server re-reads the issue right before the `PATCH`. Pi may propose an edit only for an
+  issue it read in this chat, and never for one whose body was cut.
 - The brainstorm chat is optional: without its model settings the server starts and the chat says
   it is not set up. No test in CI calls a model; the Pi adapter is tested with pi-ai's faux
   provider.
