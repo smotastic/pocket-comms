@@ -427,10 +427,13 @@ export const makeBrainstorm = Effect.gen(function* () {
     Effect.gen(function* () {
       if (proposal.attached.length > 0) {
         const current = yield* giteaOutbound.issue(repository, created.number);
-        yield* giteaOutbound.updateIssue(repository, created.number, {
-          title: current.title,
-          body: bodyWithPictures(current.body, proposal.attached, proposal.pictures),
-        });
+        // An earlier update may have reached Gitea although its answer was lost.
+        const linked = proposal.attached.every((picture) => current.body.includes(picture.url));
+        if (!linked)
+          yield* giteaOutbound.updateIssue(repository, created.number, {
+            title: current.title,
+            body: bodyWithPictures(current.body, proposal.attached, proposal.pictures),
+          });
       }
       return {
         ...proposal,

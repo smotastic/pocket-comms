@@ -39,6 +39,8 @@ export interface HttpOptions {
   readonly hosts: ReadonlyArray<string>;
   /** How long one request may take. Default 10 seconds. */
   readonly timeout?: Duration.Input;
+  /** How long one picture upload may take. Default 60 seconds. */
+  readonly uploadTimeout?: Duration.Input;
 }
 
 const PAGE_SIZE = 50;
@@ -78,7 +80,13 @@ const toIssue = (issue: typeof GiteaIssue.Type): Issue => ({
   pull: issue.pull_request !== undefined && issue.pull_request !== null,
 });
 
-export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOptions) => {
+export const layerHttp = ({
+  url,
+  token,
+  hosts,
+  timeout = '10 seconds',
+  uploadTimeout = '60 seconds',
+}: HttpOptions) => {
   const base = url.replace(/\/+$/u, '');
   const ownHosts = new Set(
     [URL.canParse(base) ? new URL(base).hostname : '', ...hosts]
@@ -98,6 +106,7 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
     body?: unknown,
     refused: (response: Response) => Effect.Effect<string> = (response) =>
       Effect.succeed(`Gitea answered ${response.status}.`),
+    deadline: Duration.Input = timeout,
   ) =>
     Effect.gen(function* () {
       if (Option.isNone(token)) return yield* new GiteaNotConfiguredError();
@@ -124,7 +133,7 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
           ),
       }).pipe(
         Effect.timeoutOrElse({
-          duration: timeout,
+          duration: deadline,
           orElse: () => Effect.fail(unavailable(`Gitea did not answer in time at ${base}.`)),
         }),
       );
@@ -322,6 +331,7 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
         `${repositoryPath(repository)}/issues/${number}/assets`,
         form,
         pictureRefused(picture.name),
+        uploadTimeout,
       );
       if (answer === undefined) return yield* new IssueNotFoundError({ number });
       const attachment = yield* json(answer).pipe(

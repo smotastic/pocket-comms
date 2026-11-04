@@ -1205,6 +1205,39 @@ describe('pictures in the brainstorm chat', () => {
     ),
   );
 
+  it.effect('appends no second Pictures block when the body already links them', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          state.giteaRefusedPictures.add('picture-2.jpg');
+          yield* Effect.flip(
+            brainstorm.decide(proposal.id, {
+              _tag: 'Create',
+              draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              pictures: [PICTURE_A, PICTURE_B],
+            }),
+          );
+          // An earlier update reached Gitea, but its answer was lost.
+          const linked =
+            'Paint it.\n\n## Pictures\n\n![Picture 1](http://gitea.test/attachments/12/picture-1.png)';
+          state.issues.set(
+            'owner/app',
+            (state.issues.get('owner/app') ?? []).map((issue) =>
+              issue.number === 12 ? { ...issue, body: linked } : issue,
+            ),
+          );
+          state.giteaCalls.length = 0;
+
+          yield* brainstorm.decide(proposal.id, { _tag: 'FinishWithout' });
+
+          expect(gitea(state)).toEqual(['issue owner/app 12']);
+          expect(proposalIn(yield* entries(brainstorm))?.state).toMatchObject({ _tag: 'created' });
+        }),
+      arrange,
+    ),
+  );
+
   it.effect('refuses a Finish without on an open proposal and a Discard on an attaching one', () =>
     run(
       (brainstorm, state) =>
