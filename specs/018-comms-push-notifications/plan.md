@@ -1,7 +1,7 @@
 # Plan 018 — pocket-comms: push notifications when an agent needs you
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved by the owner together with the spec (2026-11-03)
+- **Status:** `Done` — approved by the owner together with the spec (2026-11-03), implemented in #38
 
 ## 1. Affected projects
 

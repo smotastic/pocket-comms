@@ -52,5 +52,5 @@ in the task's own commit.
 
 - [x] **T09** — `packages/comms/AGENTS.md` and the README name spec 018 and the push rules;
       `pnpm verify:local`. Spec and plan stay `Approved` until the owner's manual iPhone check
-      after the deploy; that check sets them `Done`.
+      after the deploy; that check sets them `Done` (done 2026-11-04).
   - Gate: `pnpm verify:local`
