@@ -25,7 +25,7 @@ None. Nothing new is stored; a held change lives only in the notifier's fiber (r
 
 - **One background count.** `agents.ts` has `backgroundOf(agent)`: the agent's transcript source,
   `TranscriptOutbound.background`, a read failure as no work, then `runningAt` with the clock.
-  It moves into `use-cases/background.ts` as `makeBackgroundOf`, which yields the function from
+  It becomes `makeBackgroundOf`, exported from `agents.ts` next to `sourceOf`, which yields the function from
   `TranscriptOutbound`. The overview and the notifier then count with the same code
   (requirement 1).
 - **The held wait.** `deliver(change)` in `notify.use-case.ts` stays as it is for a blocked
