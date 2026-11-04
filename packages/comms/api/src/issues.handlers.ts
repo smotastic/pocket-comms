@@ -26,6 +26,7 @@ export const issuesHandlers = HttpApiBuilder.group(
             project: params.project,
             number: Number(params.number),
             branch: payload.branch,
+            additionalInformation: payload.additionalInformation,
           })
           .pipe(
             Effect.catchTags({

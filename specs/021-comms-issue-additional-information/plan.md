@@ -16,9 +16,9 @@
 ## 2. Contract changes
 
 `POST /projects/:project/issues/:number/implement` takes an optional
-`additionalInformation: string` in its payload. Old clients send none and behave as before. The
-limit is a domain rule (requirement 2), so the contract does not repeat it; the domain answers
-the field-level `400`, as it does for the task text of spec 005.
+`additionalInformation: string` of at most 4 000 characters in its payload. Old clients send none
+and behave as before. As for the task text of spec 005, the contract states the limit and the
+domain enforces it; both answer a field-level `422`.
 
 ## 3. Migrations
 

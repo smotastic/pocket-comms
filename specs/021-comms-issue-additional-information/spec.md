@@ -23,7 +23,7 @@ message after the agent has already started on the plain issue.
 
 1. The Implement with Claude sheet has an optional multi-line **Additional information** field
    next to the branch field, empty when the sheet opens.
-2. The field takes at most 4 000 characters. Longer text answers `400` with an issue on the
+2. The field takes at most 4 000 characters. Longer text answers `422` with an issue on the
    `additionalInformation` field, and nothing is created.
 3. Text that is empty or only whitespace counts as none: the task is exactly the task of spec
    006, requirement 13.
@@ -64,7 +64,7 @@ message after the agent has already started on the plain issue.
 - Given a body of 30 000 characters and 1 000 characters of additional information, then the
   task is at most 20 000 characters, the body ends with the cut note, and the additional
   information is whole.
-- Given 4 001 characters of additional information, then the start answers `400` on
+- Given 4 001 characters of additional information, then the start answers `422` on
   `additionalInformation` and no worktree is created.
 
 ## 5. Notes

@@ -8,7 +8,7 @@ in the task's own commit.
 - [x] **T01** — Domain: `parseAdditionalInformation` and `issueTask` with the optional text
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application, contract and API: the optional `additionalInformation` of the
+- [x] **T02** — Application, contract and API: the optional `additionalInformation` of the
       implement request reaches the first prompt
   - Gate: `pnpm nx test comms-application comms-api`
 

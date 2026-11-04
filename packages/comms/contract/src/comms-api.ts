@@ -676,6 +676,11 @@ export const ImplementIssueRequest = Schema.Struct({
     description: 'The new branch, `<type>/<kebab-description>`; it must not exist yet.',
     examples: ['feat/8-per-project-gitea-issue-list'],
   }),
+  additionalInformation: optional(Schema.String.check(Schema.isMaxLength(4_000)), {
+    description:
+      "Added to the agent's first prompt under `## Additional information`, for this launch only; it is sent trimmed, and blank text counts as none.",
+    examples: ['Start with the domain tests.'],
+  }),
 }).annotate({
   identifier: 'ImplementIssueRequest',
   description: 'Implement the issue with Claude in a new worktree on this branch.',
