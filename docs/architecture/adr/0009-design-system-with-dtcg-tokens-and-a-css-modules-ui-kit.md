@@ -4,6 +4,11 @@
 - **Date:** 2026-10-19
 - **Related:** constitution principles 5, 6 and 9; ADRs 0007, 0008; spec 002
 
+> **As-built note (2026-11-04, later).** `@smotastic/pocket-design` 0.4.0 brings back what the
+> move lost: the kit's `AgentRow`/`AgentList` with an eight-hue project palette (frosted hues
+> around Ice), `Sheet side="end"` for the projects sheet, `TerminalScreen` with its colours and a
+> one-line `Composer`. comms deletes its own agent row and terminal screen for them.
+
 > **As-built note (2026-11-04).** The tokens and the UI kit no longer live in this repository:
 > the web app takes its look and its reusable components from the published package
 > `@smotastic/pocket-design` (Polaris), pinned in the catalog of `pnpm-workspace.yaml`, following

@@ -1,4 +1,5 @@
 import {
+  AgentList,
   Alert,
   AppBar,
   Button,
@@ -13,11 +14,11 @@ import {
   Stack,
   Tag,
   Text,
+  type Hue,
 } from '@smotastic/pocket-design';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AgentItem } from './AgentItem.js';
-import { AgentList } from './AgentRow.js';
 import { BrainstormAction } from './Brainstorm.js';
 import type {
   AgentView,
@@ -36,6 +37,7 @@ import { navigateOnPlainClick } from './links.js';
 import { useNow, useOverviewLive } from './live.js';
 import { NewTask } from './NewTask.js';
 import { filterOverview } from './project-agents.js';
+import { projectHue } from './rows.js';
 import { since } from './since.js';
 import { startedNotice } from './started.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -174,10 +176,13 @@ const agentsOf = (overview: OverviewView, project: string) => {
 
 const Agents = ({
   agents,
+  hue,
   now,
   onOpen,
 }: {
   readonly agents: ReadonlyArray<AgentView>;
+  /** The project's colour. */
+  readonly hue: Hue;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
 }) => (
@@ -192,6 +197,7 @@ const Agents = ({
               <AgentItem
                 key={agent.paneId}
                 agent={agent}
+                hue={hue}
                 withProject={false}
                 now={now}
                 onOpen={onOpen}
@@ -316,6 +322,7 @@ export const ProjectPage = ({
           ) : (
             <Agents
               agents={agentsOf(overview.data, project)}
+              hue={projectHue(project, projects.data?.map(({ name }) => name) ?? [])}
               now={now}
               onOpen={onOpenAgent}
             />
