@@ -81,6 +81,7 @@ export {
 export {
   GiteaOutbound,
   type CreatedIssue,
+  type IssuePicture,
   type LinkedRepository,
 } from './ports/gitea.outbound.port.js';
 export { ImagesInbound } from './ports/images.inbound.port.js';

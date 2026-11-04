@@ -1,4 +1,5 @@
 import { BrainstormStoreOutbound, type StoredChat } from '@pocket-comms/comms-application';
+import type { BrainstormEntry } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
@@ -19,6 +20,7 @@ const ProposalState = Schema.Union([
   Schema.Struct({ _tag: Schema.tag('open') }),
   Schema.Struct({ _tag: Schema.tag('created'), number: Schema.Int, url: Schema.String }),
   Schema.Struct({ _tag: Schema.tag('discarded') }),
+  Schema.Struct({ _tag: Schema.tag('attaching'), number: Schema.Int, url: Schema.String }),
 ]);
 
 const EditState = Schema.Union([
@@ -26,6 +28,15 @@ const EditState = Schema.Union([
   Schema.Struct({ _tag: Schema.tag('updated'), url: Schema.String }),
   Schema.Struct({ _tag: Schema.tag('discarded') }),
 ]);
+
+// A chat saved before pictures (version 2 and older) has none of these.
+const Ids = Schema.optional(Schema.Array(Schema.String));
+const Pictures = {
+  pictures: Ids,
+  attached: Schema.optional(
+    Schema.Array(Schema.Struct({ image: Schema.String, url: Schema.String })),
+  ),
+};
 
 const IssueFields = {
   type: Schema.tag('proposal'),
@@ -36,14 +47,19 @@ const IssueFields = {
   state: ProposalState,
 };
 
-const User = Schema.Struct({ type: Schema.tag('user'), ...Text, text: Schema.String });
+const User = Schema.Struct({
+  type: Schema.tag('user'),
+  ...Text,
+  text: Schema.String,
+  images: Ids,
+});
 const Assistant = Schema.Struct({ type: Schema.tag('assistant'), ...Text, text: Schema.String });
 const Failed = Schema.Struct({ type: Schema.tag('failed'), ...Text, reason: Schema.String });
 
 const Entry = Schema.Union([
   User,
   Assistant,
-  Schema.Struct({ ...IssueFields, kind: Schema.tag('issue') }),
+  Schema.Struct({ ...IssueFields, ...Pictures, kind: Schema.tag('issue') }),
   Schema.Struct({
     type: Schema.tag('proposal'),
     kind: Schema.tag('edit'),
@@ -54,6 +70,7 @@ const Entry = Schema.Union([
     title: Schema.String,
     body: Schema.String,
     base: Schema.Struct({ title: Schema.String, body: Schema.String }),
+    ...Pictures,
     state: EditState,
   }),
   Failed,
@@ -70,8 +87,9 @@ const Read = Schema.Struct({
 
 const Runtime = Schema.NullOr(Schema.Struct({ adapter: Schema.String, state: Schema.Json }));
 
+/** Version 3 adds the pictures (spec 023); version 2 has none and reads the same way. */
 const StoredFile = Schema.Struct({
-  version: Schema.Literal(2),
+  version: Schema.Literals([2, 3]),
   id: Schema.String,
   entries: Schema.Array(Entry),
   reads: Schema.Array(Read),
@@ -90,15 +108,29 @@ const decode = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Union([StoredFile, StoredFileV1])),
 );
 
+type StoredEntry = (typeof StoredFile.Type)['entries'][number];
+
+/** The entry with the pictures a file from before them does not have. */
+const withPictures = (entry: StoredEntry): BrainstormEntry => {
+  switch (entry.type) {
+    case 'user':
+      return { ...entry, images: entry.images ?? [] };
+    case 'proposal':
+      return { ...entry, pictures: entry.pictures ?? [], attached: entry.attached ?? [] };
+    default:
+      return entry;
+  }
+};
+
 const toChat = (stored: typeof StoredFile.Type | typeof StoredFileV1.Type): StoredChat => ({
   id: stored.id,
   entries:
-    stored.version === 2
-      ? stored.entries
-      : stored.entries.map((entry) =>
-          entry.type === 'proposal' ? { ...entry, kind: 'issue' as const } : entry,
-        ),
-  reads: stored.version === 2 ? stored.reads : [],
+    stored.version === 1
+      ? stored.entries.map((entry) =>
+          withPictures(entry.type === 'proposal' ? { ...entry, kind: 'issue' as const } : entry),
+        )
+      : stored.entries.map(withPictures),
+  reads: stored.version === 1 ? [] : stored.reads,
   runtime: Option.fromNullishOr(stored.runtime),
 });
 
@@ -141,7 +173,7 @@ export const layerFile = ({ folder }: FileStoreOptions) => {
     Effect.tryPromise(async () => {
       await mkdir(folder, { recursive: true, mode: 0o700 });
       const file: typeof StoredFile.Encoded = {
-        version: 2,
+        version: 3,
         id: chat.id,
         entries: chat.entries,
         reads: chat.reads,

@@ -10,11 +10,11 @@ in the task's own commit.
       `withPictures`
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Adapters: `GiteaOutbound.attachImage` and the multipart upload;
+- [x] **T02** — Adapters: `GiteaOutbound.attachImage` and the multipart upload;
       `AgentRuntimeOutbound.seesImages` and the turn's images in the Pi adapter
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-application comms-infrastructure`
 
-- [ ] **T03** — Application and storage: `send` with images and Pi's picture notes; the propose
+- [x] **T03** — Application and storage: `send` with images and Pi's picture notes; the propose
       tools' `pictures`; `decide` uploads, retries and finishes without; the state's pictures;
       the chat file version 3
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-application comms-infrastructure`
