@@ -1,6 +1,6 @@
 # Spec 023 — pocket-comms: pictures in the brainstorm chat and its issues
 
-- **Status:** `Approved` — approved by the owner (2026-11-04)
+- **Status:** `Done` — approved by the owner (2026-11-04), implemented in the pull request for Gitea #52
 - **Changes:** [spec 013](../013-comms-brainstorm-chat/spec.md) (the composer, the conversation,
   Pi's input, issue proposals and the app's Gitea writes), [spec 014](../014-comms-images-in-chat/spec.md)
   (out of scope: "images in the brainstorm chat") and

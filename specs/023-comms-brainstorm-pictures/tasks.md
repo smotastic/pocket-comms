@@ -28,5 +28,5 @@ in the task's own commit.
       Pictures section, the attaching card, the notice for a model without vision
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T06** — Docs: the comms service guide; the spec's status `Done`
+- [x] **T06** — Docs: the comms service guide; the spec's status `Done`
   - Gate: `pnpm verify:local`
