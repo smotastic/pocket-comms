@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { issueTask } from '@pocket-comms/comms-domain';
+import { issueTask, MAX_ADDITIONAL_INFORMATION } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import type { ImplementIssueInput } from '../dto/issue.dto.js';
@@ -287,6 +287,51 @@ describe('IssuesInbound.implement', () => {
       expect(error._tag).toBe('InvalidInputError');
       expect(state.calls).toEqual([]);
       expect(state.giteaCalls).toEqual(['issue owner/app 8']);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('adds the additional information to the prompt', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const issue = fakeIssue({ number: 8, title: 'feat: issue list', body: 'Show them.' });
+      state.issues.set('owner/app', [issue]);
+
+      yield* implement({ additionalInformation: '  Use the list.\r\n\r\nKeep it small.\n' });
+
+      expect(state.calls.at(-1)).toEqual({
+        method: 'prompt',
+        target: 'w-feat/8-issue-list:p1',
+        params: issueTask(issue, 'Use the list.\n\nKeep it small.'),
+      });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('treats blank additional information as none', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const issue = fakeIssue({ number: 8 });
+      state.issues.set('owner/app', [issue]);
+
+      yield* implement({ additionalInformation: ' \n ' });
+
+      expect(state.calls.at(-1)?.params).toBe(issueTask(issue));
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('creates nothing for additional information over the limit, without Gitea', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8 })]);
+
+      const error = yield* Effect.flip(
+        implement({ additionalInformation: 'a'.repeat(MAX_ADDITIONAL_INFORMATION + 1) }),
+      );
+
+      expect(error._tag === 'InvalidInputError' && error.issues[0]?.field).toBe(
+        'additionalInformation',
+      );
+      expect(state.calls).toEqual([]);
+      expect(state.giteaCalls).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
 });

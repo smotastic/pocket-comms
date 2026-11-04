@@ -11,6 +11,7 @@ import {
   parseRemote,
   type GiteaRepository,
   type Issue,
+  type IssueText,
 } from '@pocket-comms/comms-domain';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -183,6 +184,23 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
       }),
     );
 
+  // The body holds the title and the body only, so the issue's state, labels, assignees and
+  // milestone stay as they are.
+  const updateIssue = (repository: GiteaRepository, number: number, { title, body }: IssueText) =>
+    Effect.gen(function* () {
+      const answer = yield* send('PATCH', `${repositoryPath(repository)}/issues/${number}`, {
+        title,
+        body,
+      });
+      if (answer === undefined) return yield* new IssueNotFoundError({ number });
+      // Gitea answers with the issue, which the app does not need.
+      yield* Effect.promise(() => answer.body?.cancel() ?? Promise.resolve());
+    }).pipe(
+      Effect.withSpan('Gitea.updateIssue', {
+        attributes: { owner: repository.owner, repository: repository.name, number },
+      }),
+    );
+
   // The body holds the title and the body only, so no label, assignee or milestone is set.
   const createIssue = (
     repository: GiteaRepository,
@@ -271,6 +289,14 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
 
   return Layer.succeed(
     GiteaOutbound,
-    GiteaOutbound.of({ repositoryOf, openIssues, issue, closeIssue, markInProgress, createIssue }),
+    GiteaOutbound.of({
+      repositoryOf,
+      openIssues,
+      issue,
+      closeIssue,
+      markInProgress,
+      createIssue,
+      updateIssue,
+    }),
   );
 };

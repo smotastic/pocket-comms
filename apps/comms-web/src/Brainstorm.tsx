@@ -20,11 +20,13 @@ import type {
   ProposalDecision,
 } from './comms-client.js';
 import { brainstormQuery, projectsQuery } from './comms-queries.js';
+import { IssueEditCard } from './IssueEditCard.js';
 import { useBrainstormLive } from './live.js';
 import { ProposalCard } from './ProposalCard.js';
 import { UserMessage } from './UserMessage.js';
 
-// The brainstorm chat (spec 013): one ongoing chat with Pi, opened from the top bars (spec 016).
+// The brainstorm chat: one ongoing chat with Pi, opened from the top bars. Pi proposes new issues
+// and edits of existing ones, and the owner decides on each.
 
 type Ready = Extract<BrainstormStateView, { readonly _tag: 'Ready' }>;
 
@@ -55,6 +57,25 @@ const Entry = ({
       return <Text tone="muted">Pi did not answer: {entry.reason}</Text>;
     case 'proposal': {
       const failed = decide.variables?.id === entry.id ? decide.error : null;
+      if (entry.kind === 'edit') {
+        return (
+          <IssueEditCard
+            project={entry.project}
+            number={entry.number}
+            url={entry.url}
+            title={entry.title}
+            body={entry.body}
+            base={entry.base}
+            state={entry.state}
+            busy={busy || decide.isPending}
+            {...(failed === null ? {} : { error: failed.message })}
+            onApply={(edit) =>
+              decide.mutate({ id: entry.id, decision: { _tag: 'Apply', ...edit } })
+            }
+            onDiscard={() => decide.mutate({ id: entry.id, decision: { _tag: 'Discard' } })}
+          />
+        );
+      }
       return (
         <ProposalCard
           project={entry.project}

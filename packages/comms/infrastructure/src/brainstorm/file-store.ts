@@ -21,28 +21,86 @@ const ProposalState = Schema.Union([
   Schema.Struct({ _tag: Schema.tag('discarded') }),
 ]);
 
-const Entry = Schema.Union([
-  Schema.Struct({ type: Schema.tag('user'), ...Text, text: Schema.String }),
-  Schema.Struct({ type: Schema.tag('assistant'), ...Text, text: Schema.String }),
-  Schema.Struct({
-    type: Schema.tag('proposal'),
-    ...Text,
-    project: Schema.String,
-    title: Schema.String,
-    body: Schema.String,
-    state: ProposalState,
-  }),
-  Schema.Struct({ type: Schema.tag('failed'), ...Text, reason: Schema.String }),
+const EditState = Schema.Union([
+  Schema.Struct({ _tag: Schema.tag('open') }),
+  Schema.Struct({ _tag: Schema.tag('updated'), url: Schema.String }),
+  Schema.Struct({ _tag: Schema.tag('discarded') }),
 ]);
 
-const StoredFile = Schema.Struct({
-  version: Schema.Literal(1),
-  id: Schema.String,
-  entries: Schema.Array(Entry),
-  runtime: Schema.NullOr(Schema.Struct({ adapter: Schema.String, state: Schema.Json })),
+const IssueFields = {
+  type: Schema.tag('proposal'),
+  ...Text,
+  project: Schema.String,
+  title: Schema.String,
+  body: Schema.String,
+  state: ProposalState,
+};
+
+const User = Schema.Struct({ type: Schema.tag('user'), ...Text, text: Schema.String });
+const Assistant = Schema.Struct({ type: Schema.tag('assistant'), ...Text, text: Schema.String });
+const Failed = Schema.Struct({ type: Schema.tag('failed'), ...Text, reason: Schema.String });
+
+const Entry = Schema.Union([
+  User,
+  Assistant,
+  Schema.Struct({ ...IssueFields, kind: Schema.tag('issue') }),
+  Schema.Struct({
+    type: Schema.tag('proposal'),
+    kind: Schema.tag('edit'),
+    ...Text,
+    project: Schema.String,
+    number: Schema.Int,
+    url: Schema.String,
+    title: Schema.String,
+    body: Schema.String,
+    base: Schema.Struct({ title: Schema.String, body: Schema.String }),
+    state: EditState,
+  }),
+  Failed,
+]);
+
+const Read = Schema.Struct({
+  project: Schema.String,
+  number: Schema.Int,
+  url: Schema.String,
+  title: Schema.String,
+  body: Schema.String,
+  cut: Schema.Boolean,
 });
 
-const decode = Schema.decodeUnknownOption(Schema.fromJsonString(StoredFile));
+const Runtime = Schema.NullOr(Schema.Struct({ adapter: Schema.String, state: Schema.Json }));
+
+const StoredFile = Schema.Struct({
+  version: Schema.Literal(2),
+  id: Schema.String,
+  entries: Schema.Array(Entry),
+  reads: Schema.Array(Read),
+  runtime: Runtime,
+});
+
+/** A file from before issue edits: every proposal is a new issue, and no issue was read. */
+const StoredFileV1 = Schema.Struct({
+  version: Schema.Literal(1),
+  id: Schema.String,
+  entries: Schema.Array(Schema.Union([User, Assistant, Schema.Struct(IssueFields), Failed])),
+  runtime: Runtime,
+});
+
+const decode = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Union([StoredFile, StoredFileV1])),
+);
+
+const toChat = (stored: typeof StoredFile.Type | typeof StoredFileV1.Type): StoredChat => ({
+  id: stored.id,
+  entries:
+    stored.version === 2
+      ? stored.entries
+      : stored.entries.map((entry) =>
+          entry.type === 'proposal' ? { ...entry, kind: 'issue' as const } : entry,
+        ),
+  reads: stored.version === 2 ? stored.reads : [],
+  runtime: Option.fromNullishOr(stored.runtime),
+});
 
 const codeOf = (error: unknown) =>
   error instanceof Error && 'code' in error ? error.code : undefined;
@@ -76,20 +134,17 @@ export const layerFile = ({ folder }: FileStoreOptions) => {
       yield* Effect.promise(() => rename(path, `${path}.bad`).catch(() => undefined));
       return Option.none<StoredChat>();
     }
-    return Option.some<StoredChat>({
-      id: stored.value.id,
-      entries: stored.value.entries,
-      runtime: Option.fromNullishOr(stored.value.runtime),
-    });
+    return Option.some(toChat(stored.value));
   }).pipe(Effect.withSpan('Brainstorm.load'));
 
   const save = (chat: StoredChat) =>
     Effect.tryPromise(async () => {
       await mkdir(folder, { recursive: true, mode: 0o700 });
       const file: typeof StoredFile.Encoded = {
-        version: 1,
+        version: 2,
         id: chat.id,
         entries: chat.entries,
+        reads: chat.reads,
         runtime: Option.getOrNull(chat.runtime),
       };
       // A name of its own per save, so a slower earlier save never renames over a later one's file.

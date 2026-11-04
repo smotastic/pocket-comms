@@ -7,6 +7,7 @@ import {
   Sheet,
   SheetHeader,
   Text,
+  TextArea,
 } from '@smotastic/pocket-design';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -34,13 +35,22 @@ const ImplementForm = ({
   onStarted,
 }: Omit<ImplementIssueProps, 'issue' | 'onClose'> & { readonly issue: IssueView }) => {
   const [branch, setBranch] = useState(issue.branch);
+  const [additionalInformation, setAdditionalInformation] = useState('');
   const start = useMutation({
-    mutationFn: () => client.implementIssue(project, issue.number, branch),
+    mutationFn: () =>
+      client.implementIssue(
+        project,
+        issue.number,
+        branch,
+        additionalInformation.trim() === '' ? undefined : additionalInformation,
+      ),
     onSuccess: (created) => onStarted(withMarkNote(created)),
   });
   const issues = start.error instanceof RequestError ? start.error.issues : [];
-  const branchIssue = issues.find((each) => each.field === 'branch')?.message;
-  const others = issues.filter((each) => each.field !== 'branch');
+  const messageOf = (field: string) => issues.find((each) => each.field === field)?.message;
+  const others = issues.filter(
+    (each) => each.field !== 'branch' && each.field !== 'additionalInformation',
+  );
 
   return (
     <Form
@@ -65,8 +75,15 @@ const ImplementForm = ({
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
-        error={branchIssue}
+        error={messageOf('branch')}
         required
+      />
+      <TextArea
+        label="Additional information"
+        value={additionalInformation}
+        onChange={(event) => setAdditionalInformation(event.target.value)}
+        placeholder="Optional hints or constraints for this run"
+        error={messageOf('additionalInformation')}
       />
       {start.error !== null && (issues.length === 0 || others.length > 0) ? (
         <Alert>
@@ -78,8 +95,8 @@ const ImplementForm = ({
 };
 
 /**
- * The Implement with Claude sheet (spec 006): the issue, its branch, and the start. Nothing
- * starts before the owner confirms the branch.
+ * The Implement with Claude sheet (spec 006): the issue, its branch, the optional additional
+ * information of spec 021, and the start. Nothing starts before the owner confirms the branch.
  */
 export const ImplementIssue = ({
   client,

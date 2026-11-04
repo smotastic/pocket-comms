@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
+import * as Result from 'effect/Result';
 import type { Agent } from './agent.js';
 import {
   hasInProgressLabel,
@@ -7,8 +8,10 @@ import {
   issueBranch,
   issueNumberOf,
   issueTask,
+  MAX_ADDITIONAL_INFORMATION,
   MAX_ISSUE_DESCRIPTION,
   orderIssues,
+  parseAdditionalInformation,
   parseRemote,
   workOnIssues,
   type Issue,
@@ -175,6 +178,80 @@ describe('issueTask', () => {
     expect(text.length).toBeLessThanOrEqual(MAX_TASK_LENGTH);
     expect(text).toContain('[…] The issue is longer; read it in Gitea.');
     expect(text.endsWith('Write "Closes #5" in the pull request description.')).toBe(true);
+  });
+  it('adds the additional information before the issue reference', () => {
+    expect(
+      issueTask(
+        issue({ number: 8, title: 'Issue list', body: 'Show them.' }),
+        'Use the list.\n\nKeep it small.',
+      ),
+    ).toBe(
+      [
+        'Issue list',
+        '',
+        'Show them.',
+        '',
+        '## Additional information',
+        '',
+        'Use the list.\n\nKeep it small.',
+        '',
+        'Gitea issue #8: http://localhost:3000/smotastic/pocket-comms/issues/8',
+        'Implement this issue. Write "Closes #8" in the pull request description.',
+      ].join('\n'),
+    );
+  });
+
+  it('adds the additional information without a body', () => {
+    expect(issueTask(issue({ number: 2, title: 'Short' }), 'A hint.')).toBe(
+      [
+        'Short',
+        '',
+        '## Additional information',
+        '',
+        'A hint.',
+        '',
+        'Gitea issue #2: http://localhost:3000/smotastic/pocket-comms/issues/2',
+        'Implement this issue. Write "Closes #2" in the pull request description.',
+      ].join('\n'),
+    );
+  });
+
+  it('cuts the body, never the additional information, so the task fits', () => {
+    const extra = 'hint '.repeat(MAX_ADDITIONAL_INFORMATION / 5).trim();
+    const text = issueTask(
+      issue({ number: 5, title: 'Long', body: 'word '.repeat(10_000) }),
+      extra,
+    );
+
+    expect(text.length).toBeLessThanOrEqual(MAX_TASK_LENGTH);
+    expect(text).toContain(
+      '[…] The issue is longer; read it in Gitea.\n\n## Additional information',
+    );
+    expect(text).toContain(`\n\n${extra}\n\nGitea issue #5`);
+  });
+});
+
+describe('parseAdditionalInformation', () => {
+  it('trims the text and keeps its line breaks', () => {
+    expect(parseAdditionalInformation('\n  First.\r\n\r\n  Second.  \n')).toEqual(
+      Result.succeed('First.\n\n  Second.'),
+    );
+  });
+
+  it('gives none for blank or missing text', () => {
+    expect(parseAdditionalInformation('  \n\t ')).toEqual(Result.succeed(undefined));
+    expect(parseAdditionalInformation(undefined)).toEqual(Result.succeed(undefined));
+  });
+
+  it('takes at most the limit', () => {
+    expect(
+      Result.isSuccess(parseAdditionalInformation('a'.repeat(MAX_ADDITIONAL_INFORMATION))),
+    ).toBe(true);
+    const tooLong = parseAdditionalInformation('a'.repeat(MAX_ADDITIONAL_INFORMATION + 1));
+
+    expect(Result.isFailure(tooLong) && tooLong.failure.issues.map((each) => each.field)).toEqual([
+      'additionalInformation',
+    ]);
   });
 });
 

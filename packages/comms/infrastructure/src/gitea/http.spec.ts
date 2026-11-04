@@ -246,6 +246,50 @@ describe('Gitea.layerHttp', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('updates an issue with one PATCH that carries only its title and body', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((url, method) =>
+        url.pathname === '/api/v1/repos/owner/app/issues/5' && method === 'PATCH'
+          ? { status: 201, body: { ...listed[0], title: 'Dark mode toggle' } }
+          : { status: 404, body: { message: 'not found' } },
+      );
+
+      yield* withGitea(gitea.url, (outbound) =>
+        outbound.updateIssue(repository, 5, { title: 'Dark mode toggle', body: 'A toggle.' }),
+      );
+
+      expect(gitea.seen).toEqual([
+        {
+          method: 'PATCH',
+          url: '/api/v1/repos/owner/app/issues/5',
+          authorization: `token ${TOKEN}`,
+          contentType: 'application/json',
+          body: '{"title":"Dark mode toggle","body":"A toggle."}',
+        },
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('names a missing issue when updating, and passes on a refused token', () =>
+    Effect.gen(function* () {
+      const missing = yield* fakeGitea(() => ({ status: 404, body: { message: 'not found' } }));
+      const readOnly = yield* fakeGitea(() => ({ status: 403, body: { message: 'forbidden' } }));
+      const text = { title: 'X', body: '' };
+
+      const notFound = yield* withGitea(missing.url, (outbound) =>
+        outbound.updateIssue(repository, 9, text).pipe(Effect.flip),
+      );
+      const refused = yield* withGitea(readOnly.url, (outbound) =>
+        outbound.updateIssue(repository, 5, text).pipe(Effect.flip),
+      );
+
+      expect(notFound).toEqual(new IssueNotFoundError({ number: 9 }));
+      expect(refused).toEqual(
+        new GiteaUnavailableError({ reason: 'Gitea refused the token (403).' }),
+      );
+    }).pipe(Effect.scoped),
+  );
+
   it.live('creates an issue with one POST that carries only its title and body', () =>
     Effect.gen(function* () {
       const gitea = yield* fakeGitea((url, method) =>
@@ -434,11 +478,13 @@ describe('Gitea.layerHttp', () => {
             outbound.closeIssue(repository, 5).pipe(Effect.flip),
             outbound.createIssue(repository, { title: 'X', body: '' }).pipe(Effect.flip),
             outbound.markInProgress(repository, 5).pipe(Effect.flip),
+            outbound.updateIssue(repository, 5, { title: 'X', body: '' }).pipe(Effect.flip),
           ]),
         null,
       );
 
       expect(errors).toEqual([
+        new GiteaNotConfiguredError(),
         new GiteaNotConfiguredError(),
         new GiteaNotConfiguredError(),
         new GiteaNotConfiguredError(),
