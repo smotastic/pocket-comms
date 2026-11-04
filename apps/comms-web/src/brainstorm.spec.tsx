@@ -233,7 +233,7 @@ describe('an edit in the brainstorm chat', () => {
     const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
 
     await userEvent.click(within(card).getByRole('button', { name: /Current version/u }));
-    expect(within(card).getByRole('region', { name: 'Current version' }).textContent).toContain(
+    expect(within(card).getByRole('group', { name: 'Current version' }).textContent).toContain(
       'An orchestrator agent.',
     );
     const body = within(card).getByRole('textbox', { name: 'Body' });

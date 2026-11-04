@@ -4,7 +4,6 @@
 **/*.tsbuildinfo
 **/test-output
 **/coverage
-**/ladle-build
 .git
 .nx/cache
 .nx/workspace-data

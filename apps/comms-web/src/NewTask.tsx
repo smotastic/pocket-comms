@@ -6,14 +6,14 @@ import {
   IconButton,
   Inline,
   Input,
-  Segmented,
+  SegmentedControl,
   Sheet,
   SheetHeader,
   Stack,
   Switch,
   Text,
   TextArea,
-} from '@pocket-comms/design-ui';
+} from '@smotastic/pocket-design';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AttachedImages } from './AttachedImages.js';
@@ -35,13 +35,10 @@ export interface NewTaskProps {
   readonly onCreated: (created: TaskCreatedView) => void;
 }
 
-const AGENT_OPTIONS = [
-  { value: 'claude', label: 'Claude' },
-  { value: 'pi', label: 'Pi' },
-] as const;
-
-const isAgentToStart = (value: string): value is AgentToStart =>
-  AGENT_OPTIONS.some((option) => option.value === value);
+const AGENT_OPTIONS: ReadonlyArray<{ readonly id: AgentToStart; readonly label: string }> = [
+  { id: 'claude', label: 'Claude' },
+  { id: 'pi', label: 'Pi' },
+];
 
 const NewTaskForm = ({
   client,
@@ -107,18 +104,16 @@ const NewTaskForm = ({
       <Switch
         label="Start an agent"
         description="It gets the task as its first prompt."
-        checked={startAgent}
-        onChange={(event) => setStartAgent(event.target.checked)}
+        isSelected={startAgent}
+        onChange={setStartAgent}
       />
       {startAgent ? (
         <Stack gap="xs">
-          <Segmented
+          <SegmentedControl
             label="Agent"
             options={AGENT_OPTIONS}
-            value={kind}
-            onChange={(value) => {
-              if (isAgentToStart(value)) setKind(value);
-            }}
+            selected={kind}
+            onSelect={setKind}
           />
           {issueOf('agent') === undefined ? null : <Alert>{issueOf('agent')}</Alert>}
         </Stack>
@@ -132,8 +127,10 @@ const NewTaskForm = ({
             {startAgent ? (
               <AttachButton
                 label="Attach image"
-                onFiles={(files) => void images.add(files)}
-                disabled={images.full}
+                icon="image"
+                acceptedFileTypes={['image/*']}
+                onSelect={(files) => void images.add(files)}
+                isDisabled={images.full}
               />
             ) : null}
             <AttachedImages

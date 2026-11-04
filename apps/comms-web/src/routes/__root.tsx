@@ -1,5 +1,5 @@
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
-import { Page, Text } from '@pocket-comms/design-ui';
+import { Page, Text } from '@smotastic/pocket-design';
 import { Brainstorm } from '../Brainstorm.js';
 import type { RouterContext } from '../router-context.js';
 

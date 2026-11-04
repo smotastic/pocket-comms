@@ -4,14 +4,16 @@ import {
   Disclosure,
   IconButton,
   Inline,
-  IssueCard,
   Link,
   SectionHeader,
+  SegmentedControl,
   Sheet,
   SheetHeader,
   Stack,
   Text,
-} from '@pocket-comms/design-ui';
+  useThemeChoice,
+  type ThemeChoice,
+} from '@smotastic/pocket-design';
 import { useQueries, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useState } from 'react';
 import type {
@@ -24,11 +26,11 @@ import type {
 import { issuesKey, issuesQuery } from './comms-queries.js';
 import { stillWorking, useCloseIssue } from './CloseIssue.js';
 import { ImplementIssue } from './ImplementIssue.js';
+import { IssueCard } from './IssueCard.js';
 import { groupIssues, shownLabels } from './issue-groups.js';
 import { navigateOnPlainClick } from './links.js';
 import { NewTask } from './NewTask.js';
 import { NotificationsRow } from './NotificationsRow.js';
-import { projectHue } from './rows.js';
 
 export interface ProjectsSheetProps {
   readonly client: CommsClient;
@@ -261,41 +263,45 @@ const ProjectList = ({
             key={project}
             title={project}
             detail={detailOf(project, overview, list?.data)}
-            hue={projectHue(project, projects)}
             expanded={expanded === project}
-            onToggle={() => {
-              setExpanded(expanded === project ? undefined : project);
+            onExpandedChange={(open) => {
+              setExpanded(open ? project : undefined);
               setNotice(undefined);
             }}
           >
-            {notice?.project !== project ? null : (
-              <div role="status">
-                <Text size="sm">{notice.text}</Text>
-              </div>
+            {/* Mounted only while open, so a collapsed project forgets an open question. */}
+            {expanded !== project ? null : (
+              <Stack gap="md">
+                {notice?.project !== project ? null : (
+                  <div role="status">
+                    <Text size="sm">{notice.text}</Text>
+                  </div>
+                )}
+                {list === undefined ? null : (
+                  <IssueList
+                    client={client}
+                    project={project}
+                    issues={list}
+                    onImplement={(issue) => setImplementing({ project, issue })}
+                    onClosed={(number) => {
+                      setNotice({ project, text: `#${number} closed.` });
+                      void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
+                    }}
+                  />
+                )}
+                <Inline gap="md">
+                  <Button size="sm" variant="secondary" onClick={() => setCreating(project)}>
+                    New task
+                  </Button>
+                  <Link
+                    href={`/projects/${encodeURIComponent(project)}`}
+                    onClick={navigateOnPlainClick(() => onProject(project))}
+                  >
+                    Project page
+                  </Link>
+                </Inline>
+              </Stack>
             )}
-            {list === undefined ? null : (
-              <IssueList
-                client={client}
-                project={project}
-                issues={list}
-                onImplement={(issue) => setImplementing({ project, issue })}
-                onClosed={(number) => {
-                  setNotice({ project, text: `#${number} closed.` });
-                  void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
-                }}
-              />
-            )}
-            <Inline gap="md">
-              <Button size="sm" variant="secondary" onClick={() => setCreating(project)}>
-                New task
-              </Button>
-              <Link
-                href={`/projects/${encodeURIComponent(project)}`}
-                onClick={navigateOnPlainClick(() => onProject(project))}
-              >
-                Project page
-              </Link>
-            </Inline>
           </Disclosure>
         );
       })}
@@ -327,10 +333,22 @@ const ProjectList = ({
   );
 };
 
+const THEMES: ReadonlyArray<{ readonly id: ThemeChoice; readonly label: string }> = [
+  { id: 'system', label: 'System' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'light', label: 'Light' },
+];
+
+/** The theme of this device, which takes effect at once. */
+const ThemeRow = () => {
+  const [theme, chooseTheme] = useThemeChoice();
+  return <SegmentedControl label="Theme" options={THEMES} selected={theme} onSelect={chooseTheme} />;
+};
+
 /**
- * Every project, sliding in from the side, after a link to the activity timeline. A project opens
- * in place to its open issues, with Implement, New task and a link to its page. This device's
- * notifications sit at the bottom.
+ * Every project, after a link to the activity timeline. A project opens in place to its open
+ * issues, with Implement, New task and a link to its page. This device's notifications and theme
+ * sit at the bottom.
  */
 export const ProjectsSheet = ({
   open,
@@ -342,7 +360,6 @@ export const ProjectsSheet = ({
 }: ProjectsSheetProps) => (
   <Sheet
     open={open}
-    side="end"
     label="Projects"
     bodyLabel="Project list"
     onClose={onClose}
@@ -366,6 +383,7 @@ export const ProjectsSheet = ({
         )}
       </div>
       <NotificationsRow client={props.client} />
+      <ThemeRow />
     </Stack>
   </Sheet>
 );

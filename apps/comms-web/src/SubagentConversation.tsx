@@ -1,19 +1,19 @@
 import {
   Activity,
   Alert,
+  AppBar,
   DockedPage,
   IconButton,
   Stack,
-  StatusPill,
   Text,
-  TopBar,
-} from '@pocket-comms/design-ui';
+} from '@smotastic/pocket-design';
 import { useQuery } from '@tanstack/react-query';
 import { Chat } from './Chat.js';
 import { RequestError, type CommsClient, type SubagentView } from './comms-client.js';
 import { agentQuery, subagentQuery } from './comms-queries.js';
 import { useSubagentLive } from './live.js';
 import { rowName } from './rows.js';
+import { StatusBadge } from './StatusBadge.js';
 
 export interface SubagentConversationProps {
   readonly client: CommsClient;
@@ -34,16 +34,16 @@ const Header = ({
   readonly onBack: () => void;
 }) => (
   <Stack gap="2xs">
-    <TopBar
+    <AppBar
       start={<IconButton icon="back" label={`Back to ${parent}`} onClick={onBack} />}
       title={subagent?.description ?? 'Subagent'}
       {...(subagent === undefined
         ? {}
         : {
             subtitle: subagent.running ? (
-              <StatusPill tone="working" label="Running" />
+              <StatusBadge tone="working" label="Running" />
             ) : (
-              <StatusPill tone="done" label="Ended" />
+              <StatusBadge tone="done" label="Ended" />
             ),
           })}
     />

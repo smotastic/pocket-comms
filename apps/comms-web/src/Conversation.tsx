@@ -1,32 +1,32 @@
 import {
   Activity,
   Alert,
-  ApprovalPanel,
-  BackgroundStrip,
+  AppBar,
+  Card,
   Composer,
   DockedPage,
   IconButton,
-  KeyPad,
-  Segmented,
+  SegmentedControl,
   Stack,
-  StatusPill,
-  TerminalScreen,
   Text,
-  TopBar,
-} from '@pocket-comms/design-ui';
+} from '@smotastic/pocket-design';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { AgentView, CommsClient, Key } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { AttachedImages } from './AttachedImages.js';
+import { BackgroundStrip } from './BackgroundStrip.js';
 import { useAttachments } from './attachments.js';
 import { delegationLink, stripItems } from './background.js';
 import { Chat } from './Chat.js';
 import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu } from './ConversationMenu.js';
 import { agentQuery, screenQuery, transcriptQuery } from './comms-queries.js';
+import { KeyPad } from './KeyPad.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive, useNow } from './live.js';
+import { StatusBadge } from './StatusBadge.js';
+import { TerminalScreen } from './TerminalScreen.js';
 
 export interface ConversationProps {
   readonly client: CommsClient;
@@ -44,6 +44,11 @@ export interface ConversationProps {
 }
 
 type View = 'chat' | 'screen';
+
+const VIEWS: ReadonlyArray<{ readonly id: View; readonly label: string }> = [
+  { id: 'chat', label: 'Chat' },
+  { id: 'screen', label: 'Screen' },
+];
 
 const KEYS: ReadonlyArray<{ value: Key; label: string; accessibleLabel?: string }> = [
   { value: '1', label: '1' },
@@ -74,23 +79,21 @@ const Header = ({
   readonly onClose?: () => void;
 }) => (
   <Stack gap="2xs">
-    <TopBar
+    <AppBar
       start={<IconButton icon="back" label="Back to all agents" onClick={onBack} />}
       title={agent?.ref ?? '…'}
       {...(agent === undefined
         ? {}
-        : { subtitle: <StatusPill tone={agent.status} label={STATUS_LABELS[agent.status]} /> })}
+        : { subtitle: <StatusBadge tone={agent.status} label={STATUS_LABELS[agent.status]} /> })}
       end={
         <>
           {agent?.format === undefined ? null : (
-            <Segmented
+            <SegmentedControl
               label="View"
-              options={[
-                { value: 'chat', label: 'Chat' },
-                { value: 'screen', label: 'Screen' },
-              ]}
-              value={view}
-              onChange={(value) => onView(value === 'screen' ? 'screen' : 'chat')}
+              layout="inline"
+              options={VIEWS}
+              selected={view}
+              onSelect={onView}
             />
           )}
           <ConversationMenu
@@ -234,7 +237,7 @@ export const Conversation = ({
             <BackgroundStrip
               items={stripItems(agent, now, onOpenSubagent)}
               expanded={backgroundOpen}
-              onToggle={() => setBackgroundOpen(!backgroundOpen)}
+              onExpandedChange={setBackgroundOpen}
             />
           )}
           {blocked || view === 'screen' ? (
@@ -260,8 +263,13 @@ export const Conversation = ({
               onSend={sendPrompt}
               placeholder={`Message ${name}`}
               locked={prompt.isPending || images.pending}
-              onAttach={(files) => void images.add(files)}
-              attachDisabled={images.full}
+              attach={{
+                label: 'Attach image',
+                icon: 'image',
+                acceptedFileTypes: ['image/*'],
+                onSelect: (files) => void images.add(files),
+                isDisabled: images.full,
+              }}
               sendable={images.ids.length > 0}
               {...(images.attachments.length === 0
                 ? {}
@@ -299,9 +307,9 @@ export const Conversation = ({
               <Activity label={transcript.data?.activity ?? 'Thinking…'} />
             ) : null}
             {blocked ? (
-              <ApprovalPanel title={`${kindLabel} needs your answer`}>
+              <Card title={`${kindLabel} needs your answer`}>
                 <TerminalScreen label={`Screen of ${name}`} text={screenText} />
-              </ApprovalPanel>
+              </Card>
             ) : null}
           </>
         )}

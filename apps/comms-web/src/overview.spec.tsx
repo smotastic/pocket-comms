@@ -42,6 +42,13 @@ const overview = {
   ],
 };
 
+/** An agent's row: the list item around the link of its name. */
+const rowOf = (link: HTMLElement) => {
+  const row = link.closest('li');
+  if (row === null) throw new Error('The link is in no row.');
+  return row;
+};
+
 describe('the overview', () => {
   it('lists Needs you first, then every other agent by project', async () => {
     renderApp({ client: fakeClient({ overview }).client });
@@ -51,7 +58,7 @@ describe('the overview', () => {
       within(needsYou)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual([expect.stringContaining('picard'), expect.stringContaining('data')]);
+    ).toEqual(['picard', 'data']);
     expect(within(needsYou).getByText(blocked.title)).toBeDefined();
     const rest = screen.getByRole('region', { name: 'Everything else' });
     expect(
@@ -75,9 +82,9 @@ describe('the overview', () => {
       }).client,
     });
 
-    expect(
-      await screen.findByRole('link', { name: /kirk Done 2 running in the background/u }),
-    ).toBeDefined();
+    const row = rowOf(await screen.findByRole('link', { name: 'kirk' }));
+    expect(within(row).getByText('Done')).toBeDefined();
+    expect(within(row).getByText('2 running in the background')).toBeDefined();
   });
 
   it('shows the two groups, each with its count, and no project cards or projects list', async () => {
@@ -150,24 +157,25 @@ describe('the overview', () => {
     });
 
     const needsYou = await screen.findByRole('region', { name: 'Needs you' });
-    const uhura = within(needsYou).getByRole('link', { name: /uhura/ });
+    const uhura = rowOf(within(needsYou).getByRole('link', { name: /uhura/ }));
     expect(within(uhura).getByText('pocket-home')).toBeDefined();
     expect(within(uhura).getByText('· ingestor-mvp')).toBeDefined();
     const rest = screen.getByRole('region', { name: 'Everything else' });
-    const spock = within(rest).getByRole('link', { name: /spock/ });
+    const spock = rowOf(within(rest).getByRole('link', { name: /spock/ }));
     expect(within(spock).getByText('pocket-home')).toBeDefined();
     expect(within(spock).getByText('· ingestor-mvp')).toBeDefined();
-    const burnham = within(rest).getByRole('link', { name: /burnham/ });
+    const burnham = rowOf(within(rest).getByRole('link', { name: /burnham/ }));
     expect(within(burnham).getByText('G registry cleanup')).toBeDefined();
   });
 
   it('shows the status and the time since the last change', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
-    const row = await screen.findByRole('link', { name: /kirk/ });
+    const link = await screen.findByRole('link', { name: /kirk/ });
+    const row = rowOf(link);
     expect(within(row).getByText('Working')).toBeDefined();
     expect(within(row).getByText(/1m/)).toBeDefined();
-    expect(row.getAttribute('href')).toBe('/agents/kirk');
+    expect(link.getAttribute('href')).toBe('/agents/kirk');
   });
 
   it('opens an agent', async () => {
@@ -263,14 +271,14 @@ describe('the project filter', () => {
     groups: [commsGroup, homeGroup],
   };
 
-  it('offers All and each project, with All pressed', async () => {
+  it('offers All and each project, with All selected', async () => {
     renderApp({ client: fakeClient({ overview: twoProjects }).client });
 
-    const filter = await screen.findByRole('group', { name: 'Project' });
+    const filter = await screen.findByRole('grid', { name: 'Project' });
     expect(
       within(filter)
-        .getAllByRole('button')
-        .map((button) => [button.textContent, button.getAttribute('aria-pressed')]),
+        .getAllByRole('row')
+        .map((chip) => [chip.textContent, chip.getAttribute('aria-selected')]),
     ).toEqual([
       ['All', 'true'],
       ['pocket-comms', 'false'],
@@ -281,7 +289,7 @@ describe('the project filter', () => {
   it('narrows Everything else to a project, and never Needs you', async () => {
     renderApp({ client: fakeClient({ overview: twoProjects }).client });
 
-    await userEvent.click(await screen.findByRole('button', { name: 'pocket-home' }));
+    await userEvent.click(await screen.findByRole('row', { name: 'pocket-home' }));
 
     const rest = screen.getByRole('region', { name: 'Everything else' });
     expect(
@@ -308,13 +316,13 @@ describe('the project filter', () => {
     });
 
     await screen.findByRole('region', { name: 'Everything else' });
-    expect(screen.queryByRole('group', { name: 'Project' })).toBeNull();
+    expect(screen.queryByRole('grid', { name: 'Project' })).toBeNull();
   });
 
   it('returns to All when the chosen project has no agent left', async () => {
     const fake = fakeClient({ overview: twoProjects });
     renderApp({ client: fake.client });
-    await userEvent.click(await screen.findByRole('button', { name: 'pocket-home' }));
+    await userEvent.click(await screen.findByRole('row', { name: 'pocket-home' }));
 
     act(() =>
       fake.emitOverview({
@@ -335,10 +343,10 @@ describe('the project filter', () => {
       }),
     );
 
-    expect((await screen.findByRole('button', { name: 'All' })).getAttribute('aria-pressed')).toBe(
+    expect((await screen.findByRole('row', { name: 'All' })).getAttribute('aria-selected')).toBe(
       'true',
     );
     act(() => fake.emitOverview({ _tag: 'Available', overview: twoProjects }));
-    expect(screen.getByRole('button', { name: 'All' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('row', { name: 'All' }).getAttribute('aria-selected')).toBe('true');
   });
 });

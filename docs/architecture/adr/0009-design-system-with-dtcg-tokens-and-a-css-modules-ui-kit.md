@@ -4,6 +4,18 @@
 - **Date:** 2026-10-19
 - **Related:** constitution principles 5, 6 and 9; ADRs 0007, 0008; spec 002
 
+> **As-built note (2026-11-04).** The tokens and the UI kit no longer live in this repository:
+> the web app takes its look and its reusable components from the published package
+> `@smotastic/pocket-design` (Polaris), pinned in the catalog of `pnpm-workspace.yaml`, following
+> pocket-factory's ADR 0013 ("One published design package for every repository";
+> pocket-factory#20). A design change is a bump of that pin. `packages/design`, Stylelint, the token
+> scripts and the `scope:design`/`type:tokens`/`type:ui` Nx tags are gone; the project hues and
+> JetBrains Mono gave way to the Polaris look, with the kit's System, Dark and Light theme choice.
+> Components only comms needs (agent rows, key pad, terminal screen, tool line, messages and
+> cards) live in `apps/comms-web`, composed from kit components: a web app still has no
+> stylesheet and no inline style (`no-css-in-web`), and what the kit cannot express is a kit
+> change. `no-design-in-server-code` keeps the package out of server code.
+
 > **As-built note (2026-10-19).** The token build uses Style Dictionary v5 (5.7), not v4: v4
 > ended at 4.4.0, and v5 reads the same DTCG 2025.10 files. Approved by the human owner.
 

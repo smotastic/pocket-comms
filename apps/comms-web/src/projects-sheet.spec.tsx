@@ -102,7 +102,7 @@ describe('the projects sheet', () => {
     const sheet = await openSheet();
 
     await userEvent.click(entry(sheet, 'beta'));
-    const panel = await within(sheet).findByRole('region', { name: 'beta' });
+    const panel = await within(sheet).findByRole('group', { name: /^beta /u });
     expect(
       within(panel)
         .getAllByRole('article')
@@ -116,10 +116,10 @@ describe('the projects sheet', () => {
     expect(within(panel).getByRole('link', { name: 'Project page' })).toBeDefined();
 
     await userEvent.click(entry(sheet, 'alpha'));
-    expect(within(sheet).queryByRole('region', { name: 'beta' })).toBeNull();
-    expect(within(sheet).getByRole('region', { name: 'alpha' })).toBeDefined();
+    expect(within(sheet).queryByRole('group', { name: /^beta /u })).toBeNull();
+    expect(within(sheet).getByRole('group', { name: /^alpha /u })).toBeDefined();
     await userEvent.click(entry(sheet, 'alpha'));
-    expect(within(sheet).queryByRole('region', { name: 'alpha' })).toBeNull();
+    expect(within(sheet).queryByRole('group', { name: /^alpha /u })).toBeNull();
   });
 
   it('shows an issue’s labels, or the agent on it instead of Implement', async () => {
@@ -336,7 +336,7 @@ describe('closing an issue from the projects sheet', () => {
     await userEvent.click(within(eight).getByRole('button', { name: 'Close issue' }));
 
     expect(calls.closed).toEqual([['beta', 8]]);
-    const panel = within(sheet).getByRole('region', { name: 'beta' });
+    const panel = within(sheet).getByRole('group', { name: /^beta /u });
     expect((await within(panel).findByRole('status')).textContent).toBe('#8 closed.');
     await waitFor(() =>
       expect(within(panel).queryByRole('article', { name: '#8 feat: issue list' })).toBeNull(),

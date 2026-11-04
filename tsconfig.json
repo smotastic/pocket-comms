@@ -10,12 +10,6 @@
       "path": "./packages/backend-shared"
     },
     {
-      "path": "./packages/design/tokens"
-    },
-    {
-      "path": "./packages/design/ui"
-    },
-    {
       "path": "./packages/comms/application"
     },
     {

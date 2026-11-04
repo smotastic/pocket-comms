@@ -1,4 +1,4 @@
-import { Alert, Button, Form, IconButton, Sheet, SheetHeader, Text } from '@pocket-comms/design-ui';
+import { Alert, Button, Form, IconButton, Sheet, SheetHeader, Text } from '@smotastic/pocket-design';
 import { useMutation } from '@tanstack/react-query';
 import type { CommsClient, IssueView } from './comms-client.js';
 

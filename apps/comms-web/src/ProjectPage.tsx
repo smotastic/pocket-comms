@@ -1,6 +1,6 @@
 import {
-  AgentList,
   Alert,
+  AppBar,
   Button,
   Card,
   IconButton,
@@ -11,17 +11,14 @@ import {
   Page,
   SectionHeader,
   Stack,
-  StatusPill,
   Tag,
   Text,
-  TopBar,
-  type Hue,
-} from '@pocket-comms/design-ui';
+} from '@smotastic/pocket-design';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AgentItem } from './AgentItem.js';
+import { AgentList } from './AgentRow.js';
 import { BrainstormAction } from './Brainstorm.js';
-import { projectHue } from './rows.js';
 import type {
   AgentView,
   CommsClient,
@@ -41,6 +38,7 @@ import { NewTask } from './NewTask.js';
 import { filterOverview } from './project-agents.js';
 import { since } from './since.js';
 import { startedNotice } from './started.js';
+import { StatusBadge } from './StatusBadge.js';
 
 export interface ProjectPageProps {
   readonly client: CommsClient;
@@ -101,7 +99,7 @@ const IssueRow = ({
               <Text as="span" size="sm">
                 is working on this
               </Text>
-              <StatusPill tone={agent.status} label={STATUS_LABELS[agent.status]} />
+              <StatusBadge tone={agent.status} label={STATUS_LABELS[agent.status]} />
             </Inline>
           ))
         ),
@@ -176,12 +174,10 @@ const agentsOf = (overview: OverviewView, project: string) => {
 
 const Agents = ({
   agents,
-  hue,
   now,
   onOpen,
 }: {
   readonly agents: ReadonlyArray<AgentView>;
-  readonly hue: Hue;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
 }) => (
@@ -196,7 +192,6 @@ const Agents = ({
               <AgentItem
                 key={agent.paneId}
                 agent={agent}
-                hue={hue}
                 withProject={false}
                 now={now}
                 onOpen={onOpen}
@@ -244,7 +239,7 @@ export const ProjectPage = ({
   if (unknown) {
     return (
       <>
-        <TopBar start={back} title={project} end={<BrainstormAction />} />
+        <AppBar start={back} title={project} end={<BrainstormAction />} />
         <Page>
           <Text>{project} is not a project.</Text>
         </Page>
@@ -254,7 +249,7 @@ export const ProjectPage = ({
 
   return (
     <>
-      <TopBar
+      <AppBar
         start={back}
         title={project}
         {...(repository === undefined
@@ -321,10 +316,6 @@ export const ProjectPage = ({
           ) : (
             <Agents
               agents={agentsOf(overview.data, project)}
-              hue={projectHue(
-                project,
-                (projects.data ?? []).map(({ name }) => name),
-              )}
               now={now}
               onOpen={onOpenAgent}
             />

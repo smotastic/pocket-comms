@@ -21,8 +21,7 @@
 │   ├── <service>/contract/          # the service's HttpApi, shared by server and web
 │   ├── <service>/{domain,application,infrastructure,api}/   # one package per layer
 │   ├── backend-shared/              # FieldIssue, Problem Details helpers, validation middleware
-│   ├── contracts/problem-details/   # the shared error schema
-│   └── design/{tokens,ui}/          # DTCG design tokens and the React UI kit, for web apps
+│   └── contracts/problem-details/   # the shared error schema
 ├── blueprints/                      # runnable references; the bookmarks blueprint was removed
 ├── tools/                           # template init (the gates: @smotastic/pocket-ci, ADR 0013)
 ├── .dependency-cruiser.cjs
@@ -30,7 +29,8 @@
 ```
 
 Package names are `@pocket-comms/<name>`; Nx tags are `scope:*` plus `layer:*`, `type:app` or `type:web`
-(ADR 0007), and `type:tokens` or `type:ui` for the design system (ADR 0009).
+(ADR 0007). Web apps take their look from the published design package `@smotastic/pocket-design`
+(ADR 0009).
 
 ## Delivery workflow
 
@@ -67,14 +67,13 @@ one job, `pnpm verify`, and lists every failed step at the end:
 - lint, format, tests, build, test typecheck (`nx affected`);
 - architecture: `pnpm dep-cruise`, `pnpm ports:check`;
 - contracts: `pnpm openapi:check`, `pnpm openapi:lint`, `pnpm openapi:diff`;
-- design system: `pnpm tokens:check` (also in `verify:local`), Stylelint in the UI kit's `lint`,
-  and the component catalog build (`ladle-build`);
 - dependency policy: `syncpack`, `pnpm dedupe --check`, `nx sync:check`;
 - the container image of every affected project with a `Dockerfile`.
 
 The self-tests that prove each gate fires live in the package's source repository, pocket-factory.
-The tests of this repository's own code stay with that code: the token build tests are the
-`design-tokens` project's, and the template tests are the `template` project's.
+The tests of this repository's own code stay with that code: the template tests are the
+`template` project's. The design package's tokens and components are checked where it is built,
+in pocket-factory.
 
 A pull request with a database migration also needs the owner's approval (constitution
 principle 8); the reviewer checks the migration rules of ADR 0004.
