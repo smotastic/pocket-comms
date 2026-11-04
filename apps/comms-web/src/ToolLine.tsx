@@ -1,4 +1,4 @@
-import { Link, Text } from '@smotastic/pocket-design';
+import { Inline, Link, Text } from '@smotastic/pocket-design';
 import { navigateOnPlainClick } from './links.js';
 
 export type ToolLineProps = {
@@ -25,7 +25,10 @@ const MARKS = {
   error: { mark: '✗', name: 'failed' },
 } as const;
 
-/** One tool call collapsed to a single line, such as "Edited `foo.ts` +12 −3 ✓". */
+/**
+ * One tool call collapsed to a single line, such as "Edited `foo.ts` +12 −3 ✓"; a long target is
+ * cut to fit.
+ */
 export const ToolLine = ({
   verb,
   target,
@@ -39,7 +42,12 @@ export const ToolLine = ({
   // Each word in an element of its own, so it can be found by its text.
   const words = [
     <span key="verb">{verb}</span>,
-    target === undefined ? null : <code key="target">{target}</code>,
+    // A long command or path is cut with an ellipsis, so the line never widens the page.
+    target === undefined ? null : (
+      <Text key="target" as="span" tone="muted" size="sm" truncate>
+        <code>{target}</code>
+      </Text>
+    ),
     added !== undefined && added > 0 ? <span key="added">+{added}</span> : null,
     removed !== undefined && removed > 0 ? <span key="removed">−{removed}</span> : null,
     outcome === 'ok' || outcome === 'error' ? (
@@ -50,10 +58,14 @@ export const ToolLine = ({
     ) : null,
     hint === undefined ? null : <span key="hint">{hint}</span>,
   ].filter((word) => word !== null);
-  // Spaces keep the words apart, also in a link's name.
-  const content = words.flatMap((word, index) => (index === 0 ? [word] : [' ', word]));
+  // Spaces keep the words apart in a link's name; the row sets them apart on screen.
+  const content = (
+    <Inline gap="xs" wrap={false}>
+      {words.flatMap((word, index) => (index === 0 ? [word] : [' ', word]))}
+    </Inline>
+  );
   return (
-    <Text tone="muted" size="sm">
+    <Text as="div" tone="muted" size="sm">
       {href === undefined ? (
         content
       ) : (
