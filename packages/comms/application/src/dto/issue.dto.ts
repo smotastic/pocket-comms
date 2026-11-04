@@ -53,4 +53,6 @@ export interface ImplementIssueInput {
   readonly project: string;
   readonly number: number;
   readonly branch: string;
+  /** Added to the agent's first prompt for this launch only (spec 021). */
+  readonly additionalInformation?: string | undefined;
 }

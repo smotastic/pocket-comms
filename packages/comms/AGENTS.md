@@ -69,6 +69,8 @@ VAPID key pair are two JSON files in its `push` folder.
 - Implementing an issue goes through the spec 005 `create` use case; do not copy its rules. It
   marks the issue in progress only after the task exists, and a failed mark never fails the start.
   Whether an issue is in progress is `isInProgress` in the domain; the web app only groups by it.
+- The owner's additional information for an issue start (spec 021) lives only in that agent's
+  first prompt, through `issueTask`: never write it to Gitea and never store it.
 - Pi runs through `AgentRuntimeOutbound` (ADR 0012); only `infrastructure` imports
   `@earendil-works/*`, never `pi-coding-agent`. Pi's tools only read (projects, open issues,
   `README.md` and `AGENTS.md`), none takes a path, and `propose_issue` ends the turn. Only the

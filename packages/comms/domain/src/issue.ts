@@ -1,4 +1,6 @@
+import * as Result from 'effect/Result';
 import type { Agent } from './agent.js';
+import { InvalidInputError } from './errors.js';
 import { BRANCH_TYPES, MAX_TASK_LENGTH } from './task.js';
 
 // The rules of a project's Gitea issues (spec 006): which repository a remote names, the order
@@ -135,16 +137,47 @@ export const issueNumberOf = (branch: string): number | undefined => {
 
 const CUT = '[…] The issue is longer; read it in Gitea.';
 
+/** How long the additional information of an issue's task may be (spec 021). */
+export const MAX_ADDITIONAL_INFORMATION = 4000;
+
 /**
- * The task an issue gives an agent (spec 006, requirement 13): the title, the body and the
- * issue's reference, within the length of a task.
+ * The additional information the owner gives one issue's task (spec 021): trimmed, with `\n`
+ * line breaks, and none when blank.
  */
-export const issueTask = (issue: Issue): string => {
+export const parseAdditionalInformation = (
+  text: string | undefined,
+): Result.Result<string | undefined, InvalidInputError> => {
+  const trimmed = (text ?? '').replaceAll('\r\n', '\n').trim();
+  if (trimmed.length > MAX_ADDITIONAL_INFORMATION) {
+    return Result.fail(
+      new InvalidInputError({
+        issues: [
+          {
+            field: 'additionalInformation',
+            message: `The additional information is longer than ${MAX_ADDITIONAL_INFORMATION} characters.`,
+          },
+        ],
+      }),
+    );
+  }
+  return Result.succeed(trimmed === '' ? undefined : trimmed);
+};
+
+/**
+ * The task an issue gives an agent (spec 006, requirement 13): the title, the body, the
+ * additional information of spec 021 and the issue's reference, within the length of a task.
+ * Only the body is cut.
+ */
+export const issueTask = (issue: Issue, additionalInformation?: string): string => {
   const title = issue.title.trim();
-  const footer = [
+  const reference = [
     `Gitea issue #${issue.number}: ${issue.url}`,
     `Implement this issue. Write "Closes #${issue.number}" in the pull request description.`,
   ].join('\n');
+  const footer =
+    additionalInformation === undefined
+      ? reference
+      : `## Additional information\n\n${additionalInformation}\n\n${reference}`;
   const body = issue.body.replaceAll('\r\n', '\n').trim();
   if (body === '') return `${title}\n\n${footer}`;
   const room = MAX_TASK_LENGTH - title.length - footer.length - 4;

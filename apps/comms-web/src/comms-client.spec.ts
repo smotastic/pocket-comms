@@ -236,6 +236,21 @@ describe('the tasks requests', () => {
     expect(JSON.parse(String(body))).toEqual({ branch: 'feat/8-x' });
   });
 
+  it('implements an issue with additional information', async () => {
+    fetch.mockImplementation(async () =>
+      answer(201, { workspace: 'wK', branch: 'feat/8-x', path: '/w/feat-8-x' }),
+    );
+
+    await makeCommsClient('http://app').implementIssue('pocket-comms', 8, 'feat/8-x', 'A hint.');
+
+    const [input, init] = fetch.mock.calls[0] ?? [];
+    const body = input instanceof Request ? await input.text() : init?.body;
+    expect(JSON.parse(String(body))).toEqual({
+      branch: 'feat/8-x',
+      additionalInformation: 'A hint.',
+    });
+  });
+
   it('closes an issue', async () => {
     fetch.mockImplementation(async () => new Response(null, { status: 204 }));
 

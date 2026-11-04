@@ -550,6 +550,31 @@ describe('the issues API', () => {
     expect(asked).toEqual([{ project: 'pocket-comms', number: 8, branch: 'feat/8-issue-list' }]);
   });
 
+  it('passes the additional information on', async () => {
+    const asked: Array<ImplementIssueInput> = [];
+    const call = issues({
+      implement: (input) => Effect.sync(() => (asked.push(input), created)),
+    });
+
+    const response = await call(
+      '/api/v1/projects/pocket-comms/issues/8/implement',
+      json({
+        branch: 'feat/8-issue-list',
+        additionalInformation: 'Use the list.\n\nKeep it small.',
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(asked).toEqual([
+      {
+        project: 'pocket-comms',
+        number: 8,
+        branch: 'feat/8-issue-list',
+        additionalInformation: 'Use the list.\n\nKeep it small.',
+      },
+    ]);
+  });
+
   it('says why a started issue was not marked in progress', async () => {
     const markNote = '#8 was not marked in progress: Gitea refused the token (403).';
     const call = issues({ implement: () => Effect.succeed({ ...created, markNote }) });
@@ -568,6 +593,10 @@ describe('the issues API', () => {
     ['/api/v1/projects/pocket-comms/issues/x/implement', { branch: 'feat/x' }],
     ['/api/v1/projects/pocket-comms/issues/8/implement', { branch: '' }],
     ['/api/v1/projects/pocket-comms/issues/8/implement', { branch: 'feat/x', agent: 'pi' }],
+    [
+      '/api/v1/projects/pocket-comms/issues/8/implement',
+      { branch: 'feat/x', additionalInformation: 'a'.repeat(4001) },
+    ],
   ])('answers 422 for %s with %j', async (path, body) => {
     const call = issues({ implement: () => Effect.succeed(created) });
 
