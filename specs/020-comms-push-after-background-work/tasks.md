@@ -10,7 +10,7 @@ in the task's own commit.
       separate `background.ts` would have imported `agents.ts` in a circle.
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T02** — Application: the notifier holds a done change while the agent has background
+- [x] **T02** — Application: the notifier holds a done change while the agent has background
       work and sends after two quiet rounds; blocked changes unchanged
   - Gate: `pnpm nx test comms-application`
 

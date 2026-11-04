@@ -18,6 +18,7 @@ import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
 import { SeenOutbound } from '../ports/memory.outbound.port.js';
 import { PushSenderOutbound, PushSubscriptionsOutbound } from '../ports/push.outbound.port.js';
 import { TranscriptOutbound } from '../ports/transcript.outbound.port.js';
+import { makeBackgroundOf } from './agents.js';
 
 /** How long a change must hold before it notifies, so a passing blocked state stays quiet. */
 const HOLD = '10 seconds';
@@ -31,6 +32,7 @@ export const makeNotify = Effect.gen(function* () {
   const transcriptOutbound = yield* TranscriptOutbound;
   const pushSubscriptionsOutbound = yield* PushSubscriptionsOutbound;
   const pushSenderOutbound = yield* PushSenderOutbound;
+  const backgroundOf = yield* makeBackgroundOf;
 
   const excerpt = (agent: Agent, attention: Attention) => {
     const format = transcriptFormatOf(agent);
@@ -71,19 +73,38 @@ export const makeNotify = Effect.gen(function* () {
     );
   });
 
-  // Waits, then reads Herdr again: only a change that still holds is sent. Sending is not
-  // interrupted by a newer change of the same agent; only the wait is.
-  const deliver = (change: Change) =>
+  // Waits, then reads Herdr again: the agent and its project while the change still holds.
+  const holding = (change: Change) =>
     Effect.gen(function* () {
       yield* Effect.sleep(HOLD);
       const snapshot = yield* herdrOutbound.snapshot.pipe(Effect.option);
-      if (Option.isNone(snapshot)) return;
+      if (Option.isNone(snapshot)) return undefined;
       const { agents, workspaces } = snapshot.value;
-      if (!stillHolds(change, agents, yield* seenOutbound.seen)) return;
+      if (!stillHolds(change, agents, yield* seenOutbound.seen)) return undefined;
       const agent = agents.find((candidate) => candidate.paneId === change.paneId);
-      if (agent === undefined) return;
+      if (agent === undefined) return undefined;
       const project = workspaces.find((workspace) => workspace.id === agent.workspaceId)?.project;
-      yield* send(change, agent, project).pipe(
+      return { agent, project };
+    });
+
+  const quiet = (agent: Agent) => Effect.map(backgroundOf(agent), (work) => work.length === 0);
+
+  // Only a change that still holds is sent. A done agent with background work is not done yet
+  // (spec 020): its change waits until two rounds in a row find no work, so an agent that wakes
+  // up when its work ends has 10 s to start the turn that brings its own change. Sending is not
+  // interrupted by a newer change of the same agent; only the wait is.
+  const deliver = (change: Change, seenAs: Agent) =>
+    Effect.gen(function* () {
+      let wasQuiet = change.attention === 'blocked' || (yield* quiet(seenAs));
+      let held = yield* holding(change);
+      while (held !== undefined && change.attention === 'done') {
+        const isQuiet = yield* quiet(held.agent);
+        if (wasQuiet && isQuiet) break;
+        wasQuiet = isQuiet;
+        held = yield* holding(change);
+      }
+      if (held === undefined) return;
+      yield* send(change, held.agent, held.project).pipe(
         Effect.catchTag('PushStoreError', (error) =>
           Effect.logWarning('Push devices could not be read').pipe(
             Effect.annotateLogs({ reason: error.reason }),
@@ -106,7 +127,11 @@ export const makeNotify = Effect.gen(function* () {
           const step = watchStep(reading, snapshot.value.agents);
           reading = step.reading;
           for (const change of step.changes) {
-            yield* FiberMap.run(pending, change.paneId, deliver(change));
+            const agent = snapshot.value.agents.find(
+              (candidate) => candidate.paneId === change.paneId,
+            );
+            if (agent === undefined) continue;
+            yield* FiberMap.run(pending, change.paneId, deliver(change, agent));
           }
         }),
       ),
