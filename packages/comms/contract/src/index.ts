@@ -36,6 +36,7 @@ export {
   ProposalDecisionRequest,
   ProposalParam,
   ProposalState,
+  EditState,
   Projects,
   CloseRequest,
   PromptRequest,

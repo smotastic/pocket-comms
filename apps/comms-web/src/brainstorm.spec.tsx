@@ -11,11 +11,26 @@ const ready = (overrides: Partial<Extract<BrainstormStateView, { _tag: 'Ready' }
 
 const proposal = {
   type: 'proposal',
+  kind: 'issue',
   id: 'p1',
   at: 3,
   project: 'pocket-home',
   title: 'Dark mode',
   body: 'A toggle.',
+  state: { _tag: 'open' },
+} as const;
+
+const edit = {
+  type: 'proposal',
+  kind: 'edit',
+  id: 'e1',
+  at: 4,
+  project: 'pocket-comms',
+  number: 11,
+  url: 'http://gitea/i/11',
+  title: 'Orchestrator mode',
+  body: 'Control agents from the chat.',
+  base: { title: 'Orchestrator', body: 'An orchestrator agent.' },
   state: { _tag: 'open' },
 } as const;
 
@@ -209,5 +224,53 @@ describe('a proposal in the brainstorm chat', () => {
       (await within(sheet).findByRole('link', { name: 'Issue #12' })).getAttribute('href'),
     ).toBe('http://gitea/i/12');
     expect(within(sheet).queryByRole('button', { name: 'Create issue' })).toBeNull();
+  });
+});
+
+describe('an edit in the brainstorm chat', () => {
+  it('applies the title and body as the owner edited them, next to the current version', async () => {
+    const { sheet, calls } = await openChat(ready({ entries: [edit] }));
+    const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
+
+    await userEvent.click(within(card).getByRole('button', { name: /Current version/u }));
+    expect(within(card).getByRole('region', { name: 'Current version' }).textContent).toContain(
+      'An orchestrator agent.',
+    );
+    const body = within(card).getByRole('textbox', { name: 'Body' });
+    await userEvent.clear(body);
+    await userEvent.type(body, 'Edited.');
+    await userEvent.click(within(card).getByRole('button', { name: 'Apply edit' }));
+
+    await waitFor(() =>
+      expect(calls.decisions).toEqual([
+        ['e1', { _tag: 'Apply', title: 'Orchestrator mode', body: 'Edited.' }],
+      ]),
+    );
+  });
+
+  it('keeps the card open and says why when the issue changed', async () => {
+    const { sheet, calls, state } = await openChat(ready({ entries: [edit] }));
+    const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
+
+    state.brainstormFailure = new RequestError('Issue #11 changed since Pi read it.', 409);
+    await userEvent.click(within(card).getByRole('button', { name: 'Apply edit' }));
+    expect((await within(card).findByRole('alert')).textContent).toBe(
+      'Issue #11 changed since Pi read it.',
+    );
+    expect(within(card).getByRole('button', { name: 'Apply edit' })).toBeTruthy();
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(calls.decisions).toEqual([['e1', { _tag: 'Discard' }]]));
+  });
+
+  it('links an updated issue and offers no more actions', async () => {
+    const { sheet } = await openChat(
+      ready({ entries: [{ ...edit, state: { _tag: 'updated', url: 'http://gitea/i/11' } }] }),
+    );
+
+    expect(
+      (await within(sheet).findByRole('link', { name: 'Issue #11 updated' })).getAttribute('href'),
+    ).toBe('http://gitea/i/11');
+    expect(within(sheet).queryByRole('button', { name: 'Apply edit' })).toBeNull();
   });
 });

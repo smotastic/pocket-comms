@@ -1,13 +1,17 @@
-import type { BrainstormEntry } from '@pocket-comms/comms-domain';
+import type { BrainstormEntry, IssueRead } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
 import type { RuntimeState } from './agent-runtime.outbound.port.js';
 
-/** The brainstorm chat as stored: its id, the shown entries and Pi's own history. */
+/**
+ * The brainstorm chat as stored: its id, the shown entries, the issues Pi last read, and Pi's own
+ * history.
+ */
 export interface StoredChat {
   readonly id: string;
   readonly entries: ReadonlyArray<BrainstormEntry>;
+  readonly reads: ReadonlyArray<IssueRead>;
   readonly runtime: Option.Option<RuntimeState>;
 }
 

@@ -35,6 +35,7 @@ export {
   BranchExistsError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
+  IssueChangedError,
   IssueClosedError,
   IssueNotFoundError,
   NoGiteaRemoteError,

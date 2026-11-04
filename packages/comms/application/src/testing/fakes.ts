@@ -494,6 +494,15 @@ const gitea = (state: FakeState['Service']) => {
           return { number, url };
         }),
       ),
+    updateIssue: ({ owner, name }, number, { title, body }) =>
+      request(`updateIssue ${owner}/${name} ${number} ${JSON.stringify({ title, body })}`, () => {
+        const issues = state.issues.get(`${owner}/${name}`) ?? [];
+        const index = issues.findIndex((issue) => issue.number === number);
+        const found = issues[index];
+        if (found === undefined) return Effect.fail(new IssueNotFoundError({ number }));
+        issues[index] = { ...found, title, body };
+        return Effect.void;
+      }),
   });
 };
 

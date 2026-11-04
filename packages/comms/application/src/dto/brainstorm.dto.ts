@@ -17,7 +17,11 @@ export type BrainstormEventDto =
   | { readonly type: 'state'; readonly state: BrainstormStateDto }
   | { readonly type: 'delta'; readonly text: string };
 
-/** The owner's decision on a proposal: create the issue as edited, or discard it. */
+/**
+ * The owner's decision on a proposal: create the new issue as edited, apply the edit of an
+ * existing issue with this title and body, or discard either.
+ */
 export type ProposalDecisionInput =
   | { readonly _tag: 'Create'; readonly draft: IssueDraft }
+  | { readonly _tag: 'Apply'; readonly title: string; readonly body: string }
   | { readonly _tag: 'Discard' };

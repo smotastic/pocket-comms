@@ -78,6 +78,11 @@ export class IssueNotFoundError extends Data.TaggedError('IssueNotFoundError')<{
   readonly number: number;
 }> {}
 
+/** The issue's title or body changed since Pi read it, so an edit would overwrite newer work. */
+export class IssueChangedError extends Data.TaggedError('IssueChangedError')<{
+  readonly number: number;
+}> {}
+
 /** The issue is closed, so there is nothing to implement. */
 export class IssueClosedError extends Data.TaggedError('IssueClosedError')<{
   readonly number: number;
