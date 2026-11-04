@@ -53,13 +53,7 @@ const Group = ({
       {filter}
       <AgentList label={title}>
         {agents.map((agent) => (
-          <AgentItem
-            key={agent.paneId}
-            agent={agent}
-            withProject
-            now={now}
-            onOpen={onOpen}
-          />
+          <AgentItem key={agent.paneId} agent={agent} withProject now={now} onOpen={onOpen} />
         ))}
       </AgentList>
     </Stack>
@@ -137,12 +131,7 @@ export const Overview = ({ client, onOpen, onProject, onStarted, onActivity }: O
           ) : (
             <>
               {data.needsYou.length === 0 ? null : (
-                <Group
-                  title="Needs you"
-                  agents={data.needsYou}
-                  now={now}
-                  onOpen={onOpen}
-                />
+                <Group title="Needs you" agents={data.needsYou} now={now} onOpen={onOpen} />
               )}
               {groups.length === 0 ? null : (
                 <Group

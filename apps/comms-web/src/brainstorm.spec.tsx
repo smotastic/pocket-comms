@@ -7,7 +7,15 @@ import { fakeAgent, fakeClient, renderApp } from './testing.js';
 afterEach(cleanup);
 
 const ready = (overrides: Partial<Extract<BrainstormStateView, { _tag: 'Ready' }>> = {}) =>
-  ({ _tag: 'Ready', entries: [], answering: false, live: '', ...overrides }) as const;
+  ({
+    _tag: 'Ready',
+    entries: [],
+    answering: false,
+    live: '',
+    seesPictures: true,
+    pictures: [],
+    ...overrides,
+  }) as const;
 
 const proposal = {
   type: 'proposal',
@@ -17,6 +25,8 @@ const proposal = {
   project: 'pocket-home',
   title: 'Dark mode',
   body: 'A toggle.',
+  pictures: [],
+  attached: [],
   state: { _tag: 'open' },
 } as const;
 
@@ -31,6 +41,8 @@ const edit = {
   title: 'Orchestrator mode',
   body: 'Control agents from the chat.',
   base: { title: 'Orchestrator', body: 'An orchestrator agent.' },
+  pictures: [],
+  attached: [],
   state: { _tag: 'open' },
 } as const;
 
@@ -93,7 +105,7 @@ describe('the brainstorm chat', () => {
       emitBrainstorm({
         type: 'state',
         state: ready({
-          entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea: dark mode' }],
+          entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea: dark mode', images: [] }],
           answering: true,
         }),
       }),
@@ -124,7 +136,7 @@ describe('the brainstorm chat', () => {
     const { sheet } = await openChat(
       ready({
         entries: [
-          { type: 'user', id: 'u1', at: 1, text: 'Idea' },
+          { type: 'user', id: 'u1', at: 1, text: 'Idea', images: [] },
           { type: 'assistant', id: 'a1', at: 2, text: 'A **good** one.' },
           { type: 'failed', id: 'f1', at: 3, reason: 'The model cannot be reached.' },
         ],
@@ -153,7 +165,7 @@ describe('the brainstorm chat', () => {
 
   it('starts a new chat only after a confirmation', async () => {
     const { sheet, calls } = await openChat(
-      ready({ entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea' }] }),
+      ready({ entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea', images: [] }] }),
     );
 
     await userEvent.click(await within(sheet).findByRole('button', { name: 'New chat' }));
@@ -188,6 +200,7 @@ describe('a proposal in the brainstorm chat', () => {
           {
             _tag: 'Create',
             draft: { project: 'pocket-comms', title: 'Dark mode toggle', body: 'A toggle.' },
+            pictures: [],
           },
         ],
       ]),
@@ -243,7 +256,7 @@ describe('an edit in the brainstorm chat', () => {
 
     await waitFor(() =>
       expect(calls.decisions).toEqual([
-        ['e1', { _tag: 'Apply', title: 'Orchestrator mode', body: 'Edited.' }],
+        ['e1', { _tag: 'Apply', title: 'Orchestrator mode', body: 'Edited.', pictures: [] }],
       ]),
     );
   });
@@ -272,5 +285,197 @@ describe('an edit in the brainstorm chat', () => {
       (await within(sheet).findByRole('link', { name: 'Issue #11 updated' })).getAttribute('href'),
     ).toBe('http://gitea/i/11');
     expect(within(sheet).queryByRole('button', { name: 'Apply edit' })).toBeNull();
+  });
+});
+
+describe('pictures in the brainstorm chat', () => {
+  const A = 'a'.repeat(26);
+  const B = 'b'.repeat(26);
+  const picture = (id: string, number: number, available = true) => ({ id, number, available });
+  const picker = () => document.querySelector<HTMLInputElement>('input[type="file"]');
+
+  it('attaches pictures and sends their ids with the message', async () => {
+    const { sheet, calls } = await openChat();
+
+    await userEvent.upload(picker() as HTMLInputElement, [
+      new File(['x'], 'door.png', { type: 'image/png' }),
+    ]);
+    expect(await within(sheet).findByRole('img', { name: 'Image 1' })).toBeDefined();
+    await userEvent.type(within(sheet).getByRole('textbox', { name: 'Message' }), 'Like this?');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(calls.brainstormMessages).toEqual(['Like this?']));
+    expect(calls.brainstormImageIds).toEqual([['image-1']]);
+  });
+
+  it('says next to the composer that the model cannot see pictures', async () => {
+    const { sheet } = await openChat(ready({ seesPictures: false }));
+
+    expect(within(sheet).queryByText("This model can't see pictures")).toBeNull();
+    await userEvent.upload(picker() as HTMLInputElement, [
+      new File(['x'], 'door.png', { type: 'image/png' }),
+    ]);
+
+    expect(await within(sheet).findByText("This model can't see pictures")).toBeDefined();
+  });
+
+  it('shows a message’s pictures by number, and says when the model cannot see them', async () => {
+    const { sheet } = await openChat(
+      ready({
+        entries: [{ type: 'user', id: 'u1', at: 1, text: 'Look', images: [A, B] }],
+        pictures: [picture(A, 1), picture(B, 2)],
+        seesPictures: false,
+      }),
+    );
+
+    expect((await within(sheet).findByRole('img', { name: 'Picture 2' })).getAttribute('src')).toBe(
+      `/api/v1/images/${B}`,
+    );
+    expect(within(sheet).getByRole('img', { name: 'Picture 1' })).toBeDefined();
+    expect(within(sheet).getByText("This model can't see pictures")).toBeDefined();
+  });
+
+  it('checks the pictures Pi named and sends the owner’s choice in number order', async () => {
+    const { sheet, calls } = await openChat(
+      ready({
+        entries: [{ ...proposal, pictures: [B] }],
+        pictures: [picture(A, 1), picture(B, 2)],
+      }),
+    );
+    const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
+
+    expect(within(card).getByRole('checkbox', { name: 'Attach picture 2' })).toHaveProperty(
+      'checked',
+      true,
+    );
+    const first = within(card).getByRole('checkbox', { name: 'Attach picture 1' });
+    expect(first).toHaveProperty('checked', false);
+    await userEvent.click(first);
+    await userEvent.click(within(card).getByRole('button', { name: 'Create issue' }));
+
+    await waitFor(() =>
+      expect(calls.decisions).toEqual([
+        [
+          'p1',
+          {
+            _tag: 'Create',
+            draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+            pictures: [A, B],
+          },
+        ],
+      ]),
+    );
+  });
+
+  it('shows a removed picture that cannot be checked', async () => {
+    const { sheet } = await openChat(
+      ready({ entries: [proposal], pictures: [picture(A, 1, false)] }),
+    );
+    const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
+
+    expect(within(card).getByRole('checkbox', { name: 'Attach picture 1' })).toHaveProperty(
+      'disabled',
+      true,
+    );
+    expect(within(card).getByText('Removed')).toBeDefined();
+  });
+
+  it('checks at most five pictures', async () => {
+    const ids = ['a', 'b', 'c', 'd', 'e', 'f'].map((letter) => letter.repeat(26));
+    const { sheet } = await openChat(
+      ready({
+        entries: [{ ...proposal, pictures: ids.slice(0, 5) }],
+        pictures: ids.map((id, index) => picture(id, index + 1)),
+      }),
+    );
+    const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
+
+    expect(within(card).getByRole('checkbox', { name: 'Attach picture 6' })).toHaveProperty(
+      'disabled',
+      true,
+    );
+    expect(within(card).getByRole('checkbox', { name: 'Attach picture 5' })).toHaveProperty(
+      'disabled',
+      false,
+    );
+  });
+
+  it('offers a retry and finishing without the pictures while they are not attached', async () => {
+    const { sheet, calls } = await openChat(
+      ready({
+        entries: [
+          {
+            ...proposal,
+            pictures: [A, B],
+            attached: [{ image: A, url: 'http://gitea/attachments/1' }],
+            state: { _tag: 'attaching', number: 12, url: 'http://gitea/i/12' },
+          },
+        ],
+        pictures: [picture(A, 1), picture(B, 2)],
+      }),
+    );
+    const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
+
+    expect(within(card).getByRole('link', { name: 'Issue #12 created' })).toBeDefined();
+    expect(within(card).getByText(/pictures are not attached yet/u)).toBeDefined();
+    await userEvent.click(within(card).getByRole('button', { name: 'Retry' }));
+    await userEvent.click(within(card).getByRole('button', { name: 'Finish without them' }));
+
+    await waitFor(() =>
+      expect(calls.decisions).toEqual([
+        [
+          'p1',
+          {
+            _tag: 'Create',
+            draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+            pictures: [A, B],
+          },
+        ],
+        ['p1', { _tag: 'FinishWithout' }],
+      ]),
+    );
+  });
+
+  it('shows the pictures that went along with a created issue', async () => {
+    const { sheet } = await openChat(
+      ready({
+        entries: [
+          {
+            ...proposal,
+            pictures: [A],
+            attached: [{ image: A, url: 'http://gitea/attachments/1' }],
+            state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
+          },
+        ],
+        pictures: [picture(A, 1)],
+      }),
+    );
+    const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
+
+    expect(within(card).getByRole('img', { name: 'Picture 1' })).toBeDefined();
+    expect(within(card).queryByRole('checkbox')).toBeNull();
+  });
+
+  it('applies an edit with the chosen pictures', async () => {
+    const { sheet, calls } = await openChat(
+      ready({ entries: [{ ...edit, pictures: [A] }], pictures: [picture(A, 1)] }),
+    );
+    const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Apply edit' }));
+
+    await waitFor(() =>
+      expect(calls.decisions).toEqual([
+        [
+          'e1',
+          {
+            _tag: 'Apply',
+            title: 'Orchestrator mode',
+            body: 'Control agents from the chat.',
+            pictures: [A],
+          },
+        ],
+      ]),
+    );
   });
 });

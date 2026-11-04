@@ -24,7 +24,7 @@ in the task's own commit.
       OpenAPI document and the accepted changes
   - Gate: `pnpm nx run-many -t test -p comms-contract comms-api comms-server`
 
-- [ ] **T05** — Web: attaching in the brainstorm composer, numbered thumbnails, the cards'
+- [x] **T05** — Web: attaching in the brainstorm composer, numbered thumbnails, the cards'
       Pictures section, the attaching card, the notice for a model without vision
   - Gate: `pnpm nx test comms-web`
 

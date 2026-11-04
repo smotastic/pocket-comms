@@ -342,7 +342,9 @@ const THEMES: ReadonlyArray<{ readonly id: ThemeChoice; readonly label: string }
 /** The theme of this device, which takes effect at once. */
 const ThemeRow = () => {
   const [theme, chooseTheme] = useThemeChoice();
-  return <SegmentedControl label="Theme" options={THEMES} selected={theme} onSelect={chooseTheme} />;
+  return (
+    <SegmentedControl label="Theme" options={THEMES} selected={theme} onSelect={chooseTheme} />
+  );
 };
 
 /**

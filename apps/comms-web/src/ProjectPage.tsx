@@ -314,11 +314,7 @@ export const ProjectPage = ({
               <Text tone="muted">Loading the agents…</Text>
             ) : null
           ) : (
-            <Agents
-              agents={agentsOf(overview.data, project)}
-              now={now}
-              onOpen={onOpenAgent}
-            />
+            <Agents agents={agentsOf(overview.data, project)} now={now} onOpen={onOpenAgent} />
           )}
           <section aria-label="Issues">
             <Stack gap="xs">
