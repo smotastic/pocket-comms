@@ -31,7 +31,7 @@ Use pnpm. Run `pnpm install` before the first build.
 - For a new service or web app, build from the shapes of the
   [comms service](packages/comms/AGENTS.md) and its apps (`apps/comms-server`, `apps/comms-web`); the
   bookmarks blueprint was removed (TEMPLATE.md step 3). The repository has no generators.
-- For web UI, use `@smotastic/pocket-design` (ADR 0014); its source and rules live in
+- For web UI, use `@smotastic/pocket-design` (ADR 0009); its source and rules live in
   pocket-factory's `packages/design`. Change the look or add a reusable component there and take
   it here as a catalog bump, never in an app; an app composes kit components (no stylesheets).
 - For a web app's routes and server data, use TanStack Router and TanStack Query as the

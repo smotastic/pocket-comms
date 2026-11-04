@@ -55,6 +55,19 @@ describe('images in the conversation', () => {
     await waitFor(() => expect(screen.queryAllByRole('img', { name: /^Image/u })).toHaveLength(0));
   });
 
+  it('sends images without text', async () => {
+    const fake = open();
+
+    await attach('a.png');
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send' }).disabled).toBe(false),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(fake.calls.promptImages).toEqual([['image-1']]));
+    expect(fake.calls.prompts).toEqual([[fake.agent.ref, '']]);
+  });
+
   it('attaches at most five and says how many were left out', async () => {
     open();
 

@@ -30,7 +30,7 @@
 
 Package names are `@pocket-comms/<name>`; Nx tags are `scope:*` plus `layer:*`, `type:app` or `type:web`
 (ADR 0007). Web apps take their look from the published design package `@smotastic/pocket-design`
-(ADR 0014).
+(ADR 0009).
 
 ## Delivery workflow
 

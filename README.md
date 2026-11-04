@@ -123,7 +123,7 @@ packages/comms/        the service: domain, application, infrastructure (Herdr s
                        files), contract (the HttpApi) and api (handlers, identity guard, web route)
 apps/comms-server/     composition root and the committed OpenAPI document
 apps/comms-web/        React + Vite web app (TanStack Router and Query); its look and components
-                       come from the shared design package @smotastic/pocket-design (ADR 0014)
+                       come from the shared design package @smotastic/pocket-design (ADR 0009)
 specs/                 feature specs; docs/ ADRs and conventions; tools/ template init
                        (the gates come from @smotastic/pocket-ci, ADR 0013)
 ```

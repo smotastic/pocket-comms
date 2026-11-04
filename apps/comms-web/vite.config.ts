@@ -28,7 +28,7 @@ export default defineConfig({
     // Longer than the five seconds a `findBy` waits (see testing.tsx), so a slow first render on a
     // busy runner fails on what it waited for, not on the test's own timeout.
     testTimeout: 15_000,
-    // The installed design package imports its own CSS, which Node cannot load; Vite can (ADR 0014).
+    // The installed design package imports its own CSS, which Node cannot load; Vite can (ADR 0009).
     server: { deps: { inline: ['@smotastic/pocket-design'] } },
     coverage: { reportsDirectory: './test-output/vitest/coverage', provider: 'v8' },
   },

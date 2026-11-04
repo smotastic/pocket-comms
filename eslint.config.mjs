@@ -6,7 +6,7 @@
 //   scope:<service> / scope:shared / scope:contracts  — services cannot cross-depend
 //   layer:domain / layer:application / layer:infrastructure  — technical layers
 //   type:app / type:web  — deployables; a web app may use contracts only among the projects
-// The design system is the published package `@smotastic/pocket-design` (ADR 0014), no project;
+// The design system is the published package `@smotastic/pocket-design` (ADR 0009), no project;
 // `no-design-in-server-code` in `.dependency-cruiser.cjs` keeps it out of server code.
 import nx from '@nx/eslint-plugin';
 
@@ -88,7 +88,7 @@ export default [
             { sourceTag: 'layer:application', notDependOnLibsWithTags: ['layer:infrastructure'] },
             // ── Type: deployables ──────────────────────────────────────────
             // A web app reaches its service through the contract and the typed client (ADR 0008),
-            // and takes its look from the design package (ADR 0014).
+            // and takes its look from the design package (ADR 0009).
             { sourceTag: 'type:web', onlyDependOnLibsWithTags: ['scope:contracts'] },
           ],
         },
@@ -120,7 +120,7 @@ export default [
     },
   },
   {
-    // A web app takes its look only from the design package (ADR 0014): no inline styles.
+    // A web app takes its look only from the design package (ADR 0009): no inline styles.
     files: ['apps/*web/**/*.tsx', 'blueprints/*/apps/*web/**/*.tsx'],
     rules: {
       'no-restricted-syntax': [

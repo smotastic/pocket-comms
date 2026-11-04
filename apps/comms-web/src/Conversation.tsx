@@ -2,12 +2,10 @@ import {
   Activity,
   Alert,
   AppBar,
-  AttachButton,
   Card,
   Composer,
   DockedPage,
   IconButton,
-  Inline,
   SegmentedControl,
   Stack,
   Text,
@@ -265,22 +263,25 @@ export const Conversation = ({
               onSend={sendPrompt}
               placeholder={`Message ${name}`}
               locked={prompt.isPending || images.pending}
-              context={
-                <Inline gap="xs">
-                  <AttachButton
-                    label="Attach image"
-                    icon="image"
-                    acceptedFileTypes={['image/*']}
-                    onSelect={(files) => void images.add(files)}
-                    isDisabled={images.full}
-                  />
-                  <AttachedImages
-                    attachments={images.attachments}
-                    onRemove={images.remove}
-                    onRetry={images.retry}
-                  />
-                </Inline>
-              }
+              attach={{
+                label: 'Attach image',
+                icon: 'image',
+                acceptedFileTypes: ['image/*'],
+                onSelect: (files) => void images.add(files),
+                isDisabled: images.full,
+              }}
+              sendable={images.ids.length > 0}
+              {...(images.attachments.length === 0
+                ? {}
+                : {
+                    attachments: (
+                      <AttachedImages
+                        attachments={images.attachments}
+                        onRemove={images.remove}
+                        onRetry={images.retry}
+                      />
+                    ),
+                  })}
             />
           )}
         </Stack>

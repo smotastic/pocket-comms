@@ -111,10 +111,6 @@ files with their read tools.
 - The state folder is `COMMS_STATE_DIR` (spec 013), default `~/.pocket-comms`.
 - The look comes from the design system: the `Composer` gets an attachments slot and an attach
   action, and a new thumbnail component shows an image with its state.
-- Deviation (owner's decision, 2026-11-04, pocket-factory#20): comms takes its UI from the shared
-  `@smotastic/pocket-design` 0.1.0, whose `Composer` sends only text. Until it can send without
-  text, a message with images needs a word too, and the acceptance criterion "sends without text"
-  does not hold. Removal path: a kit release whose `Composer` sends attachments alone.
 
 ## 6. Open questions
 

@@ -19,7 +19,7 @@ const CORE = layerLevel('domain|application');
 // Wire schemas: the shared ones in `packages/contracts/`, and the contract package of a service.
 const CONTRACTS = `^packages/contracts/|${layerLevel('contract')}`;
 
-// The design system (ADR 0014): the published package `@smotastic/pocket-design`, for web apps only.
+// The design system (ADR 0009): the published package `@smotastic/pocket-design`, for web apps only.
 const DESIGN = '(?:^|/)(?:node_modules/)?@smotastic/pocket-design/';
 const WORKSPACE = '^(?:apps|packages|blueprints)/';
 
@@ -193,7 +193,7 @@ module.exports = {
     {
       name: 'no-design-in-server-code',
       comment:
-        'The design package is for web apps (ADR 0014). Servers, services, shared backend code, ' +
+        'The design package is for web apps (ADR 0009). Servers, services, shared backend code, ' +
         'contracts and apps that are not web apps never import it.',
       severity: 'error',
       from: { path: WORKSPACE, pathNot: WEB_APP },
@@ -203,7 +203,7 @@ module.exports = {
       name: 'no-css-in-web',
       comment:
         'A web app has no stylesheet of its own; its look comes from the design package, so a ' +
-        'visual change happens there and every app follows (ADRs 0009 and 0014).',
+        'visual change happens there and every app follows (ADR 0009).',
       severity: 'error',
       from: { path: WEB_APP },
       to: { path: '\\.(?:css|scss|sass|less|styl)$' },

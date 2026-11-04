@@ -43,7 +43,7 @@ Write its spec (`specs/003-…`), then copy the blueprint's shapes into `apps/` 
 `packages/<service>/`. Every project carries the Nx tags `scope:<service>` and one of
 `layer:domain|application|infrastructure`, `type:app` or `type:web` (ADR 0007). Add the
 `scope:<service>` constraint to `eslint.config.mjs`. Web apps take their look from
-`@smotastic/pocket-design` (ADR 0014).
+`@smotastic/pocket-design` (ADR 0009).
 
 ## 5. Keep the decisions
 
