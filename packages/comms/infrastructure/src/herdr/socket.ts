@@ -6,10 +6,11 @@ import {
 } from '@pocket-comms/comms-application';
 import { AgentStatus, OTHER_GROUP, type Agent, type Workspace } from '@pocket-comms/comms-domain';
 import * as Cause from 'effect/Cause';
-import type * as Duration from 'effect/Duration';
+import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Queue from 'effect/Queue';
+import * as Schedule from 'effect/Schedule';
 import * as Schema from 'effect/Schema';
 import * as Stream from 'effect/Stream';
 import { createConnection } from 'node:net';
@@ -34,6 +35,10 @@ export interface SocketOptions {
    * runs in its CLI's default permission mode.
    */
   readonly agentArgs?: ReadonlyArray<string>;
+  /**
+   * How long `startAgent` waits for a new pane's shell to reach its prompt. Default 10 seconds.
+   */
+  readonly shellWait?: Duration.Input;
 }
 
 /** `$HERDR_SOCKET_PATH`, or `~/.config/herdr/herdr.sock`. */
@@ -91,6 +96,13 @@ const AgentStarted = Schema.Struct({
 });
 
 const isStatus = Schema.is(AgentStatus);
+
+// Herdr refuses `agent.start` until the pane's shell sits at its prompt. A pane that
+// `worktree.create` just spawned gets there only after the shell has read its startup files,
+// which takes longer on a busy machine, so the start is tried again until then.
+const SHELL_PAUSE = Duration.millis(250);
+const isShellStarting = (error: HerdrUnavailableError | HerdrRejectedError): boolean =>
+  error._tag === 'HerdrRejectedError' && error.message.includes('is not an available shell');
 const orUndefined = <A>(value: A | null | undefined): A | undefined => value ?? undefined;
 
 const toAgent = (record: typeof AgentRecord.Type): Agent => ({
@@ -152,6 +164,7 @@ export const layerSocket = ({
   timeout = '3 seconds',
   relistInterval = '2 seconds',
   agentArgs = [],
+  shellWait = '10 seconds',
 }: SocketOptions) => {
   const unavailable = (reason: string) => new HerdrUnavailableError({ reason });
   let nextId = 0;
@@ -399,6 +412,11 @@ export const layerSocket = ({
           name,
           '40 seconds',
         ).pipe(
+          Effect.retry({
+            while: isShellStarting,
+            schedule: Schedule.spaced(SHELL_PAUSE),
+            times: Math.ceil(Duration.toMillis(shellWait) / Duration.toMillis(SHELL_PAUSE)),
+          }),
           Effect.map(({ agent }) => ({
             status: isStatus(agent.agent_status) ? agent.agent_status : 'unknown',
             ready: agent.interactive_ready === true,
