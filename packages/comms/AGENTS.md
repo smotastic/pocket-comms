@@ -14,8 +14,9 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 014](../../specs/014-comms-images-in-chat/spec.md),
 [spec 015](../../specs/015-comms-issues-in-progress/spec.md),
 [spec 017](../../specs/017-comms-activity-timeline/spec.md),
-[spec 018](../../specs/018-comms-push-notifications/spec.md) and
-[spec 019](../../specs/019-comms-background-activity/spec.md).
+[spec 018](../../specs/018-comms-push-notifications/spec.md),
+[spec 019](../../specs/019-comms-background-activity/spec.md) and
+[spec 020](../../specs/020-comms-push-after-background-work/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, and the push devices and the
@@ -81,7 +82,8 @@ VAPID key pair are two JSON files in its `push` folder.
   anonymised fixtures in `infrastructure/src/testing/fixtures`. Never commit a real transcript.
 - Background work comes from Claude's session file only (`transcript/claude-background.ts`); Herdr's
   status stays as Herdr reports it, and the background work only keeps a done agent out of Needs
-  you. A subagent id from a request must match `^[a-z0-9]{1,64}$` before it names a file, and
+  you and holds its done push (spec 020). The overview and the push count it with the same
+  `makeBackgroundOf`. A subagent id from a request must match `^[a-z0-9]{1,64}$` before it names a file, and
   only files below the session's own `subagents` folder are read.
 - Images go to an agent as absolute paths in the prompt (Herdr takes text only). The image store
   names every file itself (`<id>.<ext>`), opens only names of that shape that are plain files, and

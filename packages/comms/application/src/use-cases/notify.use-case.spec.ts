@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import type { Agent } from '@pocket-comms/comms-domain';
+import type { Agent, BackgroundItem } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as PubSub from 'effect/PubSub';
@@ -281,6 +281,126 @@ describe('PushInbound.watch', () => {
       yield* settle;
 
       expect(state.pushes[0]?.notification.body).toBe('app\nWhich stack?');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+});
+
+describe('PushInbound.watch with background work (spec 020)', () => {
+  const shell: BackgroundItem = {
+    id: 'toolu-ci',
+    kind: 'shell',
+    description: 'Wait for CI',
+    startedAt: 0,
+    inBackground: true,
+  };
+  const kirk = { ...working, session: 's1' };
+  const kirkDone = { ...done, session: 's1' };
+
+  /** The agent's session now has `background` running. */
+  const running = (background: ReadonlyArray<BackgroundItem>) =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.transcripts.set('s1', { entries: [], modifiedAt: 1, background: [...background] });
+    });
+
+  it.effect('holds a finished turn while its background work runs', () =>
+    Effect.gen(function* () {
+      const state = yield* watching([kirk]);
+      yield* running([shell]);
+      yield* herdrSays([kirkDone]);
+
+      yield* TestClock.adjust('10 seconds');
+      yield* settle;
+      expect(state.pushes).toEqual([]);
+      yield* TestClock.adjust('1 hour');
+      yield* settle;
+
+      expect(state.pushes).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('notifies once the agent has been quiet for 10 seconds after its work ended', () =>
+    Effect.gen(function* () {
+      const state = yield* watching([kirk]);
+      yield* running([shell]);
+      yield* herdrSays([kirkDone]);
+      yield* TestClock.adjust('25 seconds');
+      yield* running([]);
+
+      yield* TestClock.adjust('9 seconds');
+      yield* settle;
+      expect(state.pushes).toEqual([]);
+      yield* TestClock.adjust('1 minute');
+      yield* settle;
+
+      expect(titles(state)).toEqual(['kirk is done']);
+      expect(state.pushes[0]?.at).toBe(40_000);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('notifies only the turn the agent ran after its work ended', () =>
+    Effect.gen(function* () {
+      const state = yield* watching([kirk]);
+      yield* running([shell]);
+      yield* herdrSays([kirkDone]);
+      yield* TestClock.adjust('25 seconds');
+      yield* running([]);
+      yield* herdrSays([{ ...kirkDone, status: 'working' }]);
+      yield* TestClock.adjust('20 seconds');
+      yield* herdrSays([{ ...kirkDone, completion: 3 }]);
+
+      yield* TestClock.adjust('1 minute');
+      yield* settle;
+
+      expect(titles(state)).toEqual(['kirk is done']);
+      expect(state.pushes[0]?.at).toBe(55_000);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('sends nothing for a turn the owner saw while its work ran', () =>
+    Effect.gen(function* () {
+      const state = yield* watching([kirk]);
+      yield* running([shell]);
+      yield* herdrSays([kirkDone]);
+      yield* TestClock.adjust('25 seconds');
+      state.seen.add('w1:p1#2');
+      yield* running([]);
+
+      yield* TestClock.adjust('1 minute');
+      yield* settle;
+
+      expect(state.pushes).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('holds the turn again when new work starts within the quiet 10 seconds', () =>
+    Effect.gen(function* () {
+      const state = yield* watching([kirk]);
+      yield* running([shell]);
+      yield* herdrSays([kirkDone]);
+      yield* TestClock.adjust('25 seconds');
+      yield* running([]);
+      yield* TestClock.adjust('10 seconds');
+      yield* running([{ ...shell, id: 'toolu-deploy', startedAt: 35_000 }]);
+
+      yield* TestClock.adjust('1 minute');
+      yield* settle;
+
+      expect(state.pushes).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('notifies a blocked agent after 10 seconds, whatever runs in the background', () =>
+    Effect.gen(function* () {
+      const state = yield* watching([kirk]);
+      yield* running([shell]);
+      yield* herdrSays([{ ...blocked, session: 's1' }]);
+
+      yield* TestClock.adjust('10 seconds');
+      yield* settle;
+
+      expect(titles(state)).toEqual(['kirk needs you']);
+      expect(state.pushes[0]?.at).toBe(10_000);
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 });

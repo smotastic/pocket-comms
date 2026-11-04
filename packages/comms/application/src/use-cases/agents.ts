@@ -24,6 +24,24 @@ export const sourceOf = (agent: Agent): Option.Option<TranscriptSource> => {
   return Option.some({ ref: agentRef(agent), format, session: agent.session, cwd: agent.cwd });
 };
 
+/**
+ * The work an agent left running, as the overview and the push notifications count it. A session
+ * that cannot be read shows none, as before the app knew about background work.
+ */
+export const makeBackgroundOf = Effect.gen(function* () {
+  const transcriptOutbound = yield* TranscriptOutbound;
+  return Effect.fnUntraced(function* (agent: Agent) {
+    const items = yield* Option.match(sourceOf(agent), {
+      onNone: () => Effect.succeed([]),
+      onSome: (source) =>
+        transcriptOutbound
+          .background(source)
+          .pipe(Effect.catchTag('TranscriptUnavailableError', () => Effect.succeed([]))),
+    });
+    return runningAt(items, yield* Clock.currentTimeMillis);
+  });
+});
+
 /** A live agent with what the app shows for it. */
 export interface AgentView {
   readonly agent: Agent;
@@ -62,18 +80,7 @@ export const makeLoadAgents = Effect.gen(function* () {
     );
   });
 
-  // The work an agent left running. A session that cannot be read shows none, as before the
-  // app knew about background work.
-  const backgroundOf = Effect.fnUntraced(function* (agent: Agent) {
-    const items = yield* Option.match(sourceOf(agent), {
-      onNone: () => Effect.succeed([]),
-      onSome: (source) =>
-        transcriptOutbound
-          .background(source)
-          .pipe(Effect.catchTag('TranscriptUnavailableError', () => Effect.succeed([]))),
-    });
-    return runningAt(items, yield* Clock.currentTimeMillis);
-  });
+  const backgroundOf = yield* makeBackgroundOf;
 
   const load = Effect.fn('AgentsInbound.loadAgents')(function* () {
     const snapshot = yield* herdrOutbound.snapshot;
