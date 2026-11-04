@@ -58,7 +58,7 @@ describe('the overview', () => {
       within(needsYou)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual(['picard', 'data']);
+    ).toEqual([expect.stringContaining('picard'), expect.stringContaining('data')]);
     expect(within(needsYou).getByText(blocked.title)).toBeDefined();
     const rest = screen.getByRole('region', { name: 'Everything else' });
     expect(
@@ -82,9 +82,9 @@ describe('the overview', () => {
       }).client,
     });
 
-    const row = rowOf(await screen.findByRole('link', { name: 'kirk' }));
-    expect(within(row).getByText('Done')).toBeDefined();
-    expect(within(row).getByText('2 running in the background')).toBeDefined();
+    expect(
+      await screen.findByRole('link', { name: /kirk Done 2 running in the background/u }),
+    ).toBeDefined();
   });
 
   it('shows the two groups, each with its count, and no project cards or projects list', async () => {

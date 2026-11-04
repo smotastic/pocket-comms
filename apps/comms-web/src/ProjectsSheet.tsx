@@ -342,11 +342,13 @@ const THEMES: ReadonlyArray<{ readonly id: ThemeChoice; readonly label: string }
 /** The theme of this device, which takes effect at once. */
 const ThemeRow = () => {
   const [theme, chooseTheme] = useThemeChoice();
-  return <SegmentedControl label="Theme" options={THEMES} selected={theme} onSelect={chooseTheme} />;
+  return (
+    <SegmentedControl label="Theme" options={THEMES} selected={theme} onSelect={chooseTheme} />
+  );
 };
 
 /**
- * Every project, after a link to the activity timeline. A project opens in place to its open
+ * Every project, sliding in from the side, after a link to the activity timeline. A project opens in place to its open
  * issues, with Implement, New task and a link to its page. This device's notifications and theme
  * sit at the bottom.
  */
@@ -360,6 +362,7 @@ export const ProjectsSheet = ({
 }: ProjectsSheetProps) => (
   <Sheet
     open={open}
+    side="end"
     label="Projects"
     bodyLabel="Project list"
     onClose={onClose}

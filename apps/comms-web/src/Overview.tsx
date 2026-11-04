@@ -1,4 +1,5 @@
 import {
+  AgentList,
   Alert,
   AppBar,
   ChipGroup,
@@ -12,7 +13,6 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AgentItem } from './AgentItem.js';
-import { AgentList } from './AgentRow.js';
 import { BrainstormAction } from './Brainstorm.js';
 import type { AgentView, CommsClient } from './comms-client.js';
 import { RequestError } from './comms-client.js';
@@ -20,6 +20,7 @@ import { overviewQuery, projectsQuery } from './comms-queries.js';
 import { activeFilter, agentsOf, ALL } from './everything-else.js';
 import { useNow, useOverviewLive } from './live.js';
 import { ProjectsSheet } from './ProjectsSheet.js';
+import { projectHue } from './rows.js';
 import { startedNotice } from './started.js';
 
 export interface OverviewProps {
@@ -36,12 +37,15 @@ export interface OverviewProps {
 const Group = ({
   title,
   agents,
+  projects,
   now,
   onOpen,
   filter,
 }: {
   readonly title: string;
   readonly agents: ReadonlyArray<AgentView>;
+  /** Every project's name, in the order that gives each its colour. */
+  readonly projects: ReadonlyArray<string>;
   readonly now: number;
   readonly onOpen: (ref: string) => void;
   /** Shown under the heading, such as the project filter. */
@@ -56,6 +60,7 @@ const Group = ({
           <AgentItem
             key={agent.paneId}
             agent={agent}
+            hue={projectHue(agent.project, projects)}
             withProject
             now={now}
             onOpen={onOpen}
@@ -85,6 +90,7 @@ export const Overview = ({ client, onOpen, onProject, onStarted, onActivity }: O
       ? overview.error.message
       : undefined);
   const data = overview.data;
+  const names = projects.data?.map(({ name }) => name) ?? [];
   const groups = data?.groups ?? [];
   const filter = activeFilter(groups, chosen);
   // A project that leaves the list is forgotten, so it is not chosen again when it comes back.
@@ -140,6 +146,7 @@ export const Overview = ({ client, onOpen, onProject, onStarted, onActivity }: O
                 <Group
                   title="Needs you"
                   agents={data.needsYou}
+                  projects={names}
                   now={now}
                   onOpen={onOpen}
                 />
@@ -148,6 +155,7 @@ export const Overview = ({ client, onOpen, onProject, onStarted, onActivity }: O
                 <Group
                   title="Everything else"
                   agents={agentsOf(groups, filter)}
+                  projects={names}
                   now={now}
                   onOpen={onOpen}
                   filter={

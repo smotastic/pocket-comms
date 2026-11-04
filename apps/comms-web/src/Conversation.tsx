@@ -8,6 +8,7 @@ import {
   IconButton,
   SegmentedControl,
   Stack,
+  TerminalScreen,
   Text,
 } from '@smotastic/pocket-design';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -26,7 +27,6 @@ import { KeyPad } from './KeyPad.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
-import { TerminalScreen } from './TerminalScreen.js';
 
 export interface ConversationProps {
   readonly client: CommsClient;
