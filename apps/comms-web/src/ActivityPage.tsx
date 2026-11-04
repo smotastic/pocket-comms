@@ -1,4 +1,6 @@
 import {
+  AgentList,
+  AgentRow,
   Alert,
   AppBar,
   IconButton,
@@ -9,12 +11,14 @@ import {
 } from '@smotastic/pocket-design';
 import { useQuery } from '@tanstack/react-query';
 import { activityTarget, activityText, activityTone } from './activity.js';
-import { AgentList, AgentRow } from './AgentRow.js';
 import { BrainstormAction } from './Brainstorm.js';
 import type { ActivityEventView, CommsClient } from './comms-client.js';
-import { activityQuery } from './comms-queries.js';
+import { activityQuery, projectsQuery } from './comms-queries.js';
 import { useActivityLive, useNow } from './live.js';
+import { navigateOnPlainClick } from './links.js';
+import { projectHue } from './rows.js';
 import { since } from './since.js';
+import { statusDot } from './StatusBadge.js';
 
 export interface ActivityPageProps {
   readonly client: CommsClient;
@@ -34,22 +38,25 @@ const linkOf = (
   return target.to === 'agent'
     ? {
         href: `/agents/${encodeURIComponent(target.ref)}`,
-        onNavigate: () => onOpenAgent(target.ref),
+        onClick: navigateOnPlainClick(() => onOpenAgent(target.ref)),
       }
     : {
         href: `/projects/${encodeURIComponent(target.project)}`,
-        onNavigate: () => onOpenProject(target.project),
+        onClick: navigateOnPlainClick(() => onOpenProject(target.project)),
       };
 };
 
 /** One event as an agent row: who, what happened and when. */
 const ActivityItem = ({
   event,
+  projects,
   now,
   onOpenAgent,
   onOpenProject,
 }: Omit<ActivityPageProps, 'client' | 'onBack'> & {
   readonly event: ActivityEventView;
+  /** Every project's name, in the order that gives each its colour. */
+  readonly projects: ReadonlyArray<string>;
   readonly now: number;
 }) => {
   const { agent } = event;
@@ -57,13 +64,14 @@ const ActivityItem = ({
   return (
     <AgentRow
       {...linkOf(event, onOpenAgent, onOpenProject)}
-      // The second line says what happened; the badge's dot only colours it.
-      status={{ tone: activityTone(event), label: '' }}
+      // The second line says what happened; the dot only colours it.
+      status={statusDot(activityTone(event), '')}
       name={name}
       {...(agent.worktree === undefined || agent.worktree === name
         ? {}
         : { worktree: agent.worktree })}
       project={agent.project ?? agent.workspace}
+      hue={projectHue(agent.project, projects)}
       title={activityText(event)}
       since={since(event.at, now)}
     />
@@ -77,6 +85,7 @@ const ActivityItem = ({
 export const ActivityPage = ({ client, onBack, onOpenAgent, onOpenProject }: ActivityPageProps) => {
   const { live } = useActivityLive(client);
   const activity = useQuery(activityQuery(client));
+  const projects = useQuery(projectsQuery(client));
   const now = useNow();
   const events = activity.data?.events;
 
@@ -103,6 +112,7 @@ export const ActivityPage = ({ client, onBack, onOpenAgent, onOpenProject }: Act
                 <ActivityItem
                   key={event.id}
                   event={event}
+                  projects={projects.data?.map(({ name }) => name) ?? []}
                   now={now}
                   onOpenAgent={onOpenAgent}
                   onOpenProject={onOpenProject}

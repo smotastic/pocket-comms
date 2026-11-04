@@ -1,3 +1,4 @@
+import { HUES, type Hue } from '@smotastic/pocket-design';
 import type { AgentView } from './comms-client.js';
 
 /** The key of the group of every agent without a project. */
@@ -12,3 +13,12 @@ export const rowWorktree = (agent: AgentView) =>
 
 /** The label before a row's title: the project, or the workspace of an agent without one. */
 export const projectLabel = (agent: AgentView) => agent.project ?? agent.workspace;
+
+/**
+ * A project's colour, by its place in the list of projects so that the first few never share
+ * one. A project outside the list, and no project, are neutral.
+ */
+export const projectHue = (project: string | undefined, projects: ReadonlyArray<string>): Hue => {
+  const index = project === undefined ? -1 : projects.indexOf(project);
+  return index === -1 ? 'neutral' : (HUES[index % HUES.length] ?? 'neutral');
+};

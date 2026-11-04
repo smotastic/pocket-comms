@@ -1,4 +1,4 @@
-import { Badge, type BadgeTone } from '@smotastic/pocket-design';
+import { Badge, type AgentRowProps, type BadgeTone } from '@smotastic/pocket-design';
 
 /** An agent's state, as comms tells them apart. */
 export type StatusTone = 'working' | 'blocked' | 'done' | 'idle' | 'unknown';
@@ -11,6 +11,21 @@ const LOOKS: Record<StatusTone, { readonly tone: BadgeTone; readonly indicator: 
     idle: { tone: 'muted', indicator: 'dot' },
     unknown: { tone: 'muted', indicator: 'dot' },
   };
+
+const DOTS: Record<StatusTone, AgentRowProps['status']['tone']> = {
+  working: 'accent',
+  blocked: 'danger',
+  done: 'success',
+  idle: 'muted',
+  unknown: 'muted',
+};
+
+/** A state as an agent row's dot: its colour, a pulse while working, and the words. */
+export const statusDot = (tone: StatusTone, label: string): AgentRowProps['status'] => ({
+  tone: DOTS[tone],
+  ...(tone === 'working' ? { pulse: true } : {}),
+  label,
+});
 
 /** A state as a badge: its colour and dot, and the words that carry it. */
 export const StatusBadge = ({
