@@ -30,9 +30,13 @@ export class BrainstormInbound extends Context.Service<
     readonly state: Effect.Effect<BrainstormStateDto>;
     /** The state at once, then every change and the text Pi writes. */
     readonly events: Stream.Stream<BrainstormEventDto>;
-    /** Adds the owner's message and starts Pi's answer, without waiting for it. */
+    /**
+     * Adds the owner's message with the pictures it attaches, by image id, and starts Pi's
+     * answer, without waiting for it.
+     */
     readonly send: (
       text: string,
+      imageIds?: ReadonlyArray<string>,
     ) => Effect.Effect<void, BrainstormNotSetUpError | BrainstormBusyError | InvalidInputError>;
     /**
      * Creates the issue of an open proposal, applies an open edit while the issue's title and body

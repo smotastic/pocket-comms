@@ -104,7 +104,14 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     issues: new Map(),
     implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
     closeAgentFailures: [],
-    brainstorm: { _tag: 'Ready', entries: [], answering: false, live: '' },
+    brainstorm: {
+      _tag: 'Ready',
+      entries: [],
+      answering: false,
+      live: '',
+      seesPictures: true,
+      pictures: [],
+    },
     activity: { events: [] },
     ...initial,
   };
@@ -120,6 +127,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     closed: [] as Array<[string, number]>,
     closedAgents: [] as Array<[string, boolean]>,
     brainstormMessages: [] as Array<string>,
+    /** The image ids of each brainstorm message, in the order of `brainstormMessages`. */
+    brainstormImageIds: [] as Array<ReadonlyArray<string>>,
     decisions: [] as Array<[string, ProposalDecision]>,
     brainstormResets: 0,
     pushKeys: 0,
@@ -209,9 +218,10 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       if (failure !== undefined) throw failure;
     },
     brainstorm: async () => state.brainstorm,
-    sendBrainstorm: async (text) => {
+    sendBrainstorm: async (text, imageIds = []) => {
       failBrainstorm();
       calls.brainstormMessages.push(text);
+      calls.brainstormImageIds.push(imageIds);
     },
     decideProposal: async (id, decision) => {
       failBrainstorm();

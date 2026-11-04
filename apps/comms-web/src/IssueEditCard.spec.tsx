@@ -33,10 +33,13 @@ describe('IssueEditCard', () => {
     await user.type(title, 'Orchestrator from chat');
     await user.click(screen.getByRole('button', { name: 'Apply edit' }));
 
-    expect(onApply).toHaveBeenCalledWith({
-      title: 'Orchestrator from chat',
-      body: 'Control agents from the chat.',
-    });
+    expect(onApply).toHaveBeenCalledWith(
+      {
+        title: 'Orchestrator from chat',
+        body: 'Control agents from the chat.',
+      },
+      [],
+    );
   });
 
   it('shows the current version only when the owner opens it, keyboard included', async () => {
