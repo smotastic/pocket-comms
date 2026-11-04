@@ -740,6 +740,38 @@ const EditFields = {
   }),
 };
 
+const pictureIds = Schema.Array(ImageId)
+  .check(Schema.isMaxLength(5))
+  .annotate({
+    description: 'Chat pictures by image id, at most five.',
+    examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
+  });
+
+const PictureFields = {
+  pictures: pictureIds.annotate({
+    description:
+      'The chat pictures that go with the proposal: the ones Pi named while it is open, the owner’s choice once decided.',
+  }),
+  attached: Schema.Array(
+    Schema.Struct({
+      image: ImageId,
+      url: Schema.String.annotate({
+        description: "The picture's attachment in Gitea.",
+        examples: ['http://localhost:3000/attachments/1c7f5b2e-3d4a-4f9b-8e6c-0a2b4c6d8e0f'],
+      }),
+    }),
+  ).annotate({
+    description: 'The chosen pictures that are already attachments of the issue in Gitea.',
+    examples: [[]],
+  }),
+};
+
+const choice = optional(pictureIds, {
+  description:
+    'The chat pictures to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing pictures instead.',
+  examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
+});
+
 export const IssueDraft = Schema.Struct(DraftFields).annotate({
   identifier: 'IssueDraft',
   description: 'An issue as the owner edited it: exactly what is created.',
@@ -768,6 +800,18 @@ export const ProposalState = Schema.Union([
     _tag: Schema.tag('discarded').annotate({
       description: 'The owner discarded the proposal.',
       examples: ['discarded'],
+    }),
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('attaching').annotate({
+      description:
+        'The owner created the issue, and its pictures are not all attached yet: retry them or finish without them.',
+      examples: ['attaching'],
+    }),
+    number: Schema.Int.annotate({ description: "The new issue's number.", examples: [12] }),
+    url: Schema.String.annotate({
+      description: "The new issue's page in Gitea.",
+      examples: ['http://localhost:3000/smotastic/pocket-home/issues/12'],
     }),
   }),
 ]).annotate({
@@ -814,6 +858,10 @@ export const BrainstormEntry = Schema.Union([
       description: "The owner's message.",
       examples: ['Idea: dark mode for pocket-home'],
     }),
+    images: Schema.Array(ImageId).annotate({
+      description: 'The pictures the message attached, by image id, in order.',
+      examples: [[]],
+    }),
   }),
   Schema.Struct({
     type: Schema.tag('assistant').annotate({
@@ -839,6 +887,7 @@ export const BrainstormEntry = Schema.Union([
     id: entryId,
     at: entryAt,
     ...DraftFields,
+    ...PictureFields,
     state: ProposalState,
   }),
   Schema.Struct({
@@ -873,6 +922,7 @@ export const BrainstormEntry = Schema.Union([
         "The issue's title and body as Pi read them; the edit applies only while they are unchanged.",
       examples: [{ title: 'Orchestrator mode', body: 'An orchestrator agent.' }],
     }),
+    ...PictureFields,
     state: EditState,
   }),
   Schema.Struct({
@@ -907,6 +957,24 @@ export const BrainstormState = Schema.Union([
       description: "The text of Pi's message so far, while it writes one.",
       examples: ['Nice. Which'],
     }),
+    seesPictures: Schema.Boolean.annotate({
+      description:
+        'The model takes pictures; otherwise Pi only learns that pictures were attached.',
+      examples: [true],
+    }),
+    pictures: Schema.Array(
+      Schema.Struct({
+        id: ImageId,
+        number: Schema.Int.annotate({
+          description: "The picture's number in the chat, from 1 in the order it was sent.",
+          examples: [1],
+        }),
+        available: Schema.Boolean.annotate({
+          description: 'The app still keeps the picture, so it can go to Gitea.',
+          examples: [true],
+        }),
+      }),
+    ).annotate({ description: 'The pictures of the chat, by number.', examples: [[]] }),
   }),
   Schema.Struct({
     _tag: Schema.tag('NotSetUp').annotate({
@@ -943,9 +1011,13 @@ export const BrainstormEvent = Schema.Union([
 ]).annotate({ identifier: 'BrainstormEvent', description: 'One update of the brainstorm chat.' });
 
 export const BrainstormMessageRequest = Schema.Struct({
-  text: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(20_000)).annotate({
-    description: 'The message; it is sent trimmed and must not be blank.',
+  text: Schema.String.check(Schema.isMaxLength(20_000)).annotate({
+    description: 'The message; it is sent trimmed and must not be blank unless it attaches images.',
     examples: ['Idea: dark mode for pocket-home'],
+  }),
+  imageIds: optional(Schema.Array(ImageId).check(Schema.isMaxLength(5)), {
+    description: 'Up to five uploaded images; Pi gets them with the message.',
+    examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
   }),
 }).annotate({ identifier: 'BrainstormMessageRequest', description: 'A message for Pi.' });
 
@@ -956,6 +1028,7 @@ export const ProposalDecisionRequest = Schema.Union([
       examples: ['Create'],
     }),
     draft: IssueDraft,
+    pictures: choice,
   }),
   Schema.Struct({
     _tag: Schema.tag('Discard').annotate({
@@ -969,6 +1042,14 @@ export const ProposalDecisionRequest = Schema.Union([
       examples: ['Apply'],
     }),
     ...EditFields,
+    pictures: choice,
+  }),
+  Schema.Struct({
+    _tag: Schema.tag('FinishWithout').annotate({
+      description:
+        'Finish a created issue with the pictures attached so far and leave out the others.',
+      examples: ['FinishWithout'],
+    }),
   }),
 ]).annotate({
   identifier: 'ProposalDecisionRequest',

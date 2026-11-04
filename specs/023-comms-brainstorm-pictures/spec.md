@@ -158,7 +158,9 @@ it for as long as the issue exists. Nothing reaches Gitea without the owner's ap
 - The new proposal state (issue created, pictures not yet attached) and the new decision are a
   breaking change to the OpenAPI diff gate. The web app is the only reader and ships with the
   server; the owner accepts it per change in `.pocket-ci/openapi-accepted-changes.txt`, as for
-  spec 022.
+  spec 022. Two lines: the entries' new variants (`GET /api/v1/brainstorm`) and the decision's
+  `Create` and `Apply` with the optional `pictures`, which the diff reads as removed variants.
+  The lines go once `master` carries the change.
 
 ## 6. Open questions
 

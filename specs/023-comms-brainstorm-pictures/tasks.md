@@ -19,7 +19,7 @@ in the task's own commit.
       the chat file version 3
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-application comms-infrastructure`
 
-- [ ] **T04** — Contract and API: the message's image ids, the new entry fields, the
+- [x] **T04** — Contract and API: the message's image ids, the new entry fields, the
       `attaching` state, the `Ready` pictures, the decisions' pictures and `FinishWithout`; the
       OpenAPI document and the accepted changes
   - Gate: `pnpm nx run-many -t test -p comms-contract comms-api comms-server`
