@@ -863,13 +863,44 @@ describe('a decision on an edit', () => {
     ),
   );
 
-  it.effect('forgets the reads on New chat', () =>
+  it.effect('decides an edit once', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          yield* brainstorm.decide(proposal.id, { _tag: 'Discard' });
+          yield* idle(brainstorm);
+
+          expect(
+            yield* brainstorm
+              .decide(proposal.id, { _tag: 'Apply', title: 'Orchestrator', body: 'Mine.' })
+              .pipe(Effect.flip),
+          ).toEqual(new ProposalDecidedError({ id: proposal.id }));
+          expect(updates(state)).toEqual([]);
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('forgets the reads on New chat, also a read that ends after it', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
           yield* proposed(brainstorm, state);
           yield* brainstorm.reset();
           expect(state.storedChat?.reads).toEqual([]);
+
+          // Pi's tools run outside the turn and may finish after it was stopped.
+          const read = state.turns[0]?.tools.find((tool) => tool.name === 'read_issue');
+          yield* read?.run({ project: 'app', number: 11 }) ?? Effect.void;
+          expect(state.storedChat?.reads).toEqual([]);
+
+          state.script.push([
+            proposeEdit({ project: 'app', number: 11, title: 'Orchestrator', body: 'Late.' }),
+          ]);
+          yield* brainstorm.send('Edit #11');
+          yield* idle(brainstorm);
+          expect(proposalIn(yield* entries(brainstorm))).toBeUndefined();
         }),
       arrange,
     ),

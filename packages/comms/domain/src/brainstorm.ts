@@ -2,7 +2,7 @@ import type { FieldIssue } from '@pocket-comms/backend-shared';
 import * as Result from 'effect/Result';
 import { InvalidInputError } from './errors.js';
 
-// The rules of the brainstorm chat (spec 013): what the conversation holds, the issue or the edit
+// The rules of the brainstorm chat: what the conversation holds, the issue or the edit
 // a proposal drafts and how it is decided, the issues Pi read, and the project files Pi may read.
 
 /** Gitea's limit of an issue title. */

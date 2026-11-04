@@ -21,7 +21,7 @@ in the task's own commit.
       `issue-changed` problem, the OpenAPI document
   - Gate: `pnpm nx run-many -t test -p comms-contract comms-api comms-server`
 
-- [ ] **T05** — Web: `IssueEditCard` in the design system and the brainstorm sheet shows it
+- [x] **T05** — Web: `IssueEditCard` in the design system and the brainstorm sheet shows it
   - Gate: `pnpm nx run-many -t test -p design-ui comms-web`
 
 - [ ] **T06** — Docs: the comms service guide; the spec's status `Done`

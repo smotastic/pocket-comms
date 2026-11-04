@@ -37,6 +37,11 @@ export {
   type ProposalCardProps,
   type ProposalDraft,
 } from './proposal-card/ProposalCard.js';
+export {
+  IssueEditCard,
+  type IssueEditCardProps,
+  type IssueText,
+} from './issue-edit-card/IssueEditCard.js';
 export { UserMessage, type UserMessageProps } from './user-message/UserMessage.js';
 export { LiveIndicator, type LiveIndicatorProps } from './live-indicator/LiveIndicator.js';
 export { SectionHeader, type SectionHeaderProps } from './section-header/SectionHeader.js';

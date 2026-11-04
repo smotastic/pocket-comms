@@ -296,7 +296,9 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
       run((api) =>
         decision._tag === 'Create'
           ? api.brainstorm.decide({ params: { proposal: id }, payload: decision })
-          : api.brainstorm.decide({ params: { proposal: id }, payload: decision }),
+          : decision._tag === 'Apply'
+            ? api.brainstorm.decide({ params: { proposal: id }, payload: decision })
+            : api.brainstorm.decide({ params: { proposal: id }, payload: decision }),
       ).then(() => undefined),
     resetBrainstorm: () => run((api) => api.brainstorm.reset()).then(() => undefined),
     pushKey: () => run((api) => api.push.key()).then((key) => key.publicKey),
