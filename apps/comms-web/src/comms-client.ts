@@ -85,10 +85,12 @@ export interface CommsClient {
   readonly projects: () => Promise<ReadonlyArray<ProjectView>>;
   readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
   readonly issues: (project: string) => Promise<IssueListView>;
+  /** `additionalInformation` goes into the agent's first prompt for this launch (spec 021). */
   readonly implementIssue: (
     project: string,
     number: number,
     branch: string,
+    additionalInformation?: string,
   ) => Promise<IssueTaskCreatedView>;
   readonly closeIssue: (project: string, number: number) => Promise<void>;
   /** The brainstorm chat (spec 013). */
@@ -277,11 +279,14 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     projects: () => run((api) => api.tasks.projects()).then((result) => result.projects),
     createTask: (task) => run((api) => api.tasks.create({ payload: task })),
     issues: (project) => run((api) => api.issues.list({ params: { project } })),
-    implementIssue: (project, number, branch) =>
+    implementIssue: (project, number, branch, additionalInformation) =>
       run((api) =>
         api.issues.implement({
           params: { project, number: String(number) },
-          payload: { branch },
+          payload: {
+            branch,
+            ...(additionalInformation === undefined ? {} : { additionalInformation }),
+          },
         }),
       ),
     closeIssue: (project, number) =>

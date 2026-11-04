@@ -1,6 +1,11 @@
-import { hasInProgressLabel, issueTask } from '@pocket-comms/comms-domain';
+import {
+  hasInProgressLabel,
+  issueTask,
+  parseAdditionalInformation,
+} from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
+import * as Result from 'effect/Result';
 import type { ImplementIssueInput, IssueTaskCreatedDto } from '../dto/issue.dto.js';
 import {
   IssueClosedError,
@@ -15,8 +20,9 @@ import { makeIssueProject } from './issue-project.js';
 
 /**
  * Implements an issue (spec 006): reads it from Gitea again and creates the spec 005 task with a
- * Claude agent and the issue as its first prompt, so every rule of the New task flow holds. Then
- * it marks the issue in progress (spec 015); a failed mark leaves the task started and says why.
+ * Claude agent and the issue, with the owner's additional information (spec 021), as its first
+ * prompt, so every rule of the New task flow holds. Then it marks the issue in progress
+ * (spec 015); a failed mark leaves the task started and says why.
  */
 const markReason = (
   error: GiteaNotConfiguredError | GiteaUnavailableError | IssueNotFoundError,
@@ -37,6 +43,8 @@ export const makeImplementIssue = Effect.gen(function* () {
   const { create } = yield* makeCreateTask;
 
   const implement = Effect.fn('Issues.implement')(function* (input: ImplementIssueInput) {
+    const additionalInformation = parseAdditionalInformation(input.additionalInformation);
+    if (Result.isFailure(additionalInformation)) return yield* additionalInformation.failure;
     const { project, repository } = yield* issueProject(input.project);
     if (Option.isNone(repository)) {
       return yield* new NoGiteaRemoteError({ project: project.name });
@@ -46,7 +54,7 @@ export const makeImplementIssue = Effect.gen(function* () {
     if (issue.state !== 'open') return yield* new IssueClosedError({ number: input.number });
     const created = yield* create({
       project: project.name,
-      task: issueTask(issue),
+      task: issueTask(issue, additionalInformation.success),
       branch: input.branch,
       agent: 'claude',
     });
