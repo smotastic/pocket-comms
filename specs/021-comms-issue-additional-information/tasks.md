@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Domain: `parseAdditionalInformation` and `issueTask` with the optional text
+- [x] **T01** — Domain: `parseAdditionalInformation` and `issueTask` with the optional text
   - Gate: `pnpm nx test comms-domain`
 
 - [ ] **T02** — Application, contract and API: the optional `additionalInformation` of the
