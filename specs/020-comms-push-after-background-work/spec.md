@@ -1,6 +1,6 @@
 # Spec 020 — pocket-comms: hold the done push while background work runs
 
-- **Status:** `Approved` — approved by the owner (2026-11-04)
+- **Status:** `Done` — approved by the owner (2026-11-04)
 - **Changes:** [spec 018](../018-comms-push-notifications/spec.md) (requirement 4: when a done
   change notifies), building on the background work of
   [spec 019](../019-comms-background-activity/spec.md)

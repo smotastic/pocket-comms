@@ -14,5 +14,5 @@ in the task's own commit.
       work and sends after two quiet rounds; blocked changes unchanged
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T03** — Docs: the comms service guide; the spec's status `Done`
+- [x] **T03** — Docs: the comms service guide; the spec's status `Done`
   - Gate: `pnpm verify:local`
