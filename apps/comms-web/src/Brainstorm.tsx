@@ -6,13 +6,11 @@ import {
   IconButton,
   Inline,
   Markdown,
-  ProposalCard,
   Sheet,
   SheetHeader,
   Stack,
   Text,
-  UserMessage,
-} from '@pocket-comms/design-ui';
+} from '@smotastic/pocket-design';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import type {
@@ -23,6 +21,8 @@ import type {
 } from './comms-client.js';
 import { brainstormQuery, projectsQuery } from './comms-queries.js';
 import { useBrainstormLive } from './live.js';
+import { ProposalCard } from './ProposalCard.js';
+import { UserMessage } from './UserMessage.js';
 
 // The brainstorm chat (spec 013): one ongoing chat with Pi, opened from the top bars (spec 016).
 
@@ -48,7 +48,7 @@ const Entry = ({
 }) => {
   switch (entry.type) {
     case 'user':
-      return <UserMessage>{entry.text}</UserMessage>;
+      return <UserMessage text={entry.text} />;
     case 'assistant':
       return <Markdown text={entry.text} />;
     case 'failed':
@@ -162,7 +162,7 @@ export const useOpenBrainstorm = () => useContext(OpenBrainstorm);
 
 /** The Brainstorm action for a screen's top bar. */
 export const BrainstormAction = () => (
-  <IconButton icon="brainstorm" label="Brainstorm" onClick={useOpenBrainstorm()} />
+  <IconButton icon="sparkle" label="Brainstorm" onClick={useOpenBrainstorm()} />
 );
 
 /**

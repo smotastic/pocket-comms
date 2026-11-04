@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projectHue, projectLabel, rowName, rowWorktree } from './rows.js';
+import { projectLabel, rowName, rowWorktree } from './rows.js';
 import { fakeAgent } from './testing.js';
 
 const main = fakeAgent({ name: 'kirk', workspace: 'pocket-home', project: 'pocket-home' });
@@ -46,23 +46,5 @@ describe('projectLabel', () => {
 
   it('is the workspace of an agent without a project', () => {
     expect(projectLabel(loose)).toBe('G registry cleanup');
-  });
-});
-
-describe('projectHue', () => {
-  const projects = ['a', 'b', 'c', 'd', 'e', 'f'];
-
-  it('takes the colours in the order of the projects', () => {
-    expect(projectHue('a', projects)).toBe(1);
-    expect(projectHue('e', projects)).toBe(5);
-  });
-
-  it('starts again after the last colour', () => {
-    expect(projectHue('f', projects)).toBe(1);
-  });
-
-  it('is neutral for a project outside the list and for no project', () => {
-    expect(projectHue('elsewhere', projects)).toBe('neutral');
-    expect(projectHue(undefined, projects)).toBe('neutral');
   });
 });

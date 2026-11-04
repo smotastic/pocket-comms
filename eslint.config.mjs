@@ -5,8 +5,9 @@
 // Nx tags in each project.json:
 //   scope:<service> / scope:shared / scope:contracts  — services cannot cross-depend
 //   layer:domain / layer:application / layer:infrastructure  — technical layers
-//   type:app / type:web  — deployables; a web app may use contracts and the UI kit only
-//   scope:design + type:tokens / type:ui  — the design system, for web apps only (ADR 0009)
+//   type:app / type:web  — deployables; a web app may use contracts only among the projects
+// The design system is the published package `@smotastic/pocket-design` (ADR 0014), no project;
+// `no-design-in-server-code` in `.dependency-cruiser.cjs` keeps it out of server code.
 import nx from '@nx/eslint-plugin';
 
 // The pure `effect` modules the domain may import (ADR 0002); `.dependency-cruiser.cjs` holds the
@@ -35,7 +36,6 @@ export default [
   {
     ignores: [
       '**/dist/**',
-      '**/ladle-build/**',
       '**/node_modules/**',
       '**/.nx/**',
       '**/coverage/**',
@@ -67,18 +67,10 @@ export default [
             // shared may use contracts: it maps tagged errors to the shared Problem Details schema.
             // Add one entry per service:
             //   { sourceTag: 'scope:<service>',
-            //     onlyDependOnLibsWithTags: ['scope:<service>', 'scope:contracts', 'scope:shared',
-            //       'type:ui'] },
-            // `type:ui` is for the service's web app; the layer and app rules below, and
-            // `no-design-in-server-code` in `.dependency-cruiser.cjs`, keep the rest off it.
+            //     onlyDependOnLibsWithTags: ['scope:<service>', 'scope:contracts', 'scope:shared'] },
             {
               sourceTag: 'scope:comms',
-              onlyDependOnLibsWithTags: [
-                'scope:comms',
-                'scope:contracts',
-                'scope:shared',
-                'type:ui',
-              ],
+              onlyDependOnLibsWithTags: ['scope:comms', 'scope:contracts', 'scope:shared'],
             },
             // A contract may build on another contract (the shared Problem Details schema), never
             // on service or shared code.
@@ -91,26 +83,13 @@ export default [
             // domain → application → infrastructure (unidirectional downward)
             {
               sourceTag: 'layer:domain',
-              notDependOnLibsWithTags: [
-                'layer:application',
-                'layer:infrastructure',
-                'scope:design',
-              ],
+              notDependOnLibsWithTags: ['layer:application', 'layer:infrastructure'],
             },
-            {
-              sourceTag: 'layer:application',
-              notDependOnLibsWithTags: ['layer:infrastructure', 'scope:design'],
-            },
-            { sourceTag: 'layer:infrastructure', notDependOnLibsWithTags: ['scope:design'] },
-            // ── Design system: tokens are the foundation, never used by server code ─
-            { sourceTag: 'scope:design', onlyDependOnLibsWithTags: ['scope:design'] },
-            { sourceTag: 'type:tokens', onlyDependOnLibsWithTags: ['type:tokens'] },
-            { sourceTag: 'type:ui', onlyDependOnLibsWithTags: ['type:tokens'] },
+            { sourceTag: 'layer:application', notDependOnLibsWithTags: ['layer:infrastructure'] },
             // ── Type: deployables ──────────────────────────────────────────
             // A web app reaches its service through the contract and the typed client (ADR 0008),
-            // and takes its look from the UI kit (ADR 0009).
-            { sourceTag: 'type:web', onlyDependOnLibsWithTags: ['scope:contracts', 'type:ui'] },
-            { sourceTag: 'type:app', notDependOnLibsWithTags: ['scope:design'] },
+            // and takes its look from the design package (ADR 0014).
+            { sourceTag: 'type:web', onlyDependOnLibsWithTags: ['scope:contracts'] },
           ],
         },
       ],
@@ -141,14 +120,14 @@ export default [
     },
   },
   {
-    // A web app takes its look only from the UI kit (ADR 0009): no inline styles.
+    // A web app takes its look only from the design package (ADR 0014): no inline styles.
     files: ['apps/*web/**/*.tsx', 'blueprints/*/apps/*web/**/*.tsx'],
     rules: {
       'no-restricted-syntax': [
         'error',
         {
           selector: "JSXAttribute[name.name='style']",
-          message: 'Style a web app with @pocket-comms/design-ui components, not inline styles.',
+          message: 'Style a web app with @smotastic/pocket-design components, not inline styles.',
         },
       ],
     },

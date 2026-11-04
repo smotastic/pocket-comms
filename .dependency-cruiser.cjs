@@ -19,8 +19,8 @@ const CORE = layerLevel('domain|application');
 // Wire schemas: the shared ones in `packages/contracts/`, and the contract package of a service.
 const CONTRACTS = `^packages/contracts/|${layerLevel('contract')}`;
 
-// The design system (ADR 0009): the tokens and the UI kit, shared by the web apps only.
-const DESIGN = '^packages/design/';
+// The design system (ADR 0014): the published package `@smotastic/pocket-design`, for web apps only.
+const DESIGN = '(?:^|/)(?:node_modules/)?@smotastic/pocket-design/';
 const WORKSPACE = '^(?:apps|packages|blueprints)/';
 
 // Web apps follow a naming convention, so this file can tell them from servers and CLIs: the
@@ -139,13 +139,13 @@ module.exports = {
       name: 'no-cross-service',
       comment:
         'A service (`packages/<service>/`) may import its own packages and the shared ones ' +
-        '(`packages/backend-shared/`, `packages/contracts/`, `packages/design/`), never another ' +
+        '(`packages/backend-shared/`, `packages/contracts/`), never another ' +
         'service. Services integrate over their HTTP contracts, not by compiling each other in.',
       severity: 'error',
       from: { path: '^packages/([^/]+)/' },
       to: {
         path: '^packages/[^/]+/',
-        pathNot: '^packages/(?:$1|backend-shared|contracts|design)/',
+        pathNot: '^packages/(?:$1|backend-shared|contracts)/',
       },
     },
     {
@@ -166,7 +166,7 @@ module.exports = {
       from: { path: '^blueprints/' },
       to: {
         path: '^(?:apps|packages)/',
-        pathNot: '^packages/(?:backend-shared|contracts|design)/',
+        pathNot: '^packages/(?:backend-shared|contracts)/',
       },
     },
     {
@@ -193,44 +193,20 @@ module.exports = {
     {
       name: 'no-design-in-server-code',
       comment:
-        'The design tokens and the UI kit are for web apps (ADR 0009). Servers, services, shared ' +
-        'backend code, contracts and apps that are not web apps never import them.',
+        'The design package is for web apps (ADR 0014). Servers, services, shared backend code, ' +
+        'contracts and apps that are not web apps never import it.',
       severity: 'error',
-      from: { path: WORKSPACE, pathNot: `${DESIGN}|${WEB_APP}` },
+      from: { path: WORKSPACE, pathNot: WEB_APP },
       to: { path: DESIGN },
-    },
-    {
-      name: 'no-tokens-in-web',
-      comment:
-        'A web app takes the design from the UI kit, which brings the token CSS and re-exports ' +
-        'the token constants; it never imports the tokens directly (ADR 0009).',
-      severity: 'error',
-      from: { path: WEB_APP },
-      to: { path: '^packages/design/tokens/' },
     },
     {
       name: 'no-css-in-web',
       comment:
-        'A web app has no stylesheet of its own; its look comes from the UI kit, so a visual ' +
-        'change happens in the tokens and every app follows (ADR 0009).',
+        'A web app has no stylesheet of its own; its look comes from the design package, so a ' +
+        'visual change happens there and every app follows (ADRs 0009 and 0014).',
       severity: 'error',
       from: { path: WEB_APP },
       to: { path: '\\.(?:css|scss|sass|less|styl)$' },
-    },
-    {
-      name: 'ui-only-on-tokens',
-      comment: 'The UI kit builds on the design tokens only, never on other workspace code.',
-      severity: 'error',
-      from: { path: '^packages/design/ui/' },
-      to: { path: WORKSPACE, pathNot: '^packages/design/(?:ui|tokens)/' },
-    },
-    {
-      name: 'no-workspace-imports-in-tokens',
-      comment:
-        'The design tokens are the foundation of the design system and import no workspace code.',
-      severity: 'error',
-      from: { path: '^packages/design/tokens/' },
-      to: { path: WORKSPACE, pathNot: '^packages/design/tokens/' },
     },
     // ── Circular dependencies ────────────────────────────────────────────────────────────────
     {

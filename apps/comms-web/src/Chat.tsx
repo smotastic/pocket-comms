@@ -1,12 +1,9 @@
-import {
-  ImageThumb,
-  Markdown,
-  QuestionCard,
-  Text,
-  ToolLine,
-  UserMessage,
-} from '@pocket-comms/design-ui';
+import { ImageThumb, Markdown, Text } from '@smotastic/pocket-design';
+import { MISSING } from './AttachedImages.js';
 import type { TranscriptView } from './comms-client.js';
+import { QuestionCard } from './QuestionCard.js';
+import { ToolLine } from './ToolLine.js';
+import { UserMessage } from './UserMessage.js';
 
 export type ToolEntry = Extract<TranscriptView['entries'][number], { readonly type: 'tool' }>;
 
@@ -51,6 +48,7 @@ export const Chat = ({
             return (
               <UserMessage
                 key={entry.id}
+                text={entry.text}
                 {...(entry.images === undefined || entry.images.length === 0
                   ? {}
                   : {
@@ -60,12 +58,11 @@ export const Chat = ({
                           label={`Image ${index + 1}`}
                           src={imageUrl(id)}
                           href={imageUrl(id)}
+                          missingText={MISSING}
                         />
                       )),
                     })}
-              >
-                {entry.text}
-              </UserMessage>
+              />
             );
           case 'assistant':
             return <Markdown key={entry.id} text={entry.text} />;

@@ -6,7 +6,7 @@ import {
   SheetHeader,
   Stack,
   Text,
-} from '@pocket-comms/design-ui';
+} from '@smotastic/pocket-design';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   RequestError,

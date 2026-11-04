@@ -42,8 +42,8 @@ blueprint's "Run it locally").
 Write its spec (`specs/003-…`), then copy the blueprint's shapes into `apps/` and
 `packages/<service>/`. Every project carries the Nx tags `scope:<service>` and one of
 `layer:domain|application|infrastructure`, `type:app` or `type:web` (ADR 0007). Add the
-`scope:<service>` constraint to `eslint.config.mjs`, with `type:ui` in it if the service has a web
-app: web apps take their look from `@pocket-comms/design-ui` (ADR 0009).
+`scope:<service>` constraint to `eslint.config.mjs`. Web apps take their look from
+`@smotastic/pocket-design` (ADR 0014).
 
 ## 5. Keep the decisions
 

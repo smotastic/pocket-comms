@@ -64,5 +64,3 @@ Thumbs.db
 .claude/worktrees
 .claude/settings.local.json
 
-# Ladle component catalog build
-ladle-build/

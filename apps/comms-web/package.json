@@ -5,7 +5,7 @@
   "type": "module",
   "dependencies": {
     "@pocket-comms/comms-contract": "workspace:*",
-    "@pocket-comms/design-ui": "workspace:*",
+    "@smotastic/pocket-design": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "effect": "catalog:",

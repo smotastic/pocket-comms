@@ -1,6 +1,6 @@
 # ADR 0009 — Design system with DTCG tokens and a CSS Modules UI kit
 
-- **Status:** Accepted
+- **Status:** Accepted (amended by ADR 0014)
 - **Date:** 2026-10-19
 - **Related:** constitution principles 5, 6 and 9; ADRs 0007, 0008; spec 002
 

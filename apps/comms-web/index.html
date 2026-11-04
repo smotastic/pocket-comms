@@ -1,13 +1,44 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#09090b" />
+    <meta
+      name="theme-color"
+      data-scheme="dark"
+      media="(prefers-color-scheme: dark)"
+      content="#070b14"
+    />
+    <meta
+      name="theme-color"
+      data-scheme="light"
+      media="(prefers-color-scheme: light)"
+      content="#eef2f7"
+    />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Comms" />
+    <script>
+      // The theme chosen on this device, in place before the first paint. A copy of the kit's
+      // applyStoredThemeChoice; src/index-html.spec.ts keeps the two in agreement.
+      (function () {
+        try {
+          var choice = localStorage.getItem('polaris-theme');
+          if (choice !== 'dark' && choice !== 'light') return;
+          document.documentElement.dataset.theme = choice;
+          var metas = document.querySelectorAll('meta[name="theme-color"]');
+          var color;
+          for (var i = 0; i < metas.length; i++) {
+            metas[i].dataset.color = metas[i].content;
+            if (metas[i].dataset.scheme === choice) color = metas[i].content;
+          }
+          for (var j = 0; j < metas.length; j++) metas[j].content = color;
+        } catch (error) {
+          // Storage is blocked: the page follows the system setting.
+        }
+      })();
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />

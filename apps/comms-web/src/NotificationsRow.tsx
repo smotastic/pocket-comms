@@ -1,4 +1,4 @@
-import { Alert, Stack, Switch, Text } from '@pocket-comms/design-ui';
+import { Alert, Stack, Switch, Text } from '@smotastic/pocket-design';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import type { CommsClient } from './comms-client.js';
 import { DevicePushContext, type DevicePushState } from './notifications.js';
@@ -61,9 +61,9 @@ export const NotificationsRow = ({ client }: { readonly client: CommsClient }) =
         <Switch
           label={LABEL}
           description={DESCRIPTION}
-          checked={state.subscribed}
-          disabled={busy}
-          onChange={(event) => void change(event.currentTarget.checked)}
+          isSelected={state.subscribed}
+          isDisabled={busy}
+          onChange={(on) => void change(on)}
         />
       ) : (
         <Stack gap="xs">

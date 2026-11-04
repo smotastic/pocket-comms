@@ -109,7 +109,7 @@ describe('the conversation', () => {
     open();
     await screen.findByText('Fix the failing test');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Screen' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Screen' }));
 
     const terminal = await screen.findByRole('region', { name: 'Screen of kirk' });
     await waitFor(() => expect(terminal.textContent).toContain('Allow command?'));
@@ -120,7 +120,7 @@ describe('the conversation', () => {
     open(fakeAgent({ kind: 'codex', format: undefined }));
 
     expect(await screen.findByRole('region', { name: 'Screen of kirk' })).toBeDefined();
-    expect(screen.queryByRole('button', { name: 'Chat' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Chat' })).toBeNull();
   });
 
   it('sends a prompt with Enter and clears the composer', async () => {
@@ -192,7 +192,7 @@ describe('the conversation', () => {
     await userEvent.type(await screen.findByRole('textbox', { name: 'Message' }), 'Hi{Enter}');
     await screen.findByRole('alert');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Screen' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Screen' }));
     await userEvent.click(
       within(screen.getByRole('group', { name: 'Keys' })).getByRole('button', { name: 'Enter' }),
     );
@@ -494,7 +494,7 @@ describe('background work in the conversation', () => {
     const toggle = await screen.findByRole('button', { name: '2 running in the background' });
     await userEvent.click(toggle);
 
-    const list = screen.getByRole('region', { name: '2 running in the background' });
+    const list = screen.getByRole('group', { name: '2 running in the background' });
     expect(within(list).getByText('Wait for CI')).toBeDefined();
     expect(within(list).getByText('12m')).toBeDefined();
     expect(within(list).getAllByRole('link')).toHaveLength(1);

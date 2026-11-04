@@ -1,10 +1,10 @@
-import { Button, IconButton, Sheet, SheetHeader, Stack } from '@pocket-comms/design-ui';
+import { Button, IconButton, Sheet, SheetHeader, Stack } from '@smotastic/pocket-design';
 import { useState } from 'react';
 import { useOpenBrainstorm } from './Brainstorm.js';
 
 /**
  * The conversation's More action (spec 016): the top bar has no room for more icons next to the
- * agent's name, so the brainstorm chat and Close wait in a side sheet.
+ * agent's name, so the brainstorm chat and Close wait in a sheet.
  */
 export const ConversationMenu = ({
   close,
@@ -22,10 +22,9 @@ export const ConversationMenu = ({
 
   return (
     <>
-      <IconButton icon="menu" label="More" onClick={() => setOpen(true)} />
+      <IconButton icon="settings" label="More" onClick={() => setOpen(true)} />
       <Sheet
         open={open}
-        side="end"
         label="More"
         bodyLabel="More actions"
         onClose={() => setOpen(false)}

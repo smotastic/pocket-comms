@@ -104,7 +104,7 @@ describe('the New task sheet', () => {
     await openSheet();
 
     await fill('Add dark mode');
-    await userEvent.click(screen.getByRole('button', { name: 'Pi' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Pi' }));
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(fake.calls.tasks[0]?.agent).toEqual({ kind: 'pi' });
