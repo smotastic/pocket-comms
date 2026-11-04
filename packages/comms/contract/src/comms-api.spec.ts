@@ -6,6 +6,8 @@ import {
   AgentEvent,
   AGENTS_TO_START,
   BrainstormEntry,
+  BrainstormMessageRequest,
+  BrainstormState,
   CommsApi,
   IssueList,
   IssueNumberParam,
@@ -271,10 +273,12 @@ describe('wire schemas', () => {
   });
 });
 
+const PICTURE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
+
 describe('brainstorm wire schemas', () => {
   it('round-trips an entry of every kind', () => {
     const entries = [
-      { type: 'user', id: 'u1', at: 1, text: 'Idea' },
+      { type: 'user', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] },
       { type: 'assistant', id: 'a1', at: 2, text: '**Nice**' },
       {
         type: 'proposal',
@@ -284,7 +288,21 @@ describe('brainstorm wire schemas', () => {
         project: 'pocket-home',
         title: 'Dark mode',
         body: 'A toggle.',
+        pictures: [PICTURE],
+        attached: [{ image: PICTURE, url: 'http://gitea/attachments/u-1' }],
         state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
+      },
+      {
+        type: 'proposal',
+        kind: 'issue',
+        id: 'p2',
+        at: 3,
+        project: 'pocket-home',
+        title: 'Blue door',
+        body: 'Paint it.',
+        pictures: [PICTURE],
+        attached: [],
+        state: { _tag: 'attaching', number: 13, url: 'http://gitea/i/13' },
       },
       {
         type: 'proposal',
@@ -297,12 +315,33 @@ describe('brainstorm wire schemas', () => {
         title: 'Orchestrator',
         body: 'New.',
         base: { title: 'Orchestrator', body: 'Old.' },
+        pictures: [],
+        attached: [],
         state: { _tag: 'updated', url: 'http://gitea/i/11' },
       },
       { type: 'failed', id: 'f1', at: 5, reason: 'The model cannot be reached.' },
     ];
     const codec = Schema.Array(BrainstormEntry);
     expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(entries))).toEqual(entries);
+  });
+
+  it('takes a message of text, of pictures, or both', () => {
+    const decode = Schema.decodeUnknownSync(BrainstormMessageRequest);
+    expect(decode({ text: 'Idea' })).toEqual({ text: 'Idea' });
+    expect(decode({ text: '', imageIds: [PICTURE] })).toEqual({ text: '', imageIds: [PICTURE] });
+    expect(() => decode({ text: 'x', imageIds: Array(6).fill(PICTURE) })).toThrow();
+  });
+
+  it('shows the chat pictures and whether the model sees them', () => {
+    const state = {
+      _tag: 'Ready',
+      entries: [],
+      answering: false,
+      live: '',
+      seesPictures: false,
+      pictures: [{ id: PICTURE, number: 1, available: true }],
+    };
+    expect(Schema.decodeUnknownSync(BrainstormState)(state)).toEqual(state);
   });
 
   it('reads only proposal ids without a slash or a dot from the path', () => {
@@ -319,6 +358,17 @@ describe('brainstorm wire schemas', () => {
       title: 'T',
       body: 'B',
     });
+    expect(decode({ _tag: 'FinishWithout' })).toEqual({ _tag: 'FinishWithout' });
+    expect(decode({ _tag: 'Apply', title: 'T', body: 'B', pictures: [PICTURE] })).toMatchObject({
+      pictures: [PICTURE],
+    });
+    expect(
+      decode({ _tag: 'Create', draft: { project: 'a', title: 'T', body: '' }, pictures: [] }),
+    ).toMatchObject({ pictures: [] });
+    expect(() =>
+      decode({ _tag: 'Apply', title: 'T', body: 'B', pictures: Array(6).fill(PICTURE) }),
+    ).toThrow();
+    expect(() => decode({ _tag: 'Apply', title: 'T', body: 'B', pictures: ['../x'] })).toThrow();
     expect(() => decode({ _tag: 'Create' })).toThrow();
     expect(() => decode({ _tag: 'Apply', title: 'x'.repeat(256), body: '' })).toThrow();
     expect(() =>

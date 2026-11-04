@@ -26,6 +26,7 @@ export interface PiOptions {
 const notSetUp = (reason: string) =>
   AgentRuntimeOutbound.of({
     notSetUp: Option.some(reason),
+    seesImages: false,
     runTurn: () => Stream.fail(new AgentRuntimeError({ reason })),
   });
 

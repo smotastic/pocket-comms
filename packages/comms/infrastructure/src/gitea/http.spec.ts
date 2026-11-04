@@ -290,6 +290,75 @@ describe('Gitea.layerHttp', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('attaches a picture to an issue with one multipart POST and answers its link', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((url, method) =>
+        url.pathname === '/api/v1/repos/owner/app/issues/5/assets' && method === 'POST'
+          ? {
+              status: 201,
+              body: {
+                id: 3,
+                name: 'picture-2.png',
+                uuid: 'u-1',
+                browser_download_url: 'http://gitea.test/attachments/u-1',
+              },
+            }
+          : { status: 404, body: { message: 'not found' } },
+      );
+
+      const url = yield* withGitea(gitea.url, (outbound) =>
+        outbound.attachImage(repository, 5, {
+          name: 'picture-2.png',
+          kind: 'png',
+          bytes: new TextEncoder().encode('PNGBYTES'),
+        }),
+      );
+
+      expect(url).toBe('http://gitea.test/attachments/u-1');
+      expect(gitea.seen).toHaveLength(1);
+      const [seen] = gitea.seen;
+      expect(seen?.method).toBe('POST');
+      expect(seen?.url).toBe('/api/v1/repos/owner/app/issues/5/assets');
+      expect(seen?.authorization).toBe(`token ${TOKEN}`);
+      expect(seen?.contentType).toMatch(/^multipart\/form-data; boundary=/u);
+      expect(seen?.body).toContain('name="attachment"; filename="picture-2.png"');
+      expect(seen?.body).toContain('Content-Type: image/png');
+      expect(seen?.body).toContain('PNGBYTES');
+    }).pipe(Effect.scoped),
+  );
+
+  it.live("names a missing issue when attaching, and gives Gitea's reason for a refusal", () =>
+    Effect.gen(function* () {
+      const missing = yield* fakeGitea(() => ({ status: 404, body: { message: 'not found' } }));
+      const refusing = yield* fakeGitea(() => ({
+        status: 422,
+        body: { message: 'image/png is not allowed' },
+      }));
+      const silent = yield* fakeGitea(() => ({ status: 413, body: '' }));
+      const picture = { name: 'picture-1.jpg', kind: 'jpeg' as const, bytes: new Uint8Array(3) };
+
+      const notFound = yield* withGitea(missing.url, (outbound) =>
+        outbound.attachImage(repository, 9, picture).pipe(Effect.flip),
+      );
+      const refused = yield* withGitea(refusing.url, (outbound) =>
+        outbound.attachImage(repository, 5, picture).pipe(Effect.flip),
+      );
+      const tooLarge = yield* withGitea(silent.url, (outbound) =>
+        outbound.attachImage(repository, 5, picture).pipe(Effect.flip),
+      );
+
+      expect(notFound).toEqual(new IssueNotFoundError({ number: 9 }));
+      expect(refused).toEqual(
+        new GiteaUnavailableError({
+          reason: 'Gitea refused picture-1.jpg (422): image/png is not allowed',
+        }),
+      );
+      expect(tooLarge).toEqual(
+        new GiteaUnavailableError({ reason: 'Gitea refused picture-1.jpg (413).' }),
+      );
+    }).pipe(Effect.scoped),
+  );
+
   it.live('creates an issue with one POST that carries only its title and body', () =>
     Effect.gen(function* () {
       const gitea = yield* fakeGitea((url, method) =>

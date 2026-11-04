@@ -3,6 +3,7 @@ import {
   GiteaOutbound,
   GiteaUnavailableError,
   IssueNotFoundError,
+  type IssuePicture,
 } from '@pocket-comms/comms-application';
 import {
   IN_PROGRESS_LABEL,
@@ -10,6 +11,7 @@ import {
   isInProgressLabel,
   parseRemote,
   type GiteaRepository,
+  type ImageKind,
   type Issue,
   type IssueText,
 } from '@pocket-comms/comms-domain';
@@ -21,8 +23,10 @@ import * as Redacted from 'effect/Redacted';
 import * as Schema from 'effect/Schema';
 
 // Gitea's REST API (`/api/v1`). It reads with `GET`, and writes only the `PATCH` that closes an
-// issue (spec 010), the `POST` that creates one (spec 013), and the `POST`s that create the
-// in-progress label and add it to an issue (spec 015). It never replaces or removes labels. The
+// issue (spec 010), the `POST` that creates one (spec 013), the `POST`s that create the
+// in-progress label and add it to an issue (spec 015), the `PATCH` of an issue's title and body
+// (spec 022) and the multipart `POST` that attaches a picture to an issue (spec 023). It never
+// replaces or removes labels or attachments. The
 // token travels in the `Authorization` header and nowhere else; no reason, log line or span
 // carries it (spec 006, requirement 2).
 
@@ -35,6 +39,8 @@ export interface HttpOptions {
   readonly hosts: ReadonlyArray<string>;
   /** How long one request may take. Default 10 seconds. */
   readonly timeout?: Duration.Input;
+  /** How long one picture upload may take. Default 60 seconds. */
+  readonly uploadTimeout?: Duration.Input;
 }
 
 const PAGE_SIZE = 50;
@@ -56,6 +62,12 @@ const decodeLabel = Schema.decodeUnknownEffect(GiteaLabel);
 const decodeLabels = Schema.decodeUnknownEffect(Schema.Array(GiteaLabel));
 const decodeIssue = Schema.decodeUnknownEffect(GiteaIssue);
 const decodeIssues = Schema.decodeUnknownEffect(Schema.Array(GiteaIssue));
+const decodeAttachment = Schema.decodeUnknownEffect(
+  Schema.Struct({ browser_download_url: Schema.String }),
+);
+const decodeMessage = Schema.decodeUnknownOption(Schema.Struct({ message: Schema.String }));
+
+const MEDIA_TYPES: Record<ImageKind, string> = { jpeg: 'image/jpeg', png: 'image/png' };
 
 const toIssue = (issue: typeof GiteaIssue.Type): Issue => ({
   number: issue.number,
@@ -68,7 +80,13 @@ const toIssue = (issue: typeof GiteaIssue.Type): Issue => ({
   pull: issue.pull_request !== undefined && issue.pull_request !== null,
 });
 
-export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOptions) => {
+export const layerHttp = ({
+  url,
+  token,
+  hosts,
+  timeout = '10 seconds',
+  uploadTimeout = '60 seconds',
+}: HttpOptions) => {
   const base = url.replace(/\/+$/u, '');
   const ownHosts = new Set(
     [URL.canParse(base) ? new URL(base).hostname : '', ...hosts]
@@ -78,14 +96,26 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
   const unavailable = (reason: string) => new GiteaUnavailableError({ reason });
   const unknownShape = () => unavailable('Gitea answered in an unknown shape.');
 
-  // One request; a `404` is `undefined`, so the caller names what was missing.
-  const send = (method: 'GET' | 'PATCH' | 'POST', path: string, body?: unknown) =>
+  /**
+   * One request; a `404` is `undefined`, so the caller names what was missing. A form is sent as
+   * multipart, anything else as JSON. `refused` words another failed answer.
+   */
+  const send = (
+    method: 'GET' | 'PATCH' | 'POST',
+    path: string,
+    body?: unknown,
+    refused: (response: Response) => Effect.Effect<string> = (response) =>
+      Effect.succeed(`Gitea answered ${response.status}.`),
+    deadline: Duration.Input = timeout,
+  ) =>
     Effect.gen(function* () {
       if (Option.isNone(token)) return yield* new GiteaNotConfiguredError();
+      const form = body instanceof FormData;
+      // The browser sets a form's content type itself, with its boundary.
       const headers = {
         accept: 'application/json',
         authorization: `token ${Redacted.value(token.value)}`,
-        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+        ...(body === undefined || form ? {} : { 'content-type': 'application/json' }),
       };
       const response = yield* Effect.tryPromise({
         // A redirect is not followed, so the token is never sent to another address.
@@ -95,7 +125,7 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
             headers,
             signal,
             redirect: 'manual',
-            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+            ...(body === undefined ? {} : { body: form ? body : JSON.stringify(body) }),
           }),
         catch: (error) =>
           unavailable(
@@ -103,7 +133,7 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
           ),
       }).pipe(
         Effect.timeoutOrElse({
-          duration: timeout,
+          duration: deadline,
           orElse: () => Effect.fail(unavailable(`Gitea did not answer in time at ${base}.`)),
         }),
       );
@@ -116,7 +146,7 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
           `Gitea answered with a redirect (${response.status}); set COMMS_GITEA_URL to the address it names.`,
         );
       }
-      if (!response.ok) return yield* unavailable(`Gitea answered ${response.status}.`);
+      if (!response.ok) return yield* Effect.flatMap(refused(response), unavailable);
       return response;
     });
 
@@ -276,6 +306,44 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
       }),
     );
 
+  // Gitea's reason, such as a type it does not allow, is shown to the owner (spec 023).
+  const pictureRefused = (name: string) => (response: Response) =>
+    Effect.promise(() => response.json().catch(() => undefined)).pipe(
+      Effect.map((answer) =>
+        Option.match(decodeMessage(answer), {
+          onNone: () => `Gitea refused ${name} (${response.status}).`,
+          onSome: ({ message }) => `Gitea refused ${name} (${response.status}): ${message}`,
+        }),
+      ),
+    );
+
+  // An attachment only adds a file to the issue; its title, body and labels stay as they are.
+  const attachImage = (repository: GiteaRepository, number: number, picture: IssuePicture) =>
+    Effect.gen(function* () {
+      const form = new FormData();
+      form.append(
+        'attachment',
+        new Blob([picture.bytes.slice()], { type: MEDIA_TYPES[picture.kind] }),
+        picture.name,
+      );
+      const answer = yield* send(
+        'POST',
+        `${repositoryPath(repository)}/issues/${number}/assets`,
+        form,
+        pictureRefused(picture.name),
+        uploadTimeout,
+      );
+      if (answer === undefined) return yield* new IssueNotFoundError({ number });
+      const attachment = yield* json(answer).pipe(
+        Effect.flatMap((body) => decodeAttachment(body).pipe(Effect.mapError(unknownShape))),
+      );
+      return attachment.browser_download_url;
+    }).pipe(
+      Effect.withSpan('Gitea.attachImage', {
+        attributes: { owner: repository.owner, repository: repository.name, number },
+      }),
+    );
+
   const repositoryOf = (remoteUrl: string) => {
     const remote = parseRemote(remoteUrl);
     return remote === undefined || !ownHosts.has(remote.host)
@@ -297,6 +365,7 @@ export const layerHttp = ({ url, token, hosts, timeout = '10 seconds' }: HttpOpt
       markInProgress,
       createIssue,
       updateIssue,
+      attachImage,
     }),
   );
 };

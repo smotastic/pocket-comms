@@ -20,7 +20,7 @@ export const brainstormHandlers = HttpApiBuilder.group(
         ),
       )
       .handle('send', ({ payload }) =>
-        brainstormInbound.send(payload.text).pipe(
+        brainstormInbound.send(payload.text, payload.imageIds).pipe(
           Effect.catchTags({
             BrainstormNotSetUpError: problems.brainstormNotSetUp,
             BrainstormBusyError: problems.brainstormBusy,

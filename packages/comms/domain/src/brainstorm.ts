@@ -3,7 +3,8 @@ import * as Result from 'effect/Result';
 import { InvalidInputError } from './errors.js';
 
 // The rules of the brainstorm chat: what the conversation holds, the issue or the edit
-// a proposal drafts and how it is decided, the issues Pi read, and the project files Pi may read.
+// a proposal drafts and how it is decided, the pictures that go with it, the issues Pi read, and
+// the project files Pi may read.
 
 /** Gitea's limit of an issue title. */
 export const MAX_ISSUE_TITLE = 255;
@@ -22,11 +23,30 @@ export interface IssueText {
   readonly body: string;
 }
 
-/** A proposal is open until the owner creates its issue or discards it, once. */
+/**
+ * A proposal is open until the owner creates its issue or discards it, once. It is `attaching`
+ * while the issue exists but its pictures are not all attached (spec 023).
+ */
 export type ProposalState =
   | { readonly _tag: 'open' }
   | { readonly _tag: 'created'; readonly number: number; readonly url: string }
-  | { readonly _tag: 'discarded' };
+  | { readonly _tag: 'discarded' }
+  | { readonly _tag: 'attaching'; readonly number: number; readonly url: string };
+
+/** A chat picture that is an attachment of the issue in Gitea, and its link there. */
+export interface AttachedPicture {
+  readonly image: string;
+  readonly url: string;
+}
+
+/**
+ * The chat pictures that go with a proposal, by image id: the ones Pi named, then the owner's
+ * choice. `attached` are those already in Gitea, so a retry never uploads one twice.
+ */
+interface WithPictures {
+  readonly pictures: ReadonlyArray<string>;
+  readonly attached: ReadonlyArray<AttachedPicture>;
+}
 
 /** An edit is open until the owner applies or discards it, once. */
 export type EditState =
@@ -35,7 +55,7 @@ export type EditState =
   | { readonly _tag: 'discarded' };
 
 /** A new issue Pi proposes. */
-export interface IssueProposal extends IssueDraft {
+export interface IssueProposal extends IssueDraft, WithPictures {
   readonly type: 'proposal';
   readonly kind: 'issue';
   readonly id: string;
@@ -47,7 +67,7 @@ export interface IssueProposal extends IssueDraft {
  * A new title and body Pi proposes for an existing issue. `base` is the issue as Pi read it, so
  * applying the edit can tell when someone changed the issue since.
  */
-export interface EditProposal extends IssueText {
+export interface EditProposal extends IssueText, WithPictures {
   readonly type: 'proposal';
   readonly kind: 'edit';
   readonly id: string;
@@ -64,7 +84,14 @@ export type ProposalEntry = IssueProposal | EditProposal;
 
 /** One entry of the brainstorm conversation. `at` is in epoch milliseconds. */
 export type BrainstormEntry =
-  | { readonly type: 'user'; readonly id: string; readonly at: number; readonly text: string }
+  /** `images` are the ids of the pictures the message attached, in order. */
+  | {
+      readonly type: 'user';
+      readonly id: string;
+      readonly at: number;
+      readonly text: string;
+      readonly images: ReadonlyArray<string>;
+    }
   /** `text` is Markdown. */
   | { readonly type: 'assistant'; readonly id: string; readonly at: number; readonly text: string }
   | ProposalEntry
@@ -130,6 +157,73 @@ export const settleProposal = (
   decided: ProposalEntry,
 ): ReadonlyArray<BrainstormEntry> =>
   entries.map((entry) => (entry.type === 'proposal' && entry.id === decided.id ? decided : entry));
+
+/** At most this many pictures go with one proposal. */
+export const MAX_PROPOSAL_PICTURES = 5;
+
+/** A picture of the chat and its number, counted from 1 in the order it was sent. */
+export interface ChatPicture {
+  readonly id: string;
+  readonly number: number;
+}
+
+export const chatPictures = (entries: ReadonlyArray<BrainstormEntry>): ReadonlyArray<ChatPicture> =>
+  entries
+    .flatMap((entry) => (entry.type === 'user' ? entry.images : []))
+    .map((id, index) => ({ id, number: index + 1 }));
+
+const invalidPictures = (message: string) =>
+  Result.fail(new InvalidInputError({ issues: [{ field: 'pictures', message }] }));
+
+/** The chosen pictures in number order; more than allowed, a repeat or an unknown one is refused. */
+const choosePictures = <K extends 'id' | 'number'>(
+  entries: ReadonlyArray<BrainstormEntry>,
+  key: K,
+  chosen: ReadonlyArray<ChatPicture[K]>,
+  name: (value: ChatPicture[K]) => string,
+): Result.Result<ReadonlyArray<string>, InvalidInputError> => {
+  if (chosen.length > MAX_PROPOSAL_PICTURES) {
+    return invalidPictures(`Choose at most ${MAX_PROPOSAL_PICTURES} pictures.`);
+  }
+  if (new Set(chosen).size !== chosen.length) return invalidPictures('A picture is chosen twice.');
+  const pictures = chatPictures(entries);
+  const unknown = chosen.find((value) => !pictures.some((picture) => picture[key] === value));
+  if (unknown !== undefined) return invalidPictures(`${name(unknown)} is no picture of this chat.`);
+  return Result.succeed(
+    pictures.filter((picture) => chosen.includes(picture[key])).map((picture) => picture.id),
+  );
+};
+
+/** The ids of the pictures Pi names by their numbers. */
+export const picturesByNumber = (
+  entries: ReadonlyArray<BrainstormEntry>,
+  numbers: ReadonlyArray<number>,
+) => choosePictures(entries, 'number', numbers, (number) => `Picture ${number}`);
+
+/** The owner's choice of pictures by id, checked against the chat. */
+export const parsePictureChoice = (
+  entries: ReadonlyArray<BrainstormEntry>,
+  ids: ReadonlyArray<string>,
+) => choosePictures(entries, 'id', ids, (id) => id);
+
+/** The chosen pictures that are not attached yet. */
+export const missingPictures = (
+  chosen: ReadonlyArray<string>,
+  attached: ReadonlyArray<AttachedPicture>,
+): ReadonlyArray<string> => chosen.filter((id) => !attached.some((done) => done.image === id));
+
+/** The body with a Pictures block that links each attached picture, in the given order. */
+export const withPictures = (
+  body: string,
+  pictures: ReadonlyArray<{ readonly number: number; readonly url: string }>,
+): string => {
+  if (pictures.length === 0) return body;
+  const block = [
+    '## Pictures',
+    pictures.map((picture) => `![Picture ${picture.number}](${picture.url})`).join('\n'),
+  ].join('\n\n');
+  return body === '' ? block : `${body}\n\n${block}`;
+};
 
 /** An issue as Pi last read it; `cut` when its body was longer than Pi may read. */
 export interface IssueRead extends IssueText {

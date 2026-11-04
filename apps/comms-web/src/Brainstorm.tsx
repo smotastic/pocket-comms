@@ -13,6 +13,8 @@ import {
 } from '@smotastic/pocket-design';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createContext, useContext, useState, type ReactNode } from 'react';
+import { AttachedImages } from './AttachedImages.js';
+import { useAttachments } from './attachments.js';
 import type {
   BrainstormEntryView,
   BrainstormStateView,
@@ -23,12 +25,17 @@ import { brainstormQuery, projectsQuery } from './comms-queries.js';
 import { IssueEditCard } from './IssueEditCard.js';
 import { useBrainstormLive } from './live.js';
 import { ProposalCard } from './ProposalCard.js';
+import { PictureThumb, type ChatPicture } from './ProposalPictures.js';
 import { UserMessage } from './UserMessage.js';
 
 // The brainstorm chat: one ongoing chat with Pi, opened from the top bars. Pi proposes new issues
-// and edits of existing ones, and the owner decides on each.
+// and edits of existing ones, and the owner decides on each. The owner's messages may attach
+// pictures, which go to Gitea with the proposals the owner chooses them for (spec 023).
 
 type Ready = Extract<BrainstormStateView, { readonly _tag: 'Ready' }>;
+
+/** What the chat says when Pi only learns that pictures were attached. */
+const BLIND = "This model can't see pictures";
 
 interface ChatProps {
   readonly client: CommsClient;
@@ -40,17 +47,38 @@ interface ChatProps {
 const Entry = ({
   entry,
   projects,
+  pictures,
+  seesPictures,
   busy,
   decide,
 }: {
   readonly entry: BrainstormEntryView;
   readonly projects: ReadonlyArray<string>;
+  readonly pictures: ReadonlyArray<ChatPicture>;
+  readonly seesPictures: boolean;
   readonly busy: boolean;
   readonly decide: ReturnType<typeof useDecide>;
 }) => {
   switch (entry.type) {
-    case 'user':
-      return <UserMessage text={entry.text} />;
+    case 'user': {
+      const shown = pictures.filter((picture) => entry.images.includes(picture.id));
+      if (shown.length === 0) return <UserMessage text={entry.text} />;
+      return (
+        <Stack gap="xs">
+          <UserMessage
+            text={entry.text}
+            attachments={shown.map((picture) => (
+              <PictureThumb key={picture.id} picture={picture} />
+            ))}
+          />
+          {seesPictures ? null : (
+            <Text tone="muted" size="sm">
+              {BLIND}
+            </Text>
+          )}
+        </Stack>
+      );
+    }
     case 'assistant':
       return <Markdown text={entry.text} />;
     case 'failed':
@@ -67,10 +95,16 @@ const Entry = ({
             body={entry.body}
             base={entry.base}
             state={entry.state}
+            pictures={pictures}
+            chosen={entry.pictures}
+            attached={entry.attached}
             busy={busy || decide.isPending}
             {...(failed === null ? {} : { error: failed.message })}
-            onApply={(edit) =>
-              decide.mutate({ id: entry.id, decision: { _tag: 'Apply', ...edit } })
+            onApply={(edit, chosen) =>
+              decide.mutate({
+                id: entry.id,
+                decision: { _tag: 'Apply', ...edit, pictures: chosen },
+              })
             }
             onDiscard={() => decide.mutate({ id: entry.id, decision: { _tag: 'Discard' } })}
           />
@@ -83,10 +117,18 @@ const Entry = ({
           body={entry.body}
           state={entry.state}
           projects={projects}
+          pictures={pictures}
+          chosen={entry.pictures}
+          attached={entry.attached}
           busy={busy || decide.isPending}
           {...(failed === null ? {} : { error: failed.message })}
-          onCreate={(draft) => decide.mutate({ id: entry.id, decision: { _tag: 'Create', draft } })}
+          onCreate={(draft, chosen) =>
+            decide.mutate({ id: entry.id, decision: { _tag: 'Create', draft, pictures: chosen } })
+          }
           onDiscard={() => decide.mutate({ id: entry.id, decision: { _tag: 'Discard' } })}
+          onFinishWithout={() =>
+            decide.mutate({ id: entry.id, decision: { _tag: 'FinishWithout' } })
+          }
         />
       );
     }
@@ -105,6 +147,10 @@ const Chat = ({ client, state, confirmingReset, onResetDone }: ChatProps) => {
   const decide = useDecide(client);
   const reset = useMutation({ mutationFn: client.resetBrainstorm, onSuccess: onResetDone });
   const names = (projects.data ?? []).map((project) => project.name);
+  const pictures = state.pictures.map((picture) => ({
+    ...picture,
+    src: client.imageUrl(picture.id),
+  }));
 
   return (
     <Stack gap="md">
@@ -135,6 +181,8 @@ const Chat = ({ client, state, confirmingReset, onResetDone }: ChatProps) => {
           key={entry.id}
           entry={entry}
           projects={names}
+          pictures={pictures}
+          seesPictures={state.seesPictures}
           busy={state.answering}
           decide={decide}
         />
@@ -154,23 +202,54 @@ const Footer = ({
   readonly state: BrainstormStateView | undefined;
 }) => {
   const [draft, setDraft] = useState('');
+  const images = useAttachments(client);
+  // A successful send clears the text and the pictures; a failed one keeps both.
   const send = useMutation({
-    mutationFn: client.sendBrainstorm,
-    onSuccess: () => setDraft(''),
+    mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
+      client.sendBrainstorm(text, imageIds),
+    onSuccess: () => {
+      setDraft('');
+      images.clear();
+    },
   });
   const ready = state?._tag === 'Ready';
   return (
     <Stack gap="sm">
       {send.error === null ? null : <Alert>{send.error.message}</Alert>}
+      {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
+      {ready && !state.seesPictures && images.attachments.length > 0 ? (
+        <Text tone="muted" size="sm">
+          {BLIND}
+        </Text>
+      ) : null}
       <Composer
         label="Message"
         value={draft}
         onChange={setDraft}
-        onSend={(text) => send.mutate(text)}
+        onSend={(text) => send.mutate({ text, imageIds: images.ids })}
         placeholder="An idea…"
-        locked={send.isPending}
+        locked={send.isPending || images.pending}
         disabled={!ready || state.answering}
+        attach={{
+          label: 'Attach image',
+          icon: 'image',
+          acceptedFileTypes: ['image/*'],
+          onSelect: (files) => void images.add(files),
+          isDisabled: images.full,
+        }}
+        sendable={images.ids.length > 0}
         {...(ready && state.answering ? { hint: 'Pi is answering.' } : {})}
+        {...(images.attachments.length === 0
+          ? {}
+          : {
+              attachments: (
+                <AttachedImages
+                  attachments={images.attachments}
+                  onRemove={images.remove}
+                  onRetry={images.retry}
+                />
+              ),
+            })}
       />
     </Stack>
   );

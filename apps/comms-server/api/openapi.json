@@ -515,6 +515,17 @@
                 "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
                 "type": "string"
               },
+              "images": {
+                "description": "The pictures the message attached, by image id, in order.",
+                "examples": [[]],
+                "items": {
+                  "description": "The id the server gave an uploaded image.",
+                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                  "pattern": "^[a-z2-7]{26}$",
+                  "type": "string"
+                },
+                "type": "array"
+              },
               "text": {
                 "description": "The owner's message.",
                 "examples": ["Idea: dark mode for pocket-home"],
@@ -527,7 +538,7 @@
                 "type": "string"
               }
             },
-            "required": ["type", "id", "at", "text"],
+            "required": ["type", "id", "at", "text", "images"],
             "type": "object"
           },
           {
@@ -566,6 +577,31 @@
                 "examples": [1793391381245],
                 "type": "integer"
               },
+              "attached": {
+                "description": "The chosen pictures that are already attachments of the issue in Gitea.",
+                "examples": [[]],
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "image": {
+                      "description": "The id the server gave an uploaded image.",
+                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                      "pattern": "^[a-z2-7]{26}$",
+                      "type": "string"
+                    },
+                    "url": {
+                      "description": "The picture's attachment in Gitea.",
+                      "examples": [
+                        "http://localhost:3000/attachments/1c7f5b2e-3d4a-4f9b-8e6c-0a2b4c6d8e0f"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": ["image", "url"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "body": {
                 "description": "The issue's body in Markdown.",
                 "examples": ["A toggle in the settings that switches the app to dark colours."],
@@ -582,6 +618,18 @@
                 "enum": ["issue"],
                 "examples": ["issue"],
                 "type": "string"
+              },
+              "pictures": {
+                "description": "The chat pictures that go with the proposal: the ones Pi named while it is open, the owner’s choice once decided.",
+                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
+                "items": {
+                  "description": "The id the server gave an uploaded image.",
+                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                  "pattern": "^[a-z2-7]{26}$",
+                  "type": "string"
+                },
+                "maxItems": 5,
+                "type": "array"
               },
               "project": {
                 "description": "The project the issue is for, by name.",
@@ -606,7 +654,18 @@
                 "type": "string"
               }
             },
-            "required": ["type", "kind", "id", "at", "project", "title", "body", "state"],
+            "required": [
+              "type",
+              "kind",
+              "id",
+              "at",
+              "project",
+              "title",
+              "body",
+              "pictures",
+              "attached",
+              "state"
+            ],
             "type": "object"
           },
           {
@@ -616,6 +675,31 @@
                 "description": "When the entry was added, in epoch milliseconds.",
                 "examples": [1793391381245],
                 "type": "integer"
+              },
+              "attached": {
+                "description": "The chosen pictures that are already attachments of the issue in Gitea.",
+                "examples": [[]],
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "image": {
+                      "description": "The id the server gave an uploaded image.",
+                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                      "pattern": "^[a-z2-7]{26}$",
+                      "type": "string"
+                    },
+                    "url": {
+                      "description": "The picture's attachment in Gitea.",
+                      "examples": [
+                        "http://localhost:3000/attachments/1c7f5b2e-3d4a-4f9b-8e6c-0a2b4c6d8e0f"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": ["image", "url"],
+                  "type": "object"
+                },
+                "type": "array"
               },
               "base": {
                 "additionalProperties": false,
@@ -663,6 +747,18 @@
                 "examples": [11],
                 "type": "integer"
               },
+              "pictures": {
+                "description": "The chat pictures that go with the proposal: the ones Pi named while it is open, the owner’s choice once decided.",
+                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
+                "items": {
+                  "description": "The id the server gave an uploaded image.",
+                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                  "pattern": "^[a-z2-7]{26}$",
+                  "type": "string"
+                },
+                "maxItems": 5,
+                "type": "array"
+              },
               "project": {
                 "description": "The project the issue is for, by name.",
                 "examples": ["pocket-home"],
@@ -702,6 +798,8 @@
               "title",
               "body",
               "base",
+              "pictures",
+              "attached",
               "state"
             ],
             "type": "object"
@@ -747,11 +845,29 @@
         "additionalProperties": false,
         "description": "A message for Pi.",
         "properties": {
+          "imageIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "description": "The id the server gave an uploaded image.",
+                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                  "pattern": "^[a-z2-7]{26}$",
+                  "type": "string"
+                },
+                "maxItems": 5,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Up to five uploaded images; Pi gets them with the message.",
+            "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+          },
           "text": {
-            "description": "The message; it is sent trimmed and must not be blank.",
+            "description": "The message; it is sent trimmed and must not be blank unless it attaches images.",
             "examples": ["Idea: dark mode for pocket-home"],
             "maxLength": 20000,
-            "minLength": 1,
             "type": "string"
           }
         },
@@ -786,9 +902,42 @@
                 "description": "The text of Pi's message so far, while it writes one.",
                 "examples": ["Nice. Which"],
                 "type": "string"
+              },
+              "pictures": {
+                "description": "The pictures of the chat, by number.",
+                "examples": [[]],
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "available": {
+                      "description": "The app still keeps the picture, so it can go to Gitea.",
+                      "examples": [true],
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "description": "The id the server gave an uploaded image.",
+                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                      "pattern": "^[a-z2-7]{26}$",
+                      "type": "string"
+                    },
+                    "number": {
+                      "description": "The picture's number in the chat, from 1 in the order it was sent.",
+                      "examples": [1],
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["id", "number", "available"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "seesPictures": {
+                "description": "The model takes pictures; otherwise Pi only learns that pictures were attached.",
+                "examples": [true],
+                "type": "boolean"
               }
             },
-            "required": ["_tag", "entries", "answering", "live"],
+            "required": ["_tag", "entries", "answering", "live", "seesPictures", "pictures"],
             "type": "object"
           },
           {
@@ -1536,6 +1685,27 @@
               },
               "draft": {
                 "$ref": "#/components/schemas/IssueDraft"
+              },
+              "pictures": {
+                "anyOf": [
+                  {
+                    "description": "Chat pictures by image id, at most five.",
+                    "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
+                    "items": {
+                      "description": "The id the server gave an uploaded image.",
+                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                      "pattern": "^[a-z2-7]{26}$",
+                      "type": "string"
+                    },
+                    "maxItems": 5,
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The chat pictures to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing pictures instead.",
+                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
               }
             },
             "required": ["_tag", "draft"],
@@ -1569,6 +1739,27 @@
                 "maxLength": 20000,
                 "type": "string"
               },
+              "pictures": {
+                "anyOf": [
+                  {
+                    "description": "Chat pictures by image id, at most five.",
+                    "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
+                    "items": {
+                      "description": "The id the server gave an uploaded image.",
+                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                      "pattern": "^[a-z2-7]{26}$",
+                      "type": "string"
+                    },
+                    "maxItems": 5,
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The chat pictures to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing pictures instead.",
+                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+              },
               "title": {
                 "description": "The issue's whole new title; it must not be blank.",
                 "examples": ["Orchestrator mode from the brainstorm chat"],
@@ -1577,6 +1768,19 @@
               }
             },
             "required": ["_tag", "title", "body"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "Finish a created issue with the pictures attached so far and leave out the others.",
+                "enum": ["FinishWithout"],
+                "examples": ["FinishWithout"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag"],
             "type": "object"
           }
         ],
@@ -1631,6 +1835,29 @@
               }
             },
             "required": ["_tag"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "_tag": {
+                "description": "The owner created the issue, and its pictures are not all attached yet: retry them or finish without them.",
+                "enum": ["attaching"],
+                "examples": ["attaching"],
+                "type": "string"
+              },
+              "number": {
+                "description": "The new issue's number.",
+                "examples": [12],
+                "type": "integer"
+              },
+              "url": {
+                "description": "The new issue's page in Gitea.",
+                "examples": ["http://localhost:3000/smotastic/pocket-home/issues/12"],
+                "type": "string"
+              }
+            },
+            "required": ["_tag", "number", "url"],
             "type": "object"
           }
         ],

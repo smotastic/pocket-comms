@@ -95,8 +95,11 @@ export interface CommsClient {
   readonly closeIssue: (project: string, number: number) => Promise<void>;
   /** The brainstorm chat (spec 013). */
   readonly brainstorm: () => Promise<BrainstormStateView>;
-  /** Sends the owner's message; Pi's answer arrives on the brainstorm stream. */
-  readonly sendBrainstorm: (text: string) => Promise<void>;
+  /**
+   * Sends the owner's message with the attached pictures, by the ids `uploadImage` gave them;
+   * Pi's answer arrives on the brainstorm stream.
+   */
+  readonly sendBrainstorm: (text: string, imageIds?: ReadonlyArray<string>) => Promise<void>;
   readonly decideProposal: (id: string, decision: ProposalDecision) => Promise<void>;
   /** Starts an empty brainstorm chat. */
   readonly resetBrainstorm: () => Promise<void>;
@@ -294,8 +297,10 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
         () => undefined,
       ),
     brainstorm: () => run((api) => api.brainstorm.state()),
-    sendBrainstorm: (text) =>
-      run((api) => api.brainstorm.send({ payload: { text } })).then(() => undefined),
+    sendBrainstorm: (text, imageIds = []) =>
+      run((api) =>
+        api.brainstorm.send({ payload: imageIds.length === 0 ? { text } : { text, imageIds } }),
+      ).then(() => undefined),
     // One call per kind of decision, so each payload matches its own request shape.
     decideProposal: (id, decision) =>
       run((api) =>
@@ -303,7 +308,9 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
           ? api.brainstorm.decide({ params: { proposal: id }, payload: decision })
           : decision._tag === 'Apply'
             ? api.brainstorm.decide({ params: { proposal: id }, payload: decision })
-            : api.brainstorm.decide({ params: { proposal: id }, payload: decision }),
+            : decision._tag === 'Discard'
+              ? api.brainstorm.decide({ params: { proposal: id }, payload: decision })
+              : api.brainstorm.decide({ params: { proposal: id }, payload: decision }),
       ).then(() => undefined),
     resetBrainstorm: () => run((api) => api.brainstorm.reset()).then(() => undefined),
     pushKey: () => run((api) => api.push.key()).then((key) => key.publicKey),

@@ -771,6 +771,8 @@ describe('the activity API', () => {
 });
 
 describe('the brainstorm API', () => {
+  const PICTURE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
+
   const brainstorm = (inbound: Partial<BrainstormInbound['Service']>) =>
     serve({}, undefined, {}, {}, inbound);
 
@@ -778,9 +780,11 @@ describe('the brainstorm API', () => {
     const call = brainstorm({
       state: Effect.succeed({
         _tag: 'Ready',
-        entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea' }],
+        entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] }],
         answering: false,
         live: '',
+        seesPictures: true,
+        pictures: [{ id: PICTURE, number: 1, available: true }],
       }),
     });
 
@@ -789,9 +793,11 @@ describe('the brainstorm API', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       _tag: 'Ready',
-      entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea' }],
+      entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] }],
       answering: false,
       live: '',
+      seesPictures: true,
+      pictures: [{ id: PICTURE, number: 1, available: true }],
     });
   });
 
@@ -811,21 +817,28 @@ describe('the brainstorm API', () => {
   it('sends a message, decides on a proposal and starts a new chat', async () => {
     const asked: Array<unknown> = [];
     const call = brainstorm({
-      send: (text) => Effect.sync(() => void asked.push(['send', text])),
+      send: (text, imageIds) => Effect.sync(() => void asked.push(['send', text, imageIds])),
       decide: (id, decision) => Effect.sync(() => void asked.push(['decide', id, decision])),
       reset: () => Effect.sync(() => void asked.push(['reset'])),
     });
 
     const sent = await call('/api/v1/brainstorm/messages', json({ text: 'Idea' }));
+    const pictured = await call(
+      '/api/v1/brainstorm/messages',
+      json({ text: '', imageIds: [PICTURE] }),
+    );
     const decided = await call(
       '/api/v1/brainstorm/proposals/p-1/decision',
       json({ _tag: 'Create', draft: { project: 'app', title: 'Dark mode', body: '' } }),
     );
     const reset = await call('/api/v1/brainstorm/reset', { method: 'POST' });
 
-    expect([sent.status, decided.status, reset.status]).toEqual([204, 204, 204]);
+    expect([sent.status, pictured.status, decided.status, reset.status]).toEqual([
+      204, 204, 204, 204,
+    ]);
     expect(asked).toEqual([
-      ['send', 'Idea'],
+      ['send', 'Idea', undefined],
+      ['send', '', [PICTURE]],
       [
         'decide',
         'p-1',

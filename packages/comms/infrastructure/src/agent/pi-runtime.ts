@@ -13,6 +13,7 @@ import {
   type RuntimeEvent,
   type TurnInput,
 } from '@pocket-comms/comms-application';
+import type { ImageKind } from '@pocket-comms/comms-domain';
 import * as Cause from 'effect/Cause';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
@@ -28,6 +29,8 @@ import { Type } from 'typebox';
 // `pi-coding-agent`, which this service does not use.
 
 const ADAPTER = 'pi';
+
+const IMAGE_MEDIA_TYPES: Record<ImageKind, string> = { jpeg: 'image/jpeg', png: 'image/png' };
 
 /** How requests name this app to the model provider. */
 export const ATTRIBUTION = {
@@ -166,6 +169,7 @@ export const makePiRuntime = (setup: PiSetup) => {
     scrubSecrets(reason, setup.apiKey === undefined ? undefined : Redacted.value(setup.apiKey));
   return AgentRuntimeOutbound.of({
     notSetUp: Option.none(),
+    seesImages: setup.model.input.includes('image'),
     runTurn: (turn) =>
       Stream.callback<RuntimeEvent, AgentRuntimeError>((queue) =>
         Effect.gen(function* () {
@@ -191,7 +195,15 @@ export const makePiRuntime = (setup: PiSetup) => {
           });
           yield* Effect.addFinalizer(() => Effect.sync(() => agent.abort()));
           yield* Effect.tryPromise({
-            try: () => agent.prompt(turn.input),
+            try: () =>
+              agent.prompt(
+                turn.input,
+                turn.images.map((image) => ({
+                  type: 'image',
+                  data: Buffer.from(image.bytes).toString('base64'),
+                  mimeType: IMAGE_MEDIA_TYPES[image.kind],
+                })),
+              ),
             catch: (error) => new AgentRuntimeError({ reason: scrub(String(error)) }),
           });
           const failure = failureOf(agent);

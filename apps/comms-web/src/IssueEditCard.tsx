@@ -12,6 +12,7 @@ import {
   TextArea,
 } from '@smotastic/pocket-design';
 import { useState } from 'react';
+import { AttachedPictures, PictureChoice, type ChatPicture } from './ProposalPictures.js';
 
 /** An issue's title and Markdown body. */
 export type IssueText = {
@@ -32,8 +33,14 @@ export type IssueEditCardProps = IssueText & {
     | { readonly _tag: 'open' }
     | { readonly _tag: 'updated'; readonly url: string }
     | { readonly _tag: 'discarded' };
-  /** Called with the title and body as the owner edited them. */
-  readonly onApply: (edit: IssueText) => void;
+  /** The pictures of the chat the owner may choose from. */
+  readonly pictures?: ReadonlyArray<ChatPicture>;
+  /** The chosen pictures by id: the ones Pi named while open, the owner's choice afterwards. */
+  readonly chosen?: ReadonlyArray<string>;
+  /** The chosen pictures that are attached to the issue in Gitea. */
+  readonly attached?: ReadonlyArray<{ readonly image: string }>;
+  /** Called with the title and body as the owner edited them, and the chosen pictures. */
+  readonly onApply: (edit: IssueText, pictures: ReadonlyArray<string>) => void;
   readonly onDiscard: () => void;
   /** The decision is on its way, or the chat takes none now: the actions are off. */
   readonly busy?: boolean;
@@ -58,12 +65,19 @@ export const IssueEditCard = ({
   body,
   base,
   state,
+  pictures = [],
+  chosen = [],
+  attached = [],
   onApply,
   onDiscard,
   busy = false,
   error,
 }: IssueEditCardProps) => {
   const [edit, setEdit] = useState<IssueText>({ title, body });
+  // A picture the app no longer keeps cannot go along (spec 023, requirement 10).
+  const [choice, setChoice] = useState<ReadonlyArray<string>>(() =>
+    chosen.filter((id) => pictures.some((picture) => picture.id === id && picture.available)),
+  );
   const [comparing, setComparing] = useState(false);
   const label = `Proposed edit of issue #${number}`;
 
@@ -85,6 +99,7 @@ export const IssueEditCard = ({
               )}
             </Inline>
             <Text>{title}</Text>
+            <AttachedPictures pictures={pictures} attached={attached} />
           </Stack>
         </Card>
       </section>
@@ -126,12 +141,13 @@ export const IssueEditCard = ({
               </Stack>
             ) : null}
           </Disclosure>
+          <PictureChoice pictures={pictures} chosen={choice} onChange={setChoice} disabled={busy} />
           {error === undefined ? null : <Alert>{error}</Alert>}
           <Inline gap="sm" justify="end">
             <Button variant="secondary" disabled={busy} onClick={onDiscard}>
               Discard
             </Button>
-            <Button disabled={busy} onClick={() => onApply(edit)}>
+            <Button disabled={busy} onClick={() => onApply(edit, choice)}>
               Apply edit
             </Button>
           </Inline>

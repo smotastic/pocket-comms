@@ -145,12 +145,16 @@ export class FakeState extends Context.Service<
     giteaFailure: string | undefined;
     /** Why only marking an issue in progress fails, when it does. */
     giteaMarkFailure: string | undefined;
+    /** The names of the pictures the fake Gitea refuses to attach. */
+    readonly giteaRefusedPictures: Set<string>;
     /** Every Gitea request, as `<method> <owner>/<name> [<number>]`. */
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
     readonly docs: Map<string, string>;
     /** Why the runtime is not set up, when it is not. */
     notSetUp: string | undefined;
+    /** The runtime's model takes pictures. */
+    seesImages: boolean;
     /** The turns the scripted runtime plays, in order, and what it was given. */
     readonly script: Array<ReadonlyArray<ScriptStep>>;
     readonly turns: Array<TurnInput>;
@@ -503,6 +507,23 @@ const gitea = (state: FakeState['Service']) => {
         issues[index] = { ...found, title, body };
         return Effect.void;
       }),
+    attachImage: ({ owner, name }, number, picture) =>
+      request<string, IssueNotFoundError | GiteaUnavailableError>(
+        `attachImage ${owner}/${name} ${number} ${picture.name}`,
+        () => {
+          if (state.giteaRefusedPictures.has(picture.name)) {
+            return Effect.fail(
+              new GiteaUnavailableError({ reason: `Gitea refused ${picture.name} (422).` }),
+            );
+          }
+          const found = state.issues
+            .get(`${owner}/${name}`)
+            ?.some((issue) => issue.number === number);
+          return found === true
+            ? Effect.succeed(`http://gitea.test/attachments/${number}/${picture.name}`)
+            : Effect.fail(new IssueNotFoundError({ number }));
+        },
+      ),
   });
 };
 
@@ -625,9 +646,11 @@ export const fakeLayer = () => {
         giteaConfigured: true,
         giteaFailure: undefined,
         giteaMarkFailure: undefined,
+        giteaRefusedPictures: new Set(),
         giteaCalls: [],
         docs: new Map(),
         notSetUp: undefined,
+        seesImages: true,
         script: [],
         turns: [],
         storedChat: undefined,
@@ -654,6 +677,9 @@ export const fakeLayer = () => {
         Context.add(AgentRuntimeOutbound, {
           get notSetUp() {
             return Option.fromNullishOr(fake.notSetUp);
+          },
+          get seesImages() {
+            return fake.seesImages;
           },
           runTurn: (turn) => scriptedTurn(fake, turn),
         }),

@@ -3,7 +3,7 @@
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
 them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, it reads,
 closes and marks in progress the projects' Gitea issues, it runs the brainstorm chat with Pi, which proposes new issues and edits of existing ones, it keeps the images
-the owner attaches to a prompt, it pushes a notification to the owner's devices when an agent
+the owner attaches to a prompt or a brainstorm message and attaches the chosen ones to approved issues in Gitea, it pushes a notification to the owner's devices when an agent
 needs them, and it follows the background work and the subagents of Claude agents. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
 [spec 006](../../specs/006-comms-gitea-issues/spec.md),
@@ -16,8 +16,9 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 017](../../specs/017-comms-activity-timeline/spec.md),
 [spec 018](../../specs/018-comms-push-notifications/spec.md),
 [spec 019](../../specs/019-comms-background-activity/spec.md),
-[spec 020](../../specs/020-comms-push-after-background-work/spec.md) and
-[spec 022](../../specs/022-comms-brainstorm-edits-issues/spec.md).
+[spec 020](../../specs/020-comms-push-after-background-work/spec.md),
+[spec 022](../../specs/022-comms-brainstorm-edits-issues/spec.md) and
+[spec 023](../../specs/023-comms-brainstorm-pictures/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, and the push devices and the
@@ -25,28 +26,28 @@ VAPID key pair are two JSON files in its `push` folder.
 
 ## Where each file type goes
 
-| What                                                                | Where                                                       |
-| ------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `CommsApi`, wire schemas (shared by server and web)                 | `contract`                                                  |
-| Agents, the overview rules, input rules, transcript entries, access | `domain`                                                    |
-| New task rules (projects order, branch, task, agent name)           | `domain` (`src/task.ts`)                                    |
-| Issue rules (remote, order, branch, task text, work per issue)      | `domain` (`src/issue.ts`)                                   |
-| Brainstorm entries, proposals, issue drafts and edits, issue reads  | `domain` (`src/brainstorm.ts`)                              |
-| Image rules (kinds, ids, limits, paths in a prompt)                 | `domain` (`src/image.ts`)                                   |
-| The image store                                                     | `infrastructure` (`src/images`)                             |
-| Activity rules (snapshot diff, what is kept, prompt excerpts)       | `domain` (`src/activity.ts`)                                |
-| The activity recorder and timeline                                  | `application` (`src/use-cases/activity*`)                   |
-| The activity file                                                   | `infrastructure` (`src/activity`)                           |
-| When an agent notifies, the notification's text                     | `domain` (`src/notification.ts`)                            |
-| The push watcher, subscribe and unsubscribe                         | `application` (`src/use-cases/notify*`, `push*`)            |
-| The push devices and keys, the Web Push sender                      | `infrastructure` (`src/push`)                               |
-| Pi's tools and instructions, the brainstorm turns                   | `application` (`src/tools`, `src/use-cases/brainstorm*`)    |
-| Pi's runtime and login, the chat file                               | `infrastructure` (`src/agent`, `src/brainstorm`)            |
-| `AgentsInbound`, `TasksInbound`, `IssuesInbound`, ports, use cases  | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
-| Herdr socket, git, Gitea over HTTP, session files, memory           | `infrastructure`                                            |
-| HTTP handlers, problems, identity guard, health, web app route      | `api`                                                       |
-| Composition root, config, OpenAPI document                          | `apps/comms-server`                                         |
-| Web app                                                             | `apps/comms-web`                                            |
+| What                                                                              | Where                                                       |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `CommsApi`, wire schemas (shared by server and web)                               | `contract`                                                  |
+| Agents, the overview rules, input rules, transcript entries, access               | `domain`                                                    |
+| New task rules (projects order, branch, task, agent name)                         | `domain` (`src/task.ts`)                                    |
+| Issue rules (remote, order, branch, task text, work per issue)                    | `domain` (`src/issue.ts`)                                   |
+| Brainstorm entries, proposals, issue drafts and edits, issue reads, chat pictures | `domain` (`src/brainstorm.ts`)                              |
+| Image rules (kinds, ids, limits, paths in a prompt)                               | `domain` (`src/image.ts`)                                   |
+| The image store                                                                   | `infrastructure` (`src/images`)                             |
+| Activity rules (snapshot diff, what is kept, prompt excerpts)                     | `domain` (`src/activity.ts`)                                |
+| The activity recorder and timeline                                                | `application` (`src/use-cases/activity*`)                   |
+| The activity file                                                                 | `infrastructure` (`src/activity`)                           |
+| When an agent notifies, the notification's text                                   | `domain` (`src/notification.ts`)                            |
+| The push watcher, subscribe and unsubscribe                                       | `application` (`src/use-cases/notify*`, `push*`)            |
+| The push devices and keys, the Web Push sender                                    | `infrastructure` (`src/push`)                               |
+| Pi's tools and instructions, the brainstorm turns                                 | `application` (`src/tools`, `src/use-cases/brainstorm*`)    |
+| Pi's runtime and login, the chat file                                             | `infrastructure` (`src/agent`, `src/brainstorm`)            |
+| `AgentsInbound`, `TasksInbound`, `IssuesInbound`, ports, use cases                | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
+| Herdr socket, git, Gitea over HTTP, session files, memory                         | `infrastructure`                                            |
+| HTTP handlers, problems, identity guard, health, web app route                    | `api`                                                       |
+| Composition root, config, OpenAPI document                                        | `apps/comms-server`                                         |
+| Web app                                                                           | `apps/comms-web`                                            |
 
 ## Rules of this service
 
@@ -57,11 +58,12 @@ VAPID key pair are two JSON files in its `push` folder.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
 - `GiteaOutbound` reads, and writes only `closeIssue` (spec 010), `createIssue` (spec 013),
-  `markInProgress` (spec 015) and `updateIssue` (spec 022): the HTTP adapter sends `GET`, a
-  `PATCH` with exactly `{"state":"closed"}`, a `PATCH` with exactly `{"title","body"}`, a `POST`
-  with exactly `{"title","body"}`, a `POST` that creates the
-  `status/in-progress` label and a `POST` that adds it to an issue; never a `PUT` (it would replace
-  an issue's labels) or a `DELETE`, and it follows no redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
+  `markInProgress` (spec 015), `updateIssue` (spec 022) and `attachImage` (spec 023): the HTTP
+  adapter sends `GET`, a `PATCH` with exactly `{"state":"closed"}`, a `PATCH` with exactly
+  `{"title","body"}`, a `POST` with exactly `{"title","body"}`, a `POST` that creates the
+  `status/in-progress` label, a `POST` that adds it to an issue and a multipart `POST` of one
+  picture to an issue's `assets`; never a `PUT` (it would replace an issue's labels) or a
+  `DELETE`, and it follows no redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
   header; never log it, put it in an error or send it to the browser. Tests use the anonymised
   fixtures in `infrastructure/src/testing/fixtures` and a local fake server, never a real token.
 - Closing an agent removes only a workspace that both Herdr and git know as a linked worktree of
@@ -79,7 +81,12 @@ VAPID key pair are two JSON files in its `push` folder.
   `propose_issue_edit` end the turn. Only the owner's decision on a proposal creates or changes an
   issue. Do not give Pi a tool that writes.
 - An edit applies only while the issue's title and body equal the ones Pi read (`baseChanged`);
-  the server re-reads the issue right before the `PATCH`. Pi may propose an edit only for an
+  the server re-reads the issue right before the `PATCH`, and before uploading any picture.
+- Brainstorm pictures (spec 023) are images of the image store, numbered across the chat
+  (`chatPictures`). Pi names them by number; only the owner's choice on the card goes to Gitea,
+  and only on approval. Each upload is saved on the proposal (`attached`) before the next, so a
+  retry never uploads one twice and never creates a second issue; the `## Pictures` block is
+  appended to the body last. Pi gets the bytes only when the runtime `seesImages`. Pi may propose an edit only for an
   issue it read in this chat, and never for one whose body was cut.
 - The brainstorm chat is optional: without its model settings the server starts and the chat says
   it is not set up. No test in CI calls a model; the Pi adapter is tested with pi-ai's faux
