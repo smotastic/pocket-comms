@@ -291,6 +291,59 @@ describe('Herdr.layerSocket', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('waits for a new pane to reach its prompt before it starts the agent', () =>
+    Effect.gen(function* () {
+      let refusals = 2;
+      const server = yield* fakeHerdrServer((request) => {
+        if (request.method === 'agent.start' && refusals > 0) {
+          refusals -= 1;
+          return {
+            error: {
+              code: 'invalid_target',
+              message: 'agent target pane wK:p1 is not an available shell',
+            },
+          };
+        }
+        return lists(request);
+      });
+      const started = yield* HerdrOutbound.use((herdr) =>
+        herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind: 'claude' }),
+      ).pipe(Effect.provide(layerSocket({ path: server.path })));
+
+      expect(started).toEqual({ status: 'idle', ready: true });
+      expect(server.requests.filter((request) => request.method === 'agent.start')).toHaveLength(3);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('stops waiting for the prompt after the shell wait', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer((request) =>
+        request.method === 'agent.start'
+          ? {
+              error: {
+                code: 'invalid_target',
+                message: 'agent target pane wK:p1 is not an available shell',
+              },
+            }
+          : lists(request),
+      );
+      const error = yield* HerdrOutbound.use((herdr) =>
+        herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind: 'claude' }),
+      ).pipe(
+        Effect.provide(layerSocket({ path: server.path, shellWait: '500 millis' })),
+        Effect.flip,
+      );
+
+      expect(error).toMatchObject({
+        _tag: 'HerdrRejectedError',
+        message: 'agent target pane wK:p1 is not an available shell',
+      });
+      expect(
+        server.requests.filter((request) => request.method === 'agent.start').length,
+      ).toBeLessThanOrEqual(3);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('reports an error answer as a refusal', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
