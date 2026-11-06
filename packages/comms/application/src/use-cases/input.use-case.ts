@@ -2,6 +2,7 @@ import {
   activitySubject,
   parseKeys,
   parsePrompt,
+  parseTyped,
   promptExcerpt,
   promptWithImages,
 } from '@pocket-comms/comms-domain';
@@ -55,5 +56,12 @@ export const makeInput = Effect.gen(function* () {
     yield* record([{ type: 'keys', keys: parsed, agent: activitySubject(agent, workspace) }]);
   });
 
-  return { screen, prompt, sendKeys };
+  // Typing never presses Enter: the owner submits the dialog with the key (spec 024).
+  const type = Effect.fn('Input.type')(function* (ref: string, text: string) {
+    const parsed = yield* Effect.fromResult(parseTyped(text));
+    const { agent } = yield* find(ref);
+    yield* herdrOutbound.typeText(agent.paneId, parsed);
+  });
+
+  return { screen, prompt, type, sendKeys };
 });

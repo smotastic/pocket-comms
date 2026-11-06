@@ -200,6 +200,19 @@ describe('Herdr.layerSocket', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('types text into the pane without pressing Enter', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      yield* HerdrOutbound.use((herdr) => herdr.typeText('wJ:p1', 'Use SQLite')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+      );
+
+      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
+        ['pane.send_text', { pane_id: 'wJ:p1', text: 'Use SQLite' }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('creates a worktree without moving the focus', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);

@@ -8,7 +8,7 @@ in the task's own commit.
 - [x] **T01** — Domain: `parseTyped` and `MAX_TYPED_LENGTH`
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application and adapters: `HerdrOutbound.typeText` and `pane.send_text`;
+- [x] **T02** — Application and adapters: `HerdrOutbound.typeText` and `pane.send_text`;
       `Input.type`
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-application comms-infrastructure`
 

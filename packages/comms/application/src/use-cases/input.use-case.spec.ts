@@ -151,6 +151,38 @@ describe('AgentsInbound.sendKeys', () => {
   );
 });
 
+describe('AgentsInbound.type', () => {
+  it.effect('types the text into the pane without submitting it', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+
+      yield* AgentsInbound.use((inbound) => inbound.type('kirk', ' Use SQLite\ninstead '));
+
+      expect(state.calls.at(-1)).toEqual({
+        method: 'typeText',
+        target: 'w1:p1',
+        params: 'Use SQLite instead',
+      });
+      expect(
+        state.calls.some((call) => call.method === 'prompt' || call.method === 'sendKeys'),
+      ).toBe(false);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('types nothing when the text is blank', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+
+      const error = yield* AgentsInbound.use((inbound) => inbound.type('kirk', ' \n ')).pipe(
+        Effect.flip,
+      );
+
+      expect(error).toBeInstanceOf(InvalidInputError);
+      expect(state.calls.some((call) => call.method === 'typeText')).toBe(false);
+    }).pipe(Effect.provide(layer())),
+  );
+});
+
 describe('AgentsInbound input in the activity timeline', () => {
   it.effect('records a prompt Herdr took with its excerpt and images', () =>
     Effect.gen(function* () {
