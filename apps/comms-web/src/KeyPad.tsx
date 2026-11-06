@@ -23,7 +23,7 @@ export type KeyPadProps = {
   readonly disabled?: boolean;
 };
 
-/** A row of big key buttons, such as the answers to a terminal prompt. */
+/** Key buttons that wrap onto more rows, such as the answers to a terminal prompt. */
 export const KeyPad = ({ label, keys, onKey, holdKey, disabled = false }: KeyPadProps) => (
   <div role="group" aria-label={label}>
     <Inline gap="xs">
@@ -31,7 +31,7 @@ export const KeyPad = ({ label, keys, onKey, holdKey, disabled = false }: KeyPad
         <Button
           key={key.value}
           variant="secondary"
-          size="lg"
+          size="md"
           aria-label={key.accessibleLabel}
           disabled={disabled}
           onClick={() => onKey(key.value)}
@@ -86,7 +86,7 @@ const HoldButton = ({
   return (
     <Button
       variant="danger"
-      size="lg"
+      size="md"
       // A spinner shows that the press is held; the kit has no fill that tracks the hold.
       pending={holding}
       pendingLabel={holdKey.label}
