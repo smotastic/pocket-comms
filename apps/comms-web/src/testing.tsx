@@ -62,6 +62,8 @@ export interface FakeState {
   readonly screens: Map<string, string>;
   /** A failure for the next prompt, as the server would report it. */
   promptFailure?: string;
+  /** A failure for the next typed text. */
+  typeFailure?: string;
   /** A failure for the next image upload. */
   uploadFailure?: string;
   projects: ReadonlyArray<ProjectView>;
@@ -121,6 +123,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     promptImages: [] as Array<ReadonlyArray<string>>,
     uploads: [] as Array<Blob>,
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
+    typed: [] as Array<[string, string]>,
     seen: [] as Array<string>,
     tasks: [] as Array<NewTask>,
     implemented: [] as Array<[string, number, string, string?]>,
@@ -175,6 +178,10 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       return `image-${calls.uploads.length}`;
     },
     imageUrl: (id) => `/api/v1/images/${id}`,
+    type: async (ref, text) => {
+      if (state.typeFailure !== undefined) throw new RequestError(state.typeFailure, 409);
+      calls.typed.push([ref, text]);
+    },
     keys: async (ref, keys) => {
       calls.keys.push([ref, keys]);
     },

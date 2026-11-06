@@ -159,6 +159,7 @@ describe('activityText', () => {
     [{ type: 'prompt', excerpt: 'Look', images: 1 }, 'You: Look (+1 image)'],
     [{ type: 'prompt', excerpt: '', images: 2 }, 'You sent 2 images'],
     [{ type: 'keys', keys: ['enter'] }, 'You pressed Enter'],
+    [{ type: 'typed', excerpt: 'Use SQLite' }, 'You typed: Use SQLite'],
     [{ type: 'keys', keys: ['2', 'down', 'esc', 'ctrl+c'] }, 'You pressed 2, ↓, Esc, Ctrl-C'],
   ] as const)('says %o as "%s"', (event, text) => {
     expect(of(event as Partial<ActivityEventView>)).toBe(text);

@@ -150,7 +150,6 @@ describe('the conversation', () => {
     const panel = await screen.findByRole('region', { name: 'Claude needs your answer' });
     await waitFor(() => expect(panel.textContent).toContain('Allow command?'));
     expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
-    expect(screen.getByText('Answer above to continue')).toBeDefined();
 
     await userEvent.click(
       within(screen.getByRole('group', { name: 'Keys' })).getByRole('button', { name: '1' }),
@@ -205,7 +204,7 @@ describe('the conversation', () => {
 
     expect(await screen.findByRole('group', { name: 'Keys' })).toBeDefined();
     expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
-    expect(screen.getByText('Answer with the keys')).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
   });
 
   it('offers no keys before it knows the agent', async () => {
@@ -260,6 +259,84 @@ describe('the conversation', () => {
     renderApp({ client: fakeClient().client, path: '/agents/nobody' });
 
     expect(await screen.findByText('nobody is not running any more.')).toBeDefined();
+  });
+});
+
+describe('typed answers and quick replies', () => {
+  const chip = (name: string) =>
+    within(screen.getByRole('grid', { name: 'Quick replies' })).getByRole('row', { name });
+
+  it.each(['Chat', 'Screen'])(
+    'offers the keys, the quick replies and the dialog field in the %s view',
+    async (view) => {
+      open(fakeAgent({ status: 'blocked', needsYou: true }));
+      await screen.findByRole('textbox', { name: 'Type into the dialog' });
+      await userEvent.click(screen.getByRole('radio', { name: view }));
+
+      expect(screen.getByRole('group', { name: 'Keys' })).toBeDefined();
+      expect(chip('Go ahead')).toBeDefined();
+      expect(chip('Commit and open a PR')).toBeDefined();
+      expect(
+        screen.getByText(
+          'Choose Type something or Other with the keys first, then press Enter to submit.',
+        ),
+      ).toBeDefined();
+      expect(screen.queryByRole('button', { name: 'Attach image' })).toBeNull();
+    },
+  );
+
+  it('types the answer into the dialog without a prompt or a key, and clears the field', async () => {
+    const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
+    await userEvent.click(await screen.findByRole('radio', { name: 'Screen' }));
+    const box = screen.getByRole('textbox', { name: 'Type into the dialog' });
+
+    await userEvent.type(box, 'Use SQLite instead{Enter}');
+
+    await waitFor(() => expect(fake.calls.typed).toEqual([['kirk', 'Use SQLite instead']]));
+    await waitFor(() => expect((box as HTMLTextAreaElement).value).toBe(''));
+    expect(fake.calls.prompts).toEqual([]);
+    expect(fake.calls.keys).toEqual([]);
+  });
+
+  it('keeps the answer and says why when typing fails', async () => {
+    const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
+    fake.state.typeFailure = 'Herdr refused the text';
+    const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+
+    await userEvent.type(box, 'Use SQLite{Enter}');
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Herdr refused the text');
+    expect((box as HTMLTextAreaElement).value).toBe('Use SQLite');
+  });
+
+  it('types a quick reply into the waiting dialog', async () => {
+    const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
+    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+
+    await userEvent.click(chip('Commit and open a PR'));
+
+    await waitFor(() => expect(fake.calls.typed).toEqual([['kirk', 'Commit and open a PR']]));
+    expect(fake.calls.prompts).toEqual([]);
+  });
+
+  it('sends a quick reply as a prompt while no dialog waits, and keeps the draft', async () => {
+    const fake = open(fakeAgent({ status: 'idle' }));
+    const box = await screen.findByRole('textbox', { name: 'Message' });
+    await userEvent.type(box, 'Half a thought');
+
+    await userEvent.click(chip('Go ahead'));
+
+    await waitFor(() => expect(fake.calls.prompts).toEqual([['kirk', 'Go ahead']]));
+    expect(fake.calls.typed).toEqual([]);
+    expect((box as HTMLTextAreaElement).value).toBe('Half a thought');
+  });
+
+  it('offers the quick replies in the Screen view of an idle agent', async () => {
+    open(fakeAgent({ status: 'idle' }));
+    await userEvent.click(await screen.findByRole('radio', { name: 'Screen' }));
+
+    expect(chip('Go ahead')).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Message' })).toBeDefined();
   });
 });
 

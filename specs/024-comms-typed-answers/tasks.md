@@ -17,7 +17,7 @@ in the task's own commit.
       document and the accepted change
   - Gate: `pnpm nx run-many -t test -p comms-contract comms-api comms-server`
 
-- [ ] **T04** — Web: `CommsClient.type`, the quick replies, the blocked footer's
+- [x] **T04** — Web: `CommsClient.type`, the quick replies, the blocked footer's
       Type into the dialog field and hint, "You typed: …" in the timeline
   - Gate: `pnpm nx test comms-web`
 

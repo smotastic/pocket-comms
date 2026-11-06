@@ -24,6 +24,7 @@ import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu } from './ConversationMenu.js';
 import { agentQuery, screenQuery, transcriptQuery } from './comms-queries.js';
 import { KeyPad } from './KeyPad.js';
+import { QuickReplies } from './QuickReplies.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -115,7 +116,8 @@ const Header = ({
 
 /**
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
- * the composer, or the approval keys while the agent is blocked. It updates live.
+ * the composer and the quick replies, or the keys and a field that types into the waiting dialog
+ * while the agent is blocked (spec 024). It updates live.
  */
 export const Conversation = ({
   client,
@@ -151,27 +153,37 @@ export const Conversation = ({
 
   const [closing, setClosing] = useState(false);
   const [draft, setDraft] = useState('');
+  // What the owner types into a waiting dialog, apart from the message they are writing.
+  const [answer, setAnswer] = useState('');
   const images = useAttachments(client);
-  // A successful send clears the text and the images; a failed one keeps both (spec 014).
   const prompt = useMutation({
     mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
       client.prompt(agentRef, text, imageIds),
-    onSuccess: () => {
-      setDraft('');
-      images.clear();
-    },
   });
   const keys = useMutation({ mutationFn: (key: Key) => client.keys(agentRef, [key]) });
-  // Only the latest send can fail visibly: a new one clears the reason of the other.
-  const failure = prompt.error ?? keys.error;
-  const sendPrompt = (text: string) => {
+  // Typing never presses Enter: the owner submits the dialog with the key (spec 024).
+  const typed = useMutation({ mutationFn: (text: string) => client.type(agentRef, text) });
+  // Only the latest send can fail visibly: a new one clears the reason of the others.
+  const failure = prompt.error ?? keys.error ?? typed.error;
+  const sending = prompt.isPending || typed.isPending;
+  // A successful send clears the text and the images; a failed one keeps both (spec 014).
+  const sendPrompt = (text: string, imageIds: ReadonlyArray<string>, onSent?: () => void) => {
     keys.reset();
-    prompt.mutate({ text, imageIds: images.ids });
+    typed.reset();
+    prompt.mutate({ text, imageIds }, { onSuccess: onSent });
+  };
+  const typeText = (text: string, onTyped?: () => void) => {
+    keys.reset();
+    prompt.reset();
+    typed.mutate(text, { onSuccess: onTyped });
   };
   const pressKey = (key: Key) => {
     prompt.reset();
+    typed.reset();
     keys.mutate(key);
   };
+  // A quick reply leaves the drafts alone: it types into a waiting dialog, or else is a prompt.
+  const sendReply = (reply: string) => (blocked ? typeText(reply) : sendPrompt(reply, []));
 
   const gone = agentResult.error instanceof RequestError && agentResult.error.status === 404;
   const shown = useRef(false);
@@ -251,16 +263,29 @@ export const Conversation = ({
               }}
             />
           ) : null}
+          <QuickReplies disabled={sending} onPick={sendReply} />
           {blocked ? (
-            <Text tone="muted" size="sm">
-              {view === 'chat' ? 'Answer above to continue' : 'Answer with the keys'}
-            </Text>
+            <Composer
+              label="Type into the dialog"
+              value={answer}
+              onChange={setAnswer}
+              onSend={(text) => typeText(text, () => setAnswer(''))}
+              placeholder="Your answer"
+              hint="Choose Type something or Other with the keys first, then press Enter to submit."
+              sendLabel="Type"
+              locked={typed.isPending}
+            />
           ) : (
             <Composer
               label="Message"
               value={draft}
               onChange={setDraft}
-              onSend={sendPrompt}
+              onSend={(text) =>
+                sendPrompt(text, images.ids, () => {
+                  setDraft('');
+                  images.clear();
+                })
+              }
               placeholder={`Message ${name}`}
               locked={prompt.isPending || images.pending}
               attach={{
