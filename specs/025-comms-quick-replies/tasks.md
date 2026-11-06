@@ -8,7 +8,7 @@ in the task's own commit.
 - [x] **T01** — Domain: `suggestedReplies`; `parseQuickReplies` and the default list
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application and adapters: `QuickRepliesOutbound` and its file store; the
+- [x] **T02** — Application and adapters: `QuickRepliesOutbound` and its file store; the
       `QuickReplies` use case; `replies` on assistant entries of the transcript
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-application comms-infrastructure`
 

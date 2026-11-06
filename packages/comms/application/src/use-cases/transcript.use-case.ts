@@ -1,4 +1,9 @@
-import { activityOf, imagesInPrompt, type TranscriptEntry } from '@pocket-comms/comms-domain';
+import {
+  activityOf,
+  imagesInPrompt,
+  suggestedReplies,
+  type TranscriptEntry,
+} from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Stream from 'effect/Stream';
@@ -28,9 +33,14 @@ export const makeTranscript = Effect.gen(function* () {
   const { folder } = yield* ImagesOutbound;
   const { find } = yield* makeLoadAgents;
 
-  // A prompt's attached images show as images, not as paths (spec 014, requirement 12).
+  // A prompt's attached images show as images, not as paths (spec 014, requirement 12), and an
+  // assistant message carries the replies it calls for (spec 025, requirement 1).
   const shown = (entries: ReadonlyArray<TranscriptEntry>): ReadonlyArray<TranscriptEntry> =>
     entries.map((entry) => {
+      if (entry.type === 'assistant') {
+        const replies = suggestedReplies(entry.text);
+        return replies.length === 0 ? entry : { ...entry, replies };
+      }
       if (entry.type !== 'user') return entry;
       const { text, images } = imagesInPrompt(entry.text, folder);
       return images.length === 0 ? entry : { ...entry, text, images };

@@ -30,6 +30,7 @@ import {
   HerdrUnavailableError,
   ProjectGitError,
   PushStoreError,
+  QuickRepliesStoreError,
   TranscriptUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
@@ -51,6 +52,7 @@ import {
   type StatusMark,
 } from '../ports/memory.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
+import { QuickRepliesOutbound } from '../ports/quick-replies.outbound.port.js';
 import {
   PushKeysOutbound,
   PushSenderOutbound,
@@ -182,6 +184,10 @@ export class FakeState extends Context.Service<
     }>;
     /** The endpoints whose push service answers that the subscription is gone. */
     readonly goneEndpoints: Set<string>;
+    /** The owner's saved quick replies, none until saved. */
+    quickReplies: ReadonlyArray<string> | undefined;
+    /** Why the quick replies store fails, when it does. */
+    quickRepliesFailure: string | undefined;
   }
 >()('comms/application/testing/FakeState') {}
 
@@ -667,6 +673,8 @@ export const fakeLayer = () => {
         pushRemoveFailure: undefined,
         pushes: [],
         goneEndpoints: new Set(),
+        quickReplies: undefined,
+        quickRepliesFailure: undefined,
       };
     }),
   );
@@ -716,6 +724,19 @@ export const fakeLayer = () => {
               fake.pushes.push({ endpoint: subscription.endpoint, notification, at });
               return 'sent' as const;
             }),
+        }),
+        Context.add(QuickRepliesOutbound, {
+          load: Effect.suspend(() =>
+            fake.quickRepliesFailure === undefined
+              ? Effect.succeed(Option.fromNullishOr(fake.quickReplies))
+              : Effect.fail(new QuickRepliesStoreError({ reason: fake.quickRepliesFailure })),
+          ),
+          save: (replies) =>
+            Effect.suspend(() =>
+              fake.quickRepliesFailure === undefined
+                ? Effect.sync(() => void (fake.quickReplies = replies))
+                : Effect.fail(new QuickRepliesStoreError({ reason: fake.quickRepliesFailure })),
+            ),
         }),
         Context.add(SeenOutbound, {
           seen: Effect.sync(() => new Set(fake.seen)),

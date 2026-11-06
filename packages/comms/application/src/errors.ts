@@ -125,3 +125,8 @@ export class ImageNotFoundError extends Data.TaggedError('ImageNotFoundError')<{
 export class PushStoreError extends Data.TaggedError('PushStoreError')<{
   readonly reason: string;
 }> {}
+
+/** The server cannot keep or read the owner's quick replies. */
+export class QuickRepliesStoreError extends Data.TaggedError('QuickRepliesStoreError')<{
+  readonly reason: string;
+}> {}

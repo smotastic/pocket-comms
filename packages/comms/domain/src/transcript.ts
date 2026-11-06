@@ -31,7 +31,14 @@ export type TranscriptEntry =
       readonly images?: ReadonlyArray<string> | undefined;
     }
   /** `text` is Markdown. */
-  | { readonly type: 'assistant'; readonly id: string; readonly at: number; readonly text: string }
+  | {
+      readonly type: 'assistant';
+      readonly id: string;
+      readonly at: number;
+      readonly text: string;
+      /** The replies the message calls for (spec 025); left out when there are none. */
+      readonly replies?: ReadonlyArray<string> | undefined;
+    }
   | {
       readonly type: 'tool';
       readonly id: string;
