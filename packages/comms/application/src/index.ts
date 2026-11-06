@@ -26,6 +26,7 @@ export type {
 } from './dto/brainstorm.dto.js';
 export type { ImageDto } from './dto/image.dto.js';
 export type { PushKeyDto, PushSubscriptionDto } from './dto/push.dto.js';
+export type { QuickRepliesDto } from './dto/quick-replies.dto.js';
 export type { CreateTaskInput, ProjectDto, TaskAgentDto, TaskCreatedDto } from './dto/task.dto.js';
 export {
   AgentNotFoundError,
@@ -45,6 +46,7 @@ export {
   ProposalDecidedError,
   ProposalNotFoundError,
   PushStoreError,
+  QuickRepliesStoreError,
   HerdrRejectedError,
   HerdrUnavailableError,
   ImageNotFoundError,
@@ -94,6 +96,8 @@ export {
   PushSubscriptionsOutbound,
   type PushOutcome,
 } from './ports/push.outbound.port.js';
+export { QuickRepliesInbound } from './ports/quick-replies.inbound.port.js';
+export { QuickRepliesOutbound } from './ports/quick-replies.outbound.port.js';
 export { ProjectsOutbound } from './ports/projects.outbound.port.js';
 export { TasksInbound } from './ports/tasks.inbound.port.js';
 export {

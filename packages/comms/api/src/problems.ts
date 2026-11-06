@@ -210,6 +210,14 @@ export const problems = {
         detail: error.reason,
       }),
     ),
+  quickRepliesUnavailable: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'quick-replies-unavailable',
+        title: 'The quick replies cannot be kept',
+        detail: error.reason,
+      }),
+    ),
   imageNotFound: (error: { readonly id: string }) =>
     Effect.fail(
       notFoundProblem({

@@ -5,6 +5,7 @@ export {
   PushKeyView,
   PushSubscription,
   PushUnsubscribeRequest,
+  QuickReplies,
   Agent,
   AgentEvent,
   AgentParam,

@@ -52,6 +52,24 @@ describe('AgentsInbound.transcript', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('suggests the replies an assistant message calls for (spec 025)', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const asks: TranscriptEntry = { type: 'assistant', id: 'a1', at, text: 'Do you approve?' };
+      const says: TranscriptEntry = { type: 'assistant', id: 'a2', at, text: 'Done.' };
+      state.agents = [fakeAgent({ paneId: 'w1:p1', name: 'kirk', session: 's1' })];
+      state.transcripts.set('s1', { entries: [prompt, asks, says], modifiedAt: at });
+
+      const transcript = yield* AgentsInbound.use((inbound) => inbound.transcript('kirk'));
+
+      expect(transcript.entries).toEqual([
+        prompt,
+        { ...asks, replies: ['Approved', 'No, revise'] },
+        says,
+      ]);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('has no transcript for an agent kind without a session format', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

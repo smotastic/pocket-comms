@@ -13,6 +13,7 @@ import { healthLayer } from './health.handlers.js';
 import { imageSweepLayer, imagesHandlers } from './images.handlers.js';
 import { identityGuard, tailscaleIdentityLayer } from './identity.js';
 import { pushHandlers, pushWatchLayer } from './push.handlers.js';
+import { quickRepliesHandlers } from './quick-replies.handlers.js';
 import { webAppLayer } from './web-app.js';
 
 export interface CommsServerOptions<E, R> {
@@ -35,6 +36,7 @@ export const commsApiLayer = (allowedLogin: string) =>
       imagesHandlers,
       activityHandlers,
       pushHandlers,
+      quickRepliesHandlers,
     ]),
     Layer.provide(tailscaleIdentityLayer(allowedLogin)),
     Layer.provide(validationMiddlewareLayer),

@@ -76,6 +76,7 @@ describe('CommsApi', () => {
       '/api/v1/push/key',
       '/api/v1/push/subscriptions',
       '/api/v1/push/subscriptions/remove',
+      '/api/v1/quick-replies',
       '/api/v1/tasks',
     ]);
   });

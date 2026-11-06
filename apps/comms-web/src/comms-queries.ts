@@ -13,6 +13,7 @@ export const projectsKey = ['projects'] as const;
 export const issuesKey = (project: string) => ['issues', project] as const;
 export const brainstormKey = ['brainstorm'] as const;
 export const activityKey = ['activity'] as const;
+export const quickRepliesKey = ['quick-replies'] as const;
 
 export const overviewQuery = (client: CommsClient) =>
   queryOptions({ queryKey: overviewKey, queryFn: () => client.overview() });
@@ -65,3 +66,7 @@ export const brainstormQuery = (client: CommsClient) =>
 /** The activity timeline; its stream keeps it current while the page is open. */
 export const activityQuery = (client: CommsClient) =>
   queryOptions({ queryKey: activityKey, queryFn: () => client.activity() });
+
+/** The owner's quick replies; the Settings page writes the saved list into the cache. */
+export const quickRepliesQuery = (client: CommsClient) =>
+  queryOptions({ queryKey: quickRepliesKey, queryFn: () => client.quickReplies() });

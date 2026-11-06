@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root';
 import { Route as IndexRouteImport } from './routes/index';
 import { Route as ActivityRouteImport } from './routes/activity';
+import { Route as SettingsRouteImport } from './routes/settings';
 import { Route as AgentsAgentRouteImport } from './routes/agents.$agent';
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index';
 import { Route as ProjectsProjectRouteImport } from './routes/projects.$project';
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const ActivityRoute = ActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any);
 const AgentsAgentRoute = AgentsAgentRouteImport.update({
@@ -51,6 +57,7 @@ const AgentsAgentSubagentsSubagentRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
   '/activity': typeof ActivityRoute;
+  '/settings': typeof SettingsRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects/': typeof ProjectsIndexRoute;
@@ -59,6 +66,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
   '/activity': typeof ActivityRoute;
+  '/settings': typeof SettingsRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects': typeof ProjectsIndexRoute;
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/': typeof IndexRoute;
   '/activity': typeof ActivityRoute;
+  '/settings': typeof SettingsRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
   '/projects/$project': typeof ProjectsProjectRoute;
   '/projects/': typeof ProjectsIndexRoute;
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/activity'
+    | '/settings'
     | '/agents/$agent'
     | '/projects/$project'
     | '/projects/'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/activity'
+    | '/settings'
     | '/agents/$agent'
     | '/projects/$project'
     | '/projects'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/activity'
+    | '/settings'
     | '/agents/$agent'
     | '/projects/$project'
     | '/projects/'
@@ -103,6 +115,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   ActivityRoute: typeof ActivityRoute;
+  SettingsRoute: typeof SettingsRoute;
   AgentsAgentRoute: typeof AgentsAgentRoute;
   ProjectsProjectRoute: typeof ProjectsProjectRoute;
   ProjectsIndexRoute: typeof ProjectsIndexRoute;
@@ -123,6 +136,13 @@ declare module '@tanstack/react-router' {
       path: '/activity';
       fullPath: '/activity';
       preLoaderRoute: typeof ActivityRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/settings': {
+      id: '/settings';
+      path: '/settings';
+      fullPath: '/settings';
+      preLoaderRoute: typeof SettingsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     '/agents/$agent': {
@@ -159,6 +179,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivityRoute: ActivityRoute,
+  SettingsRoute: SettingsRoute,
   AgentsAgentRoute: AgentsAgentRoute,
   ProjectsProjectRoute: ProjectsProjectRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,

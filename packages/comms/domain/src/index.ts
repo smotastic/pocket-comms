@@ -31,6 +31,13 @@ export {
   parsePrompt,
   parseTyped,
 } from './input.js';
+export {
+  DEFAULT_QUICK_REPLIES,
+  MAX_QUICK_REPLIES,
+  MAX_QUICK_REPLY_LENGTH,
+  parseQuickReplies,
+  suggestedReplies,
+} from './replies.js';
 export { buildOverview, needsYou, type Overview, type OverviewGroup } from './overview.js';
 export {
   activityOf,

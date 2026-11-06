@@ -23,9 +23,9 @@ import { delegationLink, stripItems } from './background.js';
 import { Chat } from './Chat.js';
 import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu } from './ConversationMenu.js';
-import { agentQuery, screenQuery, transcriptQuery } from './comms-queries.js';
+import { agentQuery, quickRepliesQuery, screenQuery, transcriptQuery } from './comms-queries.js';
 import { KeyPad } from './KeyPad.js';
-import { QuickReplies } from './QuickReplies.js';
+import { QuickReplies, SuggestedReplies } from './QuickReplies.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -65,8 +65,11 @@ const KEYS: ReadonlyArray<{ value: Key; label: string; accessibleLabel?: string 
 ];
 const CTRL_C = { value: 'ctrl+c', label: 'Ctrl-C', accessibleLabel: 'Hold to send Control C' };
 
-/** A text to send, and whether it came from a field, which a successful send clears. */
-type Send = { readonly text: string; readonly fromField: boolean };
+/**
+ * A text to send, whether it came from a field, which a successful send clears, and the message
+ * it answers, whose suggestions a successful send hides.
+ */
+type Send = { readonly text: string; readonly fromField: boolean; readonly answers?: string };
 
 const isKey = (value: string): value is Key =>
   value === CTRL_C.value || KEYS.some((key) => key.value === value);
@@ -122,8 +125,9 @@ const Header = ({
 
 /**
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
- * the composer, or a field that types into the waiting dialog while the agent is blocked. The keys
- * and the quick replies wait under Controls, so the question keeps the room. It updates live.
+ * the composer and the suggested replies, or a field that types into the waiting dialog while the
+ * agent is blocked. The keys and the owner's quick replies wait under Controls, so the question
+ * keeps the room. It updates live.
  */
 export const Conversation = ({
   client,
@@ -145,6 +149,7 @@ export const Conversation = ({
   const blocked = agent?.status === 'blocked';
 
   const transcript = useQuery({ ...transcriptQuery(client, agentRef), enabled: hasChat });
+  const quickReplies = useQuery(quickRepliesQuery(client));
   const screen = useQuery({
     ...screenQuery(client, agentRef),
     enabled: agent !== undefined && (view === 'screen' || blocked),
@@ -162,6 +167,10 @@ export const Conversation = ({
   const [draft, setDraft] = useState('');
   // What the owner types into a waiting dialog, apart from the message they are writing.
   const [answer, setAnswer] = useState('');
+  // The message the last successful prompt answered, so its suggestions are not sent again, and
+  // the latest message, which the next prompt answers.
+  const [answered, setAnswered] = useState<string>();
+  const latestId = useRef<string>(undefined);
   const images = useAttachments(client);
   // A successful send from a field clears it, and the images; a failed one keeps both. A quick
   // reply leaves the fields alone. The clearing is on the mutation, not on `mutate`, so a reset
@@ -169,7 +178,8 @@ export const Conversation = ({
   const prompt = useMutation({
     mutationFn: ({ text, imageIds }: Send & { imageIds: ReadonlyArray<string> }) =>
       client.prompt(agentRef, text, imageIds),
-    onSuccess: (_, { fromField }) => {
+    onSuccess: (_, { fromField, answers }) => {
+      if (answers !== undefined) setAnswered(answers);
       if (!fromField) return;
       setDraft('');
       images.clear();
@@ -190,7 +200,7 @@ export const Conversation = ({
   const sendPrompt = (send: Send, imageIds: ReadonlyArray<string>) => {
     keys.reset();
     typed.reset();
-    prompt.mutate({ ...send, imageIds });
+    prompt.mutate({ ...send, answers: send.answers ?? latestId.current, imageIds });
   };
   const typeText = (send: Send) => {
     keys.reset();
@@ -250,10 +260,21 @@ export const Conversation = ({
     );
   }
 
+  // A suggestion answers only the latest message, and only while the agent waits for a prompt;
+  // a blocked agent is answered with the keys and the dialog field alone.
+  const latest = transcript.data?.entries.at(-1);
+  latestId.current = latest?.id;
+  const waiting = agent.status === 'idle' || agent.status === 'done';
+  const suggested =
+    view === 'chat' && waiting && latest?.type === 'assistant' && latest.id !== answered
+      ? { id: latest.id, replies: latest.replies ?? [] }
+      : undefined;
+
   const screenText = screen.data ?? '';
   const name = agent.ref;
   const kindLabel = kindOf(agent.kind).label;
   const withKeys = blocked || view === 'screen';
+  const owned = quickReplies.data ?? [];
 
   return (
     <DockedPage
@@ -278,28 +299,39 @@ export const Conversation = ({
               onExpandedChange={setBackgroundOpen}
             />
           )}
+          {suggested === undefined ? null : (
+            <SuggestedReplies
+              replies={suggested.replies}
+              disabled={sending}
+              onPick={(text) => sendPrompt({ text, fromField: false, answers: suggested.id }, [])}
+            />
+          )}
           {/* Closed at first so the question keeps the room; open while the owner presses keys. */}
-          <Disclosure
-            title="Controls"
-            detail={withKeys ? 'Keys and quick replies' : 'Quick replies'}
-            expanded={controlsOpen}
-            onExpandedChange={setControlsOpen}
-          >
-            <Stack gap="xs">
-              {withKeys ? (
-                <KeyPad
-                  label="Keys"
-                  keys={KEYS}
-                  holdKey={CTRL_C}
-                  disabled={keys.isPending || sending}
-                  onKey={(value) => {
-                    if (isKey(value)) pressKey(value);
-                  }}
-                />
-              ) : null}
-              <QuickReplies disabled={sending} onPick={sendReply} />
-            </Stack>
-          </Disclosure>
+          {withKeys || owned.length > 0 ? (
+            <Disclosure
+              title="Controls"
+              detail={
+                !withKeys ? 'Quick replies' : owned.length > 0 ? 'Keys and quick replies' : 'Keys'
+              }
+              expanded={controlsOpen}
+              onExpandedChange={setControlsOpen}
+            >
+              <Stack gap="xs">
+                {withKeys ? (
+                  <KeyPad
+                    label="Keys"
+                    keys={KEYS}
+                    holdKey={CTRL_C}
+                    disabled={keys.isPending || sending}
+                    onKey={(value) => {
+                      if (isKey(value)) pressKey(value);
+                    }}
+                  />
+                ) : null}
+                <QuickReplies replies={owned} disabled={sending} onPick={sendReply} />
+              </Stack>
+            </Disclosure>
+          ) : null}
           {blocked ? (
             <Composer
               label="Type into the dialog"
