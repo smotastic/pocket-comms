@@ -5,17 +5,17 @@
 
 ## 1. Affected projects
 
-| Path                            | Change                                                                                                                                         | Nx tags                               |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Path                            | Change                                                                                                                                          | Nx tags                               |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | `packages/comms/domain`         | `input.ts`: `MAX_TYPED_LENGTH` and `parseTyped` (trim, line breaks to spaces, not blank, at most 2 000). `activity.ts`: the `typed` event.      | `scope:comms`, `layer:domain`         |
 | `packages/comms/application`    | `HerdrOutbound.typeText(paneId, text)`; `Input.type` parses, types into the agent's pane and records `typed`; the fake Herdr takes the command. | `scope:comms`, `layer:application`    |
 | `packages/comms/infrastructure` | The socket adapter's `typeText` sends `pane.send_text` with `{ pane_id, text }`; the activity file store keeps `typed` events.                  | `scope:comms`, `layer:infrastructure` |
-| `packages/comms/contract`       | `TypeRequest` and `POST /agents/:agent/text`; the `typed` `ActivityEvent`, added last.                                                         | `scope:comms`, `type:contract`        |
-| `packages/comms/api`            | The `text` handler maps errors as the `keys` handler does.                                                                                     | `scope:comms`, `layer:api`            |
+| `packages/comms/contract`       | `TypeRequest` and `POST /agents/:agent/text`; the `typed` `ActivityEvent`, added last.                                                          | `scope:comms`, `type:contract`        |
+| `packages/comms/api`            | The `text` handler maps errors as the `keys` handler does.                                                                                      | `scope:comms`, `layer:api`            |
 | `apps/comms-web`                | `CommsClient.type`; a `QuickReplies` chip group; the conversation's footer while blocked; "You typed: …" in the timeline.                       | `scope:comms`, `type:app`             |
-| `apps/comms-server`             | The regenerated OpenAPI document.                                                                                                              | `scope:comms`, `type:app`             |
-| `packages/comms/AGENTS.md`      | Names spec 024 and the rule that typing never presses Enter.                                                                                   | —                                     |
-| `.pocket-ci`                    | The accepted OpenAPI diff line for the new activity variant.                                                                                   | —                                     |
+| `apps/comms-server`             | The regenerated OpenAPI document.                                                                                                               | `scope:comms`, `type:app`             |
+| `packages/comms/AGENTS.md`      | Names spec 024 and the rule that typing never presses Enter.                                                                                    | —                                     |
+| `.pocket-ci`                    | The accepted OpenAPI diff line for the new activity variant.                                                                                    | —                                     |
 
 No design kit change: the footer composes `ChipGroup`, `KeyPad`'s buttons and `Composer`, which
 the kit has.

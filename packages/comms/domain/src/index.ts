@@ -22,7 +22,15 @@ export {
   type ImageKind,
 } from './image.js';
 export { InvalidInputError } from './errors.js';
-export { AgentKey, MAX_KEYS, MAX_PROMPT_LENGTH, parseKeys, parsePrompt } from './input.js';
+export {
+  AgentKey,
+  MAX_KEYS,
+  MAX_PROMPT_LENGTH,
+  MAX_TYPED_LENGTH,
+  parseKeys,
+  parsePrompt,
+  parseTyped,
+} from './input.js';
 export { buildOverview, needsYou, type Overview, type OverviewGroup } from './overview.js';
 export {
   activityOf,
