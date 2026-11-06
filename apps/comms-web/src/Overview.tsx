@@ -32,6 +32,8 @@ export interface OverviewProps {
   readonly onStarted: (ref: string, note: string | undefined) => void;
   /** Opens the activity timeline. */
   readonly onActivity: () => void;
+  /** Opens the Settings page (spec 025). */
+  readonly onSettings: () => void;
 }
 
 const Group = ({
@@ -74,9 +76,16 @@ const Group = ({
 /**
  * `/`: every live agent in two groups, Needs you and Everything else, the latter by project and
  * narrowed by a project filter. Its Projects action opens every project and the activity
- * timeline in a side sheet. It updates live.
+ * timeline in a side sheet, and its Settings action opens the Settings page. It updates live.
  */
-export const Overview = ({ client, onOpen, onProject, onStarted, onActivity }: OverviewProps) => {
+export const Overview = ({
+  client,
+  onOpen,
+  onProject,
+  onStarted,
+  onActivity,
+  onSettings,
+}: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
   const overview = useQuery(overviewQuery(client));
   const projects = useQuery(projectsQuery(client));
@@ -108,6 +117,7 @@ export const Overview = ({ client, onOpen, onProject, onStarted, onActivity }: O
           <>
             <BrainstormAction />
             <IconButton icon="cards" label="Projects" onClick={() => setProjectsOpen(true)} />
+            <IconButton icon="settings" label="Settings" onClick={onSettings} />
           </>
         }
       />

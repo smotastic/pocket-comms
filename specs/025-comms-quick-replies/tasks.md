@@ -19,7 +19,7 @@ in the task's own commit.
 - [x] **T04** — Web: the quick replies from the server; the suggested replies in the Chat view
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T05** — Web: the Settings page and the overview's Settings button
+- [x] **T05** — Web: the Settings page and the overview's Settings button
   - Gate: `pnpm nx test comms-web`
 
 - [ ] **T06** — Docs: the comms service guide; the spec's status `Done`
