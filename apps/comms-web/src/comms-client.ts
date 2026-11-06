@@ -109,7 +109,7 @@ export interface CommsClient {
   readonly pushKey: () => Promise<string>;
   readonly subscribePush: (subscription: PushSubscriptionView) => Promise<void>;
   readonly unsubscribePush: (endpoint: string) => Promise<void>;
-  /** The owner's quick replies, one list for every conversation (spec 025). */
+  /** The owner's quick replies, one list for every conversation. */
   readonly quickReplies: () => Promise<ReadonlyArray<string>>;
   /** Saves the list in place of the old one and answers it as saved. */
   readonly saveQuickReplies: (replies: ReadonlyArray<string>) => Promise<ReadonlyArray<string>>;

@@ -4,7 +4,7 @@ import * as Effect from 'effect/Effect';
 import { HttpApiBuilder } from 'effect/http-api';
 import { problems } from './problems.js';
 
-/** Implements the `quickReplies` group: the owner's own replies (spec 025). */
+/** Implements the `quickReplies` group: the owner's own replies. */
 export const quickRepliesHandlers = HttpApiBuilder.group(
   CommsApi,
   'quickReplies',

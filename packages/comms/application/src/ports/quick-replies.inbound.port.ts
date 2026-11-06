@@ -7,7 +7,7 @@ import type { QuickRepliesStoreError } from '../errors.js';
 import { makeQuickReplies } from '../use-cases/quick-replies.use-case.js';
 
 // The inbound port of the quick replies resource: the owner's own replies, one list for every
-// conversation (spec 025).
+// conversation.
 
 export class QuickRepliesInbound extends Context.Service<
   QuickRepliesInbound,

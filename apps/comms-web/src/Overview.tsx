@@ -32,7 +32,7 @@ export interface OverviewProps {
   readonly onStarted: (ref: string, note: string | undefined) => void;
   /** Opens the activity timeline. */
   readonly onActivity: () => void;
-  /** Opens the Settings page (spec 025). */
+  /** Opens the Settings page. */
   readonly onSettings: () => void;
 }
 

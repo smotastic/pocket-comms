@@ -67,7 +67,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   and travel on the assistant entries. The web app offers them only in the Chat view of an idle
   or done agent and sends one only as a prompt: a suggestion never presses a key, never types
   into a waiting dialog and never answers a blocked agent. A broken `quick-replies.json` is
-  reported, never replaced.
+  reported and a read never replaces it; only the owner's next save writes over it.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
 - `GiteaOutbound` reads, and writes only `closeIssue` (spec 010), `createIssue` (spec 013),

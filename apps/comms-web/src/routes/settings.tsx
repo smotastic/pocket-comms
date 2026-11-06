@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { SettingsPage } from '../SettingsPage.js';
 
-/** `/settings` keeps the owner's quick replies (spec 025). */
+/** `/settings` keeps the owner's quick replies. */
 export const Route = createFileRoute('/settings')({
   component: function Settings() {
     const { client } = Route.useRouteContext();

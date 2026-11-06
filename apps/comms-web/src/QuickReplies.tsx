@@ -21,7 +21,7 @@ export const QuickReplies = ({
   );
 
 /**
- * The replies the latest agent message calls for (spec 025), marked with a sparkle so they read
+ * The replies the latest agent message calls for, marked with a sparkle so they read
  * apart from the owner's own; `onPick` sends the reply as a prompt.
  */
 export const SuggestedReplies = ({

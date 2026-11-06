@@ -7,9 +7,9 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-// The owner's quick replies as one JSON file in the server's state folder (spec 025). A write
-// goes to a temporary file that is renamed over the old one, and a file that does not read is
-// reported and left alone: saving over it would lose the owner's replies.
+// The owner's quick replies as one JSON file in the server's state folder. A write
+// goes to a temporary file that is renamed over the old one. A file that does not read is
+// reported and a read leaves it alone, so the default list never hides the owner's replies.
 
 const FILE = 'quick-replies.json';
 

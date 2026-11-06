@@ -63,8 +63,8 @@ const KEYS: ReadonlyArray<{ value: Key; label: string; accessibleLabel?: string 
 const CTRL_C = { value: 'ctrl+c', label: 'Ctrl-C', accessibleLabel: 'Hold to send Control C' };
 
 /**
- * A text to send, and whether it came from a field, which a successful send clears, or the
- * message whose suggestion it is, which a successful send answers.
+ * A text to send, whether it came from a field, which a successful send clears, and the message
+ * it answers, whose suggestions a successful send hides.
  */
 type Send = { readonly text: string; readonly fromField: boolean; readonly answers?: string };
 
@@ -162,8 +162,10 @@ export const Conversation = ({
   const [draft, setDraft] = useState('');
   // What the owner types into a waiting dialog, apart from the message they are writing.
   const [answer, setAnswer] = useState('');
-  // The message whose suggestion was sent, so its suggestions are not sent again (spec 025).
+  // The message the last successful prompt answered, so its suggestions are not sent again, and
+  // the latest message, which the next prompt answers.
   const [answered, setAnswered] = useState<string>();
+  const latestId = useRef<string>(undefined);
   const images = useAttachments(client);
   // A successful send from a field clears it, and the images; a failed one keeps both. A quick
   // reply leaves the fields alone. The clearing is on the mutation, not on `mutate`, so a reset
@@ -193,7 +195,7 @@ export const Conversation = ({
   const sendPrompt = (send: Send, imageIds: ReadonlyArray<string>) => {
     keys.reset();
     typed.reset();
-    prompt.mutate({ ...send, imageIds });
+    prompt.mutate({ ...send, answers: send.answers ?? latestId.current, imageIds });
   };
   const typeText = (send: Send) => {
     keys.reset();
@@ -254,8 +256,9 @@ export const Conversation = ({
   }
 
   // A suggestion answers only the latest message, and only while the agent waits for a prompt;
-  // a blocked agent is answered with the keys and the dialog field alone (spec 025).
+  // a blocked agent is answered with the keys and the dialog field alone.
   const latest = transcript.data?.entries.at(-1);
+  latestId.current = latest?.id;
   const waiting = agent.status === 'idle' || agent.status === 'done';
   const suggested =
     view === 'chat' && waiting && latest?.type === 'assistant' && latest.id !== answered

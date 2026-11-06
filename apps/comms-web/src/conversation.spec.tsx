@@ -456,6 +456,17 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
     expect(within(next).getByRole('row', { name: 'B' })).toBeDefined();
   });
 
+  it('hides the suggestions once a quick reply answered the message', async () => {
+    const fake = openAsking();
+    await screen.findByRole('grid', { name: 'Suggested replies' });
+    const quick = await screen.findByRole('grid', { name: 'Quick replies' });
+
+    await userEvent.click(within(quick).getByRole('row', { name: 'Go ahead' }));
+
+    await waitFor(() => expect(fake.calls.prompts).toEqual([['kirk', 'Go ahead']]));
+    await waitFor(() => expect(suggestions()).toBeNull());
+  });
+
   it.each([
     ['blocked', fakeAgent({ status: 'blocked', needsYou: true })],
     ['working', fakeAgent({ status: 'working' })],

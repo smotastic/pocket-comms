@@ -23,7 +23,7 @@ export interface SettingsPageProps {
   readonly onBack: () => void;
 }
 
-// The server's limits (spec 025, requirement 8); it answers why a list breaks one.
+// The server's limits; it answers why a list breaks one.
 const MAX_REPLIES = 20;
 const MAX_LENGTH = 200;
 
@@ -137,7 +137,7 @@ const ReplyItem = ({
 };
 
 /**
- * `/settings`: the owner's quick replies (spec 025), offered with one tap in every conversation.
+ * `/settings`: the owner's quick replies, offered with one tap in every conversation.
  * Each change saves the whole list at once; a failed save says why and shows the saved list.
  */
 export const SettingsPage = ({ client, onBack }: SettingsPageProps) => {

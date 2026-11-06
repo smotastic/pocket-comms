@@ -34,7 +34,7 @@ export const makeTranscript = Effect.gen(function* () {
   const { find } = yield* makeLoadAgents;
 
   // A prompt's attached images show as images, not as paths (spec 014, requirement 12), and an
-  // assistant message carries the replies it calls for (spec 025, requirement 1).
+  // assistant message carries the replies it calls for.
   const shown = (entries: ReadonlyArray<TranscriptEntry>): ReadonlyArray<TranscriptEntry> =>
     entries.map((entry) => {
       if (entry.type === 'assistant') {

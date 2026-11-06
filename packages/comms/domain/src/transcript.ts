@@ -36,7 +36,7 @@ export type TranscriptEntry =
       readonly id: string;
       readonly at: number;
       readonly text: string;
-      /** The replies the message calls for (spec 025); left out when there are none. */
+      /** The replies the message calls for; left out when there are none. */
       readonly replies?: ReadonlyArray<string> | undefined;
     }
   | {

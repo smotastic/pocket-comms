@@ -33,6 +33,14 @@ describe('suggestedReplies', () => {
     'Done. The PR is open.',
     '',
     'Do you approve?\n\nI will start once the build is green.',
+    'What should I call the module?',
+    'Where should I put the config?',
+    'How should I proceed?',
+    'What would you like me to do next?',
+    'Which one should I pick: SQLite, Postgres, MySQL?',
+    'Why does the loop continue?',
+    'Is the response code ok?',
+    'Changes:\n1. Added tests\n2. Updated docs\n\nI ran everything and it is green. Anything else?',
   ])('suggests nothing for %j', (text) => {
     expect(suggestedReplies(text)).toEqual([]);
   });
@@ -78,8 +86,21 @@ describe('suggestedReplies', () => {
     expect(suggestedReplies('I did:\n\n1. Tests\n2. Docs\n\nAll green.')).toEqual([]);
   });
 
-  it('prefers the choices over an approval question', () => {
-    expect(suggestedReplies('1. Merge\n2. Wait\n\nShall I proceed?')).toEqual(['Merge', 'Wait']);
+  it('asks for approval of a list followed by an approval question', () => {
+    expect(
+      suggestedReplies('Summary:\n\n1. Added tests\n2. Fixed docs\n\nDo you approve?'),
+    ).toEqual(APPROVAL);
+  });
+
+  it('keeps code spans and underscores inside words', () => {
+    expect(suggestedReplies('1. Rename to `user_id`\n2. Match `*.ts` files')).toEqual([
+      'Rename to user_id',
+      'Match *.ts files',
+    ]);
+  });
+
+  it('suggests a choice once when two items read the same', () => {
+    expect(suggestedReplies('1. Yes\n2. **Yes**\n3. No')).toEqual(['Yes', 'No']);
   });
 });
 
