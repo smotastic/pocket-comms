@@ -87,6 +87,10 @@ export interface FakeState {
   activity: ActivityView;
   /** A failure for the next push subscription. */
   subscribeFailure?: RequestError;
+  /** The owner's quick replies as the server keeps them. */
+  quickReplies: ReadonlyArray<string>;
+  /** A failure for the next save of the quick replies. */
+  saveQuickRepliesFailure?: RequestError;
 }
 
 /**
@@ -117,6 +121,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       pictures: [],
     },
     activity: { events: [] },
+    quickReplies: ['Go ahead', 'Commit and open a PR'],
     ...initial,
   };
   const calls = {
@@ -139,6 +144,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     pushKeys: 0,
     subscribed: [] as Array<PushSubscriptionView>,
     unsubscribed: [] as Array<string>,
+    savedQuickReplies: [] as Array<ReadonlyArray<string>>,
   };
   const brainstormFollowers = new Set<(event: BrainstormEventView) => void>();
   const failBrainstorm = () => {
@@ -252,6 +258,15 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     },
     unsubscribePush: async (endpoint) => {
       calls.unsubscribed.push(endpoint);
+    },
+    quickReplies: async () => state.quickReplies,
+    saveQuickReplies: async (replies) => {
+      calls.savedQuickReplies.push(replies);
+      const failure = state.saveQuickRepliesFailure;
+      state.saveQuickRepliesFailure = undefined;
+      if (failure !== undefined) throw failure;
+      state.quickReplies = replies;
+      return replies;
     },
     followBrainstorm: (onEvent, onLive) => {
       brainstormFollowers.add(onEvent);

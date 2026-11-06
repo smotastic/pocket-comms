@@ -109,6 +109,10 @@ export interface CommsClient {
   readonly pushKey: () => Promise<string>;
   readonly subscribePush: (subscription: PushSubscriptionView) => Promise<void>;
   readonly unsubscribePush: (endpoint: string) => Promise<void>;
+  /** The owner's quick replies, one list for every conversation (spec 025). */
+  readonly quickReplies: () => Promise<ReadonlyArray<string>>;
+  /** Saves the list in place of the old one and answers it as saved. */
+  readonly saveQuickReplies: (replies: ReadonlyArray<string>) => Promise<ReadonlyArray<string>>;
   readonly followBrainstorm: (
     onEvent: (event: BrainstormEventView) => void,
     onLive: OnLive,
@@ -322,6 +326,11 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
       run((api) => api.push.subscribe({ payload: subscription })).then(() => undefined),
     unsubscribePush: (endpoint) =>
       run((api) => api.push.unsubscribe({ payload: { endpoint } })).then(() => undefined),
+    quickReplies: () => run((api) => api.quickReplies.list()).then((saved) => saved.replies),
+    saveQuickReplies: (replies) =>
+      run((api) => api.quickReplies.replace({ payload: { replies } })).then(
+        (saved) => saved.replies,
+      ),
     followBrainstorm: (onEvent, onLive) =>
       follow(`${baseUrl}/api/v1/brainstorm/events`, 'brainstorm', BrainstormEvent, onEvent, onLive),
     activity: () => run((api) => api.activity.activity()),

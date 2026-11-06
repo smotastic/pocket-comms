@@ -16,7 +16,7 @@ in the task's own commit.
       an assistant entry, the composition, the OpenAPI document and any accepted change
   - Gate: `pnpm nx run-many -t test -p comms-contract comms-api comms-server`
 
-- [ ] **T04** — Web: the quick replies from the server; the suggested replies in the Chat view
+- [x] **T04** — Web: the quick replies from the server; the suggested replies in the Chat view
   - Gate: `pnpm nx test comms-web`
 
 - [ ] **T05** — Web: the Settings page and the overview's Settings button

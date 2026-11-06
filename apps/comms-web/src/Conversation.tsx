@@ -22,9 +22,9 @@ import { delegationLink, stripItems } from './background.js';
 import { Chat } from './Chat.js';
 import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu } from './ConversationMenu.js';
-import { agentQuery, screenQuery, transcriptQuery } from './comms-queries.js';
+import { agentQuery, quickRepliesQuery, screenQuery, transcriptQuery } from './comms-queries.js';
 import { KeyPad } from './KeyPad.js';
-import { QuickReplies } from './QuickReplies.js';
+import { QuickReplies, SuggestedReplies } from './QuickReplies.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -62,8 +62,11 @@ const KEYS: ReadonlyArray<{ value: Key; label: string; accessibleLabel?: string 
 ];
 const CTRL_C = { value: 'ctrl+c', label: 'Ctrl-C', accessibleLabel: 'Hold to send Control C' };
 
-/** A text to send, and whether it came from a field, which a successful send clears. */
-type Send = { readonly text: string; readonly fromField: boolean };
+/**
+ * A text to send, and whether it came from a field, which a successful send clears, or the
+ * message whose suggestion it is, which a successful send answers.
+ */
+type Send = { readonly text: string; readonly fromField: boolean; readonly answers?: string };
 
 const isKey = (value: string): value is Key =>
   value === CTRL_C.value || KEYS.some((key) => key.value === value);
@@ -119,8 +122,8 @@ const Header = ({
 
 /**
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
- * the composer and the quick replies, or the keys and a field that types into the waiting dialog
- * while the agent is blocked. It updates live.
+ * the composer, the suggested and the owner's quick replies, or the keys and a field that types
+ * into the waiting dialog while the agent is blocked. It updates live.
  */
 export const Conversation = ({
   client,
@@ -141,6 +144,7 @@ export const Conversation = ({
   const blocked = agent?.status === 'blocked';
 
   const transcript = useQuery({ ...transcriptQuery(client, agentRef), enabled: hasChat });
+  const quickReplies = useQuery(quickRepliesQuery(client));
   const screen = useQuery({
     ...screenQuery(client, agentRef),
     enabled: agent !== undefined && (view === 'screen' || blocked),
@@ -158,6 +162,8 @@ export const Conversation = ({
   const [draft, setDraft] = useState('');
   // What the owner types into a waiting dialog, apart from the message they are writing.
   const [answer, setAnswer] = useState('');
+  // The message whose suggestion was sent, so its suggestions are not sent again (spec 025).
+  const [answered, setAnswered] = useState<string>();
   const images = useAttachments(client);
   // A successful send from a field clears it, and the images; a failed one keeps both. A quick
   // reply leaves the fields alone. The clearing is on the mutation, not on `mutate`, so a reset
@@ -165,7 +171,8 @@ export const Conversation = ({
   const prompt = useMutation({
     mutationFn: ({ text, imageIds }: Send & { imageIds: ReadonlyArray<string> }) =>
       client.prompt(agentRef, text, imageIds),
-    onSuccess: (_, { fromField }) => {
+    onSuccess: (_, { fromField, answers }) => {
+      if (answers !== undefined) setAnswered(answers);
       if (!fromField) return;
       setDraft('');
       images.clear();
@@ -246,6 +253,15 @@ export const Conversation = ({
     );
   }
 
+  // A suggestion answers only the latest message, and only while the agent waits for a prompt;
+  // a blocked agent is answered with the keys and the dialog field alone (spec 025).
+  const latest = transcript.data?.entries.at(-1);
+  const waiting = agent.status === 'idle' || agent.status === 'done';
+  const suggested =
+    view === 'chat' && waiting && latest?.type === 'assistant' && latest.id !== answered
+      ? { id: latest.id, replies: latest.replies ?? [] }
+      : undefined;
+
   const screenText = screen.data ?? '';
   const name = agent.ref;
   const kindLabel = kindOf(agent.kind).label;
@@ -284,7 +300,14 @@ export const Conversation = ({
               }}
             />
           ) : null}
-          <QuickReplies disabled={sending} onPick={sendReply} />
+          {suggested === undefined ? null : (
+            <SuggestedReplies
+              replies={suggested.replies}
+              disabled={sending}
+              onPick={(text) => sendPrompt({ text, fromField: false, answers: suggested.id }, [])}
+            />
+          )}
+          <QuickReplies replies={quickReplies.data ?? []} disabled={sending} onPick={sendReply} />
           {blocked ? (
             <Composer
               label="Type into the dialog"
