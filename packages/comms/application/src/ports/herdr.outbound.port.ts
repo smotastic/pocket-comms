@@ -72,7 +72,7 @@ export class HerdrOutbound extends Context.Service<
     ) => Effect.Effect<void, HerdrUnavailableError | HerdrRejectedError>;
     /**
      * Types `text` into the pane as it is, without pressing Enter, such as an answer to a waiting
-     * dialog (spec 024). `paneId` is a pane id, never an agent's name.
+     * dialog. `paneId` is a pane id, never an agent's name.
      */
     readonly typeText: (
       paneId: string,

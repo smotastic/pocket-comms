@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { axeViolations } from '@smotastic/pocket-design/testing';
 import { RequestError, type AgentView, type TranscriptView } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
@@ -329,6 +330,56 @@ describe('typed answers and quick replies', () => {
     await waitFor(() => expect(fake.calls.prompts).toEqual([['kirk', 'Go ahead']]));
     expect(fake.calls.typed).toEqual([]);
     expect((box as HTMLTextAreaElement).value).toBe('Half a thought');
+  });
+
+  it('holds the keys and the quick replies until the typed text arrives, then clears the field', async () => {
+    const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
+    let release: () => void = () => undefined;
+    fake.state.typeGate = new Promise((resolve) => (release = resolve));
+    const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+
+    await userEvent.type(box, 'Use SQLite{Enter}');
+
+    const enter = within(screen.getByRole('group', { name: 'Keys' })).getByRole('button', {
+      name: 'Enter',
+    });
+    await waitFor(() => expect(enter.hasAttribute('disabled')).toBe(true));
+    expect(chip('Go ahead').getAttribute('aria-disabled')).toBe('true');
+    await userEvent.click(enter);
+    expect(fake.calls.keys).toEqual([]);
+
+    act(() => release());
+
+    await waitFor(() => expect((box as HTMLTextAreaElement).value).toBe(''));
+    expect(enter.hasAttribute('disabled')).toBe(false);
+  });
+
+  it('keeps both drafts across a dialog and drops the reason of a failed type after it', async () => {
+    const fake = open(fakeAgent({ status: 'idle' }));
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Message' }), 'Later');
+    act(() =>
+      fake.emitAgent('kirk', {
+        type: 'agent',
+        agent: fakeAgent({ status: 'blocked', needsYou: true }),
+      }),
+    );
+    fake.state.typeFailure = 'Herdr refused the text';
+    const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await userEvent.type(box, 'Use SQLite{Enter}');
+    await screen.findByRole('alert');
+
+    act(() => fake.emitAgent('kirk', { type: 'agent', agent: fakeAgent({ status: 'idle' }) }));
+
+    const message = await screen.findByRole('textbox', { name: 'Message' });
+    expect((message as HTMLTextAreaElement).value).toBe('Later');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('has no accessibility violations while a dialog waits', async () => {
+    open(fakeAgent({ status: 'blocked', needsYou: true }));
+    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+
+    expect(await axeViolations(document.body)).toEqual([]);
   });
 
   it('offers the quick replies in the Screen view of an idle agent', async () => {

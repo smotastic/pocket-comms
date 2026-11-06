@@ -169,6 +169,19 @@ describe('AgentsInbound.type', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('fails for an unknown agent and types nothing', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+
+      const error = yield* AgentsInbound.use((inbound) => inbound.type('spock', 'hi')).pipe(
+        Effect.flip,
+      );
+
+      expect(error).toBeInstanceOf(AgentNotFoundError);
+      expect(state.calls.some((call) => call.method === 'typeText')).toBe(false);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('types nothing when the text is blank', () =>
     Effect.gen(function* () {
       const state = yield* withKirk;

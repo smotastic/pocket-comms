@@ -58,7 +58,15 @@ describe('parseTyped', () => {
     );
   });
 
-  it.each(['', '  \n '])('rejects the blank text %j', (text) => {
+  it('turns a lone carriage return into a space, since a terminal takes it as Enter', () => {
+    expect(parseTyped('2\rok')).toEqual(Result.succeed('2 ok'));
+  });
+
+  it('drops control characters such as Escape and Ctrl-C', () => {
+    expect(parseTyped('a\u001b[Ab\u0003c\u007f\td')).toEqual(Result.succeed('a[Abc d'));
+  });
+
+  it.each(['', '  \n ', '\u001b'])('rejects the blank text %j', (text) => {
     expect(parseTyped(text)).toEqual(
       Result.fail(
         new InvalidInputError({ issues: [{ field: 'text', message: 'Write an answer first.' }] }),

@@ -78,7 +78,7 @@ export interface CommsClient {
   readonly uploadImage: (image: Blob) => Promise<string>;
   /** Where an uploaded image is served. */
   readonly imageUrl: (id: string) => string;
-  /** Types the text into the agent's waiting dialog; it never presses Enter (spec 024). */
+  /** Types the text into the agent's waiting dialog; it never presses Enter. */
   readonly type: (ref: string, text: string) => Promise<void>;
   readonly keys: (ref: string, keys: ReadonlyArray<Key>) => Promise<void>;
   readonly seen: (ref: string) => Promise<void>;

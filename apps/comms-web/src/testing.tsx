@@ -64,6 +64,8 @@ export interface FakeState {
   promptFailure?: string;
   /** A failure for the next typed text. */
   typeFailure?: string;
+  /** Holds typed text on its way until it resolves, such as to see the page meanwhile. */
+  typeGate?: Promise<void>;
   /** A failure for the next image upload. */
   uploadFailure?: string;
   projects: ReadonlyArray<ProjectView>;
@@ -179,6 +181,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     },
     imageUrl: (id) => `/api/v1/images/${id}`,
     type: async (ref, text) => {
+      await state.typeGate;
       if (state.typeFailure !== undefined) throw new RequestError(state.typeFailure, 409);
       calls.typed.push([ref, text]);
     },

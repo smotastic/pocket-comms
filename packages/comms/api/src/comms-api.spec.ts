@@ -289,6 +289,16 @@ describe('the agents API', () => {
     expect(response.status).toBe(422);
   });
 
+  it('answers 404 when typing into an unknown agent', async () => {
+    const call = serve({
+      type: (ref) => Effect.fail(new AgentNotFoundError({ ref })),
+    });
+
+    const response = await call('/api/v1/agents/spock/text', json({ text: 'hi' }));
+
+    expect(response.status).toBe(404);
+  });
+
   it('answers 422 for typed text over the limit', async () => {
     const call = serve({ type: () => Effect.void });
 

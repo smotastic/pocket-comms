@@ -108,6 +108,9 @@ const lists = (request: HerdrRequest) => {
           },
         };
   }
+  if (request.method === 'pane.send_text' && request.params['text'] === 'refuse') {
+    return { error: { code: 'pane_not_found', message: 'pane wJ:p1 not found' } };
+  }
   if (request.method === 'agent.prompt' && request.params['text'] === 'refuse') {
     return { error: { code: 'agent_not_ready', message: 'agent wJ:p1 is not ready' } };
   }
@@ -370,6 +373,22 @@ describe('Herdr.layerSocket', () => {
         ref: 'wJ:p1',
         code: 'agent_not_ready',
         message: 'agent wJ:p1 is not ready',
+      });
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('reports a refused text as a refusal', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      const error = yield* HerdrOutbound.use((herdr) => herdr.typeText('wJ:p1', 'refuse')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+        Effect.flip,
+      );
+
+      expect(error).toMatchObject({
+        _tag: 'HerdrRejectedError',
+        ref: 'wJ:p1',
+        code: 'pane_not_found',
       });
     }).pipe(Effect.scoped),
   );

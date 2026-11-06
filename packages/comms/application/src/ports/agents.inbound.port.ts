@@ -61,7 +61,7 @@ export class AgentsInbound extends Context.Service<
       text: string,
       imageIds?: ReadonlyArray<string>,
     ) => Effect.Effect<void, Lookup | InvalidInputError | HerdrRejectedError>;
-    /** Types the text into the agent's waiting dialog without submitting it (spec 024). */
+    /** Types the text into the agent's waiting dialog without submitting it. */
     readonly type: (
       ref: string,
       text: string,

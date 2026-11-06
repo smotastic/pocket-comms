@@ -48,7 +48,8 @@ replies the same way.
 6. A hint under the field says: "Choose Type something or Other with the keys first, then press
    Enter to submit." A digit or a letter typed into a menu may still pick an option there; the
    app does not read the dialog to prevent this.
-7. Typed text is trimmed, each line break becomes one space, and it must not be blank. It takes
+7. Typed text is trimmed, each line break, carriage return or tab becomes one space, other
+   control characters (such as Escape or Ctrl-C) are dropped, and it must not be blank. It takes
    at most 2 000 characters; longer text answers `422` on the `text` field, and nothing is typed.
 8. A successful type clears the field. A failed one shows its reason and keeps the text (spec 004,
    requirement 16).

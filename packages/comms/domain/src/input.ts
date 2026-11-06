@@ -29,11 +29,16 @@ export const parsePrompt = (text: string, images = 0): Result.Result<string, Inv
 };
 
 /**
- * Text typed into a waiting dialog (spec 024) is trimmed and kept on one line, since a line break
- * could submit the dialog; it must say something and stay within the limit.
+ * Text typed into a waiting dialog is kept on one line without control characters: a terminal
+ * takes a line break or a carriage return as Enter, and Escape or Ctrl-C as keys. It is trimmed,
+ * must say something and stay within the limit.
  */
 export const parseTyped = (text: string): Result.Result<string, InvalidInputError> => {
-  const line = text.trim().replace(/\r?\n/gu, ' ');
+  const line = text
+    .replace(/\r\n|[\r\n\t]/gu, ' ')
+    // eslint-disable-next-line no-control-regex -- the control characters are what is removed.
+    .replace(/[\u0000-\u001f\u007f-\u009f]/gu, '')
+    .trim();
   if (line === '') return invalid('text', 'Write an answer first.');
   if (line.length > MAX_TYPED_LENGTH) {
     return invalid('text', `The answer is longer than ${MAX_TYPED_LENGTH} characters.`);

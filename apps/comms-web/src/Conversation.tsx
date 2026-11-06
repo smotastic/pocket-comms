@@ -62,6 +62,9 @@ const KEYS: ReadonlyArray<{ value: Key; label: string; accessibleLabel?: string 
 ];
 const CTRL_C = { value: 'ctrl+c', label: 'Ctrl-C', accessibleLabel: 'Hold to send Control C' };
 
+/** A text to send, and whether it came from a field, which a successful send clears. */
+type Send = { readonly text: string; readonly fromField: boolean };
+
 const isKey = (value: string): value is Key =>
   value === CTRL_C.value || KEYS.some((key) => key.value === value);
 
@@ -117,7 +120,7 @@ const Header = ({
 /**
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
  * the composer and the quick replies, or the keys and a field that types into the waiting dialog
- * while the agent is blocked (spec 024). It updates live.
+ * while the agent is blocked. It updates live.
  */
 export const Conversation = ({
   client,
@@ -156,34 +159,52 @@ export const Conversation = ({
   // What the owner types into a waiting dialog, apart from the message they are writing.
   const [answer, setAnswer] = useState('');
   const images = useAttachments(client);
+  // A successful send from a field clears it, and the images; a failed one keeps both. A quick
+  // reply leaves the fields alone. The clearing is on the mutation, not on `mutate`, so a reset
+  // of the mutation by a later send cannot drop it.
   const prompt = useMutation({
-    mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
+    mutationFn: ({ text, imageIds }: Send & { imageIds: ReadonlyArray<string> }) =>
       client.prompt(agentRef, text, imageIds),
+    onSuccess: (_, { fromField }) => {
+      if (!fromField) return;
+      setDraft('');
+      images.clear();
+    },
   });
   const keys = useMutation({ mutationFn: (key: Key) => client.keys(agentRef, [key]) });
-  // Typing never presses Enter: the owner submits the dialog with the key (spec 024).
-  const typed = useMutation({ mutationFn: (text: string) => client.type(agentRef, text) });
+  // Typing never presses Enter: the owner submits the dialog with the key.
+  const typed = useMutation({
+    mutationFn: ({ text }: Send) => client.type(agentRef, text),
+    onSuccess: (_, { fromField }) => {
+      if (fromField) setAnswer('');
+    },
+  });
   // Only the latest send can fail visibly: a new one clears the reason of the others.
   const failure = prompt.error ?? keys.error ?? typed.error;
+  // The keys wait for a send too, so an Enter can never overtake the text it should submit.
   const sending = prompt.isPending || typed.isPending;
-  // A successful send clears the text and the images; a failed one keeps both (spec 014).
-  const sendPrompt = (text: string, imageIds: ReadonlyArray<string>, onSent?: () => void) => {
+  const sendPrompt = (send: Send, imageIds: ReadonlyArray<string>) => {
     keys.reset();
     typed.reset();
-    prompt.mutate({ text, imageIds }, { onSuccess: onSent });
+    prompt.mutate({ ...send, imageIds });
   };
-  const typeText = (text: string, onTyped?: () => void) => {
+  const typeText = (send: Send) => {
     keys.reset();
     prompt.reset();
-    typed.mutate(text, { onSuccess: onTyped });
+    typed.mutate(send);
   };
   const pressKey = (key: Key) => {
     prompt.reset();
     typed.reset();
     keys.mutate(key);
   };
-  // A quick reply leaves the drafts alone: it types into a waiting dialog, or else is a prompt.
-  const sendReply = (reply: string) => (blocked ? typeText(reply) : sendPrompt(reply, []));
+  const sendReply = (text: string) =>
+    blocked ? typeText({ text, fromField: false }) : sendPrompt({ text, fromField: false }, []);
+  // A refused text means nothing once the dialog is gone.
+  const { reset: resetTyped } = typed;
+  useEffect(() => {
+    if (!blocked) resetTyped();
+  }, [blocked, resetTyped]);
 
   const gone = agentResult.error instanceof RequestError && agentResult.error.status === 404;
   const shown = useRef(false);
@@ -257,7 +278,7 @@ export const Conversation = ({
               label="Keys"
               keys={KEYS}
               holdKey={CTRL_C}
-              disabled={keys.isPending}
+              disabled={keys.isPending || sending}
               onKey={(value) => {
                 if (isKey(value)) pressKey(value);
               }}
@@ -269,7 +290,7 @@ export const Conversation = ({
               label="Type into the dialog"
               value={answer}
               onChange={setAnswer}
-              onSend={(text) => typeText(text, () => setAnswer(''))}
+              onSend={(text) => typeText({ text, fromField: true })}
               placeholder="Your answer"
               hint="Choose Type something or Other with the keys first, then press Enter to submit."
               sendLabel="Type"
@@ -280,12 +301,7 @@ export const Conversation = ({
               label="Message"
               value={draft}
               onChange={setDraft}
-              onSend={(text) =>
-                sendPrompt(text, images.ids, () => {
-                  setDraft('');
-                  images.clear();
-                })
-              }
+              onSend={(text) => sendPrompt({ text, fromField: true }, images.ids)}
               placeholder={`Message ${name}`}
               locked={prompt.isPending || images.pending}
               attach={{
