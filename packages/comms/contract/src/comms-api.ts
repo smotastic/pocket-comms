@@ -207,6 +207,11 @@ export const TranscriptEntry = Schema.Union([
     id,
     at,
     text: Schema.String.annotate({ description: 'The reply as Markdown.', examples: ['Done.'] }),
+    replies: optional(Schema.Array(Schema.String), {
+      description:
+        'The short replies the message clearly calls for, such as the choices it offers; left out when the expected answer is unclear.',
+      examples: [['Approved', 'No, revise']],
+    }),
   }),
   Schema.Struct({
     type: Schema.tag('tool').annotate({ description: 'One tool call.', examples: ['tool'] }),
@@ -1584,6 +1589,57 @@ const push = HttpApiGroup.make('push')
     }),
   );
 
+export const QuickReplies = Schema.Struct({
+  replies: Schema.Array(
+    Schema.String.check(Schema.isMaxLength(200)).annotate({
+      description:
+        'One reply; it is saved trimmed, on one line, not blank and different from the others.',
+      examples: ['Run the tests first'],
+    }),
+  )
+    .check(Schema.isMaxLength(20))
+    .annotate({
+      description: 'The replies in the order the app shows them; at most 20.',
+      examples: [['Go ahead', 'Commit and open a PR']],
+    }),
+}).annotate({
+  identifier: 'QuickReplies',
+  description: "The owner's quick replies, one list for every conversation.",
+});
+
+const quickReplies = HttpApiGroup.make('quickReplies')
+  .add(
+    HttpApiEndpoint.get('list', '/quick-replies', {
+      success: QuickReplies,
+      error: Problems.ServiceUnavailable,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Read the quick replies',
+        description:
+          "The owner's quick replies; until the owner saves their own, Go ahead and Commit and open a PR.",
+      }),
+    ),
+    HttpApiEndpoint.put('replace', '/quick-replies', {
+      payload: QuickReplies,
+      success: QuickReplies,
+      error: [Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Replace the quick replies',
+        description: 'Saves the list in place of the old one and answers it as saved.',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Quick replies',
+      description: "The owner's own replies, offered with one tap in every conversation.",
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
@@ -1593,6 +1649,7 @@ export const CommsApi = HttpApi.make('comms')
   .add(images)
   .add(activity)
   .add(push)
+  .add(quickReplies)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

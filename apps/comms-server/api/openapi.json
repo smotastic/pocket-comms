@@ -2035,6 +2035,26 @@
         "required": ["text"],
         "type": "object"
       },
+      "QuickReplies": {
+        "additionalProperties": false,
+        "description": "The owner's quick replies, one list for every conversation.",
+        "properties": {
+          "replies": {
+            "description": "The replies in the order the app shows them; at most 20.",
+            "examples": [["Go ahead", "Commit and open a PR"]],
+            "items": {
+              "description": "One reply; it is saved trimmed, on one line, not blank and different from the others.",
+              "examples": ["Run the tests first"],
+              "maxLength": 200,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          }
+        },
+        "required": ["replies"],
+        "type": "object"
+      },
       "Screen": {
         "additionalProperties": false,
         "description": "The agent's terminal screen.",
@@ -2301,6 +2321,21 @@
                 "description": "The id of the entry.",
                 "examples": ["u-1"],
                 "type": "string"
+              },
+              "replies": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The short replies the message clearly calls for, such as the choices it offers; left out when the expected answer is unclear.",
+                "examples": [["Approved", "No, revise"]]
               },
               "text": {
                 "description": "The reply as Markdown.",
@@ -4883,6 +4918,118 @@
         "tags": ["Push"]
       }
     },
+    "/api/v1/quick-replies": {
+      "get": {
+        "description": "The owner's quick replies; until the owner saves their own, Go ahead and Commit and open a PR.",
+        "operationId": "quickReplies.list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuickReplies"
+                }
+              }
+            },
+            "description": "The owner's quick replies, one list for every conversation."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read the quick replies",
+        "tags": ["Quick replies"]
+      },
+      "put": {
+        "description": "Saves the list in place of the old one and answers it as saved.",
+        "operationId": "quickReplies.replace",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuickReplies"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuickReplies"
+                }
+              }
+            },
+            "description": "The owner's quick replies, one list for every conversation."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Replace the quick replies",
+        "tags": ["Quick replies"]
+      }
+    },
     "/api/v1/tasks": {
       "post": {
         "description": "Creates a Herdr worktree on a new branch from the project's default remote branch, without moving the focus, and optionally starts an agent in it with the task as its first prompt.",
@@ -4985,6 +5132,10 @@
     {
       "description": "The devices that get a notification when an agent needs the owner.",
       "name": "Push"
+    },
+    {
+      "description": "The owner's own replies, offered with one tap in every conversation.",
+      "name": "Quick replies"
     }
   ]
 }

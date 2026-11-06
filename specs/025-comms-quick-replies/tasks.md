@@ -12,7 +12,7 @@ in the task's own commit.
       `QuickReplies` use case; `replies` on assistant entries of the transcript
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-application comms-infrastructure`
 
-- [ ] **T03** — Contract, API and server: `GET`/`PUT /quick-replies`, the optional `replies` of
+- [x] **T03** — Contract, API and server: `GET`/`PUT /quick-replies`, the optional `replies` of
       an assistant entry, the composition, the OpenAPI document and any accepted change
   - Gate: `pnpm nx run-many -t test -p comms-contract comms-api comms-server`
 

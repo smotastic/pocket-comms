@@ -27,6 +27,8 @@ import {
   ProposalNotFoundError,
   PushInbound,
   PushStoreError,
+  QuickRepliesInbound,
+  QuickRepliesStoreError,
   TasksInbound,
   WorktreeHasChangesError,
   type CloseIssueInput,
@@ -98,6 +100,7 @@ const serve = (
   images: Partial<ImagesInbound['Service']> = {},
   activity: Partial<ActivityInbound['Service']> = {},
   push: Partial<PushInbound['Service']> = {},
+  quickReplies: Partial<QuickRepliesInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -112,6 +115,7 @@ const serve = (
       Layer.provide(Layer.mock(ImagesInbound, { sweep: Effect.void, ...images })),
       Layer.provide(Layer.mock(ActivityInbound, activity)),
       Layer.provide(Layer.mock(PushInbound, { watch: Effect.never, ...push })),
+      Layer.provide(Layer.mock(QuickRepliesInbound, quickReplies)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -1238,5 +1242,79 @@ describe('the push routes', () => {
     await call('/health/live');
 
     await vi.waitFor(() => expect(watching).toBe(true));
+  });
+});
+
+describe('the quick replies routes', () => {
+  const repliesOnly = (quickReplies: Partial<QuickRepliesInbound['Service']>) =>
+    serve({}, undefined, {}, {}, {}, {}, {}, {}, quickReplies);
+  const put = (body: unknown) => ({ ...json(body), method: 'PUT' });
+
+  it("answers the owner's quick replies", async () => {
+    const call = repliesOnly({ list: Effect.succeed({ replies: ['Go ahead'] }) });
+
+    const response = await call('/api/v1/quick-replies');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ replies: ['Go ahead'] });
+  });
+
+  it('replaces the quick replies and answers the saved list', async () => {
+    const asked: Array<ReadonlyArray<string>> = [];
+    const call = repliesOnly({
+      replace: (replies) =>
+        Effect.sync(() => (asked.push(replies), { replies: replies.map((reply) => reply.trim()) })),
+    });
+
+    const response = await call(
+      '/api/v1/quick-replies',
+      put({ replies: [' Run the tests first'] }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ replies: ['Run the tests first'] });
+    expect(asked).toEqual([[' Run the tests first']]);
+  });
+
+  it('answers 422 for a list that breaks a rule', async () => {
+    const call = repliesOnly({
+      replace: () =>
+        Effect.fail(
+          new InvalidInputError({
+            issues: [{ field: 'replies', message: 'Reply 2 is the same as reply 1.' }],
+          }),
+        ),
+    });
+
+    const response = await call('/api/v1/quick-replies', put({ replies: ['Go', 'Go'] }));
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      errors: [{ field: 'replies', message: 'Reply 2 is the same as reply 1.' }],
+    });
+  });
+
+  it('answers 422 for more than 20 replies before asking the use case', async () => {
+    const call = repliesOnly({ replace: () => Effect.die('not called') });
+
+    const response = await call(
+      '/api/v1/quick-replies',
+      put({ replies: Array.from({ length: 21 }, (_, index) => `Reply ${index}`) }),
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  it('answers 503 when the quick replies cannot be kept', async () => {
+    const call = repliesOnly({
+      list: Effect.fail(new QuickRepliesStoreError({ reason: 'not readable' })),
+    });
+
+    const response = await call('/api/v1/quick-replies');
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:quick-replies-unavailable',
+    });
   });
 });
