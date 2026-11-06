@@ -42,6 +42,10 @@ const openMore = async () => {
   return screen.findByRole('dialog', { name: 'More' });
 };
 
+/** Opens the footer's Controls, which hold the keys and the quick replies. */
+const openControls = async () =>
+  userEvent.click(await screen.findByRole('button', { name: /^Controls/ }));
+
 describe('the conversation', () => {
   it('renders the session as a chat', async () => {
     open();
@@ -114,6 +118,7 @@ describe('the conversation', () => {
 
     const terminal = await screen.findByRole('region', { name: 'Screen of kirk' });
     await waitFor(() => expect(terminal.textContent).toContain('Allow command?'));
+    await openControls();
     expect(screen.getByRole('group', { name: 'Keys' })).toBeDefined();
   });
 
@@ -152,6 +157,7 @@ describe('the conversation', () => {
     await waitFor(() => expect(panel.textContent).toContain('Allow command?'));
     expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
 
+    await openControls();
     await userEvent.click(
       within(screen.getByRole('group', { name: 'Keys' })).getByRole('button', { name: '1' }),
     );
@@ -162,6 +168,7 @@ describe('the conversation', () => {
   it('moves between questions with the Left and Right keys', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
 
+    await openControls();
     const keys = await screen.findByRole('group', { name: 'Keys' });
     expect(within(keys).getByRole('button', { name: 'Left' }).textContent).toBe('←');
     await userEvent.click(within(keys).getByRole('button', { name: 'Right' }));
@@ -179,6 +186,7 @@ describe('the conversation', () => {
   it('sends nothing on a short tap of Ctrl-C', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
 
+    await openControls();
     await userEvent.click(await screen.findByRole('button', { name: 'Hold to send Control C' }));
 
     expect(fake.calls.keys).toEqual([]);
@@ -186,6 +194,7 @@ describe('the conversation', () => {
 
   it('sends Ctrl-C after a long press', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
+    await openControls();
     const ctrlC = await screen.findByRole('button', { name: 'Hold to send Control C' });
 
     fireEvent.pointerDown(ctrlC);
@@ -210,6 +219,7 @@ describe('the conversation', () => {
     await screen.findByRole('alert');
 
     await userEvent.click(screen.getByRole('radio', { name: 'Screen' }));
+    await openControls();
     await userEvent.click(
       within(screen.getByRole('group', { name: 'Keys' })).getByRole('button', { name: 'Enter' }),
     );
@@ -220,6 +230,7 @@ describe('the conversation', () => {
   it('replaces the composer with the keys for a blocked agent without a chat', async () => {
     open(fakeAgent({ kind: 'codex', format: undefined, status: 'blocked', needsYou: true }));
 
+    await openControls();
     expect(await screen.findByRole('group', { name: 'Keys' })).toBeDefined();
     expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
     expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
@@ -284,12 +295,45 @@ describe('typed answers and quick replies', () => {
   const chip = (name: string) =>
     within(screen.getByRole('grid', { name: 'Quick replies' })).getByRole('row', { name });
 
+  it('keeps the keys and the quick replies collapsed under Controls, beside the dialog field', async () => {
+    open(fakeAgent({ status: 'blocked', needsYou: true }));
+    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+
+    const controls = screen.getByRole('button', { name: /^Controls/ });
+    expect(controls.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('group', { name: 'Keys' })).toBeNull();
+    expect(screen.queryByRole('grid', { name: 'Quick replies' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Claude needs your answer' })).toBeDefined();
+  });
+
+  it('keeps the controls open across presses and a switch of the view', async () => {
+    const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
+    await openControls();
+
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Keys' })).getByRole('button', { name: 'Down' }),
+    );
+    await waitFor(() => expect(fake.calls.keys).toEqual([['kirk', ['down']]]));
+    await userEvent.click(screen.getByRole('radio', { name: 'Screen' }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Keys' })).getByRole('button', { name: 'Enter' }),
+    );
+
+    await waitFor(() =>
+      expect(fake.calls.keys).toEqual([
+        ['kirk', ['down']],
+        ['kirk', ['enter']],
+      ]),
+    );
+  });
+
   it.each(['Chat', 'Screen'])(
     'offers the keys, the quick replies and the dialog field in the %s view',
     async (view) => {
       open(fakeAgent({ status: 'blocked', needsYou: true }));
       await screen.findByRole('textbox', { name: 'Type into the dialog' });
       await userEvent.click(screen.getByRole('radio', { name: view }));
+      await openControls();
 
       expect(screen.getByRole('group', { name: 'Keys' })).toBeDefined();
       expect(chip('Go ahead')).toBeDefined();
@@ -330,6 +374,7 @@ describe('typed answers and quick replies', () => {
   it('types a quick reply into the waiting dialog', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
     await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await openControls();
 
     await userEvent.click(chip('Commit and open a PR'));
 
@@ -341,6 +386,7 @@ describe('typed answers and quick replies', () => {
     const fake = open(fakeAgent({ status: 'idle' }));
     const box = await screen.findByRole('textbox', { name: 'Message' });
     await userEvent.type(box, 'Half a thought');
+    await openControls();
 
     await userEvent.click(chip('Go ahead'));
 
@@ -354,6 +400,7 @@ describe('typed answers and quick replies', () => {
     let release: () => void = () => undefined;
     fake.state.typeGate = new Promise((resolve) => (release = resolve));
     const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await openControls();
 
     await userEvent.type(box, 'Use SQLite{Enter}');
 
@@ -402,6 +449,7 @@ describe('typed answers and quick replies', () => {
   it('offers the quick replies in the Screen view of an idle agent', async () => {
     open(fakeAgent({ status: 'idle' }));
     await userEvent.click(await screen.findByRole('radio', { name: 'Screen' }));
+    await openControls();
 
     expect(chip('Go ahead')).toBeDefined();
     expect(screen.getByRole('textbox', { name: 'Message' })).toBeDefined();

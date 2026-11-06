@@ -4,6 +4,7 @@ import {
   AppBar,
   Card,
   Composer,
+  Disclosure,
   DockedPage,
   IconButton,
   SegmentedControl,
@@ -121,8 +122,8 @@ const Header = ({
 
 /**
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
- * the composer and the quick replies, or the keys and a field that types into the waiting dialog
- * while the agent is blocked. It updates live.
+ * the composer, or a field that types into the waiting dialog while the agent is blocked. The keys
+ * and the quick replies wait under Controls, so the question keeps the room. It updates live.
  */
 export const Conversation = ({
   client,
@@ -135,6 +136,7 @@ export const Conversation = ({
   useAgentLive(client, agentRef);
   const now = useNow(60_000);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
   const agentResult = useQuery(agentQuery(client, agentRef));
   const agent = agentResult.data;
   const hasChat = agent?.format !== undefined;
@@ -251,6 +253,7 @@ export const Conversation = ({
   const screenText = screen.data ?? '';
   const name = agent.ref;
   const kindLabel = kindOf(agent.kind).label;
+  const withKeys = blocked || view === 'screen';
 
   return (
     <DockedPage
@@ -275,18 +278,28 @@ export const Conversation = ({
               onExpandedChange={setBackgroundOpen}
             />
           )}
-          {blocked || view === 'screen' ? (
-            <KeyPad
-              label="Keys"
-              keys={KEYS}
-              holdKey={CTRL_C}
-              disabled={keys.isPending || sending}
-              onKey={(value) => {
-                if (isKey(value)) pressKey(value);
-              }}
-            />
-          ) : null}
-          <QuickReplies disabled={sending} onPick={sendReply} />
+          {/* Closed at first so the question keeps the room; open while the owner presses keys. */}
+          <Disclosure
+            title="Controls"
+            detail={withKeys ? 'Keys and quick replies' : 'Quick replies'}
+            expanded={controlsOpen}
+            onExpandedChange={setControlsOpen}
+          >
+            <Stack gap="xs">
+              {withKeys ? (
+                <KeyPad
+                  label="Keys"
+                  keys={KEYS}
+                  holdKey={CTRL_C}
+                  disabled={keys.isPending || sending}
+                  onKey={(value) => {
+                    if (isKey(value)) pressKey(value);
+                  }}
+                />
+              ) : null}
+              <QuickReplies disabled={sending} onPick={sendReply} />
+            </Stack>
+          </Disclosure>
           {blocked ? (
             <Composer
               label="Type into the dialog"
