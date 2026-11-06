@@ -57,6 +57,8 @@ const KEYS: ReadonlyArray<{ value: Key; label: string; accessibleLabel?: string 
   { value: '3', label: '3' },
   { value: 'up', label: '↑', accessibleLabel: 'Up' },
   { value: 'down', label: '↓', accessibleLabel: 'Down' },
+  { value: 'left', label: '←', accessibleLabel: 'Left' },
+  { value: 'right', label: '→', accessibleLabel: 'Right' },
   { value: 'enter', label: 'Enter' },
   { value: 'esc', label: 'Esc' },
 ];

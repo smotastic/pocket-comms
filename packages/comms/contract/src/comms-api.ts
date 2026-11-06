@@ -364,7 +364,18 @@ export const Screen = Schema.Struct({
 }).annotate({ identifier: 'Screen', description: "The agent's terminal screen." });
 
 /** The keys the app sends; the service accepts no other. */
-export const KEYS = ['1', '2', '3', 'up', 'down', 'enter', 'esc', 'ctrl+c'] as const;
+export const KEYS = [
+  '1',
+  '2',
+  '3',
+  'up',
+  'down',
+  'left',
+  'right',
+  'enter',
+  'esc',
+  'ctrl+c',
+] as const;
 
 export const PromptRequest = Schema.Struct({
   text: Schema.String.check(Schema.isMaxLength(20_000)).annotate({

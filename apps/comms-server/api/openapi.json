@@ -256,7 +256,7 @@
                 "examples": [["enter"]],
                 "items": {
                   "description": "One key.",
-                  "enum": ["1", "2", "3", "up", "down", "enter", "esc", "ctrl+c"],
+                  "enum": ["1", "2", "3", "up", "down", "left", "right", "enter", "esc", "ctrl+c"],
                   "examples": ["enter"],
                   "type": "string"
                 },
@@ -1533,7 +1533,7 @@
             "examples": [["1"]],
             "items": {
               "description": "One key.",
-              "enum": ["1", "2", "3", "up", "down", "enter", "esc", "ctrl+c"],
+              "enum": ["1", "2", "3", "up", "down", "left", "right", "enter", "esc", "ctrl+c"],
               "examples": ["enter"],
               "type": "string"
             },
