@@ -43,6 +43,7 @@ const Event = Schema.Union([
     images: Schema.Int,
   }),
   Schema.Struct({ type: Schema.tag('keys'), ...Common, keys: Schema.Array(AgentKey) }),
+  Schema.Struct({ type: Schema.tag('typed'), ...Common, excerpt: Schema.String }),
 ]);
 
 const StoredFile = Schema.Struct({ version: Schema.Literal(1), events: Schema.Array(Event) });

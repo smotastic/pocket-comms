@@ -108,6 +108,9 @@ const lists = (request: HerdrRequest) => {
           },
         };
   }
+  if (request.method === 'pane.send_text' && request.params['text'] === 'refuse') {
+    return { error: { code: 'pane_not_found', message: 'pane wJ:p1 not found' } };
+  }
   if (request.method === 'agent.prompt' && request.params['text'] === 'refuse') {
     return { error: { code: 'agent_not_ready', message: 'agent wJ:p1 is not ready' } };
   }
@@ -196,6 +199,19 @@ describe('Herdr.layerSocket', () => {
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
         ['agent.prompt', { target: 'wJ:p1', text: 'hello' }],
         ['agent.send_keys', { target: 'wJ:p1', keys: ['1', 'enter'] }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('types text into the pane without pressing Enter', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      yield* HerdrOutbound.use((herdr) => herdr.typeText('wJ:p1', 'Use SQLite')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+      );
+
+      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
+        ['pane.send_text', { pane_id: 'wJ:p1', text: 'Use SQLite' }],
       ]);
     }).pipe(Effect.scoped),
   );
@@ -357,6 +373,22 @@ describe('Herdr.layerSocket', () => {
         ref: 'wJ:p1',
         code: 'agent_not_ready',
         message: 'agent wJ:p1 is not ready',
+      });
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('reports a refused text as a refusal', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      const error = yield* HerdrOutbound.use((herdr) => herdr.typeText('wJ:p1', 'refuse')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+        Effect.flip,
+      );
+
+      expect(error).toMatchObject({
+        _tag: 'HerdrRejectedError',
+        ref: 'wJ:p1',
+        code: 'pane_not_found',
       });
     }).pipe(Effect.scoped),
   );

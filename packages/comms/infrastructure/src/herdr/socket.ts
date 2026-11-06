@@ -369,6 +369,12 @@ export const layerSocket = ({
           Effect.asVoid,
           Effect.withSpan('Herdr.prompt'),
         ),
+      // `agent.prompt` refuses a blocked agent and always submits; `pane.send_text` types only.
+      typeText: (paneId, text) =>
+        request('pane.send_text', { pane_id: paneId, text }, Schema.Unknown, paneId).pipe(
+          Effect.asVoid,
+          Effect.withSpan('Herdr.typeText'),
+        ),
       sendKeys: (target, keys) =>
         request('agent.send_keys', { target, keys }, Schema.Unknown, target).pipe(
           Effect.asVoid,

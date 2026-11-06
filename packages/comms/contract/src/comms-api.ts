@@ -377,6 +377,14 @@ export const KeysRequest = Schema.Struct({
     .annotate({ description: 'One to eight keys, pressed in order.', examples: [['1']] }),
 }).annotate({ identifier: 'KeysRequest', description: 'Key presses for the agent.' });
 
+export const TypeRequest = Schema.Struct({
+  text: Schema.String.check(Schema.isMaxLength(2_000)).annotate({
+    description:
+      'The text; it is sent trimmed, with each line break as a space, and must not be blank.',
+    examples: ['Use SQLite instead'],
+  }),
+}).annotate({ identifier: 'TypeRequest', description: 'Text to type into a waiting dialog.' });
+
 export const ActivityAgent = Schema.Struct({
   ref: AgentParam,
   paneId: Schema.String.annotate({ description: "The agent's Herdr pane.", examples: ['wJ:p1'] }),
@@ -453,6 +461,14 @@ export const ActivityEvent = Schema.Union([
     keys: Schema.Array(
       Schema.Literals(KEYS).annotate({ description: 'One key.', examples: ['enter'] }),
     ).annotate({ description: 'The keys, in order.', examples: [['enter']] }),
+  }),
+  Schema.Struct({
+    type: activityType('typed', 'The owner typed text into a waiting dialog from the app.'),
+    ...activityFields,
+    excerpt: Schema.String.annotate({
+      description: 'The typed text, at most 80 characters.',
+      examples: ['Use SQLite instead'],
+    }),
   }),
 ]).annotate({ identifier: 'ActivityEvent', description: 'One event of the activity timeline.' });
 
@@ -1196,6 +1212,18 @@ const group = HttpApiGroup.make('agents')
       OpenApi.annotations({
         summary: 'Press keys',
         description: 'Presses the keys in the agent, such as an approval choice.',
+      }),
+    ),
+    HttpApiEndpoint.post('text', '/agents/:agent/text', {
+      params: agent,
+      payload: TypeRequest,
+      success: HttpApiSchema.NoContent,
+      error: [...problems, Problems.Conflict, Problems.Validation],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Type text',
+        description:
+          "Types the text into the agent's terminal as it is, such as an answer to a waiting dialog. It never presses Enter: the owner submits with the `enter` key.",
       }),
     ),
     HttpApiEndpoint.post('seen', '/agents/:agent/seen', {

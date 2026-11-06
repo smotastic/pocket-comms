@@ -68,6 +68,7 @@ export interface HerdrCall {
     | 'snapshot'
     | 'readScreen'
     | 'prompt'
+    | 'typeText'
     | 'sendKeys'
     | 'createWorktree'
     | 'removeWorktree'
@@ -247,6 +248,8 @@ const herdr = (state: FakeState['Service']) => {
     readScreen: (target) =>
       command({ method: 'readScreen', target }, () => state.screens.get(target) ?? ''),
     prompt: (target, text) => command({ method: 'prompt', target, params: text }, () => undefined),
+    typeText: (paneId, text) =>
+      command({ method: 'typeText', target: paneId, params: text }, () => undefined),
     sendKeys: (target, keys) =>
       command({ method: 'sendKeys', target, params: keys }, () => undefined),
     // A new worktree's workspace is `w-<branch>` and its root pane `w-<branch>:p1`.

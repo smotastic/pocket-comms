@@ -266,6 +266,47 @@ describe('the agents API', () => {
     });
   });
 
+  it('types text into the agent', async () => {
+    const typed: Array<[string, string]> = [];
+    const call = serve({ type: (ref, text) => Effect.sync(() => void typed.push([ref, text])) });
+
+    const response = await call('/api/v1/agents/kirk/text', json({ text: 'Use SQLite' }));
+
+    expect(response.status).toBe(204);
+    expect(typed).toEqual([['kirk', 'Use SQLite']]);
+  });
+
+  it('answers 422 for blank typed text', async () => {
+    const call = serve({
+      type: () =>
+        Effect.fail(
+          new InvalidInputError({ issues: [{ field: 'text', message: 'Write an answer first.' }] }),
+        ),
+    });
+
+    const response = await call('/api/v1/agents/kirk/text', json({ text: ' ' }));
+
+    expect(response.status).toBe(422);
+  });
+
+  it('answers 404 when typing into an unknown agent', async () => {
+    const call = serve({
+      type: (ref) => Effect.fail(new AgentNotFoundError({ ref })),
+    });
+
+    const response = await call('/api/v1/agents/spock/text', json({ text: 'hi' }));
+
+    expect(response.status).toBe(404);
+  });
+
+  it('answers 422 for typed text over the limit', async () => {
+    const call = serve({ type: () => Effect.void });
+
+    const response = await call('/api/v1/agents/kirk/text', json({ text: 'x'.repeat(2_001) }));
+
+    expect(response.status).toBe(422);
+  });
+
   it('marks an agent as seen', async () => {
     const seen: Array<string> = [];
     const call = serve({ markSeen: (ref) => Effect.sync(() => void seen.push(ref)) });

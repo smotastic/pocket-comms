@@ -78,6 +78,8 @@ export interface CommsClient {
   readonly uploadImage: (image: Blob) => Promise<string>;
   /** Where an uploaded image is served. */
   readonly imageUrl: (id: string) => string;
+  /** Types the text into the agent's waiting dialog; it never presses Enter. */
+  readonly type: (ref: string, text: string) => Promise<void>;
   readonly keys: (ref: string, keys: ReadonlyArray<Key>) => Promise<void>;
   readonly seen: (ref: string) => Promise<void>;
   /** Removes the agent's worktree and closes its workspace; `force` discards its changes. */
@@ -274,6 +276,8 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
       return run((api) => api.images.upload({ payload: bytes })).then((uploaded) => uploaded.id);
     },
     imageUrl: (id) => `${baseUrl}/api/v1/images/${encodeURIComponent(id)}`,
+    type: (ref, text) =>
+      run((api) => api.agents.text({ ...agent(ref), payload: { text } })).then(() => undefined),
     keys: (ref, keys) =>
       run((api) => api.agents.keys({ ...agent(ref), payload: { keys } })).then(() => undefined),
     seen: (ref) => run((api) => api.agents.seen(agent(ref))).then(() => undefined),

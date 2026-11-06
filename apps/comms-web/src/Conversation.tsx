@@ -24,6 +24,7 @@ import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu } from './ConversationMenu.js';
 import { agentQuery, screenQuery, transcriptQuery } from './comms-queries.js';
 import { KeyPad } from './KeyPad.js';
+import { QuickReplies } from './QuickReplies.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -60,6 +61,9 @@ const KEYS: ReadonlyArray<{ value: Key; label: string; accessibleLabel?: string 
   { value: 'esc', label: 'Esc' },
 ];
 const CTRL_C = { value: 'ctrl+c', label: 'Ctrl-C', accessibleLabel: 'Hold to send Control C' };
+
+/** A text to send, and whether it came from a field, which a successful send clears. */
+type Send = { readonly text: string; readonly fromField: boolean };
 
 const isKey = (value: string): value is Key =>
   value === CTRL_C.value || KEYS.some((key) => key.value === value);
@@ -115,7 +119,8 @@ const Header = ({
 
 /**
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
- * the composer, or the approval keys while the agent is blocked. It updates live.
+ * the composer and the quick replies, or the keys and a field that types into the waiting dialog
+ * while the agent is blocked. It updates live.
  */
 export const Conversation = ({
   client,
@@ -151,27 +156,55 @@ export const Conversation = ({
 
   const [closing, setClosing] = useState(false);
   const [draft, setDraft] = useState('');
+  // What the owner types into a waiting dialog, apart from the message they are writing.
+  const [answer, setAnswer] = useState('');
   const images = useAttachments(client);
-  // A successful send clears the text and the images; a failed one keeps both (spec 014).
+  // A successful send from a field clears it, and the images; a failed one keeps both. A quick
+  // reply leaves the fields alone. The clearing is on the mutation, not on `mutate`, so a reset
+  // of the mutation by a later send cannot drop it.
   const prompt = useMutation({
-    mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
+    mutationFn: ({ text, imageIds }: Send & { imageIds: ReadonlyArray<string> }) =>
       client.prompt(agentRef, text, imageIds),
-    onSuccess: () => {
+    onSuccess: (_, { fromField }) => {
+      if (!fromField) return;
       setDraft('');
       images.clear();
     },
   });
   const keys = useMutation({ mutationFn: (key: Key) => client.keys(agentRef, [key]) });
-  // Only the latest send can fail visibly: a new one clears the reason of the other.
-  const failure = prompt.error ?? keys.error;
-  const sendPrompt = (text: string) => {
+  // Typing never presses Enter: the owner submits the dialog with the key.
+  const typed = useMutation({
+    mutationFn: ({ text }: Send) => client.type(agentRef, text),
+    onSuccess: (_, { fromField }) => {
+      if (fromField) setAnswer('');
+    },
+  });
+  // Only the latest send can fail visibly: a new one clears the reason of the others.
+  const failure = prompt.error ?? keys.error ?? typed.error;
+  // The keys wait for a send too, so an Enter can never overtake the text it should submit.
+  const sending = prompt.isPending || typed.isPending;
+  const sendPrompt = (send: Send, imageIds: ReadonlyArray<string>) => {
     keys.reset();
-    prompt.mutate({ text, imageIds: images.ids });
+    typed.reset();
+    prompt.mutate({ ...send, imageIds });
+  };
+  const typeText = (send: Send) => {
+    keys.reset();
+    prompt.reset();
+    typed.mutate(send);
   };
   const pressKey = (key: Key) => {
     prompt.reset();
+    typed.reset();
     keys.mutate(key);
   };
+  const sendReply = (text: string) =>
+    blocked ? typeText({ text, fromField: false }) : sendPrompt({ text, fromField: false }, []);
+  // A refused text means nothing once the dialog is gone.
+  const { reset: resetTyped } = typed;
+  useEffect(() => {
+    if (!blocked) resetTyped();
+  }, [blocked, resetTyped]);
 
   const gone = agentResult.error instanceof RequestError && agentResult.error.status === 404;
   const shown = useRef(false);
@@ -245,22 +278,30 @@ export const Conversation = ({
               label="Keys"
               keys={KEYS}
               holdKey={CTRL_C}
-              disabled={keys.isPending}
+              disabled={keys.isPending || sending}
               onKey={(value) => {
                 if (isKey(value)) pressKey(value);
               }}
             />
           ) : null}
+          <QuickReplies disabled={sending} onPick={sendReply} />
           {blocked ? (
-            <Text tone="muted" size="sm">
-              {view === 'chat' ? 'Answer above to continue' : 'Answer with the keys'}
-            </Text>
+            <Composer
+              label="Type into the dialog"
+              value={answer}
+              onChange={setAnswer}
+              onSend={(text) => typeText({ text, fromField: true })}
+              placeholder="Your answer"
+              hint="Choose Type something or Other with the keys first, then press Enter to submit."
+              sendLabel="Type"
+              locked={typed.isPending}
+            />
           ) : (
             <Composer
               label="Message"
               value={draft}
               onChange={setDraft}
-              onSend={sendPrompt}
+              onSend={(text) => sendPrompt({ text, fromField: true }, images.ids)}
               placeholder={`Message ${name}`}
               locked={prompt.isPending || images.pending}
               attach={{

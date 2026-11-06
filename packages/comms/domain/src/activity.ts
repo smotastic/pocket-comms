@@ -32,7 +32,9 @@ export type ActivityChange =
   /** The owner's prompt from the app: its first line, cut short, and its images. */
   | { readonly type: 'prompt'; readonly excerpt: string; readonly images: number }
   /** Keys the owner sent from the app, such as an approval. */
-  | { readonly type: 'keys'; readonly keys: ReadonlyArray<AgentKey> };
+  | { readonly type: 'keys'; readonly keys: ReadonlyArray<AgentKey> }
+  /** Text the owner typed into a waiting dialog from the app, cut short. */
+  | { readonly type: 'typed'; readonly excerpt: string };
 
 /** A change of one agent, before it gets its id and time. */
 export type NewActivity = ActivityChange & { readonly agent: ActivitySubject };
