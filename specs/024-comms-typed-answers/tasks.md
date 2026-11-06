@@ -21,5 +21,5 @@ in the task's own commit.
       Type into the dialog field and hint, "You typed: …" in the timeline
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T05** — Docs: the comms service guide; the spec's status `Done`
+- [x] **T05** — Docs: the comms service guide; the spec's status `Done`
   - Gate: `pnpm verify:local`

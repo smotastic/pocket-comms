@@ -1,6 +1,6 @@
 # Spec 024 — pocket-comms: typed answers and quick replies
 
-- **Status:** `Approved` — approved by the owner (2026-11-06)
+- **Status:** `Done` — approved by the owner (2026-11-06)
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (requirements 13 to 15: the composer,
   the approval panel and the terminal view's keys) and
   [spec 017](../017-comms-activity-timeline/spec.md) (what the timeline records)

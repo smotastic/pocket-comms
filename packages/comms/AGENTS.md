@@ -17,8 +17,9 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 018](../../specs/018-comms-push-notifications/spec.md),
 [spec 019](../../specs/019-comms-background-activity/spec.md),
 [spec 020](../../specs/020-comms-push-after-background-work/spec.md),
-[spec 022](../../specs/022-comms-brainstorm-edits-issues/spec.md) and
-[spec 023](../../specs/023-comms-brainstorm-pictures/spec.md).
+[spec 022](../../specs/022-comms-brainstorm-edits-issues/spec.md),
+[spec 023](../../specs/023-comms-brainstorm-pictures/spec.md) and
+[spec 024](../../specs/024-comms-typed-answers/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, and the push devices and the
@@ -55,6 +56,9 @@ VAPID key pair are two JSON files in its `push` folder.
   (requirement 18). Do not add one. `worktree.create` always sends `focus: false`.
 - `git` and Herdr run with argument arrays, never through a shell. A project is only ever a folder
   the projects port lists; never accept a path from a request.
+- Typed text (spec 024) goes through `HerdrOutbound.typeText` (`pane.send_text`), which never
+  presses Enter: the owner submits a waiting dialog with the `enter` key. Do not add Enter to it,
+  and do not route it through `prompt`, which submits.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
 - `GiteaOutbound` reads, and writes only `closeIssue` (spec 010), `createIssue` (spec 013),
@@ -105,7 +109,8 @@ VAPID key pair are two JSON files in its `push` folder.
   an image id from a request is only ever looked up, never joined into a path. The server checks
   an upload by its content (JPEG or PNG), never by its name or declared type.
 - The activity recorder runs in `ActivityInbound`'s layer scope from server start and records only
-  what the server observes: Herdr snapshots and the prompts and keys Herdr took from the app. The
+  what the server observes: Herdr snapshots and the prompts, keys and typed text Herdr took from
+  the app. The
   timeline keeps a prompt's first line, at most 80 characters, never the whole prompt.
 - Only `infrastructure/src/push` imports `web-push`. The VAPID private key stays between the push
   store and the sender (`Push.layer` puts out the three ports only); never log it, put it in an
