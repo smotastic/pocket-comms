@@ -224,6 +224,16 @@ describe('AgentsInbound input in the activity timeline', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('records typed text with its excerpt', () =>
+    Effect.gen(function* () {
+      const state = yield* withKirk;
+
+      yield* AgentsInbound.use((inbound) => inbound.type('kirk', 'Use SQLite instead'));
+
+      expect(state.activity).toMatchObject([{ type: 'typed', excerpt: 'Use SQLite instead' }]);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('records nothing when Herdr refuses the input', () =>
     Effect.gen(function* () {
       const state = yield* withKirk;

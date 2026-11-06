@@ -276,6 +276,42 @@
             },
             "required": ["type", "id", "at", "agent", "live", "keys"],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent": {
+                "$ref": "#/components/schemas/ActivityAgent"
+              },
+              "at": {
+                "description": "When it happened, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "excerpt": {
+                "description": "The typed text, at most 80 characters.",
+                "examples": ["Use SQLite instead"],
+                "type": "string"
+              },
+              "id": {
+                "description": "The id of the event.",
+                "examples": ["0c6f5bd2-5a3e-4f7a-9d61-1f0f6f1c2a3b"],
+                "type": "string"
+              },
+              "live": {
+                "description": "Whether the agent still runs, so its conversation can open.",
+                "examples": [true],
+                "type": "boolean"
+              },
+              "type": {
+                "description": "The owner typed text into a waiting dialog from the app.",
+                "enum": ["typed"],
+                "examples": ["typed"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "agent", "live", "excerpt"],
+            "type": "object"
           }
         ],
         "description": "One event of the activity timeline."
@@ -2402,6 +2438,20 @@
         ],
         "description": "One entry of the chat."
       },
+      "TypeRequest": {
+        "additionalProperties": false,
+        "description": "Text to type into a waiting dialog.",
+        "properties": {
+          "text": {
+            "description": "The text; it is sent trimmed, with each line break as a space, and must not be blank.",
+            "examples": ["Use SQLite instead"],
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "required": ["text"],
+        "type": "object"
+      },
       "UploadedImage": {
         "additionalProperties": false,
         "description": "The uploaded image, by the id a prompt attaches it with.",
@@ -3581,6 +3631,95 @@
         },
         "security": [],
         "summary": "Follow a subagent's conversation",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/text": {
+      "post": {
+        "description": "Types the text into the agent's terminal as it is, such as an answer to a waiting dialog. It never presses Enter: the owner submits with the `enter` key.",
+        "operationId": "agents.text",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TypeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Type text",
         "tags": ["Agents"]
       }
     },

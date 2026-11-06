@@ -59,8 +59,11 @@ export const makeInput = Effect.gen(function* () {
   // Typing never presses Enter: the owner submits the dialog with the key (spec 024).
   const type = Effect.fn('Input.type')(function* (ref: string, text: string) {
     const parsed = yield* Effect.fromResult(parseTyped(text));
-    const { agent } = yield* find(ref);
+    const { agent, workspace } = yield* find(ref);
     yield* herdrOutbound.typeText(agent.paneId, parsed);
+    yield* record([
+      { type: 'typed', excerpt: promptExcerpt(parsed), agent: activitySubject(agent, workspace) },
+    ]);
   });
 
   return { screen, prompt, type, sendKeys };

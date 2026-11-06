@@ -12,7 +12,7 @@ in the task's own commit.
       `Input.type`
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-application comms-infrastructure`
 
-- [ ] **T03** — Contract and API: `TypeRequest`, `POST /agents/:agent/text`; the `typed`
+- [x] **T03** — Contract and API: `TypeRequest`, `POST /agents/:agent/text`; the `typed`
       activity event in the domain, the recorder, the file store and the contract; the OpenAPI
       document and the accepted change
   - Gate: `pnpm nx run-many -t test -p comms-contract comms-api comms-server`

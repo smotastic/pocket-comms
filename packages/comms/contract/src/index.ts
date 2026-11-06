@@ -28,6 +28,7 @@ export {
   IssueWork,
   KEYS,
   KeysRequest,
+  TypeRequest,
   liftParameterDocs,
   Overview,
   OverviewState,

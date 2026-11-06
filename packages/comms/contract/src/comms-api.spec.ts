@@ -59,6 +59,7 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}/seen',
       '/api/v1/agents/{agent}/subagents/{subagent}',
       '/api/v1/agents/{agent}/subagents/{subagent}/events',
+      '/api/v1/agents/{agent}/text',
       '/api/v1/agents/{agent}/transcript',
       '/api/v1/brainstorm',
       '/api/v1/brainstorm/events',
@@ -120,9 +121,10 @@ describe('CommsApi', () => {
           { type: 'prompt', ...common, excerpt: 'Fix it', images: 0 },
           { type: 'status', ...common, status: 'done' },
           { type: 'gone', ...common },
+          { type: 'typed', ...common, excerpt: 'Use SQLite' },
         ],
       }).events.map((event) => event.type),
-    ).toEqual(['keys', 'prompt', 'status', 'gone']);
+    ).toEqual(['keys', 'prompt', 'status', 'gone', 'typed']);
     expect(() => decode({ events: [{ type: 'status', ...common, status: 'idle' }] })).toThrow();
     expect(() => decode({ events: [{ type: 'keys', ...common, keys: ['x'] }] })).toThrow();
   });
