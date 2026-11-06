@@ -159,6 +159,23 @@ describe('the conversation', () => {
     await waitFor(() => expect(fake.calls.keys).toEqual([['kirk', ['1']]]));
   });
 
+  it('moves between questions with the Left and Right keys', async () => {
+    const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
+
+    const keys = await screen.findByRole('group', { name: 'Keys' });
+    expect(within(keys).getByRole('button', { name: 'Left' }).textContent).toBe('←');
+    await userEvent.click(within(keys).getByRole('button', { name: 'Right' }));
+    await waitFor(() => expect(fake.calls.keys).toEqual([['kirk', ['right']]]));
+    await userEvent.click(within(keys).getByRole('button', { name: 'Left' }));
+
+    await waitFor(() =>
+      expect(fake.calls.keys).toEqual([
+        ['kirk', ['right']],
+        ['kirk', ['left']],
+      ]),
+    );
+  });
+
   it('sends nothing on a short tap of Ctrl-C', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
 

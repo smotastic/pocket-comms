@@ -161,6 +161,7 @@ describe('activityText', () => {
     [{ type: 'keys', keys: ['enter'] }, 'You pressed Enter'],
     [{ type: 'typed', excerpt: 'Use SQLite' }, 'You typed: Use SQLite'],
     [{ type: 'keys', keys: ['2', 'down', 'esc', 'ctrl+c'] }, 'You pressed 2, ↓, Esc, Ctrl-C'],
+    [{ type: 'keys', keys: ['left', 'right'] }, 'You pressed ←, →'],
   ] as const)('says %o as "%s"', (event, text) => {
     expect(of(event as Partial<ActivityEventView>)).toBe(text);
   });

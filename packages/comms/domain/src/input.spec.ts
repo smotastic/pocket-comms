@@ -94,10 +94,15 @@ describe('parseTyped', () => {
 });
 
 describe('parseKeys', () => {
-  it('accepts the keys of the approval panel', () => {
-    expect(parseKeys(['1', '2', '3', 'up', 'down', 'enter', 'esc', 'ctrl+c'])).toEqual(
-      Result.succeed(['1', '2', '3', 'up', 'down', 'enter', 'esc', 'ctrl+c']),
-    );
+  it.each(['1', '2', '3', 'up', 'down', 'left', 'right', 'enter', 'esc', 'ctrl+c'])(
+    'accepts the key %s of the approval panel',
+    (key) => {
+      expect(parseKeys([key])).toEqual(Result.succeed([key]));
+    },
+  );
+
+  it('keeps the keys in order', () => {
+    expect(parseKeys(['down', 'left', 'enter'])).toEqual(Result.succeed(['down', 'left', 'enter']));
   });
 
   it('rejects a key outside the list', () => {

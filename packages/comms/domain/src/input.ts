@@ -7,7 +7,18 @@ export const MAX_KEYS = 8;
 export const MAX_TYPED_LENGTH = 2_000;
 
 /** The keys the app can send: the approval choices, the arrows, Enter, Escape and Ctrl-C. */
-export const AgentKey = Schema.Literals(['1', '2', '3', 'up', 'down', 'enter', 'esc', 'ctrl+c']);
+export const AgentKey = Schema.Literals([
+  '1',
+  '2',
+  '3',
+  'up',
+  'down',
+  'left',
+  'right',
+  'enter',
+  'esc',
+  'ctrl+c',
+]);
 export type AgentKey = typeof AgentKey.Type;
 
 const isAgentKey = Schema.is(AgentKey);

@@ -8,6 +8,8 @@ const KEY_LABELS: Record<Key, string> = {
   '3': '3',
   up: '↑',
   down: '↓',
+  left: '←',
+  right: '→',
   enter: 'Enter',
   esc: 'Esc',
   'ctrl+c': 'Ctrl-C',

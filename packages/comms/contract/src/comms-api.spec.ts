@@ -150,7 +150,7 @@ describe('CommsApi', () => {
   });
 
   it('accepts only the keys of the approval panel', () => {
-    expect(KEYS).toEqual(['1', '2', '3', 'up', 'down', 'enter', 'esc', 'ctrl+c']);
+    expect(KEYS).toEqual(['1', '2', '3', 'up', 'down', 'left', 'right', 'enter', 'esc', 'ctrl+c']);
   });
 });
 
