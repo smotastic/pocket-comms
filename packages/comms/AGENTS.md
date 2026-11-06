@@ -18,12 +18,14 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 019](../../specs/019-comms-background-activity/spec.md),
 [spec 020](../../specs/020-comms-push-after-background-work/spec.md),
 [spec 022](../../specs/022-comms-brainstorm-edits-issues/spec.md),
-[spec 023](../../specs/023-comms-brainstorm-pictures/spec.md) and
-[spec 024](../../specs/024-comms-typed-answers/spec.md).
+[spec 023](../../specs/023-comms-brainstorm-pictures/spec.md),
+[spec 024](../../specs/024-comms-typed-answers/spec.md) and
+[spec 025](../../specs/025-comms-quick-replies/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
-the state folder, attached images are files in its `images` folder, and the push devices and the
-VAPID key pair are two JSON files in its `push` folder.
+the state folder, attached images are files in its `images` folder, the push devices and the
+VAPID key pair are two JSON files in its `push` folder, and the owner's quick replies are
+`quick-replies.json` in the state folder.
 
 ## Where each file type goes
 
@@ -35,6 +37,8 @@ VAPID key pair are two JSON files in its `push` folder.
 | Issue rules (remote, order, branch, task text, work per issue)                    | `domain` (`src/issue.ts`)                                   |
 | Brainstorm entries, proposals, issue drafts and edits, issue reads, chat pictures | `domain` (`src/brainstorm.ts`)                              |
 | Image rules (kinds, ids, limits, paths in a prompt)                               | `domain` (`src/image.ts`)                                   |
+| Suggested replies, the quick replies' rules and default list                      | `domain` (`src/replies.ts`)                                 |
+| The quick replies file                                                            | `infrastructure` (`src/quick-replies`)                      |
 | The image store                                                                   | `infrastructure` (`src/images`)                             |
 | Activity rules (snapshot diff, what is kept, prompt excerpts)                     | `domain` (`src/activity.ts`)                                |
 | The activity recorder and timeline                                                | `application` (`src/use-cases/activity*`)                   |
@@ -59,6 +63,11 @@ VAPID key pair are two JSON files in its `push` folder.
 - Typed text (spec 024) goes through `HerdrOutbound.typeText` (`pane.send_text`), which never
   presses Enter: the owner submits a waiting dialog with the `enter` key. Do not add Enter to it,
   and do not route it through `prompt`, which submits.
+- Suggested replies (spec 025) come from fixed rules in `suggestedReplies`, never from a model,
+  and travel on the assistant entries. The web app offers them only in the Chat view of an idle
+  or done agent and sends one only as a prompt: a suggestion never presses a key, never types
+  into a waiting dialog and never answers a blocked agent. A broken `quick-replies.json` is
+  reported, never replaced.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
 - `GiteaOutbound` reads, and writes only `closeIssue` (spec 010), `createIssue` (spec 013),

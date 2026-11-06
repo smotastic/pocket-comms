@@ -22,5 +22,5 @@ in the task's own commit.
 - [x] **T05** — Web: the Settings page and the overview's Settings button
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T06** — Docs: the comms service guide; the spec's status `Done`
+- [x] **T06** — Docs: the comms service guide; the spec's status `Done`
   - Gate: `pnpm verify:local`

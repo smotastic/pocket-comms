@@ -1,6 +1,6 @@
 # Spec 025 — pocket-comms: suggested replies and the owner's quick replies
 
-- **Status:** `Approved` — approved by the owner (2026-11-06)
+- **Status:** `Done` — approved by the owner (2026-11-06)
 - **Changes:** [spec 024](../024-comms-typed-answers/spec.md) (requirement 1: the fixed quick
   replies become the owner's)
 - **Issue:** smotastic/pocket-comms#37
