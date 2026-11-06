@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Domain: `suggestedReplies`; `parseQuickReplies` and the default list
+- [x] **T01** — Domain: `suggestedReplies`; `parseQuickReplies` and the default list
   - Gate: `pnpm nx test comms-domain`
 
 - [ ] **T02** — Application and adapters: `QuickRepliesOutbound` and its file store; the

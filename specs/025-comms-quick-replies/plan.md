@@ -13,8 +13,8 @@
 | `packages/comms/contract`       | `QuickReplies { replies }`, `GET /quick-replies`, `PUT /quick-replies`; the optional `replies` on the assistant `TranscriptEntry`.                                           | `scope:comms`, `type:contract`        |
 | `packages/comms/api`            | The quick replies handlers; `InvalidInputError` maps to `422` as elsewhere.                                                                                                  | `scope:comms`, `layer:api`            |
 | `apps/comms-server`             | Wires the file store into the composition; the regenerated OpenAPI document.                                                                                                 | `scope:comms`, `type:app`             |
-| `apps/comms-web`                | `CommsClient.quickReplies`/`saveQuickReplies`; a query; `QuickReplies` takes the list; `SuggestedReplies`; the `/settings` route and `SettingsPage`; the overview's button.   | `scope:comms`, `type:app`             |
-| `packages/comms/AGENTS.md`      | Names spec 025; the quick replies file; the rule that a suggestion only ever sends a prompt.                                                                                | —                                     |
+| `apps/comms-web`                | `CommsClient.quickReplies`/`saveQuickReplies`; a query; `QuickReplies` takes the list; `SuggestedReplies`; the `/settings` route and `SettingsPage`; the overview's button.  | `scope:comms`, `type:app`             |
+| `packages/comms/AGENTS.md`      | Names spec 025; the quick replies file; the rule that a suggestion only ever sends a prompt.                                                                                 | —                                     |
 | `.pocket-ci`                    | Accepted OpenAPI diff lines, if the diff flags the optional field.                                                                                                           | —                                     |
 
 No design kit change: `ChipGroup` takes an `icon` per chip (sparkle), and the Settings page
