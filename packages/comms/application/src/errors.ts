@@ -88,11 +88,6 @@ export class IssueClosedError extends Data.TaggedError('IssueClosedError')<{
   readonly number: number;
 }> {}
 
-/** The agent runtime failed a turn, such as a model that cannot be reached. */
-export class AgentRuntimeError extends Data.TaggedError('AgentRuntimeError')<{
-  readonly reason: string;
-}> {}
-
 /** The server has no model for the brainstorm chat; `reason` names the missing setting. */
 export class BrainstormNotSetUpError extends Data.TaggedError('BrainstormNotSetUpError')<{
   readonly reason: string;

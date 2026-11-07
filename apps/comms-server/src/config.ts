@@ -1,4 +1,3 @@
-import { Agent } from '@pocket-comms/comms-infrastructure';
 import * as Config from 'effect/Config';
 import * as Option from 'effect/Option';
 import * as Redacted from 'effect/Redacted';
@@ -51,26 +50,7 @@ export const serverConfig = Config.all({
   stateDir: Config.String('COMMS_STATE_DIR').pipe(
     Config.withDefault(join(homedir(), '.pocket-comms')),
   ),
-  // The brainstorm chat's model; without provider and model the chat says it is not set up.
-  brainstormProvider: optionalString('COMMS_BRAINSTORM_PROVIDER'),
+  // The brainstorm chat's model, for the start-up log; the agent package reads the
+  // `COMMS_BRAINSTORM_*` settings itself (ADR 0014).
   brainstormModel: optionalString('COMMS_BRAINSTORM_MODEL'),
-  // A secret, like the Gitea token.
-  brainstormApiKey: Config.option(Config.Redacted('COMMS_BRAINSTORM_API_KEY')).pipe(
-    Config.map(Option.filter((key) => Redacted.value(key).trim() !== '')),
-  ),
-  brainstormThinking: Config.Literals(Agent.THINKING_LEVELS, 'COMMS_BRAINSTORM_THINKING').pipe(
-    Config.withDefault('off' as const),
-  ),
-  // Pi's credential file: `COMMS_PI_AUTH_FILE`, else `auth.json` in Pi's own directory setting.
-  piAuthFile: Config.all({
-    file: optionalString('COMMS_PI_AUTH_FILE'),
-    agentDir: optionalString('PI_CODING_AGENT_DIR'),
-  }).pipe(
-    Config.map(({ file, agentDir }) =>
-      Agent.piAuthFilePath({
-        file: Option.getOrUndefined(file),
-        agentDir: Option.getOrUndefined(agentDir),
-      }),
-    ),
-  ),
 });

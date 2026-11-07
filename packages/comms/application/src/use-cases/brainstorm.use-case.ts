@@ -2,6 +2,7 @@ import {
   baseChanged,
   chatPictures,
   IMAGE_EXTENSIONS,
+  IMAGE_MEDIA_TYPES,
   InvalidInputError,
   missingPictures,
   parseImageIds,
@@ -24,9 +25,15 @@ import {
   type IssueText,
   type ProposalEntry,
 } from '@pocket-comms/comms-domain';
+import {
+  AgentRuntime,
+  defaultReasonOf,
+  makeTurnEngine,
+  type TurnSink,
+} from '@smotastic/pocket-agent';
+import * as Cause from 'effect/Cause';
 import * as Clock from 'effect/Clock';
 import * as Effect from 'effect/Effect';
-import * as Fiber from 'effect/Fiber';
 import * as Option from 'effect/Option';
 import * as PubSub from 'effect/PubSub';
 import * as Result from 'effect/Result';
@@ -38,7 +45,6 @@ import type {
   ProposalDecisionInput,
 } from '../dto/brainstorm.dto.js';
 import {
-  AgentRuntimeError,
   BrainstormBusyError,
   BrainstormNotSetUpError,
   IssueChangedError,
@@ -47,7 +53,6 @@ import {
   ProposalDecidedError,
   ProposalNotFoundError,
 } from '../errors.js';
-import { AgentRuntimeOutbound } from '../ports/agent-runtime.outbound.port.js';
 import {
   BrainstormStoreOutbound,
   type StoredChat,
@@ -58,8 +63,9 @@ import { makeBrainstormTools, type EditDraft } from '../tools/brainstorm-tools.j
 import { makeIssueProject } from './issue-project.js';
 
 // The brainstorm chat (spec 013): one conversation with Pi, kept in the store after every change.
-// One turn runs at a time, in the background of the server; the sheet follows it live. The owner's
-// messages may attach pictures, which go to Gitea with an issue the owner approves (spec 023).
+// One turn runs at a time, in the background of the server, on the agent package's turn engine
+// (ADR 0014); the sheet follows it live. The owner's messages may attach pictures, which go to
+// Gitea with an issue the owner approves (spec 023).
 
 /** What Pi is told it is for (requirement 9). */
 export const BRAINSTORM_INSTRUCTIONS = `You are Pi, the owner's brainstorm partner inside pocket-comms, an app on their phone. The owner writes or dictates ideas on the go, often in a few rough words. Help them think an idea through: ask a short question when it is unclear, suggest angles they may have missed, and keep answers brief, because they read on a phone.
@@ -83,6 +89,10 @@ const discarded = <P extends ProposalEntry>(proposal: P): P => ({
 
 /** How long one turn of Pi may take, so a hung model never keeps the chat busy for good. */
 const TURN_DEADLINE = '5 minutes';
+
+/** Why a turn failed, as the chat shows it; a defect has no reason the owner could use. */
+const reasonOf = (cause: Cause.Cause<unknown>) =>
+  Cause.hasDies(cause) ? 'The turn failed unexpectedly.' : defaultReasonOf(cause);
 
 const emptyChat = (): StoredChat => ({
   id: newId(),
@@ -140,21 +150,20 @@ const picturesNote = (numbers: ReadonlyArray<number>, seen: boolean) =>
     : `[${numbers.length === 1 ? 'Picture' : 'Pictures'} ${listed(numbers)} attached${seen ? '' : '; you cannot see pictures'}]`;
 
 export const makeBrainstorm = Effect.gen(function* () {
-  const runtime = yield* AgentRuntimeOutbound;
+  const runtime = yield* AgentRuntime;
   const store = yield* BrainstormStoreOutbound;
   const giteaOutbound = yield* GiteaOutbound;
   const imagesOutbound = yield* ImagesOutbound;
   const issueProject = yield* makeIssueProject;
   const toolsFor = yield* makeBrainstormTools;
   // Turns run in the scope of the layer, so they outlive the request that started them.
-  const scope = yield* Effect.scope;
+  const engine = yield* makeTurnEngine({ deadline: TURN_DEADLINE, reasonOf });
   const updates = yield* PubSub.unbounded<BrainstormEventDto>();
   // One change of the chat at a time, so two decisions never create the same issue twice.
   const lock = yield* Semaphore.make(1);
 
   let chat = Option.getOrElse(yield* store.load, emptyChat);
   let answering = false;
-  let turn: Option.Option<Fiber.Fiber<void>> = Option.none();
   let live = '';
 
   const currentState = Effect.suspend((): Effect.Effect<BrainstormStateDto> => {
@@ -174,7 +183,7 @@ export const makeBrainstorm = Effect.gen(function* () {
         entries: chat.entries,
         answering,
         live,
-        seesPictures: runtime.seesImages,
+        seesPictures: runtime.seesImages ?? false,
         pictures,
       }),
     );
@@ -264,75 +273,78 @@ export const makeBrainstorm = Effect.gen(function* () {
     answering ? Effect.fail(new BrainstormBusyError()) : Effect.void,
   );
 
+  /** The turn is over: the chat takes the next message. */
+  const finished = Effect.suspend(() => {
+    answering = false;
+    live = '';
+    return publishState;
+  });
+
   /**
-   * Runs one turn of Pi to its end, within `TURN_DEADLINE`. A failure keeps what came before and
-   * is shown.
+   * Where the events of a turn in the chat `chatId` go. A failure keeps what came before and is
+   * shown; the engine leaves a failed save of the end to the chat, so it is shown too.
    */
-  const runTurn = (input: string, images: ReadonlyArray<StoredImage> = []) => {
-    const chatId = chat.id;
+  const sinkOf = (chatId: string): TurnSink => {
     const failed = (reason: string) =>
       append(chatId, (at) => ({ type: 'failed', id: newId(), at, reason }));
-    return runtime
-      .runTurn({
-        sessionId: chatId,
-        instructions: BRAINSTORM_INSTRUCTIONS,
-        state: chat.runtime,
-        input,
-        images,
-        tools: toolsFor(hooksFor(chatId)),
-      })
-      .pipe(
-        Stream.runForEach((event) => {
-          switch (event._tag) {
-            case 'textDelta':
-              live += event.text;
-              return Effect.asVoid(PubSub.publish(updates, { type: 'delta', text: event.text }));
-            case 'message':
-              live = '';
-              return append(chatId, (at) => ({
-                type: 'assistant',
-                id: newId(),
-                at,
-                text: event.text,
-              }));
-            case 'ended':
-              return Effect.suspend(() =>
-                chat.id === chatId
-                  ? change({ ...chat, runtime: Option.some(event.state) })
-                  : Effect.void,
-              );
-            default:
-              return Effect.void;
-          }
-        }),
-        Effect.timeoutOrElse({
-          duration: TURN_DEADLINE,
-          orElse: () =>
-            Effect.fail(new AgentRuntimeError({ reason: 'Pi did not answer within 5 minutes.' })),
-        }),
-        Effect.catchTag('AgentRuntimeError', (error) => failed(error.reason)),
-        // Whatever else fails a turn is shown too, so the chat never ends a turn without a word.
-        Effect.catchDefect(() => failed('The turn failed unexpectedly.')),
-        Effect.withSpan('Brainstorm.turn'),
-      );
+    return {
+      event: (event) => {
+        switch (event._tag) {
+          case 'textDelta':
+            live += event.text;
+            return Effect.asVoid(PubSub.publish(updates, { type: 'delta', text: event.text }));
+          case 'message':
+            live = '';
+            return append(chatId, (at) => ({
+              type: 'assistant',
+              id: newId(),
+              at,
+              text: event.text,
+            }));
+          default:
+            return Effect.void;
+        }
+      },
+      ended: (state) =>
+        Effect.suspend(() =>
+          chat.id === chatId ? change({ ...chat, runtime: Option.some(state) }) : Effect.void,
+        ).pipe(
+          Effect.catchCause((cause) =>
+            Cause.hasInterruptsOnly(cause)
+              ? Effect.failCause(cause)
+              : failed('The chat could not be saved after this answer.'),
+          ),
+          Effect.ensuring(finished),
+        ),
+      failed: (reason) => failed(reason).pipe(Effect.ensuring(finished)),
+    };
   };
 
-  /** Starts a turn in the background; the chat is busy until it ends. */
+  /** Starts a turn in the background, within `TURN_DEADLINE`; the chat is busy until it ends. */
   const startTurn = (input: string, images: ReadonlyArray<StoredImage> = []) =>
     Effect.gen(function* () {
+      const chatId = chat.id;
+      // The turn before may still be leaving the engine after its end was shown.
+      yield* engine.awaitTurn(chatId);
       answering = true;
       yield* publishState;
-      const fiber = yield* runTurn(input, images).pipe(
-        Effect.ensuring(
-          Effect.suspend(() => {
-            answering = false;
-            live = '';
-            return publishState;
-          }),
-        ),
-        Effect.forkIn(scope),
-      );
-      turn = Option.some(fiber);
+      yield* engine
+        .start({
+          key: chatId,
+          input,
+          images: images.map((image) => ({
+            mimeType: IMAGE_MEDIA_TYPES[image.kind],
+            bytes: image.bytes,
+          })),
+          prepare: Effect.sync(() => ({
+            instructions: BRAINSTORM_INSTRUCTIONS,
+            tools: toolsFor(hooksFor(chatId)),
+            state: chat.runtime,
+          })),
+          sink: sinkOf(chatId),
+        })
+        // The chat is idle here and holds the lock, so a busy key is a bug.
+        .pipe(Effect.orDie);
     });
 
   const repositoryOf = (project: string) =>
@@ -597,11 +609,11 @@ export const makeBrainstorm = Effect.gen(function* () {
     }));
     const note = picturesNote(
       imageIds.map((_, index) => first + index),
-      runtime.seesImages,
+      runtime.seesImages ?? false,
     );
     yield* startTurn(
       [parsed.success, note].filter((part) => part !== '').join('\n\n'),
-      runtime.seesImages ? images : [],
+      runtime.seesImages === true ? images : [],
     );
   }, lock.withPermits(1));
 
@@ -637,8 +649,10 @@ export const makeBrainstorm = Effect.gen(function* () {
   }, lock.withPermits(1));
 
   const reset = Effect.fn('Brainstorm.reset')(function* () {
-    if (Option.isSome(turn)) yield* Fiber.interrupt(turn.value);
-    turn = Option.none();
+    // A stopped turn gets no end, so the chat is idle again right here.
+    yield* engine.stop(chat.id);
+    answering = false;
+    live = '';
     yield* change(emptyChat());
   }, lock.withPermits(1));
 

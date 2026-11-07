@@ -10,15 +10,14 @@ import {
   type IssueRead,
   type IssueText,
 } from '@pocket-comms/comms-domain';
+import { defineTool, ToolRefusal, type AgentTool } from '@smotastic/pocket-agent';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Result from 'effect/Result';
 import * as Schema from 'effect/Schema';
-import type { RuntimeTool } from '../ports/agent-runtime.outbound.port.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { makeIssueProject } from '../use-cases/issue-project.js';
-import { defineTool, ToolRefusal } from './tool.js';
 
 // The tools of the brainstorm chat. Four read; none takes a path, and a project is only ever a
 // name the projects port lists. Two propose, a new issue or an edit of one, with the chat
@@ -95,7 +94,7 @@ export const makeBrainstormTools = Effect.gen(function* () {
   };
 
   /** The tools of one turn, which act on the chat through `chat`. */
-  return (chat: ChatHooks): ReadonlyArray<RuntimeTool> => [
+  return (chat: ChatHooks): ReadonlyArray<AgentTool> => [
     defineTool({
       name: 'list_projects',
       description:

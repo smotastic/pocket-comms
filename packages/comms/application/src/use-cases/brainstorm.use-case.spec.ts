@@ -271,7 +271,7 @@ describe('the brainstorm chat', () => {
 
         expect((yield* entries(brainstorm)).map(strip).at(-1)).toEqual({
           type: 'failed',
-          reason: 'Pi did not answer within 5 minutes.',
+          reason: 'The agent did not answer in time.',
         });
       }),
     ),
@@ -280,7 +280,7 @@ describe('the brainstorm chat', () => {
   it.effect('shows a turn that failed in an unexpected way', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
-        state.script.push([{ die: 'boom' }]);
+        state.script.push([{ until: Effect.die('boom') }]);
         yield* brainstorm.send('Hi');
         yield* idle(brainstorm);
 
@@ -288,6 +288,25 @@ describe('the brainstorm chat', () => {
           type: 'failed',
           reason: 'The turn failed unexpectedly.',
         });
+      }),
+    ),
+  );
+
+  it.effect('shows a turn whose end could not be saved, and takes the next message', () =>
+    run((brainstorm, state) =>
+      Effect.gen(function* () {
+        state.script.push([{ text: 'Hello.' }]);
+        state.saveDies = (chat) => Option.isSome(chat.runtime);
+        yield* brainstorm.send('Hi');
+        yield* idle(brainstorm);
+
+        expect((yield* entries(brainstorm)).map(strip).at(-1)).toEqual({
+          type: 'failed',
+          reason: 'The chat could not be saved after this answer.',
+        });
+        state.saveDies = undefined;
+        yield* brainstorm.send('Again');
+        yield* idle(brainstorm);
       }),
     ),
   );
@@ -983,7 +1002,9 @@ describe('pictures in the brainstorm chat', () => {
             'Like this?\n\n[Picture 1 attached]',
             '[Pictures 2, 3 attached]',
           ]);
-          expect(state.turns[0]?.images).toEqual([{ kind: 'png', bytes: new Uint8Array([0]) }]);
+          expect(state.turns[0]?.images).toEqual([
+            { mimeType: 'image/png', bytes: new Uint8Array([0]) },
+          ]);
           expect(state.turns[1]?.images).toHaveLength(2);
         }),
       arrange,

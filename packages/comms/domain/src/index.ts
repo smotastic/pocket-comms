@@ -10,6 +10,7 @@ export { isAllowedLogin } from './access.js';
 export { runningAt, type BackgroundItem, type BackgroundKind } from './background.js';
 export {
   IMAGE_EXTENSIONS,
+  IMAGE_MEDIA_TYPES,
   IMAGE_RETENTION_DAYS,
   imageKindOf,
   imagesInPrompt,

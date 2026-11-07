@@ -47,7 +47,8 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
 | The push watcher, subscribe and unsubscribe                                       | `application` (`src/use-cases/notify*`, `push*`)            |
 | The push devices and keys, the Web Push sender                                    | `infrastructure` (`src/push`)                               |
 | Pi's tools and instructions, the brainstorm turns                                 | `application` (`src/tools`, `src/use-cases/brainstorm*`)    |
-| Pi's runtime and login, the chat file                                             | `infrastructure` (`src/agent`, `src/brainstorm`)            |
+| Pi's runtime and login                                                            | `@smotastic/pocket-agent` (ADR 0014), wired by the server   |
+| The chat file                                                                     | `infrastructure` (`src/brainstorm`)                         |
 | `AgentsInbound`, `TasksInbound`, `IssuesInbound`, ports, use cases                | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
 | Herdr socket, git, Gitea over HTTP, session files, memory                         | `infrastructure`                                            |
 | HTTP handlers, problems, identity guard, health, web app route                    | `api`                                                       |
@@ -88,8 +89,10 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   Whether an issue is in progress is `isInProgress` in the domain; the web app only groups by it.
 - The owner's additional information for an issue start (spec 021) lives only in that agent's
   first prompt, through `issueTask`: never write it to Gitea and never store it.
-- Pi runs through `AgentRuntimeOutbound` (ADR 0012); only `infrastructure` imports
-  `@earendil-works/*`, never `pi-coding-agent`. Pi's tools only read (projects, open issues, one
+- Pi runs through the agent package's `AgentRuntime` and turn engine (ADRs 0012, 0014): the
+  application imports `@smotastic/pocket-agent` only, the server `./pi`, tests `./testing`, and no
+  code here imports `@earendil-works/*`. A runtime change goes into pocket-factory's package and
+  comes here as a catalog bump. Pi's tools only read (projects, open issues, one
   issue, `README.md` and `AGENTS.md`), none takes a path, and `propose_issue` and
   `propose_issue_edit` end the turn. Only the owner's decision on a proposal creates or changes an
   issue. Do not give Pi a tool that writes.
@@ -102,8 +105,8 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   appended to the body last. Pi gets the bytes only when the runtime `seesImages`. Pi may propose an edit only for an
   issue it read in this chat, and never for one whose body was cut.
 - The brainstorm chat is optional: without its model settings the server starts and the chat says
-  it is not set up. No test in CI calls a model; the Pi adapter is tested with pi-ai's faux
-  provider.
+  it is not set up. No test in CI calls a model; the use case runs on the package's scripted
+  runtime.
 - Every route goes through the Tailscale identity guard (`api/src/identity.ts`), and the server
   listens on `127.0.0.1` only. Do not add a route outside `commsServerLayer`.
 - Session file formats are undocumented. Parsers skip what they do not know; tests use the

@@ -21,6 +21,13 @@ const CONTRACTS = `^packages/contracts/|${layerLevel('contract')}`;
 
 // The design system (ADR 0009): the published package `@smotastic/pocket-design`, for web apps only.
 const DESIGN = '(?:^|/)(?:node_modules/)?@smotastic/pocket-design/';
+// Pi's packages, which only the agent package imports (ADR 0014).
+const AGENT_RUNTIME = '(?:^|/)node_modules/@earendil-works/|^@earendil-works/';
+// The shared agent package (ADR 0014), resolved or not: all of it, and its adapter entries.
+const AGENT_PACKAGE =
+  '(?:^|/)node_modules/@smotastic/pocket-agent/|^@smotastic/pocket-agent(?:/|$)';
+const AGENT_ADAPTERS =
+  '(?:^|/)node_modules/@smotastic/pocket-agent/dist/(?:pi|web|testing)/|^@smotastic/pocket-agent/(?:pi|web|testing)$';
 const WORKSPACE = '^(?:apps|packages|blueprints)/';
 
 // Web apps follow a naming convention, so this file can tell them from servers and CLIs: the
@@ -181,13 +188,29 @@ module.exports = {
       to: { path: '^packages/backend-shared/src/observability/' },
     },
     {
-      name: 'agent-runtime-in-infrastructure-only',
+      name: 'no-agent-runtime-outside-the-agent-package',
       comment:
-        'An agent runtime is an outbound adapter (ADR 0012): only the infrastructure layer imports ' +
-        "Pi's packages; the application defines the tools and the port.",
+        "Pi runs inside the shared agent package (ADR 0014): no code here imports Pi's packages; " +
+        'the server wires the Pi runtime from `@smotastic/pocket-agent/pi`.',
       severity: 'error',
-      from: { path: WORKSPACE, pathNot: layerLevel('infrastructure') },
-      to: { path: '(?:^|/)(?:node_modules/)?@earendil-works/' },
+      from: { path: WORKSPACE },
+      to: { path: AGENT_RUNTIME },
+    },
+    {
+      name: 'no-agent-package-in-domain',
+      comment: 'The domain knows no agent; the agent package is for application code (ADR 0014).',
+      severity: 'error',
+      from: { path: DOMAIN_LEVEL },
+      to: { path: AGENT_PACKAGE },
+    },
+    {
+      name: 'agent-adapters-outside-application',
+      comment:
+        "The application layer takes the agent package's root entry only; its Pi and web adapters " +
+        'are wired by infrastructure and apps, its fakes are for tests (ADR 0014).',
+      severity: 'error',
+      from: { path: APPLICATION_LEVEL, pathNot: `${NOT_TEST_CODE}|/src/testing/` },
+      to: { path: AGENT_ADAPTERS },
     },
     // ── Design system ────────────────────────────────────────────────────────────────────────
     {

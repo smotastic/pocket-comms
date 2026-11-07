@@ -1,6 +1,6 @@
 # ADR 0012 — An agent runtime port with a Pi adapter
 
-- **Status:** Accepted
+- **Status:** Accepted (amended by ADR 0014)
 - **Date:** 2026-11-02
 - **Related:** constitution principles 1, 9, 10; ADR 0002, ADR 0003; spec 013
 
