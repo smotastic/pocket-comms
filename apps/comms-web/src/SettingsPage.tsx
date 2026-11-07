@@ -9,8 +9,11 @@ import {
   ListItem,
   Page,
   SectionHeader,
+  SegmentedControl,
   Stack,
   Text,
+  useThemeChoice,
+  type ThemeChoice,
 } from '@smotastic/pocket-design';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
@@ -79,6 +82,23 @@ const EditReply = ({
   );
 };
 
+const THEMES: ReadonlyArray<{ readonly id: ThemeChoice; readonly label: string }> = [
+  { id: 'system', label: 'System' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'light', label: 'Light' },
+];
+
+/** The theme of this device, which takes effect at once and stays across reloads. */
+const ThemeSection = () => {
+  const [theme, chooseTheme] = useThemeChoice();
+  return (
+    <Stack gap="sm">
+      <SectionHeader title="Appearance" />
+      <SegmentedControl label="Theme" options={THEMES} selected={theme} onSelect={chooseTheme} />
+    </Stack>
+  );
+};
+
 /** One reply with its actions, or a field to edit it. */
 const ReplyItem = ({
   reply,
@@ -137,7 +157,8 @@ const ReplyItem = ({
 };
 
 /**
- * `/settings`: the owner's quick replies, offered with one tap in every conversation.
+ * `/settings`: this device's theme and the owner's quick replies, offered with one tap in every
+ * conversation.
  * Each change saves the whole list at once; a failed save says why and shows the saved list.
  */
 export const SettingsPage = ({ client, onBack }: SettingsPageProps) => {
@@ -180,6 +201,7 @@ export const SettingsPage = ({ client, onBack }: SettingsPageProps) => {
       />
       <Page>
         <Stack gap="lg">
+          <ThemeSection />
           <Stack gap="sm">
             <SectionHeader
               title="Quick replies"

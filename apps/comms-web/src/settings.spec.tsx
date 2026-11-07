@@ -1,11 +1,16 @@
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { THEME_STORAGE_KEY } from '@smotastic/pocket-design';
 import { axeViolations } from '@smotastic/pocket-design/testing';
 import { RequestError } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  document.documentElement.removeAttribute('data-theme');
+});
 
 const openSettings = (
   quickReplies: ReadonlyArray<string> = ['Go ahead', 'Commit and open a PR'],
@@ -122,6 +127,33 @@ describe('the Settings page', () => {
 
     const grid = await screen.findByRole('grid', { name: 'Quick replies' });
     expect(within(grid).getByRole('row', { name: 'Run the tests first' })).toBeDefined();
+  });
+
+  it('picks the theme, applies it at once and keeps it on the device', async () => {
+    openSettings();
+    const themes = await screen.findByRole('radiogroup', { name: 'Theme' });
+    expect(within(themes).getByRole('radio', { name: 'System' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+
+    await userEvent.click(within(themes).getByRole('radio', { name: 'Light' }));
+
+    expect(document.documentElement.dataset['theme']).toBe('light');
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('light');
+    expect(within(themes).getByRole('radio', { name: 'Light' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+  });
+
+  it('shows the theme kept on the device', async () => {
+    localStorage.setItem(THEME_STORAGE_KEY, 'dark');
+    document.documentElement.dataset['theme'] = 'dark';
+    openSettings();
+
+    const themes = await screen.findByRole('radiogroup', { name: 'Theme' });
+    expect(within(themes).getByRole('radio', { name: 'Dark' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
   });
 
   it('has no accessibility violations', async () => {
