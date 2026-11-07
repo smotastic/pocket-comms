@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from '@effect/vitest';
+import * as ConfigProvider from 'effect/ConfigProvider';
 import * as Layer from 'effect/Layer';
 import { HttpRouter, HttpServer } from 'effect/http';
 import * as Option from 'effect/Option';
@@ -43,14 +44,11 @@ const serve = (
       agentArgs: [],
       gitea: { url: 'http://127.0.0.1:9', token: Option.none(), hosts: ['gitea'] },
       stateDir,
-      pi: {
-        provider: Option.none(),
-        model: Option.none(),
-        apiKey: Option.none(),
-        authFile: join(tmpdir(), 'no-pi-auth.json'),
-        thinking: 'off',
-      },
-    }).pipe(Layer.provide(HttpServer.layerServices)),
+    }).pipe(
+      Layer.provide(HttpServer.layerServices),
+      // No brainstorm settings, whatever the environment of the test holds.
+      Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))),
+    ),
     { disableLogger: true },
   );
   dispose = web.dispose;
@@ -90,8 +88,7 @@ describe('the composed server', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       _tag: 'NotSetUp',
-      reason:
-        'Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL to use the brainstorm chat.',
+      reason: 'Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL.',
     });
   });
 

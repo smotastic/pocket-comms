@@ -9,6 +9,7 @@
     "@pocket-comms/comms-api": "workspace:*",
     "@pocket-comms/comms-application": "workspace:*",
     "@pocket-comms/comms-infrastructure": "workspace:*",
+    "@smotastic/pocket-agent": "catalog:",
     "effect": "catalog:"
   },
   "devDependencies": {

@@ -12,7 +12,6 @@ import {
 } from '@pocket-comms/comms-application';
 import {
   Activity,
-  Agent,
   Brainstorm,
   Gitea,
   Herdr,
@@ -24,6 +23,7 @@ import {
   StatusHistory,
   Transcript,
 } from '@pocket-comms/comms-infrastructure';
+import { layerPiRuntime } from '@smotastic/pocket-agent/pi';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 
@@ -34,6 +34,9 @@ import * as Layer from 'effect/Layer';
  * address, and Apple refuses a made-up one.
  */
 const PUSH_SUBJECT = 'https://github.com/smotastic/pocket-comms';
+
+/** How requests name this app to the brainstorm chat's model provider. */
+const ATTRIBUTION = { name: 'pocket-comms', url: 'https://github.com/smotastic/pocket-comms' };
 
 export interface ServerOptions {
   readonly allowedLogin: string;
@@ -51,14 +54,12 @@ export interface ServerOptions {
    * the activity timeline (spec 017), push devices (spec 018) and quick replies (spec 025).
    */
   readonly stateDir: string;
-  /** The brainstorm chat's model (spec 013). */
-  readonly pi: Agent.PiOptions;
   readonly webDist?: string;
 }
 
 /**
  * The adapters: Herdr over its socket, session files below `home`, git below `projectsRoot`,
- * Gitea over HTTP, Pi in process, the brainstorm chat, the images, the activity timeline, the
+ * Gitea over HTTP, Pi in process with the `COMMS_BRAINSTORM_*` settings (spec 013, ADR 0014), the brainstorm chat, the images, the activity timeline, the
  * push devices and the quick replies in `stateDir`, Web Push to the devices, and memory for the rest.
  */
 export const services = ({
@@ -68,14 +69,14 @@ export const services = ({
   agentArgs,
   gitea,
   stateDir,
-  pi,
 }: Omit<ServerOptions, 'allowedLogin' | 'webDist'>) =>
   Layer.mergeAll(
     Herdr.layerSocket({ path: socketPath, agentArgs }),
     Projects.layerGit({ root: projectsRoot }),
     Gitea.layerHttp(gitea),
     Transcript.layerFiles({ home }),
-    Agent.layerPi(pi),
+    // Optional: without a model the server starts and the chat says what is missing.
+    layerPiRuntime({ prefix: 'COMMS_BRAINSTORM', required: false, attribution: ATTRIBUTION }),
     Brainstorm.layerFile({ folder: stateDir }),
     Images.layerFolder({ stateDir }),
     Push.layer({ stateDir, subject: PUSH_SUBJECT }),

@@ -1,8 +1,8 @@
 import type { BrainstormEntry, IssueRead } from '@pocket-comms/comms-domain';
+import type { RuntimeState } from '@smotastic/pocket-agent';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
-import type { RuntimeState } from './agent-runtime.outbound.port.js';
 
 /**
  * The brainstorm chat as stored: its id, the shown entries, the issues Pi last read, and Pi's own

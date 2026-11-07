@@ -1015,9 +1015,7 @@ export const BrainstormState = Schema.Union([
     }),
     reason: Schema.String.annotate({
       description: 'Which setting is missing.',
-      examples: [
-        'Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL to use the brainstorm chat.',
-      ],
+      examples: ['Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL.'],
     }),
   }),
 ]).annotate({

@@ -14,6 +14,12 @@ export type ImageKind = 'jpeg' | 'png';
 /** The file extension of each kind. */
 export const IMAGE_EXTENSIONS: Record<ImageKind, string> = { jpeg: 'jpg', png: 'png' };
 
+/** The media type of each kind. */
+export const IMAGE_MEDIA_TYPES: Record<ImageKind, string> = {
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+};
+
 // The server makes ids itself: 26 characters of lowercase base32.
 const IMAGE_ID = /^[a-z2-7]{26}$/u;
 

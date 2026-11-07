@@ -30,7 +30,6 @@ export type { QuickRepliesDto } from './dto/quick-replies.dto.js';
 export type { CreateTaskInput, ProjectDto, TaskAgentDto, TaskCreatedDto } from './dto/task.dto.js';
 export {
   AgentNotFoundError,
-  AgentRuntimeError,
   BrainstormBusyError,
   BrainstormNotSetUpError,
   BranchExistsError,
@@ -58,14 +57,6 @@ export {
 export { ActivityInbound } from './ports/activity.inbound.port.js';
 export { ActivityStoreOutbound } from './ports/activity-store.outbound.port.js';
 export { AgentsInbound } from './ports/agents.inbound.port.js';
-export {
-  AgentRuntimeOutbound,
-  type RuntimeEvent,
-  type RuntimeState,
-  type RuntimeTool,
-  type ToolOutcome,
-  type TurnInput,
-} from './ports/agent-runtime.outbound.port.js';
 export { BrainstormInbound } from './ports/brainstorm.inbound.port.js';
 export {
   BrainstormStoreOutbound,

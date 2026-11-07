@@ -13,16 +13,16 @@ import {
   type Workspace,
   type Worktree,
 } from '@pocket-comms/comms-domain';
+import { AgentRuntime, type TurnInput } from '@smotastic/pocket-agent';
+import { scriptedTurn, type ScriptStep } from '@smotastic/pocket-agent/testing';
 import * as Clock from 'effect/Clock';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import * as PubSub from 'effect/PubSub';
-import type * as Schema from 'effect/Schema';
 import * as Stream from 'effect/Stream';
 import {
-  AgentRuntimeError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
   HerdrRejectedError,
@@ -34,11 +34,6 @@ import {
   TranscriptUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
-import {
-  AgentRuntimeOutbound,
-  type RuntimeEvent,
-  type TurnInput,
-} from '../ports/agent-runtime.outbound.port.js';
 import {
   BrainstormStoreOutbound,
   type StoredChat,
@@ -78,16 +73,6 @@ export interface HerdrCall {
   readonly target?: string;
   readonly params?: unknown;
 }
-
-/** One step of a scripted turn of the agent runtime. */
-export type ScriptStep =
-  | { readonly text: string }
-  /** Waits for the effect before the next step, so a test can hold a turn open. */
-  | { readonly until: Effect.Effect<void> }
-  | { readonly tool: string; readonly input: unknown }
-  | { readonly fail: string }
-  /** A defect, as an adapter bug would raise. */
-  | { readonly die: string };
 
 /**
  * The state behind the fakes of the outbound ports. A test changes it directly and publishes on
@@ -164,6 +149,8 @@ export class FakeState extends Context.Service<
     /** The stored brainstorm chat, and how often it was saved. */
     storedChat: StoredChat | undefined;
     saves: number;
+    /** Which saves of the chat die, as a broken disk would make them. */
+    saveDies: ((chat: StoredChat) => boolean) | undefined;
     /** The kept images by id, with when each was saved in epoch milliseconds. */
     readonly images: Map<string, StoredImage & { readonly savedAt: number }>;
     /** The kept activity events, oldest first. */
@@ -536,78 +523,6 @@ const gitea = (state: FakeState['Service']) => {
   });
 };
 
-/**
- * Plays the next scripted turn. Each step runs only when the consumer pulls its events, as a real
- * runtime streams them: a tool runs after its call event was taken, and nothing after a pausing
- * tool runs. A `fail` step ends the stream with the failure and no `ended`.
- */
-const scriptedTurn = (
-  state: FakeState['Service'],
-  turn: TurnInput,
-): Stream.Stream<RuntimeEvent, AgentRuntimeError> =>
-  Stream.suspend(() => {
-    state.turns.push(turn);
-    const steps = state.script.shift() ?? [{ text: 'Scripted Pi has nothing more to say.' }];
-    let paused = false;
-    const play = (
-      step: ScriptStep,
-      index: number,
-    ): Stream.Stream<RuntimeEvent, AgentRuntimeError> => {
-      if (paused) return Stream.empty;
-      if ('fail' in step) return Stream.fail(new AgentRuntimeError({ reason: step.fail }));
-      if ('die' in step) return Stream.die(new Error(step.die));
-      if ('until' in step) return Stream.drain(Stream.fromEffect(step.until));
-      if ('text' in step) {
-        return Stream.make<Array<RuntimeEvent>>(
-          { _tag: 'textDelta', text: step.text },
-          { _tag: 'message', text: step.text },
-        );
-      }
-      const callId = `call-${index + 1}`;
-      const tool = turn.tools.find((candidate) => candidate.name === step.tool);
-      const result = Stream.fromEffect(
-        Effect.map(
-          tool === undefined
-            ? Effect.succeed({ output: `Unknown tool ${step.tool}`, isError: true, pause: false })
-            : tool.run(step.input),
-          (outcome): RuntimeEvent => {
-            paused = outcome.pause;
-            return {
-              _tag: 'toolResult',
-              callId,
-              tool: step.tool,
-              output: outcome.output,
-              isError: outcome.isError,
-            };
-          },
-        ),
-      );
-      return Stream.concat(
-        Stream.make<Array<RuntimeEvent>>({
-          _tag: 'toolCall',
-          callId,
-          tool: step.tool,
-          input: step.input as Schema.Json,
-        }),
-        result,
-      );
-    };
-    const previous = Option.match(turn.state, {
-      onNone: () => 0,
-      onSome: (stored) => Number(stored.state),
-    });
-    return Stream.concat(
-      Stream.flatMap(
-        Stream.fromIterable(steps.map((step, index) => [step, index] as const)),
-        ([step, index]) => play(step, index),
-      ),
-      Stream.make<Array<RuntimeEvent>>({
-        _tag: 'ended',
-        state: { adapter: 'scripted', state: previous + 1 },
-      }),
-    );
-  });
-
 /** An open issue of `owner/app` with plain defaults. */
 export const fakeIssue = (overrides: Partial<Issue> & Pick<Issue, 'number'>): Issue => ({
   title: `Issue ${overrides.number}`,
@@ -664,6 +579,7 @@ export const fakeLayer = () => {
         turns: [],
         storedChat: undefined,
         saves: 0,
+        saveDies: undefined,
         images: new Map(),
         activity: [],
         activityChanges: yield* PubSub.unbounded<void>(),
@@ -685,22 +601,24 @@ export const fakeLayer = () => {
         Context.add(TranscriptOutbound, transcripts(fake)),
         Context.add(ProjectsOutbound, projects(fake)),
         Context.add(GiteaOutbound, gitea(fake)),
-        Context.add(AgentRuntimeOutbound, {
+        Context.add(AgentRuntime, {
           get notSetUp() {
             return Option.fromNullishOr(fake.notSetUp);
           },
           get seesImages() {
             return fake.seesImages;
           },
-          runTurn: (turn) => scriptedTurn(fake, turn),
+          runTurn: (turn) => scriptedTurn({ turns: fake.script, received: fake.turns }, turn),
         }),
         Context.add(BrainstormStoreOutbound, {
           load: Effect.sync(() => Option.fromNullishOr(fake.storedChat)),
           save: (chat) =>
-            Effect.sync(() => {
-              fake.storedChat = chat;
-              fake.saves += 1;
-            }),
+            fake.saveDies?.(chat) === true
+              ? Effect.die('The disk is full.')
+              : Effect.sync(() => {
+                  fake.storedChat = chat;
+                  fake.saves += 1;
+                }),
         }),
         Context.add(ImagesOutbound, images(fake)),
         Context.add(ActivityStoreOutbound, {

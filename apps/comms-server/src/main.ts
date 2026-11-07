@@ -32,13 +32,6 @@ const main = Layer.unwrap(
         agentArgs: config.agentArgs,
         gitea: { url: config.giteaUrl, token: config.giteaToken, hosts: config.giteaHosts },
         stateDir: config.stateDir,
-        pi: {
-          provider: config.brainstormProvider,
-          model: config.brainstormModel,
-          apiKey: config.brainstormApiKey,
-          authFile: config.piAuthFile,
-          thinking: config.brainstormThinking,
-        },
         ...Option.match(config.webDist, { onNone: () => ({}), onSome: (webDist) => ({ webDist }) }),
       }),
       { serviceName: 'comms-server' },

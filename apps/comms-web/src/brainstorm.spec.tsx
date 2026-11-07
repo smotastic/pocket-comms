@@ -150,8 +150,7 @@ describe('the brainstorm chat', () => {
   it('says that it is not set up and takes no message', async () => {
     const { sheet } = await openChat({
       _tag: 'NotSetUp',
-      reason:
-        'Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL to use the brainstorm chat.',
+      reason: 'Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL.',
     });
 
     expect(await within(sheet).findByText('The brainstorm chat is not set up.')).toBeDefined();

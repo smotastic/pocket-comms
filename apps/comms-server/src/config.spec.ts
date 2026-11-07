@@ -14,10 +14,9 @@ const withEnv =
 describe('serverConfig', () => {
   it.effect('listens on port 4410 and lets smotastic@ in by default', () =>
     Effect.gen(function* () {
-      const { giteaToken, brainstormApiKey, ...config } = yield* serverConfig;
+      const { giteaToken, ...config } = yield* serverConfig;
 
       expect(Option.isNone(giteaToken)).toBe(true);
-      expect(Option.isNone(brainstormApiKey)).toBe(true);
       expect(config).toEqual({
         port: 4410,
         allowedLogin: 'smotastic@',
@@ -28,20 +27,16 @@ describe('serverConfig', () => {
         giteaUrl: 'http://localhost:3000',
         giteaHosts: ['gitea'],
         stateDir: `${homedir()}/.pocket-comms`,
-        brainstormProvider: Option.none(),
         brainstormModel: Option.none(),
-        brainstormThinking: 'off',
-        piAuthFile: `${homedir()}/.pi/agent/auth.json`,
       });
     }).pipe(withEnv({})),
   );
 
   it.effect('reads its settings from the environment', () =>
     Effect.gen(function* () {
-      const { giteaToken, brainstormApiKey, ...config } = yield* serverConfig;
+      const { giteaToken, ...config } = yield* serverConfig;
 
       expect(Option.map(giteaToken, Redacted.value)).toEqual(Option.some('secret-token'));
-      expect(Option.map(brainstormApiKey, Redacted.value)).toEqual(Option.some('model-key'));
       expect(config).toEqual({
         port: 5000,
         allowedLogin: 'someone@github',
@@ -52,10 +47,7 @@ describe('serverConfig', () => {
         giteaUrl: 'https://git.example.com',
         giteaHosts: ['gitea', 'git.example.com'],
         stateDir: '/srv/state',
-        brainstormProvider: Option.some('openai'),
         brainstormModel: Option.some('gpt-6-luna'),
-        brainstormThinking: 'medium',
-        piAuthFile: '/srv/pi/auth.json',
       });
     }).pipe(
       withEnv({
@@ -69,11 +61,7 @@ describe('serverConfig', () => {
         COMMS_GITEA_TOKEN: 'secret-token',
         COMMS_GITEA_HOSTS: ' gitea, git.example.com ,',
         COMMS_STATE_DIR: '/srv/state',
-        COMMS_BRAINSTORM_PROVIDER: 'openai',
         COMMS_BRAINSTORM_MODEL: 'gpt-6-luna',
-        COMMS_BRAINSTORM_API_KEY: 'model-key',
-        COMMS_BRAINSTORM_THINKING: 'medium',
-        PI_CODING_AGENT_DIR: '/srv/pi',
       }),
     ),
   );
