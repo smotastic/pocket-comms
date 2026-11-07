@@ -6,13 +6,10 @@ import {
   Inline,
   Link,
   SectionHeader,
-  SegmentedControl,
   Sheet,
   SheetHeader,
   Stack,
   Text,
-  useThemeChoice,
-  type ThemeChoice,
 } from '@smotastic/pocket-design';
 import { useQueries, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -333,24 +330,10 @@ const ProjectList = ({
   );
 };
 
-const THEMES: ReadonlyArray<{ readonly id: ThemeChoice; readonly label: string }> = [
-  { id: 'system', label: 'System' },
-  { id: 'dark', label: 'Dark' },
-  { id: 'light', label: 'Light' },
-];
-
-/** The theme of this device, which takes effect at once. */
-const ThemeRow = () => {
-  const [theme, chooseTheme] = useThemeChoice();
-  return (
-    <SegmentedControl label="Theme" options={THEMES} selected={theme} onSelect={chooseTheme} />
-  );
-};
-
 /**
  * Every project, sliding in from the side, after a link to the activity timeline. A project opens in place to its open
- * issues, with Implement, New task and a link to its page. This device's notifications and theme
- * sit at the bottom.
+ * issues, with Implement, New task and a link to its page. This device's notifications sit at the
+ * bottom.
  */
 export const ProjectsSheet = ({
   open,
@@ -386,7 +369,6 @@ export const ProjectsSheet = ({
         )}
       </div>
       <NotificationsRow client={props.client} />
-      <ThemeRow />
     </Stack>
   </Sheet>
 );
