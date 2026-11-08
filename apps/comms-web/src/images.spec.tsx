@@ -12,6 +12,15 @@ afterEach(cleanup);
 const image = (name: string) => new File(['x'], name, { type: 'image/png' });
 const picker = () => document.querySelector<HTMLInputElement>('input[type="file"]');
 
+/** Whether the composer's Actions menu offers to upload another image; the menu closes again. */
+const canUpload = async () => {
+  await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
+  const item = screen.getByRole('menuitem', { name: 'Upload image' });
+  const enabled = item.getAttribute('aria-disabled') !== 'true';
+  await userEvent.keyboard('{Escape}');
+  return enabled;
+};
+
 const open = (transcript: TranscriptView = { entries: [], activity: 'Thinking…' }) => {
   const agent = fakeAgent({ status: 'idle' });
   const fake = fakeClient({
@@ -80,9 +89,7 @@ describe('images in the conversation', () => {
 
     expect(await screen.findByText('2 images left out: a message holds at most 5.')).toBeDefined();
     expect(screen.getAllByRole('img', { name: /^Image \d$/u })).toHaveLength(5);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Attach image' }).disabled).toBe(
-      true,
-    );
+    expect(await canUpload()).toBe(false);
   });
 
   it('counts images still being shrunk, so no sixth can be picked meanwhile', async () => {
@@ -91,9 +98,7 @@ describe('images in the conversation', () => {
     await attach('slow.1.png', 'slow.2.png', 'slow.3.png', 'slow.4.png', 'slow.5.png');
 
     expect(screen.queryAllByRole('img', { name: /^Image \d$/u })).toHaveLength(0);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Attach image' }).disabled).toBe(
-      true,
-    );
+    expect(await canUpload()).toBe(false);
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send' }).disabled).toBe(true);
     await waitFor(() =>
       expect(screen.getAllByRole('img', { name: /^Image \d$/u })).toHaveLength(5),

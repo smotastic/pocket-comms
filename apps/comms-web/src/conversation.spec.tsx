@@ -43,9 +43,16 @@ const openMore = async () => {
   return screen.findByRole('dialog', { name: 'More' });
 };
 
-/** Opens the footer's Controls, which hold the keys and the quick replies. */
+/** Opens the footer's Controls, which hold the keys. */
 const openControls = async () =>
   userEvent.click(await screen.findByRole('button', { name: /^Controls/ }));
+
+/** Opens the owner's quick replies from the composer's Actions menu. */
+const openQuickReplies = async () => {
+  await userEvent.click(await screen.findByRole('button', { name: 'Actions' }));
+  await userEvent.click(await screen.findByRole('menuitem', { name: 'Quick replies' }));
+  return screen.findByRole('dialog', { name: 'Quick replies' });
+};
 
 describe('the conversation', () => {
   it('renders the session as a chat', async () => {
@@ -341,14 +348,16 @@ describe('typed answers and quick replies', () => {
   const chip = async (name: string) =>
     within(await screen.findByRole('grid', { name: 'Quick replies' })).getByRole('row', { name });
 
-  it('keeps the keys and the quick replies collapsed under Controls, beside the dialog field', async () => {
+  it('keeps the keys collapsed under Controls and the quick replies in the menu, beside the dialog field', async () => {
     open(fakeAgent({ status: 'blocked', needsYou: true }));
     await screen.findByRole('textbox', { name: 'Type into the dialog' });
 
     const controls = screen.getByRole('button', { name: /^Controls/ });
     expect(controls.getAttribute('aria-expanded')).toBe('false');
+    expect(controls.textContent).not.toContain('Quick replies');
     expect(screen.queryByRole('group', { name: 'Keys' })).toBeNull();
     expect(screen.queryByRole('grid', { name: 'Quick replies' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Actions' })).toBeDefined();
     expect(screen.getByRole('region', { name: 'Claude needs your answer' })).toBeDefined();
   });
 
@@ -382,6 +391,7 @@ describe('typed answers and quick replies', () => {
       await openControls();
 
       expect(screen.getByRole('group', { name: 'Keys' })).toBeDefined();
+      await openQuickReplies();
       expect(await chip('Go ahead')).toBeDefined();
       expect(await chip('Commit and open a PR')).toBeDefined();
       expect(
@@ -389,7 +399,7 @@ describe('typed answers and quick replies', () => {
           'Choose Type something or Other with the keys first, then press Enter to submit.',
         ),
       ).toBeDefined();
-      expect(screen.queryByRole('button', { name: 'Attach image' })).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: 'Upload image' })).toBeNull();
     },
   );
 
@@ -420,25 +430,53 @@ describe('typed answers and quick replies', () => {
   it('types a quick reply into the waiting dialog', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
     await screen.findByRole('textbox', { name: 'Type into the dialog' });
-    await openControls();
+    await openQuickReplies();
 
     await userEvent.click(await chip('Commit and open a PR'));
 
     await waitFor(() => expect(fake.calls.typed).toEqual([['kirk', 'Commit and open a PR']]));
+    expect(screen.queryByRole('dialog', { name: 'Quick replies' })).toBeNull();
     expect(fake.calls.prompts).toEqual([]);
   });
 
   it('sends a quick reply as a prompt while no dialog waits, and keeps the draft', async () => {
     const fake = open(fakeAgent({ status: 'idle' }));
     const box = await screen.findByRole('textbox', { name: 'Message' });
-    await userEvent.type(box, 'Half a thought');
-    await openControls();
+    await userEvent.type(box, 'Half a thought{Shift>}{Enter}{/Shift}and a second line');
+    await openQuickReplies();
 
     await userEvent.click(await chip('Go ahead'));
 
     await waitFor(() => expect(fake.calls.prompts).toEqual([['kirk', 'Go ahead']]));
     expect(fake.calls.typed).toEqual([]);
+    expect((box as HTMLTextAreaElement).value).toBe('Half a thought\nand a second line');
+  });
+
+  it('keeps the draft when the quick replies are dismissed', async () => {
+    const fake = open(fakeAgent({ status: 'idle' }));
+    const box = await screen.findByRole('textbox', { name: 'Message' });
+    await userEvent.type(box, 'Half a thought');
+    const sheet = await openQuickReplies();
+
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Quick replies' })).toBeNull());
+    expect(fake.calls.prompts).toEqual([]);
     expect((box as HTMLTextAreaElement).value).toBe('Half a thought');
+  });
+
+  it('leaves the footer of an idle chat to the field, with the quick replies and images in the menu', async () => {
+    open(fakeAgent({ status: 'idle' }));
+    await screen.findByRole('textbox', { name: 'Message' });
+
+    expect(screen.queryByRole('button', { name: /^Controls/ })).toBeNull();
+    expect(screen.queryByRole('grid', { name: 'Quick replies' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Attach image' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Upload image',
+      'Quick replies',
+    ]);
   });
 
   it('holds the keys and the quick replies until the typed text arrives, then clears the field', async () => {
@@ -454,9 +492,11 @@ describe('typed answers and quick replies', () => {
       name: 'Enter',
     });
     await waitFor(() => expect(enter.hasAttribute('disabled')).toBe(true));
-    expect((await chip('Go ahead')).getAttribute('aria-disabled')).toBe('true');
     await userEvent.click(enter);
     expect(fake.calls.keys).toEqual([]);
+    const sheet = await openQuickReplies();
+    expect((await chip('Go ahead')).getAttribute('aria-disabled')).toBe('true');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
 
     act(() => release());
 
@@ -495,7 +535,7 @@ describe('typed answers and quick replies', () => {
   it('offers the quick replies in the Screen view of an idle agent', async () => {
     open(fakeAgent({ status: 'idle' }));
     await userEvent.click(await screen.findByRole('radio', { name: 'Screen' }));
-    await openControls();
+    await openQuickReplies();
 
     expect(await chip('Go ahead')).toBeDefined();
     expect(screen.getByRole('textbox', { name: 'Message' })).toBeDefined();
@@ -570,7 +610,7 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
   it('hides the suggestions once a quick reply answered the message', async () => {
     const fake = openAsking();
     await screen.findByRole('grid', { name: 'Suggested replies' });
-    await openControls();
+    await openQuickReplies();
     const quick = await screen.findByRole('grid', { name: 'Quick replies' });
 
     await userEvent.click(within(quick).getByRole('row', { name: 'Go ahead' }));
@@ -584,7 +624,7 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
     ['working', fakeAgent({ status: 'working' })],
   ])('offers no suggestions to a %s agent', async (_, agent) => {
     openAsking(agent);
-    await openControls();
+    await openQuickReplies();
     await screen.findByRole('grid', { name: 'Quick replies' });
     await screen.findByText('Plan the change');
 
@@ -606,7 +646,7 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
       entries: [...asks.entries, { type: 'user', id: 'u2', at: 3, text: 'Wait' }],
     });
     await screen.findByText('Wait');
-    await openControls();
+    await openQuickReplies();
     await screen.findByRole('grid', { name: 'Quick replies' });
 
     expect(suggestions()).toBeNull();
@@ -617,7 +657,7 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
       'Run the tests first',
       'Ship it',
     ]);
-    await openControls();
+    await openQuickReplies();
     const grid = await screen.findByRole('grid', { name: 'Quick replies' });
 
     expect(
@@ -629,21 +669,22 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
     await waitFor(() => expect(fake.calls.prompts).toEqual([['kirk', 'Run the tests first']]));
   });
 
-  it('shows no quick replies row for an empty list', async () => {
+  it('offers no quick replies in the menu for an empty list', async () => {
     openAsking(fakeAgent({ status: 'idle' }), asks, []);
     await screen.findByRole('grid', { name: 'Suggested replies' });
 
-    expect(screen.queryByRole('grid', { name: 'Quick replies' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Controls/ })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Upload image' })).toBeDefined();
+    expect(screen.queryByRole('menuitem', { name: 'Quick replies' })).toBeNull();
   });
 
   it('has no accessibility violations with suggestions', async () => {
     openAsking();
     await screen.findByRole('grid', { name: 'Suggested replies' });
-    await openControls();
-    await screen.findByRole('grid', { name: 'Quick replies' });
 
     expect(await axeViolations(document.body)).toEqual([]);
+    const sheet = await openQuickReplies();
+    expect(await axeViolations(sheet)).toEqual([]);
   });
 });
 
