@@ -146,3 +146,4 @@ export {
   type PushSubscription,
   type Reading,
 } from './notification.js';
+export { CLIP_EXTENSIONS, MAX_CLIP_BYTES, parseClip, type ClipFormat } from './speech.js';

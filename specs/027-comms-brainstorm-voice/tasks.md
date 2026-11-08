@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Domain: `parseClip` accepts MP4, WebM, Ogg, WAV and MP3 by their content, names
+- [x] **T01** — Domain: `parseClip` accepts MP4, WebM, Ogg, WAV and MP3 by their content, names
       the format, and refuses an empty clip, one over 5 MB and anything else.
   - Gate: `pnpm nx test comms-domain`
 
