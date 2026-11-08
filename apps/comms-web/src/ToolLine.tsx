@@ -1,5 +1,4 @@
 import { Inline, Link, Text } from '@smotastic/pocket-design';
-import { navigateOnPlainClick } from './links.js';
 
 export type ToolLineProps = {
   /** What the tool did, such as "Edited" or "Ran". */
@@ -16,8 +15,6 @@ export type ToolLineProps = {
   readonly hint?: string;
   /** Makes the line a link to what the call opened, such as a subagent's conversation. */
   readonly href?: string;
-  /** Opens `href` in the app, on a plain click or Enter. */
-  readonly onNavigate?: () => void;
 };
 
 const MARKS = {
@@ -29,16 +26,7 @@ const MARKS = {
  * One tool call collapsed to a single line, such as "Edited `foo.ts` +12 −3 ✓"; a long target is
  * cut to fit.
  */
-export const ToolLine = ({
-  verb,
-  target,
-  added,
-  removed,
-  outcome,
-  hint,
-  href,
-  onNavigate,
-}: ToolLineProps) => {
+export const ToolLine = ({ verb, target, added, removed, outcome, hint, href }: ToolLineProps) => {
   // Each word in an element of its own, so it can be found by its text.
   const words = [
     <span key="verb">{verb}</span>,
@@ -66,16 +54,7 @@ export const ToolLine = ({
   );
   return (
     <Text as="div" tone="muted" size="sm">
-      {href === undefined ? (
-        content
-      ) : (
-        <Link
-          href={href}
-          {...(onNavigate === undefined ? {} : { onClick: navigateOnPlainClick(onNavigate) })}
-        >
-          {content}
-        </Link>
-      )}
+      {href === undefined ? content : <Link href={href}>{content}</Link>}
     </Text>
   );
 };

@@ -10,7 +10,6 @@ export type ToolEntry = Extract<TranscriptView['entries'][number], { readonly ty
 /** Where a tool line leads, when it leads somewhere, and a note on what it started. */
 export interface ToolLink {
   readonly href?: string;
-  readonly onNavigate?: () => void;
   readonly hint?: string;
 }
 

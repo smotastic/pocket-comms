@@ -8,7 +8,7 @@ export const Route = createFileRoute('/projects/$project')({
     const { project } = Route.useParams();
     const navigate = Route.useNavigate();
     const notice = useRouterState({ select: (state) => state.location.state.notice });
-    const openAgent = (agent: string, note?: string) =>
+    const openAgent = (agent: string, note: string | undefined) =>
       void navigate({
         to: '/agents/$agent',
         params: { agent },
@@ -21,7 +21,6 @@ export const Route = createFileRoute('/projects/$project')({
         project={project}
         notice={notice}
         onBack={() => void navigate({ to: '/' })}
-        onOpenAgent={(agent) => openAgent(agent)}
         onStarted={openAgent}
       />
     );

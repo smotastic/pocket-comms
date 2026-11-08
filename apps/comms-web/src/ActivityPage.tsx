@@ -15,7 +15,6 @@ import { BrainstormAction } from './Brainstorm.js';
 import type { ActivityEventView, CommsClient } from './comms-client.js';
 import { activityQuery, projectsQuery } from './comms-queries.js';
 import { useActivityLive, useNow } from './live.js';
-import { navigateOnPlainClick } from './links.js';
 import { projectHue } from './rows.js';
 import { since } from './since.js';
 import { statusDot } from './StatusBadge.js';
@@ -23,27 +22,15 @@ import { statusDot } from './StatusBadge.js';
 export interface ActivityPageProps {
   readonly client: CommsClient;
   readonly onBack: () => void;
-  readonly onOpenAgent: (ref: string) => void;
-  readonly onOpenProject: (project: string) => void;
 }
 
 /** Where a row leads, as `AgentRow` takes it; an event that leads nowhere is a plain row. */
-const linkOf = (
-  event: ActivityEventView,
-  onOpenAgent: (ref: string) => void,
-  onOpenProject: (project: string) => void,
-) => {
+const linkOf = (event: ActivityEventView) => {
   const target = activityTarget(event);
   if (target === undefined) return {};
   return target.to === 'agent'
-    ? {
-        href: `/agents/${encodeURIComponent(target.ref)}`,
-        onClick: navigateOnPlainClick(() => onOpenAgent(target.ref)),
-      }
-    : {
-        href: `/projects/${encodeURIComponent(target.project)}`,
-        onClick: navigateOnPlainClick(() => onOpenProject(target.project)),
-      };
+    ? { href: `/agents/${encodeURIComponent(target.ref)}` }
+    : { href: `/projects/${encodeURIComponent(target.project)}` };
 };
 
 /** One event as an agent row: who, what happened and when. */
@@ -51,9 +38,7 @@ const ActivityItem = ({
   event,
   projects,
   now,
-  onOpenAgent,
-  onOpenProject,
-}: Omit<ActivityPageProps, 'client' | 'onBack'> & {
+}: {
   readonly event: ActivityEventView;
   /** Every project's name, in the order that gives each its colour. */
   readonly projects: ReadonlyArray<string>;
@@ -63,7 +48,7 @@ const ActivityItem = ({
   const name = agent.name ?? agent.workspace;
   return (
     <AgentRow
-      {...linkOf(event, onOpenAgent, onOpenProject)}
+      {...linkOf(event)}
       // The second line says what happened; the dot only colours it.
       status={statusDot(activityTone(event), '')}
       name={name}
@@ -82,7 +67,7 @@ const ActivityItem = ({
  * `/activity`: what happened across the agents, newest first. An event opens its agent's
  * conversation, or its project when the agent is gone. It updates live.
  */
-export const ActivityPage = ({ client, onBack, onOpenAgent, onOpenProject }: ActivityPageProps) => {
+export const ActivityPage = ({ client, onBack }: ActivityPageProps) => {
   const { live } = useActivityLive(client);
   const activity = useQuery(activityQuery(client));
   const projects = useQuery(projectsQuery(client));
@@ -114,8 +99,6 @@ export const ActivityPage = ({ client, onBack, onOpenAgent, onOpenProject }: Act
                   event={event}
                   projects={projects.data?.map(({ name }) => name) ?? []}
                   now={now}
-                  onOpenAgent={onOpenAgent}
-                  onOpenProject={onOpenProject}
                 />
               ))}
             </AgentList>

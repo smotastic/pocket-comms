@@ -33,7 +33,6 @@ import { CloseIssue } from './CloseIssue.js';
 import { ImplementIssue } from './ImplementIssue.js';
 import { groupIssues, shownLabels } from './issue-groups.js';
 import { STATUS_LABELS } from './labels.js';
-import { navigateOnPlainClick } from './links.js';
 import { useNow, useOverviewLive } from './live.js';
 import { NewTask } from './NewTask.js';
 import { filterOverview } from './project-agents.js';
@@ -48,7 +47,6 @@ export interface ProjectPageProps {
   /** Shown when the page opens, such as what a start from the projects sheet left to say. */
   readonly notice?: string | undefined;
   readonly onBack: () => void;
-  readonly onOpenAgent: (ref: string) => void;
   /** Opens the conversation of an agent New task or Implement with Claude started, with a note. */
   readonly onStarted: (ref: string, note: string | undefined) => void;
 }
@@ -61,13 +59,11 @@ const updated = (at: number, now: number) => {
 const IssueRow = ({
   issue,
   now,
-  onOpenAgent,
   onImplement,
   onClose,
 }: {
   readonly issue: IssueView;
   readonly now: number;
-  readonly onOpenAgent: (ref: string) => void;
   readonly onImplement: () => void;
   readonly onClose: () => void;
 }) => (
@@ -92,12 +88,7 @@ const IssueRow = ({
         ) : (
           work.agents.map((agent) => (
             <Inline key={agent.ref} gap="xs">
-              <Link
-                href={`/agents/${encodeURIComponent(agent.ref)}`}
-                onClick={navigateOnPlainClick(() => onOpenAgent(agent.ref))}
-              >
-                {agent.ref}
-              </Link>
+              <Link href={`/agents/${encodeURIComponent(agent.ref)}`}>{agent.ref}</Link>
               <Text as="span" size="sm">
                 is working on this
               </Text>
@@ -121,13 +112,11 @@ const IssueRow = ({
 const Issues = ({
   list,
   now,
-  onOpenAgent,
   onImplement,
   onClose,
 }: {
   readonly list: IssueListView;
   readonly now: number;
-  readonly onOpenAgent: (ref: string) => void;
   readonly onImplement: (issue: IssueView) => void;
   readonly onClose: (issue: IssueView) => void;
 }) => {
@@ -151,7 +140,6 @@ const Issues = ({
               key={issue.number}
               issue={issue}
               now={now}
-              onOpenAgent={onOpenAgent}
               onImplement={() => onImplement(issue)}
               onClose={() => onClose(issue)}
             />
@@ -178,13 +166,11 @@ const Agents = ({
   agents,
   hue,
   now,
-  onOpen,
 }: {
   readonly agents: ReadonlyArray<AgentView>;
   /** The project's colour. */
   readonly hue: Hue;
   readonly now: number;
-  readonly onOpen: (ref: string) => void;
 }) => (
   <Card>
     <section aria-label="Agents">
@@ -194,14 +180,7 @@ const Agents = ({
         {agents.length === 0 ? null : (
           <AgentList label="Agents of the project">
             {agents.map((agent) => (
-              <AgentItem
-                key={agent.paneId}
-                agent={agent}
-                hue={hue}
-                withProject={false}
-                now={now}
-                onOpen={onOpen}
-              />
+              <AgentItem key={agent.paneId} agent={agent} hue={hue} withProject={false} now={now} />
             ))}
           </AgentList>
         )}
@@ -219,7 +198,6 @@ export const ProjectPage = ({
   project,
   notice: initialNotice,
   onBack,
-  onOpenAgent,
   onStarted,
 }: ProjectPageProps) => {
   useOverviewLive(client);
@@ -324,7 +302,6 @@ export const ProjectPage = ({
               agents={agentsOf(overview.data, project)}
               hue={projectHue(project, projects.data?.map(({ name }) => name) ?? [])}
               now={now}
-              onOpen={onOpenAgent}
             />
           )}
           <section aria-label="Issues">
@@ -336,7 +313,6 @@ export const ProjectPage = ({
                 <Issues
                   list={issues.data}
                   now={now}
-                  onOpenAgent={onOpenAgent}
                   onImplement={(issue) => {
                     setNotice(undefined);
                     setImplementing(issue);

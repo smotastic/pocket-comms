@@ -19,12 +19,6 @@ export const Route = createFileRoute('/agents/$agent')({
         agentRef={agent}
         note={note}
         onBack={() => void navigate({ to: '/' })}
-        onOpenSubagent={(subagent) =>
-          void navigate({
-            to: '/agents/$agent/subagents/$subagent',
-            params: { agent, subagent },
-          })
-        }
         {...(from === 'push' ? { onGone: () => void navigate({ to: '/', replace: true }) } : {})}
       />
     );

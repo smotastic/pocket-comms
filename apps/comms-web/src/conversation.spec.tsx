@@ -827,7 +827,7 @@ describe('background work in the conversation', () => {
   };
 
   it('shows a strip of the running work above the composer that opens to list it', async () => {
-    openWith(fakeAgent({ status: 'done', background: [shell, review] }));
+    const fake = openWith(fakeAgent({ status: 'done', background: [shell, review] }));
 
     const toggle = await screen.findByRole('button', { name: '2 running in the background' });
     await userEvent.click(toggle);
@@ -837,6 +837,9 @@ describe('background work in the conversation', () => {
     expect(within(list).getByText('12m')).toBeDefined();
     expect(within(list).getAllByRole('link')).toHaveLength(1);
     expect(within(list).getByRole('link').getAttribute('href')).toBe('/agents/kirk/subagents/a1');
+
+    await userEvent.click(within(list).getByRole('link'));
+    expect(fake.router.state.location.pathname).toBe('/agents/kirk/subagents/a1');
   });
 
   it('shows no strip without background work', async () => {

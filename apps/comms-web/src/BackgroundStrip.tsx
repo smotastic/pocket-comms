@@ -1,5 +1,4 @@
 import { Disclosure, Link, List, ListItem, Text } from '@smotastic/pocket-design';
-import { navigateOnPlainClick } from './links.js';
 
 export type BackgroundStripProps = {
   /** The running items, in the order to show them. */
@@ -12,8 +11,6 @@ export type BackgroundStripProps = {
     readonly since: string;
     /** The address of the item's page, when it has one. */
     readonly href?: string;
-    /** Opens `href` in the app, on a plain click or Enter. */
-    readonly onNavigate?: () => void;
   }>;
   readonly expanded: boolean;
   readonly onExpandedChange: (expanded: boolean) => void;
@@ -45,14 +42,7 @@ export const BackgroundStrip = ({ items, expanded, onExpandedChange }: Backgroun
           {item.href === undefined ? (
             <Text as="span">{item.description}</Text>
           ) : (
-            <Link
-              href={item.href}
-              {...(item.onNavigate === undefined
-                ? {}
-                : { onClick: navigateOnPlainClick(item.onNavigate) })}
-            >
-              {item.description}
-            </Link>
+            <Link href={item.href}>{item.description}</Link>
           )}
         </ListItem>
       ))}

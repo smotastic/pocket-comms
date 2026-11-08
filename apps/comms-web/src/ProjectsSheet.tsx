@@ -25,7 +25,6 @@ import { stillWorking, useCloseIssue } from './CloseIssue.js';
 import { ImplementIssue } from './ImplementIssue.js';
 import { IssueCard } from './IssueCard.js';
 import { groupIssues, shownLabels } from './issue-groups.js';
-import { navigateOnPlainClick } from './links.js';
 import { NewTask } from './NewTask.js';
 import { NotificationsRow } from './NotificationsRow.js';
 
@@ -38,12 +37,8 @@ export interface ProjectsSheetProps {
   readonly projects: ReadonlyArray<string> | undefined;
   /** Why the projects could not be read. */
   readonly projectsError: string | undefined;
-  /** Opens a project's page. */
-  readonly onProject: (project: string) => void;
   /** Called once Implement or New task started work in a project. */
   readonly onStarted: (project: string, created: TaskCreatedView) => void;
-  /** Opens the activity timeline. */
-  readonly onActivity: () => void;
 }
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
@@ -234,9 +229,8 @@ const ProjectList = ({
   client,
   overview,
   projects,
-  onProject,
   onStarted,
-}: Omit<ProjectsSheetProps, 'open' | 'onClose' | 'projects' | 'projectsError' | 'onActivity'> & {
+}: Omit<ProjectsSheetProps, 'open' | 'onClose' | 'projects' | 'projectsError'> & {
   readonly projects: ReadonlyArray<string>;
 }) => {
   const queryClient = useQueryClient();
@@ -290,12 +284,7 @@ const ProjectList = ({
                   <Button size="sm" variant="secondary" onClick={() => setCreating(project)}>
                     New task
                   </Button>
-                  <Link
-                    href={`/projects/${encodeURIComponent(project)}`}
-                    onClick={navigateOnPlainClick(() => onProject(project))}
-                  >
-                    Project page
-                  </Link>
+                  <Link href={`/projects/${encodeURIComponent(project)}`}>Project page</Link>
                 </Inline>
               </Stack>
             )}
@@ -340,7 +329,6 @@ export const ProjectsSheet = ({
   onClose,
   projects,
   projectsError,
-  onActivity,
   ...props
 }: ProjectsSheetProps) => (
   <Sheet
@@ -356,9 +344,7 @@ export const ProjectsSheet = ({
     }
   >
     <Stack gap="md">
-      <Link href="/activity" onClick={navigateOnPlainClick(onActivity)}>
-        Activity
-      </Link>
+      <Link href="/activity">Activity</Link>
       <div>
         {projectsError !== undefined ? (
           <Alert>{projectsError}</Alert>

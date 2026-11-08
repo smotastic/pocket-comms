@@ -34,8 +34,6 @@ export interface ConversationProps {
   readonly client: CommsClient;
   readonly agentRef: string;
   readonly onBack: () => void;
-  /** Opens a subagent's conversation, by its id. */
-  readonly onOpenSubagent: (id: string) => void;
   /** What the New task flow could not do for this agent, such as send the task (spec 005). */
   readonly note?: string | undefined;
   /**
@@ -129,14 +127,7 @@ const Header = ({
  * agent is blocked. The keys and the owner's quick replies wait under Controls, so the question
  * keeps the room. It updates live.
  */
-export const Conversation = ({
-  client,
-  agentRef,
-  onBack,
-  onOpenSubagent,
-  note,
-  onGone,
-}: ConversationProps) => {
+export const Conversation = ({ client, agentRef, onBack, note, onGone }: ConversationProps) => {
   useAgentLive(client, agentRef);
   const now = useNow(60_000);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
@@ -294,7 +285,7 @@ export const Conversation = ({
           {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
           {agent.background.length === 0 ? null : (
             <BackgroundStrip
-              items={stripItems(agent, now, onOpenSubagent)}
+              items={stripItems(agent, now)}
               expanded={backgroundOpen}
               onExpandedChange={setBackgroundOpen}
             />
@@ -389,7 +380,7 @@ export const Conversation = ({
               transcript={transcript.data}
               failed={transcript.error !== null}
               imageUrl={client.imageUrl}
-              linkOf={delegationLink(agent, onOpenSubagent)}
+              linkOf={delegationLink(agent)}
             />
             {agent.status === 'working' ? (
               <Activity label={transcript.data?.activity ?? 'Thinking…'} />

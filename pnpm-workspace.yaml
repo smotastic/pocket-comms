@@ -34,7 +34,7 @@ catalog:
 
   # The brainstorm chat's agent framework, shared with pocket-learning (ADR 0014); a framework
   # change is a bump here.
-  '@smotastic/pocket-agent': 0.2.0
+  '@smotastic/pocket-agent': 0.3.0
 
   # Web Push to the owner's devices (spec 018).
   '@types/web-push': 3.6.4
@@ -69,7 +69,7 @@ catalog:
   # The shared CI gates (ADR 0013); a CI change is a bump here.
   '@smotastic/pocket-ci': 0.2.6
   # Polaris, the shared design system of the pocket apps; a design change is a bump here.
-  '@smotastic/pocket-design': 0.4.0
+  '@smotastic/pocket-design': 0.11.1
   '@redocly/cli': ~2.55.0
   husky: ^9.1.7
   prettier: ~3.8.4
@@ -110,5 +110,5 @@ minimumReleaseAgeExclude:
   - '@testcontainers/postgresql@12.2.0'
   - testcontainers@12.2.0
   - '@smotastic/pocket-ci@0.2.6'
-  - '@smotastic/pocket-design@0.4.0'
-  - '@smotastic/pocket-agent@0.2.0'
+  - '@smotastic/pocket-design@0.11.1'
+  - '@smotastic/pocket-agent@0.3.0'
