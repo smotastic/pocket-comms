@@ -30,7 +30,7 @@ in the task's own commit.
       transcribe, failed clip with retry and discard, the leave warning, refused microphone).
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T06** — Web: the Record voice item in the brainstorm composer's action menu (kit 0.14.0
+- [x] **T06** — Web: the Record voice item in the brainstorm composer's action menu (kit 0.14.0
       `mic` icon), the recording row and the failed-clip row; the text appended to the draft.
   - Gate: `pnpm nx test comms-web`; `pnpm verify:local`
 

@@ -30,6 +30,8 @@ import { IssueEditCard } from './IssueEditCard.js';
 import { useBrainstormLive, type BrainstormView } from './live.js';
 import { ProposalCard } from './ProposalCard.js';
 import { PictureThumb, type ChatPicture } from './ProposalPictures.js';
+import { appendText, useVoiceClip } from './voice.js';
+import { VoiceClipRow } from './VoiceClipRow.js';
 
 // The brainstorm chat: one ongoing chat with Pi, opened from the top bars. Pi proposes new issues
 // and edits of existing ones, and the owner decides on each. The owner's messages may attach
@@ -308,6 +310,7 @@ const Footer = ({
 }) => {
   const [draft, setDraft] = useState('');
   const images = useAttachments(client);
+  const voice = useVoiceClip(client, (text) => setDraft((current) => appendText(current, text)));
   // A successful send clears the text and the pictures; a failed one keeps both.
   const send = useMutation({
     mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
@@ -323,6 +326,7 @@ const Footer = ({
     <Stack gap="sm">
       {send.error === null ? null : <Alert>{send.error.message}</Alert>}
       {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
+      {voice.notice === undefined ? null : <Alert>{voice.notice}</Alert>}
       {ready && !state.seesPictures && images.attachments.length > 0 ? (
         <Text tone="muted" size="sm">
           {BLIND}
@@ -336,24 +340,53 @@ const Footer = ({
         placeholder="An idea…"
         locked={send.isPending || images.pending}
         disabled={!ready || busy}
-        attach={{
-          label: 'Attach image',
-          icon: 'image',
-          acceptedFileTypes: ['image/*'],
-          onSelect: (files) => void images.add(files),
-          isDisabled: images.full,
+        actions={{
+          label: 'Actions',
+          items: [
+            {
+              id: 'image',
+              label: 'Attach image',
+              icon: 'image',
+              files: {
+                acceptedFileTypes: ['image/*'],
+                onSelect: (files) => void images.add(files),
+              },
+              isDisabled: images.full,
+            },
+            ...(ready && state.voice
+              ? [
+                  {
+                    id: 'voice',
+                    label: 'Record voice',
+                    icon: 'mic' as const,
+                    onAction: () => void voice.start(),
+                    isDisabled: voice.clip._tag !== 'Idle',
+                  },
+                ]
+              : []),
+          ],
         }}
         sendable={images.ids.length > 0}
         {...(busy ? { hint: 'Pi is answering.' } : {})}
-        {...(images.attachments.length === 0
+        {...(images.attachments.length === 0 && voice.clip._tag === 'Idle'
           ? {}
           : {
               attachments: (
-                <AttachedImages
-                  attachments={images.attachments}
-                  onRemove={images.remove}
-                  onRetry={images.retry}
-                />
+                <Stack gap="sm">
+                  <VoiceClipRow
+                    clip={voice.clip}
+                    onStop={() => void voice.stop()}
+                    onRetry={voice.retry}
+                    onDiscard={voice.discard}
+                  />
+                  {images.attachments.length === 0 ? null : (
+                    <AttachedImages
+                      attachments={images.attachments}
+                      onRemove={images.remove}
+                      onRetry={images.retry}
+                    />
+                  )}
+                </Stack>
               ),
             })}
       />
