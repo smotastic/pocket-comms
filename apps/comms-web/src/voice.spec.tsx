@@ -5,6 +5,8 @@ import { RequestError } from './comms-client.js';
 import { fakeMicrophone } from './testing.js';
 import {
   appendText,
+  browserMicrophone,
+  MicrophoneError,
   formatLength,
   MAX_RECORDING_MS,
   MicrophoneContext,
@@ -76,11 +78,43 @@ describe('useVoiceClip', () => {
 
     await act(() => result.current.start());
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(MAX_RECORDING_MS);
+      await vi.advanceTimersByTimeAsync(MAX_RECORDING_MS - 1);
+    });
+    const clip = result.current.clip;
+    expect(clip._tag === 'Recording' ? formatLength(clip.elapsed) : clip._tag).toBe('1:59');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
     });
 
     expect(result.current.clip._tag).toBe('Idle');
     expect(texts).toEqual(['a long idea']);
+  });
+
+  it('transcribes a recording that ends by itself, such as for a call', async () => {
+    const { device, microphone } = fakeMicrophone();
+    const { result, texts } = setUp(async () => 'cut short', microphone);
+
+    await act(() => result.current.start());
+    act(() => device.end());
+
+    await waitFor(() => expect(texts).toEqual(['cut short']));
+    expect(result.current.clip._tag).toBe('Idle');
+  });
+
+  it('sends no clip without sound and says no speech was heard', async () => {
+    const { device, microphone } = fakeMicrophone();
+    device.silent = true;
+    const clips: Array<Blob> = [];
+    const { result } = setUp(async (clip) => {
+      clips.push(clip);
+      return 'never';
+    }, microphone);
+
+    await act(() => result.current.start());
+    await act(() => result.current.stop());
+
+    expect(clips).toEqual([]);
+    expect(result.current.notice).toEqual({ text: 'No speech was heard.', tone: 'info' });
   });
 
   it('says so when the microphone is refused and records nothing (requirement 4)', async () => {
@@ -91,7 +125,10 @@ describe('useVoiceClip', () => {
     await act(() => result.current.start());
 
     expect(result.current.clip._tag).toBe('Idle');
-    expect(result.current.notice).toMatch(/microphone/iu);
+    expect(result.current.notice).toMatchObject({
+      tone: 'danger',
+      text: expect.stringMatching(/microphone/iu),
+    });
   });
 
   it('keeps a failed clip for a retry, which sends the same clip (requirement 11)', async () => {
@@ -154,7 +191,9 @@ describe('useVoiceClip', () => {
 
     await act(() => result.current.start());
     await act(() => result.current.stop());
-    await waitFor(() => expect(result.current.notice).toBe('No speech was heard.'));
+    await waitFor(() =>
+      expect(result.current.notice).toEqual({ text: 'No speech was heard.', tone: 'info' }),
+    );
 
     expect(texts).toEqual([]);
   });
@@ -167,5 +206,90 @@ describe('useVoiceClip', () => {
     unmount();
 
     expect(device.recording).toBe(false);
+  });
+});
+
+describe('browserMicrophone', () => {
+  /** A `MediaRecorder` as browsers have it, enough for `browserMicrophone`. */
+  class FakeRecorder extends EventTarget {
+    static failing = false;
+    static last: FakeRecorder | undefined;
+    state: 'inactive' | 'recording' = 'inactive';
+    readonly mimeType = 'audio/mp4';
+    constructor() {
+      super();
+      if (FakeRecorder.failing) throw new DOMException('Not supported', 'NotSupportedError');
+      FakeRecorder.last = this;
+    }
+    start() {
+      this.state = 'recording';
+    }
+    stop() {
+      this.state = 'inactive';
+      this.emit('voice');
+      this.dispatchEvent(new Event('stop'));
+    }
+    emit(data: string) {
+      this.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob([data]) }));
+    }
+  }
+
+  const stopped: Array<string> = [];
+  const allow = (getUserMedia: () => Promise<MediaStream>) => {
+    vi.stubGlobal('MediaRecorder', FakeRecorder);
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } });
+  };
+  const stream = () =>
+    Promise.resolve({
+      getTracks: () => [{ stop: () => stopped.push('track') }],
+    } as unknown as MediaStream);
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    FakeRecorder.failing = false;
+    FakeRecorder.last = undefined;
+    stopped.length = 0;
+  });
+
+  it('records in the browser’s format and lets the microphone go on stop', async () => {
+    allow(stream);
+    const recording = await browserMicrophone.start(() => undefined);
+
+    const clip = await recording.stop();
+
+    expect(clip.type).toBe('audio/mp4');
+    expect(await clip.text()).toBe('voice');
+    expect(stopped).toEqual(['track']);
+  });
+
+  it('says the microphone is not allowed when the owner refuses it', async () => {
+    allow(() => Promise.reject(new DOMException('Denied', 'NotAllowedError')));
+
+    await expect(browserMicrophone.start(() => undefined)).rejects.toThrow(/not allowed/u);
+  });
+
+  it('says the browser cannot record without MediaRecorder', async () => {
+    vi.stubGlobal('MediaRecorder', undefined);
+
+    await expect(browserMicrophone.start(() => undefined)).rejects.toThrow(MicrophoneError);
+  });
+
+  it('lets the microphone go when the recorder cannot start', async () => {
+    allow(stream);
+    FakeRecorder.failing = true;
+
+    await expect(browserMicrophone.start(() => undefined)).rejects.toThrow(MicrophoneError);
+    expect(stopped).toEqual(['track']);
+  });
+
+  it('hears of a recording that ended by itself, and stopping it then answers at once', async () => {
+    allow(stream);
+    const ended: Array<string> = [];
+    const recording = await browserMicrophone.start(() => ended.push('ended'));
+
+    FakeRecorder.last?.stop();
+    expect(ended).toEqual(['ended']);
+
+    expect(await (await recording.stop()).text()).toBe('voice');
   });
 });

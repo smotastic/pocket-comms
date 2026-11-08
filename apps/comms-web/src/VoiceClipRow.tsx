@@ -18,8 +18,13 @@ export const VoiceClipRow = ({
 }) => {
   switch (clip._tag) {
     case 'Idle':
-    case 'Starting':
       return null;
+    case 'Starting':
+      return (
+        <Text tone="muted" size="sm">
+          Starting the microphone…
+        </Text>
+      );
     case 'Recording':
       return (
         <Inline gap="sm" justify="between">
@@ -27,7 +32,8 @@ export const VoiceClipRow = ({
             <LiveIndicator live label="Recording" />
             <Text size="sm">{formatLength(clip.elapsed)}</Text>
           </Inline>
-          <Button size="sm" variant="secondary" onClick={onStop}>
+          {/* Focus moves here, so a screen reader hears that recording started. */}
+          <Button size="sm" variant="secondary" onClick={onStop} autoFocus>
             Stop
           </Button>
         </Inline>

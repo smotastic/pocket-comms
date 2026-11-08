@@ -1,6 +1,6 @@
 # Spec 027 — pocket-comms: voice messages in the brainstorm chat
 
-- **Status:** `Approved` — approved by the owner (2026-11-08)
+- **Status:** `Done` — approved by the owner (2026-11-08), implemented in the pull request for Gitea #73
 - **Changes:** [spec 013](../013-comms-brainstorm-chat/spec.md) (the composer) and the composer's
   action menu of Gitea #70
 - **Issue:** Gitea #73
@@ -110,6 +110,9 @@ device can reuse it.
 - Phones record in different formats (Safari: MP4/AAC, Chrome: WebM/Opus). The server passes the
   clip on as recorded; the service decodes it.
 - Depends on the composer's action menu (Gitea #70, design kit 0.13.0) being on `master`.
+- iOS Safari and the installed app never show a warning before leaving a page, so there
+  requirement 12 cannot hold: reloading drops a failed clip without asking. Desktop browsers and
+  Android warn. Found in review (2026-11-08); the platform allows nothing better.
 - A later buddy device uses the same transcription route, then sends the text itself.
 
 ## 6. Open questions

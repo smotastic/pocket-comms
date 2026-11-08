@@ -1,7 +1,7 @@
 # Plan 027 — pocket-comms: voice messages in the brainstorm chat
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved with the spec by the owner (2026-11-08)
+- **Status:** `Done` — approved with the spec by the owner (2026-11-08)
 
 ## 1. Affected projects
 

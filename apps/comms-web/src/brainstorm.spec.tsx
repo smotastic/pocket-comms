@@ -680,4 +680,43 @@ describe('voice messages in the brainstorm chat', () => {
 
     expect(await within(sheet).findByText('No speech was heard.')).toBeDefined();
   });
+
+  it('shows the wait for the text and lets the owner type meanwhile (requirement 6)', async () => {
+    const { sheet, state } = await openChat(ready({ voice: true }));
+    let release = () => undefined as void;
+    state.transcriptionGate = new Promise((resolve) => (release = resolve));
+
+    await record(sheet);
+    expect(await within(sheet).findByText('Transcribing 0:00…')).toBeDefined();
+    const message = within(sheet).getByRole('textbox', { name: 'Message' });
+    await userEvent.type(message, 'Idea:');
+    release();
+
+    await waitFor(() =>
+      expect((message as HTMLTextAreaElement).value).toBe('Idea: dark mode for pocket-home'),
+    );
+  });
+
+  it('keeps a transcript that arrives while a message is on its way (requirement 7)', async () => {
+    const { sheet, state, calls } = await openChat(ready({ voice: true }));
+    let transcribed = () => undefined as void;
+    let sent = () => undefined as void;
+    state.transcriptionGate = new Promise((resolve) => (transcribed = resolve));
+    state.sendGate = new Promise((resolve) => (sent = resolve));
+    const message = within(sheet).getByRole('textbox', { name: 'Message' });
+
+    await record(sheet);
+    await userEvent.type(message, 'First idea');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Send' }));
+    transcribed();
+    await waitFor(() =>
+      expect((message as HTMLTextAreaElement).value).toBe('First idea dark mode for pocket-home'),
+    );
+    sent();
+
+    await waitFor(() => expect(calls.brainstormMessages).toEqual(['First idea']));
+    await waitFor(() =>
+      expect((message as HTMLTextAreaElement).value).toBe('dark mode for pocket-home'),
+    );
+  });
 });

@@ -315,9 +315,15 @@ const Footer = ({
   const send = useMutation({
     mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
       client.sendBrainstorm(text, imageIds),
-    onSuccess: () => {
-      setDraft('');
+    // Only the sent text goes: a transcript that arrived meanwhile stays (spec 027).
+    onSuccess: (_, { text }) => {
+      // The composer sends the trimmed text.
+      setDraft((current) => {
+        const kept = current.trimStart();
+        return kept.startsWith(text) ? kept.slice(text.length).trimStart() : current;
+      });
       images.clear();
+      voice.dismiss();
     },
   });
   const ready = state?._tag === 'Ready';
@@ -326,7 +332,9 @@ const Footer = ({
     <Stack gap="sm">
       {send.error === null ? null : <Alert>{send.error.message}</Alert>}
       {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
-      {voice.notice === undefined ? null : <Alert>{voice.notice}</Alert>}
+      {voice.notice === undefined ? null : (
+        <Alert tone={voice.notice.tone}>{voice.notice.text}</Alert>
+      )}
       {ready && !state.seesPictures && images.attachments.length > 0 ? (
         <Text tone="muted" size="sm">
           {BLIND}

@@ -15,9 +15,12 @@ export interface Recording {
   readonly stop: () => Promise<Blob>;
 }
 
-/** The browser's microphone; tests give their own, since jsdom cannot record. */
+/**
+ * The browser's microphone; tests give their own, since jsdom cannot record. `onEnded` hears of a
+ * recording that ends by itself, such as when a call takes the microphone.
+ */
 export interface Microphone {
-  readonly start: () => Promise<Recording>;
+  readonly start: (onEnded: () => void) => Promise<Recording>;
 }
 
 const refusal = (error: unknown) =>
@@ -25,9 +28,13 @@ const refusal = (error: unknown) =>
     ? 'The microphone is not allowed. Allow it in the browser to record.'
     : 'No microphone can record here.';
 
-/** Records with `MediaRecorder` in the browser's own format (MP4 in Safari, WebM in Chrome). */
+/**
+ * Records with `MediaRecorder` in the browser's own format (MP4 in Safari, WebM in Chrome). A
+ * recorder that already stopped, or failed, answers what it has, and the microphone is let go in
+ * every case.
+ */
 export const browserMicrophone: Microphone = {
-  start: async () => {
+  start: async (onEnded) => {
     if (typeof MediaRecorder === 'undefined' || navigator.mediaDevices === undefined) {
       throw new MicrophoneError('This browser cannot record.');
     }
@@ -36,25 +43,37 @@ export const browserMicrophone: Microphone = {
       .catch((error: unknown) => {
         throw new MicrophoneError(refusal(error));
       });
-    const recorder = new MediaRecorder(stream);
+    const release = () => {
+      for (const track of stream.getTracks()) track.stop();
+    };
     const chunks: Array<Blob> = [];
-    recorder.addEventListener('dataavailable', (event) => {
-      if (event.data.size > 0) chunks.push(event.data);
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream);
+      recorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0) chunks.push(event.data);
+      });
+      recorder.start();
+    } catch {
+      release();
+      throw new MicrophoneError('No microphone can record here.');
+    }
+    let asked = false;
+    const ended = new Promise<Blob>((resolve) => {
+      const finish = () => {
+        release();
+        resolve(new Blob(chunks, { type: recorder.mimeType }));
+        if (!asked) onEnded();
+      };
+      recorder.addEventListener('stop', finish, { once: true });
+      recorder.addEventListener('error', finish, { once: true });
     });
-    recorder.start();
     return {
-      stop: () =>
-        new Promise<Blob>((resolve) => {
-          recorder.addEventListener(
-            'stop',
-            () => {
-              for (const track of stream.getTracks()) track.stop();
-              resolve(new Blob(chunks, { type: recorder.mimeType }));
-            },
-            { once: true },
-          );
-          recorder.stop();
-        }),
+      stop: () => {
+        asked = true;
+        if (recorder.state !== 'inactive') recorder.stop();
+        return ended;
+      },
     };
   },
 };
@@ -73,6 +92,12 @@ export const formatLength = (ms: number) => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };
 
+/** Why nothing was recorded or added: a failure, or a plain notice such as silence. */
+export interface VoiceNotice {
+  readonly text: string;
+  readonly tone: 'danger' | 'info';
+}
+
 export type VoiceClip =
   | { readonly _tag: 'Idle' }
   | { readonly _tag: 'Starting' }
@@ -82,6 +107,8 @@ export type VoiceClip =
 
 const reasonOf = (error: unknown) =>
   error instanceof Error ? error.message : 'The clip was not transcribed.';
+
+const SILENCE: VoiceNotice = { text: 'No speech was heard.', tone: 'info' };
 
 /**
  * The one voice clip of a draft (requirement 5). `onText` gets each transcript with words;
@@ -93,7 +120,7 @@ export const useVoiceClip = (
 ) => {
   const microphone = useContext(MicrophoneContext);
   const [clip, setClip] = useState<VoiceClip>({ _tag: 'Idle' });
-  const [notice, setNotice] = useState<string | undefined>(undefined);
+  const [notice, setNotice] = useState<VoiceNotice | undefined>(undefined);
   const recording = useRef<{ readonly recording: Recording; readonly startedAt: number }>(
     undefined,
   );
@@ -109,7 +136,7 @@ export const useVoiceClip = (
         if (!mounted.current) return;
         failed.current = undefined;
         setClip({ _tag: 'Idle' });
-        if (text === '') setNotice('No speech was heard.');
+        if (text === '') setNotice(SILENCE);
         else handOver.current(text);
       },
       (error: unknown) => {
@@ -126,18 +153,30 @@ export const useVoiceClip = (
     recording.current = undefined;
     const length = Date.now() - current.startedAt;
     setClip({ _tag: 'Transcribing', length });
-    const blob = await current.recording.stop();
-    if (mounted.current) transcribe(blob, length);
+    const blob = await current.recording.stop().catch(() => undefined);
+    if (!mounted.current) return;
+    if (blob === undefined) {
+      setClip({ _tag: 'Idle' });
+      setNotice({ text: 'The recording failed.', tone: 'danger' });
+    } else if (blob.size === 0) {
+      // A tap too short for any sound: the server would refuse it, so it is not sent.
+      setClip({ _tag: 'Idle' });
+      setNotice(SILENCE);
+    } else {
+      transcribe(blob, length);
+    }
   };
 
   const start = async () => {
     setNotice(undefined);
     setClip({ _tag: 'Starting' });
-    const started = await microphone.start().catch((error: unknown) => {
-      setNotice(reasonOf(error));
-      setClip({ _tag: 'Idle' });
-      return undefined;
-    });
+    const started = await microphone
+      .start(() => void stop())
+      .catch((error: unknown) => {
+        setNotice({ text: reasonOf(error), tone: 'danger' });
+        setClip({ _tag: 'Idle' });
+        return undefined;
+      });
     if (started === undefined) return;
     if (!mounted.current) {
       await started.stop();
@@ -183,7 +222,11 @@ export const useVoiceClip = (
   const isFailed = clip._tag === 'Failed';
   useEffect(() => {
     if (!isFailed) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      // Older Chromium asks only when this is set.
+      event.returnValue = '';
+    };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [isFailed]);
@@ -198,5 +241,7 @@ export const useVoiceClip = (
     };
   }, []);
 
-  return { clip, notice, start, stop, retry, discard };
+  const dismiss = () => setNotice(undefined);
+
+  return { clip, notice, start, stop, retry, discard, dismiss };
 };
