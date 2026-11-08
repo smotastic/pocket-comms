@@ -19,7 +19,7 @@ in the task's own commit.
       adapter.
   - Gate: `pnpm nx test comms-infrastructure`
 
-- [ ] **T04** — Contract, API and server: `POST /api/v1/speech/transcriptions`,
+- [x] **T04** — Contract, API and server: `POST /api/v1/speech/transcriptions`,
       `BrainstormState.Ready.voice`, the handlers and problems, `COMMS_SPEECH_URL` and
       `COMMS_SPEECH_MODEL` in the config and composition, the regenerated OpenAPI document, the
       `packages/comms/AGENTS.md` rule.

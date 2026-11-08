@@ -4,7 +4,7 @@ import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Redacted from 'effect/Redacted';
 import { homedir } from 'node:os';
-import { HOST, serverConfig } from './config.js';
+import { HOST, serverConfig, speechSettings } from './config.js';
 
 const withEnv =
   (env: Record<string, string>) =>
@@ -28,6 +28,8 @@ describe('serverConfig', () => {
         giteaHosts: ['gitea'],
         stateDir: `${homedir()}/.pocket-comms`,
         brainstormModel: Option.none(),
+        speechUrl: Option.none(),
+        speechModel: Option.none(),
       });
     }).pipe(withEnv({})),
   );
@@ -48,6 +50,8 @@ describe('serverConfig', () => {
         giteaHosts: ['gitea', 'git.example.com'],
         stateDir: '/srv/state',
         brainstormModel: Option.some('gpt-6-luna'),
+        speechUrl: Option.some('http://localhost:4430/v1'),
+        speechModel: Option.some('Systran/faster-whisper-small'),
       });
     }).pipe(
       withEnv({
@@ -62,6 +66,8 @@ describe('serverConfig', () => {
         COMMS_GITEA_HOSTS: ' gitea, git.example.com ,',
         COMMS_STATE_DIR: '/srv/state',
         COMMS_BRAINSTORM_MODEL: 'gpt-6-luna',
+        COMMS_SPEECH_URL: 'http://localhost:4430/v1',
+        COMMS_SPEECH_MODEL: 'Systran/faster-whisper-small',
       }),
     ),
   );
@@ -79,5 +85,27 @@ describe('serverConfig', () => {
 
   it('listens on the loopback interface only', () => {
     expect(HOST).toBe('127.0.0.1');
+  });
+});
+
+describe('speechSettings', () => {
+  const URL = Option.some('http://localhost:4430/v1');
+  const MODEL = Option.some('Systran/faster-whisper-small');
+
+  it('sets voice messages up with both settings', () => {
+    expect(speechSettings(URL, MODEL)).toEqual({
+      _tag: 'On',
+      url: 'http://localhost:4430/v1',
+      model: 'Systran/faster-whisper-small',
+    });
+  });
+
+  it('leaves them off without either setting', () => {
+    expect(speechSettings(Option.none(), Option.none())).toEqual({ _tag: 'Off' });
+  });
+
+  it('leaves them off with only one setting, and says so', () => {
+    expect(speechSettings(URL, Option.none())).toEqual({ _tag: 'HalfSet' });
+    expect(speechSettings(Option.none(), MODEL)).toEqual({ _tag: 'HalfSet' });
   });
 });

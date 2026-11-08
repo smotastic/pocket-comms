@@ -1003,6 +1003,10 @@ export const BrainstormState = Schema.Union([
         }),
       }),
     ).annotate({ description: 'The pictures of the chat, by number.', examples: [[]] }),
+    voice: Schema.Boolean.annotate({
+      description: 'The server can transcribe voice messages, so the composer offers recording.',
+      examples: [true],
+    }),
   }),
   Schema.Struct({
     _tag: Schema.tag('NotSetUp').annotate({
@@ -1647,6 +1651,47 @@ const quickReplies = HttpApiGroup.make('quickReplies')
     }),
   );
 
+// ── Voice messages ────────────────────────────────────────────────────────────────────────
+
+export const SpeechUpload = Schema.Uint8Array.pipe(
+  HttpApiSchema.asUint8Array({ contentType: 'application/octet-stream' }),
+).annotate({
+  identifier: 'SpeechUpload',
+  description: 'One voice message of at most 5 MB, as the raw bytes of what the browser recorded.',
+  examples: [],
+});
+
+export const SpeechText = Schema.Struct({
+  text: Schema.String.annotate({
+    description: 'The words of the voice message, trimmed; empty when none were heard.',
+    examples: ['Idea: dark mode for pocket-home'],
+  }),
+}).annotate({ identifier: 'SpeechText', description: 'The words of a voice message.' });
+
+const speech = HttpApiGroup.make('speech')
+  .add(
+    HttpApiEndpoint.post('transcribe', '/speech/transcriptions', {
+      payload: SpeechUpload,
+      success: SpeechText,
+      error: [Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Transcribe a voice message',
+        description:
+          'Checks the clip by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the clip is kept.',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Speech',
+      description: 'Voice messages turned into text for the brainstorm composer.',
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
@@ -1657,6 +1702,7 @@ export const CommsApi = HttpApi.make('comms')
   .add(activity)
   .add(push)
   .add(quickReplies)
+  .add(speech)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

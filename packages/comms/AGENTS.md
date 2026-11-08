@@ -20,8 +20,9 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 022](../../specs/022-comms-brainstorm-edits-issues/spec.md),
 [spec 023](../../specs/023-comms-brainstorm-pictures/spec.md),
 [spec 024](../../specs/024-comms-typed-answers/spec.md),
-[spec 025](../../specs/025-comms-quick-replies/spec.md) and
-[spec 026](../../specs/026-comms-brainstorm-chat-stream/spec.md).
+[spec 025](../../specs/025-comms-quick-replies/spec.md),
+[spec 026](../../specs/026-comms-brainstorm-chat-stream/spec.md) and
+[spec 027](../../specs/027-comms-brainstorm-voice/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, the push devices and the
@@ -38,6 +39,8 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
 | Issue rules (remote, order, branch, task text, work per issue)                    | `domain` (`src/issue.ts`)                                   |
 | Brainstorm entries, proposals, issue drafts and edits, issue reads, chat pictures | `domain` (`src/brainstorm.ts`)                              |
 | Image rules (kinds, ids, limits, paths in a prompt)                               | `domain` (`src/image.ts`)                                   |
+| Voice clip rules (formats by content, size)                                       | `domain` (`src/speech.ts`)                                  |
+| The speech-to-text service (OpenAI-compatible HTTP)                               | `infrastructure` (`src/speech`)                             |
 | Suggested replies, the quick replies' rules and default list                      | `domain` (`src/replies.ts`)                                 |
 | The quick replies file                                                            | `infrastructure` (`src/quick-replies`)                      |
 | The image store                                                                   | `infrastructure` (`src/images`)                             |
@@ -128,6 +131,11 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   names every file itself (`<id>.<ext>`), opens only names of that shape that are plain files, and
   an image id from a request is only ever looked up, never joined into a path. The server checks
   an upload by its content (JPEG or PNG), never by its name or declared type.
+- Voice messages go to the speech-to-text service through `SpeechOutbound`, and only the server
+  calls it (`COMMS_SPEECH_URL`, on the Mac's loopback). A clip stays in memory: never write it to
+  disk or log it. The server checks a clip by its content, never by its name or declared type,
+  sends no language, and a reason never names the service's address. Without both settings the
+  server starts and the brainstorm state says `voice: false`.
 - The activity recorder runs in `ActivityInbound`'s layer scope from server start and records only
   what the server observes: Herdr snapshots and the prompts, keys and typed text Herdr took from
   the app. The

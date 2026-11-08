@@ -636,9 +636,14 @@
                 "description": "The model takes pictures; otherwise Pi only learns that pictures were attached.",
                 "examples": [true],
                 "type": "boolean"
+              },
+              "voice": {
+                "description": "The server can transcribe voice messages, so the composer offers recording.",
+                "examples": [true],
+                "type": "boolean"
               }
             },
-            "required": ["_tag", "answering", "seesPictures", "pictures"],
+            "required": ["_tag", "answering", "seesPictures", "pictures", "voice"],
             "type": "object"
           },
           {
@@ -1639,6 +1644,19 @@
           }
         },
         "required": ["type", "title", "status"],
+        "type": "object"
+      },
+      "SpeechText": {
+        "additionalProperties": false,
+        "description": "The words of a voice message.",
+        "properties": {
+          "text": {
+            "description": "The words of the voice message, trimmed; empty when none were heard.",
+            "examples": ["Idea: dark mode for pocket-home"],
+            "type": "string"
+          }
+        },
+        "required": ["text"],
         "type": "object"
       },
       "Subagent": {
@@ -4583,6 +4601,69 @@
         "tags": ["Quick replies"]
       }
     },
+    "/api/v1/speech/transcriptions": {
+      "post": {
+        "description": "Checks the clip by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the clip is kept.",
+        "operationId": "speech.transcribe",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechText"
+                }
+              }
+            },
+            "description": "The words of a voice message."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Transcribe a voice message",
+        "tags": ["Speech"]
+      }
+    },
     "/api/v1/tasks": {
       "post": {
         "description": "Creates a Herdr worktree on a new branch from the project's default remote branch, without moving the focus, and optionally starts an agent in it with the task as its first prompt.",
@@ -4689,6 +4770,10 @@
     {
       "description": "The owner's own replies, offered with one tap in every conversation.",
       "name": "Quick replies"
+    },
+    {
+      "description": "Voice messages turned into text for the brainstorm composer.",
+      "name": "Speech"
     }
   ]
 }

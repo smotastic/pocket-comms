@@ -194,6 +194,22 @@ export const problems = {
         detail: `Issue #${error.number} changed since Pi read it, so the edit was not applied. Discard it and ask Pi to read the issue again.`,
       }),
     ),
+  speechNotSetUp: () =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'speech-not-set-up',
+        title: 'Voice messages are not set up',
+        detail: 'Set COMMS_SPEECH_URL and COMMS_SPEECH_MODEL on the server.',
+      }),
+    ),
+  speechUnavailable: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'speech-unavailable',
+        title: 'The voice message was not transcribed',
+        detail: error.reason,
+      }),
+    ),
   imageNotSaved: (error: { readonly reason: string }) =>
     Effect.fail(
       serviceUnavailableProblem({

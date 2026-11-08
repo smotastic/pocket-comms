@@ -14,6 +14,9 @@ import {
   ImageNotFoundError,
   ImageNotSavedError,
   ImagesInbound,
+  SpeechInbound,
+  SpeechNotSetUpError,
+  SpeechUnavailableError,
   IssueChangedError,
   IssueClosedError,
   IssueNotFoundError,
@@ -101,6 +104,7 @@ const serve = (
   activity: Partial<ActivityInbound['Service']> = {},
   push: Partial<PushInbound['Service']> = {},
   quickReplies: Partial<QuickRepliesInbound['Service']> = {},
+  speech: Partial<SpeechInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -116,6 +120,7 @@ const serve = (
       Layer.provide(Layer.mock(ActivityInbound, activity)),
       Layer.provide(Layer.mock(PushInbound, { watch: Effect.never, ...push })),
       Layer.provide(Layer.mock(QuickRepliesInbound, quickReplies)),
+      Layer.provide(Layer.mock(SpeechInbound, speech)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -828,6 +833,7 @@ describe('the brainstorm API', () => {
         answering: false,
         seesPictures: true,
         pictures: [{ id: PICTURE, number: 1, available: true }],
+        voice: true,
       }),
     });
 
@@ -839,6 +845,7 @@ describe('the brainstorm API', () => {
       answering: false,
       seesPictures: true,
       pictures: [{ id: PICTURE, number: 1, available: true }],
+      voice: true,
     });
   });
 
@@ -1323,5 +1330,91 @@ describe('the quick replies routes', () => {
     expect(await response.json()).toMatchObject({
       type: 'urn:pocket-comms:problem:quick-replies-unavailable',
     });
+  });
+});
+
+describe('the speech API', () => {
+  const WEBM = Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3, 1, 2]);
+
+  const speech = (inbound: Partial<SpeechInbound['Service']>) =>
+    serve({}, undefined, {}, {}, {}, {}, {}, {}, {}, inbound);
+
+  const clip = (bytes: Uint8Array) => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: new Uint8Array(bytes),
+  });
+
+  it('answers the words of a voice message', async () => {
+    let received: Uint8Array | undefined;
+    const call = speech({
+      transcribe: (bytes) => {
+        received = bytes;
+        return Effect.succeed({ text: 'Idea: dark mode for pocket-home' });
+      },
+    });
+
+    const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ text: 'Idea: dark mode for pocket-home' });
+    expect(Array.from(received ?? [])).toEqual(Array.from(WEBM));
+  });
+
+  it('answers a validation problem for a clip the use case refuses', async () => {
+    const call = speech({
+      transcribe: () =>
+        Effect.fail(
+          new InvalidInputError({
+            issues: [{ field: 'file', message: 'Only audio can be transcribed.' }],
+          }),
+        ),
+    });
+
+    const response = await call(
+      '/api/v1/speech/transcriptions',
+      clip(new TextEncoder().encode('text')),
+    );
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:invalid-request',
+    });
+  });
+
+  it('answers 503 when the server has no speech service', async () => {
+    const call = speech({ transcribe: () => Effect.fail(new SpeechNotSetUpError()) });
+
+    const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:speech-not-set-up',
+    });
+  });
+
+  it("answers 503 with the service's failure", async () => {
+    const call = speech({
+      transcribe: () =>
+        Effect.fail(
+          new SpeechUnavailableError({ reason: 'The speech service did not answer in time.' }),
+        ),
+    });
+
+    const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:speech-unavailable',
+      detail: 'The speech service did not answer in time.',
+    });
+  });
+
+  it('refuses a request without the allowed login', async () => {
+    const call = speech({ transcribe: () => Effect.succeed({ text: 'no' }) });
+
+    const response = await call('/api/v1/speech/transcriptions', { ...clip(WEBM), login: null });
+
+    expect(response.status).toBe(403);
   });
 });
