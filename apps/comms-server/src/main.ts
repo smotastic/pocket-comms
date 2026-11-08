@@ -19,6 +19,11 @@ const main = Layer.unwrap(
         'Voice messages stay off: set COMMS_SPEECH_URL and COMMS_SPEECH_MODEL together.',
       );
     }
+    if (speech._tag === 'BadUrl') {
+      yield* Effect.logWarning(
+        'Voice messages stay off: COMMS_SPEECH_URL is not an http URL, such as http://localhost:4430/v1.',
+      );
+    }
     yield* Effect.logInfo('pocket-comms listens').pipe(
       Effect.annotateLogs({
         url: `http://${HOST}:${config.port}`,

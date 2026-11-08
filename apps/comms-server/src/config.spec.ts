@@ -108,4 +108,10 @@ describe('speechSettings', () => {
     expect(speechSettings(URL, Option.none())).toEqual({ _tag: 'HalfSet' });
     expect(speechSettings(Option.none(), MODEL)).toEqual({ _tag: 'HalfSet' });
   });
+
+  it('leaves them off with a URL that is not http, and says so', () => {
+    expect(speechSettings(Option.some('localhost:4430/v1'), MODEL)).toEqual({ _tag: 'BadUrl' });
+    expect(speechSettings(Option.some('not a url'), MODEL)).toEqual({ _tag: 'BadUrl' });
+    expect(speechSettings(Option.some('ftp://localhost/v1'), MODEL)).toEqual({ _tag: 'BadUrl' });
+  });
 });
