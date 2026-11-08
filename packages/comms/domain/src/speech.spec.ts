@@ -12,6 +12,8 @@ const OGG = clip(...ascii('OggS'));
 const WAV = clip(...ascii('RIFF'), 0x24, 0, 0, 0, ...ascii('WAVE'));
 const MP3_TAGGED = clip(...ascii('ID3'), 4, 0);
 const MP3_FRAME = clip(0xff, 0xfb, 0x90, 0x64);
+// Safari's MediaRecorder writes an ISO base media file of the `iso5` family.
+const MP4_ISO = clip(0, 0, 0, 0x1c, ...ascii('ftypiso5'));
 
 const fails = (message: string) =>
   Result.fail(new InvalidInputError({ issues: [{ field: 'file', message }] }));
@@ -19,6 +21,7 @@ const fails = (message: string) =>
 describe('parseClip', () => {
   it.each([
     ['mp4', MP4],
+    ['mp4', MP4_ISO],
     ['webm', WEBM],
     ['ogg', OGG],
     ['wav', WAV],
@@ -59,6 +62,16 @@ describe('parseClip', () => {
     ['plain text', new TextEncoder().encode('just some text here')],
     ['a RIFF that is not WAVE', clip(...ascii('RIFF'), 0, 0, 0, 0, ...ascii('AVI '))],
     ['a cut header', Uint8Array.from([0x1a, 0x45])],
+    [
+      'UTF-16 text',
+      Uint8Array.from([0xff, 0xfe, ...Array.from(ascii('text'), (char) => [char, 0]).flat()]),
+    ],
+    ['a HEIC photo', clip(0, 0, 0, 0x18, ...ascii('ftypheic'))],
+    ['an AVIF picture', clip(0, 0, 0, 0x1c, ...ascii('ftypavif'))],
+    ['an MPEG frame of layer I', clip(0xff, 0xff, 0x90, 0x64)],
+    ['an MPEG frame with a bad bitrate', clip(0xff, 0xfb, 0xf0, 0x64)],
+    ['an MPEG frame with a bad sample rate', clip(0xff, 0xfb, 0x9c, 0x64)],
+    ['an MPEG frame of the reserved version', clip(0xff, 0xeb, 0x90, 0x64)],
   ])('refuses %s', (_, bytes) => {
     expect(parseClip(bytes)).toEqual(fails('Only audio can be transcribed.'));
   });
