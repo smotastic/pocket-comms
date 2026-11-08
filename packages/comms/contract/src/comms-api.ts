@@ -376,6 +376,8 @@ export const KEYS = [
   'enter',
   'esc',
   'ctrl+c',
+  'pageup',
+  'pagedown',
 ] as const;
 
 export const PromptRequest = Schema.Struct({

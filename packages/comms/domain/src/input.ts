@@ -6,7 +6,10 @@ export const MAX_PROMPT_LENGTH = 20_000;
 export const MAX_KEYS = 8;
 export const MAX_TYPED_LENGTH = 2_000;
 
-/** The keys the app can send: the approval choices, the arrows, Enter, Escape and Ctrl-C. */
+/**
+ * The keys the app can send: the approval choices, the arrows, Enter, Escape, Ctrl-C, and Page Up
+ * and Page Down, which scroll a long question that does not fit the agent's screen.
+ */
 export const AgentKey = Schema.Literals([
   '1',
   '2',
@@ -18,6 +21,8 @@ export const AgentKey = Schema.Literals([
   'enter',
   'esc',
   'ctrl+c',
+  'pageup',
+  'pagedown',
 ]);
 export type AgentKey = typeof AgentKey.Type;
 

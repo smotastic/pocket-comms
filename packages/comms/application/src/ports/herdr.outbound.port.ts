@@ -78,8 +78,9 @@ export class HerdrOutbound extends Context.Service<
       paneId: string,
       text: string,
     ) => Effect.Effect<void, HerdrUnavailableError | HerdrRejectedError>;
+    /** Presses `keys` in order in the pane `paneId`, never an agent's name. */
     readonly sendKeys: (
-      target: string,
+      paneId: string,
       keys: ReadonlyArray<AgentKey>,
     ) => Effect.Effect<void, HerdrUnavailableError | HerdrRejectedError>;
     /** Creates a git worktree and opens it as a workspace, without moving the focus. */

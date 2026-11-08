@@ -39,6 +39,7 @@ export {
   parseQuickReplies,
   suggestedReplies,
 } from './replies.js';
+export { pagedAwayAfter, whilePagedAway } from './paging.js';
 export { buildOverview, needsYou, type Overview, type OverviewGroup } from './overview.js';
 export {
   activityOf,
