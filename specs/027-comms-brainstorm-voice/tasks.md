@@ -14,7 +14,7 @@ in the task's own commit.
       port; fakes.
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T03** — Infrastructure: the OpenAI-compatible speech adapter (multipart `file` and `model`,
+- [x] **T03** — Infrastructure: the OpenAI-compatible speech adapter (multipart `file` and `model`,
       no `language`, 90 s timeout, no redirects, reasons without the URL) and the not-set-up
       adapter.
   - Gate: `pnpm nx test comms-infrastructure`
