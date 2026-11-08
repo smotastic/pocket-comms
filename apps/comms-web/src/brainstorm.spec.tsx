@@ -19,6 +19,7 @@ const ready = (overrides: Partial<Ready> & { readonly entries?: ReadonlyArray<En
   answering: false,
   seesPictures: true,
   pictures: [],
+  voice: false,
   entries: [],
   ...overrides,
 });

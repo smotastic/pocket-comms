@@ -119,6 +119,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       answering: false,
       seesPictures: true,
       pictures: [],
+      voice: false,
     },
     brainstormLog: [],
     activity: { events: [] },
