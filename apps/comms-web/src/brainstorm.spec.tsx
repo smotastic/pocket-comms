@@ -19,6 +19,7 @@ const ready = (overrides: Partial<Ready> & { readonly entries?: ReadonlyArray<En
   answering: false,
   seesPictures: true,
   pictures: [],
+  voice: false,
   entries: [],
   ...overrides,
 });
@@ -586,6 +587,136 @@ describe('pictures in the brainstorm chat', () => {
           },
         ],
       ]),
+    );
+  });
+});
+
+describe('voice messages in the brainstorm chat', () => {
+  /** Chooses an item of the composer's Actions menu. */
+  const choose = async (sheet: HTMLElement, name: string) => {
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name }));
+  };
+
+  const record = async (sheet: HTMLElement) => {
+    await choose(sheet, 'Record voice');
+    await userEvent.click(await within(sheet).findByRole('button', { name: 'Stop' }));
+  };
+
+  it('offers Record voice only when the server transcribes (requirement 1)', async () => {
+    const { sheet } = await openChat(ready({ voice: false }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Actions' }));
+
+    expect(screen.getByRole('menuitem', { name: 'Attach image' })).toBeDefined();
+    expect(screen.queryByRole('menuitem', { name: 'Record voice' })).toBeNull();
+  });
+
+  it('records, and adds the text to the draft without sending it (requirements 2 and 7)', async () => {
+    const { sheet, calls } = await openChat(ready({ voice: true }));
+    const message = within(sheet).getByRole('textbox', { name: 'Message' });
+    await userEvent.type(message, 'Idea:');
+
+    await choose(sheet, 'Record voice');
+    expect(await within(sheet).findByText('Recording')).toBeDefined();
+    expect(within(sheet).getByText('0:00')).toBeDefined();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Stop' }));
+
+    await waitFor(() =>
+      expect((message as HTMLTextAreaElement).value).toBe('Idea: dark mode for pocket-home'),
+    );
+    expect(calls.clips).toHaveLength(1);
+    expect(calls.brainstormMessages).toEqual([]);
+  });
+
+  it('keeps a failed clip with its reason, Retry and Discard (requirement 11)', async () => {
+    const { sheet, state, calls } = await openChat(ready({ voice: true }));
+    state.transcription = new RequestError('The speech service is not reachable.', 503);
+
+    await record(sheet);
+    expect(await within(sheet).findByText(/The speech service is not reachable\./u)).toBeDefined();
+
+    state.transcription = 'second try';
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Retry' }));
+    await waitFor(() =>
+      expect(
+        (within(sheet).getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement).value,
+      ).toBe('second try'),
+    );
+    expect(calls.clips[1]).toBe(calls.clips[0]);
+    expect(within(sheet).queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+
+  it('drops a failed clip on Discard', async () => {
+    const { sheet, state } = await openChat(ready({ voice: true }));
+    state.transcription = new RequestError('Down.', 503);
+
+    await record(sheet);
+    await userEvent.click(await within(sheet).findByRole('button', { name: 'Discard' }));
+
+    expect(within(sheet).queryByText(/Down\./u)).toBeNull();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Actions' }));
+    expect(
+      screen.getByRole('menuitem', { name: 'Record voice' }).getAttribute('aria-disabled'),
+    ).not.toBe('true');
+  });
+
+  it('records only one clip at a time (requirement 5)', async () => {
+    const { sheet } = await openChat(ready({ voice: true }));
+
+    await choose(sheet, 'Record voice');
+    await within(sheet).findByRole('button', { name: 'Stop' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Actions' }));
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Record voice' }).getAttribute('aria-disabled'),
+    ).toBe('true');
+  });
+
+  it('says when no speech was heard (requirement 8)', async () => {
+    const { sheet, state } = await openChat(ready({ voice: true }));
+    state.transcription = '';
+
+    await record(sheet);
+
+    expect(await within(sheet).findByText('No speech was heard.')).toBeDefined();
+  });
+
+  it('shows the wait for the text and lets the owner type meanwhile (requirement 6)', async () => {
+    const { sheet, state } = await openChat(ready({ voice: true }));
+    let release = () => undefined as void;
+    state.transcriptionGate = new Promise((resolve) => (release = resolve));
+
+    await record(sheet);
+    expect(await within(sheet).findByText('Transcribing 0:00…')).toBeDefined();
+    const message = within(sheet).getByRole('textbox', { name: 'Message' });
+    await userEvent.type(message, 'Idea:');
+    release();
+
+    await waitFor(() =>
+      expect((message as HTMLTextAreaElement).value).toBe('Idea: dark mode for pocket-home'),
+    );
+  });
+
+  it('keeps a transcript that arrives while a message is on its way (requirement 7)', async () => {
+    const { sheet, state, calls } = await openChat(ready({ voice: true }));
+    let transcribed = () => undefined as void;
+    let sent = () => undefined as void;
+    state.transcriptionGate = new Promise((resolve) => (transcribed = resolve));
+    state.sendGate = new Promise((resolve) => (sent = resolve));
+    const message = within(sheet).getByRole('textbox', { name: 'Message' });
+
+    await record(sheet);
+    await userEvent.type(message, 'First idea');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Send' }));
+    transcribed();
+    await waitFor(() =>
+      expect((message as HTMLTextAreaElement).value).toBe('First idea dark mode for pocket-home'),
+    );
+    sent();
+
+    await waitFor(() => expect(calls.brainstormMessages).toEqual(['First idea']));
+    await waitFor(() =>
+      expect((message as HTMLTextAreaElement).value).toBe('dark mode for pocket-home'),
     );
   });
 });

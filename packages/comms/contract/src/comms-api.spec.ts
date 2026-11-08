@@ -8,6 +8,7 @@ import {
   BrainstormEvent,
   BrainstormMessageRequest,
   BrainstormState,
+  SpeechText,
   CommsApi,
   IssueList,
   IssueNumberParam,
@@ -45,7 +46,7 @@ const herdrOperations = () =>
   );
 
 describe('CommsApi', () => {
-  it('serves the agents, the tasks, the issues, the brainstorm chat, the images and the activity under /api/v1', () => {
+  it('serves the agents, the tasks, the issues, the brainstorm chat, the images, the activity and speech under /api/v1', () => {
     expect(Object.keys(document().paths).sort()).toEqual([
       '/api/v1/activity',
       '/api/v1/activity/events',
@@ -77,6 +78,7 @@ describe('CommsApi', () => {
       '/api/v1/push/subscriptions',
       '/api/v1/push/subscriptions/remove',
       '/api/v1/quick-replies',
+      '/api/v1/speech/transcriptions',
       '/api/v1/tasks',
     ]);
   });
@@ -352,14 +354,21 @@ describe('brainstorm wire schemas', () => {
     expect(() => decode({ text: 'x', imageIds: Array(6).fill(PICTURE) })).toThrow();
   });
 
-  it('shows the chat pictures and whether the model sees them', () => {
+  it('shows the chat pictures, whether the model sees them and whether voice works', () => {
     const state = {
       _tag: 'Ready',
       answering: false,
       seesPictures: false,
       pictures: [{ id: PICTURE, number: 1, available: true }],
+      voice: true,
     };
     expect(Schema.decodeUnknownSync(BrainstormState)(state)).toEqual(state);
+    const { voice: _, ...withoutVoice } = state;
+    expect(() => Schema.decodeUnknownSync(BrainstormState)(withoutVoice)).toThrow();
+  });
+
+  it('answers the words of a voice message', () => {
+    expect(Schema.decodeUnknownSync(SpeechText)({ text: 'Hallo' })).toEqual({ text: 'Hallo' });
   });
 
   it('reads only proposal ids without a slash or a dot from the path', () => {

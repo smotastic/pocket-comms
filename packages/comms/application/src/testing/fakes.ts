@@ -31,6 +31,8 @@ import {
   ProjectGitError,
   PushStoreError,
   QuickRepliesStoreError,
+  SpeechNotSetUpError,
+  SpeechUnavailableError,
   TranscriptUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
@@ -41,6 +43,7 @@ import {
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
 import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
+import { SpeechOutbound, type Clip } from '../ports/speech.outbound.port.js';
 import {
   SeenOutbound,
   StatusHistoryOutbound,
@@ -177,6 +180,13 @@ export class FakeState extends Context.Service<
     quickReplies: ReadonlyArray<string> | undefined;
     /** Why the quick replies store fails, when it does. */
     quickRepliesFailure: string | undefined;
+    /** The speech service: whether it is set up, what it hears, why it fails and its clips. */
+    readonly speech: {
+      available: boolean;
+      text: string;
+      failure: string | undefined;
+      readonly clips: Array<Clip>;
+    };
   }
 >()('comms/application/testing/FakeState') {}
 
@@ -596,6 +606,7 @@ export const fakeLayer = () => {
         goneEndpoints: new Set(),
         quickReplies: undefined,
         quickRepliesFailure: undefined,
+        speech: { available: true, text: '', failure: undefined, clips: [] },
       };
     }),
   );
@@ -626,6 +637,21 @@ export const fakeLayer = () => {
                 }),
         }),
         Context.add(ImagesOutbound, images(fake)),
+        Context.add(SpeechOutbound, {
+          get available() {
+            return fake.speech.available;
+          },
+          transcribe: (clip) =>
+            Effect.suspend(
+              (): Effect.Effect<string, SpeechNotSetUpError | SpeechUnavailableError> => {
+                if (!fake.speech.available) return Effect.fail(new SpeechNotSetUpError());
+                fake.speech.clips.push(clip);
+                return fake.speech.failure === undefined
+                  ? Effect.succeed(fake.speech.text)
+                  : Effect.fail(new SpeechUnavailableError({ reason: fake.speech.failure }));
+              },
+            ),
+        }),
         Context.add(ActivityStoreOutbound, {
           events: Effect.sync(() => fake.activity),
           update: (change) =>

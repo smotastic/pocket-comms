@@ -53,4 +53,37 @@ export const serverConfig = Config.all({
   // The brainstorm chat's model, for the start-up log; the agent package reads the
   // `COMMS_BRAINSTORM_*` settings itself (ADR 0014).
   brainstormModel: optionalString('COMMS_BRAINSTORM_MODEL'),
+  // The speech-to-text service of voice messages; `speechSettings` combines the two.
+  speechUrl: optionalString('COMMS_SPEECH_URL'),
+  speechModel: optionalString('COMMS_SPEECH_MODEL'),
 });
+
+/**
+ * Voice messages need both speech settings and an http URL; otherwise they stay off and the log
+ * says why.
+ */
+export type SpeechSettings =
+  | { readonly _tag: 'On'; readonly url: string; readonly model: string }
+  | { readonly _tag: 'Off' }
+  | { readonly _tag: 'HalfSet' }
+  | { readonly _tag: 'BadUrl' };
+
+const isHttpUrl = (url: string) => {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+export const speechSettings = (
+  url: Option.Option<string>,
+  model: Option.Option<string>,
+): SpeechSettings => {
+  if (Option.isSome(url) && Option.isSome(model)) {
+    if (!isHttpUrl(url.value)) return { _tag: 'BadUrl' };
+    return { _tag: 'On', url: url.value, model: model.value };
+  }
+  return Option.isNone(url) && Option.isNone(model) ? { _tag: 'Off' } : { _tag: 'HalfSet' };
+};

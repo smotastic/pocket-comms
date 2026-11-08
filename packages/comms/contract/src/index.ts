@@ -47,6 +47,8 @@ export {
   Subagent,
   SubagentEvent,
   SubagentInfo,
+  SpeechText,
+  SpeechUpload,
   SubagentParam,
   TailscaleIdentity,
   TaskAgent,

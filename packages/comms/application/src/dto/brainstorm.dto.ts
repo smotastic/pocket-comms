@@ -12,6 +12,8 @@ export type BrainstormStateDto =
       readonly seesPictures: boolean;
       /** The pictures of the chat by number, and whether the app still keeps each. */
       readonly pictures: ReadonlyArray<ChatPicture & { readonly available: boolean }>;
+      /** The server can transcribe voice messages. */
+      readonly voice: boolean;
     };
 
 /**

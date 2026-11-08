@@ -290,6 +290,7 @@ describe('the brainstorm chat', () => {
           answering: false,
           seesPictures: true,
           pictures: [],
+          voice: true,
         });
         expect(yield* entries(brainstorm)).toEqual([]);
         // The new chat goes on from the stopped turn's numbers, so a sheet that follows sees it.
@@ -1160,6 +1161,18 @@ describe('pictures in the brainstorm chat', () => {
           expect(state.turns[1]?.images).toHaveLength(2);
         }),
       arrange,
+    ),
+  );
+
+  it.effect('says whether voice messages can be transcribed', () =>
+    run(
+      (brainstorm) =>
+        Effect.gen(function* () {
+          expect(ready(yield* brainstorm.state).voice).toBe(false);
+        }),
+      (state) => {
+        state.speech.available = false;
+      },
     ),
   );
 

@@ -34,6 +34,7 @@ const projectsRoot = () => {
 const serve = (
   projects = mkdtempSync(join(tmpdir(), 'projects-')),
   stateDir = mkdtempSync(join(tmpdir(), 'state-')),
+  speech?: { readonly url: string; readonly model: string },
 ) => {
   const web = HttpRouter.toWebHandler(
     server({
@@ -44,6 +45,7 @@ const serve = (
       agentArgs: [],
       gitea: { url: 'http://127.0.0.1:9', token: Option.none(), hosts: ['gitea'] },
       stateDir,
+      ...(speech === undefined ? {} : { speech }),
     }).pipe(
       Layer.provide(HttpServer.layerServices),
       // No brainstorm settings, whatever the environment of the test holds.
@@ -52,10 +54,11 @@ const serve = (
     { disableLogger: true },
   );
   dispose = web.dispose;
-  return (path: string) =>
+  return (path: string, init: RequestInit = {}) =>
     web.handler(
       new Request(`http://localhost${path}`, {
-        headers: { 'tailscale-user-login': 'smotastic@github' },
+        ...init,
+        headers: { ...init.headers, 'tailscale-user-login': 'smotastic@github' },
       }),
     );
 };
@@ -118,5 +121,38 @@ describe('the composed server', () => {
 
   it('is live while it runs', async () => {
     expect((await serve()('/health/live')).status).toBe(200);
+  });
+});
+
+describe('voice messages in the composed server', () => {
+  const clip = {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2]),
+  };
+
+  it('are not set up without the speech settings', async () => {
+    const response = await serve()('/api/v1/speech/transcriptions', clip);
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:speech-not-set-up',
+    });
+  });
+
+  it('go to the speech service the settings name', async () => {
+    const speech = { url: 'http://127.0.0.1:9/v1', model: 'Systran/faster-whisper-small' };
+
+    const response = await serve(
+      undefined,
+      undefined,
+      speech,
+    )('/api/v1/speech/transcriptions', clip);
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:speech-unavailable',
+      detail: 'The speech service cannot be reached.',
+    });
   });
 });

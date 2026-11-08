@@ -125,3 +125,14 @@ export class PushStoreError extends Data.TaggedError('PushStoreError')<{
 export class QuickRepliesStoreError extends Data.TaggedError('QuickRepliesStoreError')<{
   readonly reason: string;
 }> {}
+
+/** The server has no speech-to-text service for voice messages. */
+export class SpeechNotSetUpError extends Data.TaggedError('SpeechNotSetUpError') {}
+
+/**
+ * The speech service cannot be reached, timed out or refused the clip. `reason` says what failed
+ * without the service's address.
+ */
+export class SpeechUnavailableError extends Data.TaggedError('SpeechUnavailableError')<{
+  readonly reason: string;
+}> {}
