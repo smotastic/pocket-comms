@@ -123,7 +123,8 @@ describe('the Settings page', () => {
     fake.state.agents.set('kirk', fakeAgent());
     cleanup();
     renderApp({ client: fake.client, path: '/agents/kirk' });
-    await userEvent.click(await screen.findByRole('button', { name: /^Controls/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Quick replies' }));
 
     const grid = await screen.findByRole('grid', { name: 'Quick replies' });
     expect(within(grid).getByRole('row', { name: 'Run the tests first' })).toBeDefined();

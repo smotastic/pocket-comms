@@ -4,6 +4,7 @@ import {
   AppBar,
   Card,
   Composer,
+  type ComposerAction,
   Disclosure,
   DockedPage,
   IconButton,
@@ -126,14 +127,15 @@ const Header = ({
 /**
  * `/agents/$agent`: a Claude or Pi agent's session as a chat, or any agent's terminal screen, with
  * the composer and the suggested replies, or a field that types into the waiting dialog while the
- * agent is blocked. The keys and the owner's quick replies wait under Controls, so the question
- * keeps the room. It updates live.
+ * agent is blocked. The keys wait under Controls, so the question keeps the room, and the owner's
+ * quick replies open from the composer's Actions menu. It updates live.
  */
 export const Conversation = ({ client, agentRef, onBack, note, onGone }: ConversationProps) => {
   useAgentLive(client, agentRef);
   const now = useNow(60_000);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [repliesOpen, setRepliesOpen] = useState(false);
   const agentResult = useQuery(agentQuery(client, agentRef));
   const agent = agentResult.data;
   const hasChat = agent?.format !== undefined;
@@ -271,6 +273,17 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const kindLabel = kindOf(agent.kind).label;
   const withKeys = blocked || view === 'screen';
   const owned = quickReplies.data ?? [];
+  const repliesAction: ReadonlyArray<ComposerAction> =
+    owned.length === 0
+      ? []
+      : [
+          {
+            id: 'replies',
+            label: 'Quick replies',
+            icon: 'chat',
+            onAction: () => setRepliesOpen(true),
+          },
+        ];
 
   return (
     <DockedPage
@@ -303,29 +316,22 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
             />
           )}
           {/* Closed at first so the question keeps the room; open while the owner presses keys. */}
-          {withKeys || owned.length > 0 ? (
+          {withKeys ? (
             <Disclosure
               title="Controls"
-              detail={
-                !withKeys ? 'Quick replies' : owned.length > 0 ? 'Keys and quick replies' : 'Keys'
-              }
+              detail="Keys"
               expanded={controlsOpen}
               onExpandedChange={setControlsOpen}
             >
-              <Stack gap="xs">
-                {withKeys ? (
-                  <KeyPad
-                    label="Keys"
-                    keys={KEYS}
-                    holdKey={CTRL_C}
-                    disabled={keys.isPending || sending}
-                    onKey={(value) => {
-                      if (isKey(value)) pressKey(value);
-                    }}
-                  />
-                ) : null}
-                <QuickReplies replies={owned} disabled={sending} onPick={sendReply} />
-              </Stack>
+              <KeyPad
+                label="Keys"
+                keys={KEYS}
+                holdKey={CTRL_C}
+                disabled={keys.isPending || sending}
+                onKey={(value) => {
+                  if (isKey(value)) pressKey(value);
+                }}
+              />
             </Disclosure>
           ) : null}
           {blocked ? (
@@ -338,6 +344,9 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
               hint="Choose Type something or Other with the keys first, then press Enter to submit."
               sendLabel="Type"
               locked={typed.isPending}
+              {...(repliesAction.length === 0
+                ? {}
+                : { actions: { label: 'Actions', items: repliesAction } })}
             />
           ) : (
             <Composer
@@ -347,12 +356,21 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
               onSend={(text) => sendPrompt({ text, fromField: true }, images.ids)}
               placeholder={`Message ${name}`}
               locked={prompt.isPending || images.pending}
-              attach={{
-                label: 'Attach image',
-                icon: 'image',
-                acceptedFileTypes: ['image/*'],
-                onSelect: (files) => void images.add(files),
-                isDisabled: images.full,
+              actions={{
+                label: 'Actions',
+                items: [
+                  {
+                    id: 'image',
+                    label: 'Upload image',
+                    icon: 'image',
+                    isDisabled: images.full,
+                    files: {
+                      acceptedFileTypes: ['image/*'],
+                      onSelect: (files) => void images.add(files),
+                    },
+                  },
+                  ...repliesAction,
+                ],
               }}
               sendable={images.ids.length > 0}
               {...(images.attachments.length === 0
@@ -399,6 +417,13 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           </>
         )}
       </Stack>
+      <QuickReplies
+        open={repliesOpen}
+        onClose={() => setRepliesOpen(false)}
+        replies={owned}
+        disabled={sending}
+        onPick={sendReply}
+      />
       {agent.worktree === undefined ? null : (
         <CloseAgent
           client={client}
