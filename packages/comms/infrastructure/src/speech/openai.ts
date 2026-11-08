@@ -23,6 +23,12 @@ export interface OpenAiOptions {
   readonly timeout?: Duration.Input;
 }
 
+// `fetch` names the network error (refused, unknown host) in its `cause`.
+const causeOf = (error: unknown): string => {
+  if (!(error instanceof Error)) return String(error);
+  return error.cause instanceof Error ? `${error.message}: ${error.cause.message}` : error.message;
+};
+
 const decodeAnswer = Schema.decodeUnknownEffect(Schema.Struct({ text: Schema.String }));
 
 export const layerOpenAi = ({ url, model, timeout = '90 seconds' }: OpenAiOptions) => {
@@ -35,37 +41,50 @@ export const layerOpenAi = ({ url, model, timeout = '90 seconds' }: OpenAiOption
       const form = new FormData();
       form.append('file', new Blob([bytes.slice()]), `clip.${CLIP_EXTENSIONS[format]}`);
       form.append('model', model);
-      const response = yield* Effect.tryPromise({
-        // A redirect is not followed, so a clip never goes to another address.
-        try: (signal) =>
-          fetch(endpoint, {
+      const reply = yield* Effect.tryPromise({
+        // A redirect is not followed, so a clip never goes to another address. The body is read
+        // under the same signal, so the deadline also ends an answer that stops halfway.
+        try: async (signal) => {
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: { accept: 'application/json' },
             body: form,
             signal,
             redirect: 'manual',
-          }),
-        catch: () => unavailable('The speech service cannot be reached.'),
+          });
+          if (!response.ok) {
+            await response.body?.cancel();
+            return { status: response.status, ok: false, body: '' };
+          }
+          return { status: response.status, ok: true, body: await response.text() };
+        },
+        catch: (cause) => cause,
       }).pipe(
-        Effect.timeoutOrElse({
-          duration: timeout,
-          orElse: () => Effect.fail(unavailable('The speech service did not answer in time.')),
-        }),
+        // The phone gets a reason without the address; the server log keeps the cause.
+        Effect.catch((cause) =>
+          Effect.logWarning('The speech service cannot be reached').pipe(
+            Effect.annotateLogs({ cause: causeOf(cause) }),
+            Effect.andThen(Effect.fail(unavailable('The speech service cannot be reached.'))),
+          ),
+        ),
       );
-      if (response.status >= 300 && response.status < 400) {
-        return yield* unavailable(
-          `The speech service answered with a redirect (${response.status}).`,
-        );
+      if (reply.status >= 300 && reply.status < 400) {
+        return yield* unavailable(`The speech service answered with a redirect (${reply.status}).`);
       }
-      if (!response.ok)
-        return yield* unavailable(`The speech service answered ${response.status}.`);
-      const answer = yield* Effect.tryPromise({
-        try: () => response.json() as Promise<unknown>,
+      if (!reply.ok) return yield* unavailable(`The speech service answered ${reply.status}.`);
+      const answer = yield* Effect.try({
+        try: () => JSON.parse(reply.body) as unknown,
         catch: unknownShape,
       });
       const { text } = yield* decodeAnswer(answer).pipe(Effect.mapError(unknownShape));
       return text;
-    }).pipe(Effect.withSpan('Speech.transcribe', { attributes: { format, bytes: bytes.length } }));
+    }).pipe(
+      Effect.timeoutOrElse({
+        duration: timeout,
+        orElse: () => Effect.fail(unavailable('The speech service did not answer in time.')),
+      }),
+      Effect.withSpan('Speech.transcribe', { attributes: { format, bytes: bytes.length } }),
+    );
 
   return Layer.succeed(SpeechOutbound, { available: true, transcribe });
 };

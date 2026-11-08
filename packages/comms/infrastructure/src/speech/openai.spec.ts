@@ -5,6 +5,7 @@ import {
   SpeechUnavailableError,
 } from '@pocket-comms/comms-application';
 import * as Effect from 'effect/Effect';
+import * as Logger from 'effect/Logger';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { layerNotSetUp, layerOpenAi, type OpenAiOptions } from './openai.js';
@@ -20,6 +21,8 @@ interface Answer {
   readonly status: number;
   readonly body: unknown;
   readonly location?: string;
+  /** Sends the headers and the start of the body, then never ends it. */
+  readonly stall?: true;
 }
 
 // A fake speech service on a free local port; it answers through `answer`, or never when that is
@@ -44,6 +47,10 @@ const fakeService = (answer: Answer | undefined) =>
               'content-type': 'application/json',
               ...(answer.location === undefined ? {} : { location: answer.location }),
             });
+            if (answer.stall === true) {
+              response.write('{"text": "Hal');
+              return;
+            }
             response.end(
               typeof answer.body === 'string' ? answer.body : JSON.stringify(answer.body),
             );
@@ -132,6 +139,35 @@ describe('Speech.layerOpenAi', () => {
         new SpeechUnavailableError({ reason: 'The speech service did not answer in time.' }),
       );
     }).pipe(Effect.scoped),
+  );
+
+  it.live('reports a service that stops in the middle of its answer', () =>
+    Effect.gen(function* () {
+      const service = yield* fakeService({ status: 200, body: '', stall: true });
+
+      const error = yield* withService({ url: service.url, timeout: '100 millis' }, (outbound) =>
+        outbound.transcribe(CLIP).pipe(Effect.flip),
+      );
+
+      expect(error).toEqual(
+        new SpeechUnavailableError({ reason: 'The speech service did not answer in time.' }),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('logs why an unreachable service failed, for the server only', () =>
+    Effect.gen(function* () {
+      const logs: Array<string> = [];
+      const logger = Logger.make((options) => logs.push(Logger.formatLogFmt.log(options)));
+
+      yield* withService({ url: 'localhost:4430/v1' }, (outbound) =>
+        outbound.transcribe(CLIP).pipe(Effect.flip),
+      ).pipe(Effect.provide(Logger.layer([logger], { mergeWithExisting: false })));
+
+      expect(logs).toHaveLength(1);
+      expect(logs[0]).toContain('The speech service cannot be reached');
+      expect(logs[0]).toMatch(/cause=/u);
+    }),
   );
 
   it.live('reports an unreachable service without its address', () =>
