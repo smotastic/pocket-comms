@@ -139,6 +139,8 @@ export class FakeState extends Context.Service<
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
     readonly docs: Map<string, string>;
+    /** Runs before a doc is read, so a test can hold Pi's tool open. */
+    readDocWait: Effect.Effect<void> | undefined;
     /** Why the runtime is not set up, when it is not. */
     notSetUp: string | undefined;
     /** The runtime's model takes pictures. */
@@ -335,7 +337,9 @@ const projects = (state: FakeState['Service']) => {
     worktrees: (project) =>
       Effect.as(ask(`worktrees ${project.name}`), [...(state.worktrees.get(project.name) ?? [])]),
     readDoc: (project, doc) =>
-      Effect.sync(() => Option.fromNullishOr(state.docs.get(`${project.name}/${doc}`))),
+      Effect.map(state.readDocWait ?? Effect.void, () =>
+        Option.fromNullishOr(state.docs.get(`${project.name}/${doc}`)),
+      ),
     hasChanges: (project, path) =>
       Effect.as(ask(`hasChanges ${project.name} ${path}`), state.changed.has(path)),
     branchExists: (project, branch) =>
@@ -573,6 +577,7 @@ export const fakeLayer = () => {
         giteaRefusedPictures: new Set(),
         giteaCalls: [],
         docs: new Map(),
+        readDocWait: undefined,
         notSetUp: undefined,
         seesImages: true,
         script: [],

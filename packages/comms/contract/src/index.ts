@@ -13,6 +13,7 @@ export {
   AgentStatus,
   BackgroundItem,
   BrainstormEntry,
+  BrainstormProposal,
   BrainstormEvent,
   BrainstormMessageRequest,
   BrainstormState,

@@ -103,7 +103,6 @@ export {
   proposalOf,
   readOf,
   rememberRead,
-  settleProposal,
   withPictures,
   type AttachedPicture,
   type BrainstormEntry,

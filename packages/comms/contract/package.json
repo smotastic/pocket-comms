@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@pocket-comms/contracts-problem-details": "workspace:*",
+    "@smotastic/pocket-agent": "catalog:",
     "effect": "catalog:"
   },
   "devDependencies": {

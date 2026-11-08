@@ -9,7 +9,6 @@ export const Route = createFileRoute('/')({
     return (
       <Overview
         client={client}
-        onOpen={(agent) => void navigate({ to: '/agents/$agent', params: { agent } })}
         onProject={(project, notice) =>
           void navigate({
             to: '/projects/$project',
@@ -17,7 +16,6 @@ export const Route = createFileRoute('/')({
             state: (previous) => ({ ...previous, notice }),
           })
         }
-        onActivity={() => void navigate({ to: '/activity' })}
         onSettings={() => void navigate({ to: '/settings' })}
         onStarted={(agent, note) =>
           void navigate({

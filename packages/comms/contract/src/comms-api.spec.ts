@@ -5,7 +5,7 @@ import {
   Activity,
   AgentEvent,
   AGENTS_TO_START,
-  BrainstormEntry,
+  BrainstormEvent,
   BrainstormMessageRequest,
   BrainstormState,
   CommsApi,
@@ -279,53 +279,57 @@ describe('wire schemas', () => {
 const PICTURE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
 
 describe('brainstorm wire schemas', () => {
-  it('round-trips an entry of every kind', () => {
+  it('round-trips an event of every kind, the chat’s own entries among the shared ones', () => {
+    const issue = {
+      type: 'proposal',
+      kind: 'issue',
+      id: 'p1',
+      at: 3,
+      project: 'pocket-home',
+      title: 'Dark mode',
+      body: 'A toggle.',
+      pictures: [PICTURE],
+      attached: [{ image: PICTURE, url: 'http://gitea/attachments/u-1' }],
+      state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
+    };
+    const edit = {
+      type: 'proposal',
+      kind: 'edit',
+      id: 'e1',
+      at: 4,
+      project: 'pocket-comms',
+      number: 11,
+      url: 'http://gitea/i/11',
+      title: 'Orchestrator',
+      body: 'New.',
+      base: { title: 'Orchestrator', body: 'Old.' },
+      pictures: [],
+      attached: [],
+      state: { _tag: 'updated', url: 'http://gitea/i/11' },
+    };
     const entries = [
-      { type: 'user', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] },
-      { type: 'assistant', id: 'a1', at: 2, text: '**Nice**' },
+      { kind: 'said', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] },
+      { kind: 'agentMessage', text: '**Nice**' },
+      { kind: 'toolStarted', callId: 'c1', tool: 'read_issue', target: 'pocket-comms #11' },
+      { kind: 'toolFinished', callId: 'c1', isError: false },
+      { kind: 'proposal', proposal: issue },
       {
-        type: 'proposal',
-        kind: 'issue',
-        id: 'p1',
-        at: 3,
-        project: 'pocket-home',
-        title: 'Dark mode',
-        body: 'A toggle.',
-        pictures: [PICTURE],
-        attached: [{ image: PICTURE, url: 'http://gitea/attachments/u-1' }],
-        state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
+        kind: 'proposal',
+        proposal: { ...issue, state: { _tag: 'attaching', number: 13, url: 'http://gitea/i/13' } },
       },
-      {
-        type: 'proposal',
-        kind: 'issue',
-        id: 'p2',
-        at: 3,
-        project: 'pocket-home',
-        title: 'Blue door',
-        body: 'Paint it.',
-        pictures: [PICTURE],
-        attached: [],
-        state: { _tag: 'attaching', number: 13, url: 'http://gitea/i/13' },
-      },
-      {
-        type: 'proposal',
-        kind: 'edit',
-        id: 'e1',
-        at: 4,
-        project: 'pocket-comms',
-        number: 11,
-        url: 'http://gitea/i/11',
-        title: 'Orchestrator',
-        body: 'New.',
-        base: { title: 'Orchestrator', body: 'Old.' },
-        pictures: [],
-        attached: [],
-        state: { _tag: 'updated', url: 'http://gitea/i/11' },
-      },
-      { type: 'failed', id: 'f1', at: 5, reason: 'The model cannot be reached.' },
+      { kind: 'proposal', proposal: edit },
+      { kind: 'turnFailed', reason: 'The model cannot be reached.' },
+      { kind: 'turnEnded' },
+      { kind: 'turnStopped' },
+      { kind: 'chatStarted' },
     ];
-    const codec = Schema.Array(BrainstormEntry);
-    expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(entries))).toEqual(entries);
+    const events = [
+      ...entries.map((entry, index) => ({ kind: 'entry', sequence: index + 1, entry })),
+      { kind: 'delta', text: 'Nice' },
+      { kind: 'draft', text: 'Nice. Which' },
+    ];
+    const codec = Schema.Array(BrainstormEvent);
+    expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(events))).toEqual(events);
   });
 
   it('takes a message of text, of pictures, or both', () => {
@@ -338,9 +342,7 @@ describe('brainstorm wire schemas', () => {
   it('shows the chat pictures and whether the model sees them', () => {
     const state = {
       _tag: 'Ready',
-      entries: [],
       answering: false,
-      live: '',
       seesPictures: false,
       pictures: [{ id: PICTURE, number: 1, available: true }],
     };

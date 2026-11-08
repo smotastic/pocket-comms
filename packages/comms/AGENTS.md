@@ -19,8 +19,9 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 020](../../specs/020-comms-push-after-background-work/spec.md),
 [spec 022](../../specs/022-comms-brainstorm-edits-issues/spec.md),
 [spec 023](../../specs/023-comms-brainstorm-pictures/spec.md),
-[spec 024](../../specs/024-comms-typed-answers/spec.md) and
-[spec 025](../../specs/025-comms-quick-replies/spec.md).
+[spec 024](../../specs/024-comms-typed-answers/spec.md),
+[spec 025](../../specs/025-comms-quick-replies/spec.md) and
+[spec 026](../../specs/026-comms-brainstorm-chat-stream/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, the push devices and the
@@ -90,7 +91,8 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
 - The owner's additional information for an issue start (spec 021) lives only in that agent's
   first prompt, through `issueTask`: never write it to Gitea and never store it.
 - Pi runs through the agent package's `AgentRuntime` and turn engine (ADRs 0012, 0014): the
-  application imports `@smotastic/pocket-agent` only, the server `./pi`, tests `./testing`, and no
+  application imports `@smotastic/pocket-agent` and `./chat` only, the server `./pi`, tests
+  `./testing`; the contract, the chat file and the web app take the chat stream's `./chat`; no
   code here imports `@earendil-works/*`. A runtime change goes into pocket-factory's package and
   comes here as a catalog bump. Pi's tools only read (projects, open issues, one
   issue, `README.md` and `AGENTS.md`), none takes a path, and `propose_issue` and
@@ -98,6 +100,12 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   issue. Do not give Pi a tool that writes.
 - An edit applies only while the issue's title and body equal the ones Pi read (`baseChanged`);
   the server re-reads the issue right before the `PATCH`, and before uploading any picture.
+- The brainstorm chat streams through the package's chat feed (spec 026): its entries are one
+  numbered log behind `ChatLog`, saved with the chat file, with one feed key whose numbers go on
+  across a New chat (`chatStarted`). A proposal that changes is recorded again; never rewrite an
+  entry. A tool row carries only `describeBrainstormCall`'s target, never a tool's input or
+  output. The chat is answering before it records what starts a turn and idle before the turn's
+  end is recorded, so the sheet reads the state again on those entries.
 - Brainstorm pictures (spec 023) are images of the image store, numbered across the chat
   (`chatPictures`). Pi names them by number; only the owner's choice on the card goes to Gitea,
   and only on approval. Each upload is saved on the proposal (`attached`) before the next, so a

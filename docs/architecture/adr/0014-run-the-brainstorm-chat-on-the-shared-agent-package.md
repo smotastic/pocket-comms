@@ -7,6 +7,11 @@
 
 _Structure only. The lifecycle rules are in [`README.md`](README.md#lifecycle)._
 
+> **As-built note (2026-11-08).** Since spec 026 (agent package 0.3.0) the brainstorm chat streams
+> through the package's chat feed and sink. The contract, the chat file store and the web app import
+> the package's browser-safe `./chat` entry (the stream schema and its fold); the application also
+> takes `./chat`. The adapter entries stay where the Layers bullet puts them.
+
 ## TL;DR
 
 The brainstorm chat takes its agent runtime port, tool definition, turn engine and Pi adapter from

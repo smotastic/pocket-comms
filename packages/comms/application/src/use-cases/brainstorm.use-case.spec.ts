@@ -1,9 +1,12 @@
 import { describe, expect, it } from '@effect/vitest';
 import type { BrainstormEntry, Issue, ProposalEntry } from '@pocket-comms/comms-domain';
+import { emptyChat, foldChat, type ChatView } from '@smotastic/pocket-agent/chat';
 import * as Deferred from 'effect/Deferred';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Queue from 'effect/Queue';
+import * as Result from 'effect/Result';
+import * as Stream from 'effect/Stream';
 import * as TestClock from 'effect/testing/TestClock';
 import type * as Scope from 'effect/Scope';
 import type { BrainstormStateDto } from '../dto/brainstorm.dto.js';
@@ -19,7 +22,7 @@ import {
 } from '../errors.js';
 import { MAX_ISSUE_BODY } from '@pocket-comms/comms-domain';
 import { fakeIssue, fakeLayer, FakeState } from '../testing/fakes.js';
-import { collect } from '../testing/streams.js';
+import { collect, settle } from '../testing/streams.js';
 import { BRAINSTORM_INSTRUCTIONS, makeBrainstorm } from './brainstorm.use-case.js';
 
 type Brainstorm = Effect.Success<typeof makeBrainstorm>;
@@ -39,16 +42,63 @@ const idle = (brainstorm: Brainstorm) =>
     throw new Error('The turn did not end.');
   });
 
-const entries = (brainstorm: Brainstorm) =>
-  Effect.map(brainstorm.state, (state) => ready(state).entries);
+/** What a sheet that follows the chat from its start holds once the stream is quiet. */
+const follow = (brainstorm: Brainstorm, after = 0) =>
+  Effect.gen(function* () {
+    const events = yield* collect(brainstorm.events(after));
+    yield* settle;
+    let view: ChatView<BrainstormEntry> = emptyChat;
+    for (const event of yield* Queue.clear(events)) view = foldChat(view, event);
+    return view;
+  });
 
-const strip = (entry: BrainstormEntry) => {
+type Shown =
+  | Extract<BrainstormEntry, { readonly kind: 'said' }>
+  | { readonly kind: 'agentMessage'; readonly text: string }
+  | { readonly kind: 'turnFailed'; readonly reason: string }
+  | ProposalEntry;
+
+/**
+ * The chat as the sheet shows it, without the tools: the owner's messages, Pi's replies and
+ * failures, and each proposal as its latest record in the place of its first.
+ */
+const entries = (brainstorm: Brainstorm) =>
+  Effect.map(follow(brainstorm), (view) => {
+    let shown: Array<Shown> = [];
+    for (const item of view.items) {
+      if (item.kind === 'agentMessage') shown.push({ kind: 'agentMessage', text: item.text });
+      if (item.kind === 'turnFailed') shown.push({ kind: 'turnFailed', reason: item.reason });
+      if (item.kind !== 'app') continue;
+      const entry = item.entry;
+      if (entry.kind === 'chatStarted') shown = [];
+      if (entry.kind === 'said') shown.push(entry);
+      if (entry.kind === 'proposal') {
+        const at = shown.findIndex((one) => 'type' in one && one.id === entry.proposal.id);
+        if (at === -1) shown.push(entry.proposal);
+        else shown[at] = entry.proposal;
+      }
+    }
+    return shown;
+  });
+
+/** The tool rows of the chat: each tool's name, its summary and its state. */
+const tools = (brainstorm: Brainstorm) =>
+  Effect.map(follow(brainstorm), (view) =>
+    view.items.flatMap((item) =>
+      item.kind === 'tool'
+        ? [{ tool: item.tool, target: item.target, detail: item.detail, state: item.state }]
+        : [],
+    ),
+  );
+
+const strip = (entry: Shown) => {
+  if (entry.kind !== 'said' && !('type' in entry)) return entry;
   const { id: _id, at: _at, ...rest } = entry;
   return rest;
 };
 
-const proposalIn = (all: ReadonlyArray<BrainstormEntry>) =>
-  all.find((entry): entry is ProposalEntry => entry.type === 'proposal');
+const proposalIn = (all: ReadonlyArray<Shown>) =>
+  all.find((entry): entry is ProposalEntry => 'type' in entry);
 
 const turnInputs = (state: FakeState['Service']) => state.turns.map((turn) => turn.input);
 
@@ -87,8 +137,8 @@ describe('the brainstorm chat', () => {
         yield* idle(brainstorm);
 
         expect((yield* entries(brainstorm)).map(strip)).toEqual([
-          { type: 'user', text: 'Idea: dark mode', images: [] },
-          { type: 'assistant', text: 'Nice idea. Which project?' },
+          { kind: 'said', text: 'Idea: dark mode', images: [] },
+          { kind: 'agentMessage', text: 'Nice idea. Which project?' },
         ]);
         expect(state.turns[0]).toMatchObject({
           instructions: BRAINSTORM_INSTRUCTIONS,
@@ -103,7 +153,13 @@ describe('the brainstorm chat', () => {
           'propose_issue',
           'propose_issue_edit',
         ]);
-        expect(state.storedChat?.entries).toHaveLength(2);
+        expect(state.storedChat?.log.map((stored) => [stored.sequence, stored.entry.kind])).toEqual(
+          [
+            [1, 'said'],
+            [2, 'agentMessage'],
+            [3, 'turnEnded'],
+          ],
+        );
         expect(state.storedChat?.runtime).toEqual(Option.some({ adapter: 'scripted', state: 1 }));
       }),
     ),
@@ -137,9 +193,9 @@ describe('the brainstorm chat', () => {
 
         yield* Deferred.succeed(hold, undefined);
         yield* idle(brainstorm);
-        expect((yield* entries(brainstorm)).map((entry) => entry.type)).toEqual([
-          'user',
-          'assistant',
+        expect((yield* entries(brainstorm)).map((entry) => entry.kind)).toEqual([
+          'said',
+          'agentMessage',
         ]);
       }),
     ),
@@ -166,10 +222,10 @@ describe('the brainstorm chat', () => {
         yield* idle(brainstorm);
 
         expect((yield* entries(brainstorm)).map(strip)).toEqual([
-          { type: 'user', text: 'One', images: [] },
-          { type: 'assistant', text: 'First answer.' },
-          { type: 'user', text: 'Two', images: [] },
-          { type: 'failed', reason: 'The model cannot be reached.' },
+          { kind: 'said', text: 'One', images: [] },
+          { kind: 'agentMessage', text: 'First answer.' },
+          { kind: 'said', text: 'Two', images: [] },
+          { kind: 'turnFailed', reason: 'The model cannot be reached.' },
         ]);
         yield* brainstorm.send('Three');
         yield* idle(brainstorm);
@@ -200,7 +256,7 @@ describe('the brainstorm chat', () => {
       (brainstorm, state) =>
         Effect.gen(function* () {
           expect((yield* entries(brainstorm)).map(strip)).toEqual([
-            { type: 'user', text: 'Kept', images: [] },
+            { kind: 'said', text: 'Kept', images: [] },
           ]);
           yield* brainstorm.send('Again');
           yield* idle(brainstorm);
@@ -210,7 +266,9 @@ describe('the brainstorm chat', () => {
       (state) => {
         state.storedChat = {
           id: 'chat-1',
-          entries: [{ type: 'user', id: 'u1', at: 1, text: 'Kept', images: [] }],
+          log: [
+            { sequence: 1, entry: { kind: 'said', id: 'u1', at: 1, text: 'Kept', images: [] } },
+          ],
           reads: [],
           runtime: Option.some({ adapter: 'scripted', state: 4 }),
         };
@@ -229,13 +287,13 @@ describe('the brainstorm chat', () => {
 
         expect(yield* brainstorm.state).toEqual({
           _tag: 'Ready',
-          entries: [],
           answering: false,
-          live: '',
           seesPictures: true,
           pictures: [],
         });
-        expect(state.storedChat?.entries).toEqual([]);
+        expect(yield* entries(brainstorm)).toEqual([]);
+        // The new chat goes on from the stopped turn's numbers, so a sheet that follows sees it.
+        expect(state.storedChat?.log).toEqual([{ sequence: 3, entry: { kind: 'chatStarted' } }]);
         expect(state.storedChat?.reads).toEqual([]);
         expect(state.storedChat?.runtime).toEqual(Option.none());
       }),
@@ -270,7 +328,7 @@ describe('the brainstorm chat', () => {
         yield* idle(brainstorm);
 
         expect((yield* entries(brainstorm)).map(strip).at(-1)).toEqual({
-          type: 'failed',
+          kind: 'turnFailed',
           reason: 'The agent did not answer in time.',
         });
       }),
@@ -285,7 +343,7 @@ describe('the brainstorm chat', () => {
         yield* idle(brainstorm);
 
         expect((yield* entries(brainstorm)).map(strip).at(-1)).toEqual({
-          type: 'failed',
+          kind: 'turnFailed',
           reason: 'The turn failed unexpectedly.',
         });
       }),
@@ -301,7 +359,7 @@ describe('the brainstorm chat', () => {
         yield* idle(brainstorm);
 
         expect((yield* entries(brainstorm)).map(strip).at(-1)).toEqual({
-          type: 'failed',
+          kind: 'turnFailed',
           reason: 'The chat could not be saved after this answer.',
         });
         state.saveDies = undefined;
@@ -311,28 +369,124 @@ describe('the brainstorm chat', () => {
     ),
   );
 
-  it.effect('follows the state and the text Pi writes', () =>
+  it.effect('streams the text Pi writes and then its whole reply once', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.script.push([{ text: 'Hello' }]);
-        const events = yield* collect(brainstorm.events);
-        expect(yield* Queue.take(events)).toMatchObject({ type: 'state' });
+        const events = yield* collect(brainstorm.events(0));
+        yield* settle;
 
         yield* brainstorm.send('Hi');
         yield* idle(brainstorm);
+        yield* settle;
 
-        const seen = [];
-        for (;;) {
-          const event = yield* Queue.poll(events);
-          if (Option.isNone(event)) break;
-          seen.push(event.value);
-        }
-        expect(seen).toContainEqual({ type: 'delta', text: 'Hello' });
-        const last = seen.at(-1);
-        expect(last?.type === 'state' && ready(last.state)).toMatchObject({
-          answering: false,
-          live: '',
+        expect(yield* Queue.clear(events)).toEqual([
+          { kind: 'entry', sequence: 1, entry: expect.objectContaining({ kind: 'said' }) },
+          { kind: 'delta', text: 'Hello' },
+          { kind: 'entry', sequence: 2, entry: { kind: 'agentMessage', text: 'Hello' } },
+          { kind: 'entry', sequence: 3, entry: { kind: 'turnEnded' } },
+        ]);
+      }),
+    ),
+  );
+
+  it.effect('gives a sheet that follows again only the entries after its number', () =>
+    run((brainstorm, state) =>
+      Effect.gen(function* () {
+        state.script.push([{ text: 'Hello' }]);
+        yield* brainstorm.send('Hi');
+        yield* idle(brainstorm);
+
+        const view = yield* follow(brainstorm, 1);
+        expect(view.items.map((item) => [item.sequence, item.kind])).toEqual([[2, 'agentMessage']]);
+        expect(view).toMatchObject({ after: 3, draft: '', working: false });
+      }),
+    ),
+  );
+
+  it.effect('shows each tool Pi runs as a summary that settles', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          state.script.push([
+            { tool: 'list_projects', input: {} },
+            readIssue('app', 3),
+            { tool: 'read_project_doc', input: { project: 'app', file: 'README.md' } },
+            { text: 'Read it.' },
+          ]);
+          yield* brainstorm.send('What is in app?');
+          yield* idle(brainstorm);
+
+          expect(yield* tools(brainstorm)).toEqual([
+            { tool: 'list_projects', target: undefined, detail: undefined, state: 'done' },
+            { tool: 'read_issue', target: 'app #3', detail: undefined, state: 'failed' },
+            { tool: 'read_project_doc', target: 'app/README.md', detail: undefined, state: 'done' },
+          ]);
+        }),
+      (state) => {
+        state.projects = [{ name: 'app', path: '/work/app' }];
+        state.docs.set('app/README.md', '# App');
+      },
+    ),
+  );
+
+  it.effect('settles a running tool as stopped when the owner starts a new chat', () =>
+    run((brainstorm, state) =>
+      Effect.gen(function* () {
+        state.readDocWait = Effect.never;
+        state.script.push([
+          { tool: 'read_project_doc', input: { project: 'app', file: 'README.md' } },
+        ]);
+        yield* brainstorm.send('Hold on');
+        yield* settle;
+
+        const before = yield* follow(brainstorm);
+        const events = yield* collect(brainstorm.events(before.after));
+        yield* settle;
+        yield* brainstorm.reset();
+        yield* settle;
+        let view = before;
+        for (const event of yield* Queue.clear(events)) view = foldChat(view, event);
+        expect(before.items.find((item) => item.kind === 'tool')).toMatchObject({
+          state: 'running',
         });
+        expect(view.items.find((item) => item.kind === 'tool')).toMatchObject({ state: 'stopped' });
+        expect(view.items.at(-1)).toEqual({
+          kind: 'app',
+          sequence: view.after,
+          entry: { kind: 'chatStarted' },
+        });
+        expect(view.working).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect('is answering when the message arrives on the stream and idle at the turn’s end', () =>
+    run((brainstorm, state) =>
+      Effect.gen(function* () {
+        const hold = yield* Deferred.make<void>();
+        state.script.push([{ until: Deferred.await(hold) }, { text: 'Hello' }]);
+        const seen = yield* collect(
+          brainstorm.events(0).pipe(
+            Stream.filterMap((event) =>
+              event.kind === 'entry' &&
+              (event.entry.kind === 'said' || event.entry.kind === 'turnEnded')
+                ? Result.succeed(event.entry.kind)
+                : Result.failVoid,
+            ),
+            Stream.mapEffect((kind) =>
+              Effect.map(brainstorm.state, (now) => [kind, ready(now).answering]),
+            ),
+          ),
+        );
+        yield* brainstorm.send('Hi');
+        yield* settle;
+        expect(yield* Queue.clear(seen)).toEqual([['said', true]]);
+
+        yield* Deferred.succeed(hold, undefined);
+        yield* idle(brainstorm);
+        yield* settle;
+        expect(yield* Queue.clear(seen)).toEqual([['turnEnded', false]]);
       }),
     ),
   );
@@ -415,8 +569,8 @@ describe('the brainstorm tools', () => {
           yield* idle(brainstorm);
 
           expect((yield* entries(brainstorm)).map(strip)).toEqual([
-            { type: 'user', text: 'Dark mode for app', images: [] },
-            { type: 'assistant', text: 'Let me file that.' },
+            { kind: 'said', text: 'Dark mode for app', images: [] },
+            { kind: 'agentMessage', text: 'Let me file that.' },
             {
               type: 'proposal',
               kind: 'issue',
@@ -851,7 +1005,7 @@ describe('a decision on an edit', () => {
           yield* brainstorm.send('And a new one');
           yield* idle(brainstorm);
           const issue = (yield* entries(brainstorm)).find(
-            (entry): entry is ProposalEntry => entry.type === 'proposal' && entry.kind === 'issue',
+            (entry): entry is ProposalEntry => 'type' in entry && entry.kind === 'issue',
           );
           const wrong = yield* brainstorm
             .decide(issue?.id ?? '', { _tag: 'Apply', title: 'X', body: '' })
@@ -983,12 +1137,10 @@ describe('pictures in the brainstorm chat', () => {
 
           const shown = yield* brainstorm.state;
           expect(
-            ready(shown)
-              .entries.filter((entry) => entry.type === 'user')
-              .map(strip),
+            (yield* entries(brainstorm)).filter((entry) => entry.kind === 'said').map(strip),
           ).toEqual([
-            { type: 'user', text: 'Like this?', images: [PICTURE_A] },
-            { type: 'user', text: '', images: [PICTURE_B, PICTURE_C] },
+            { kind: 'said', text: 'Like this?', images: [PICTURE_A] },
+            { kind: 'said', text: '', images: [PICTURE_B, PICTURE_C] },
           ]);
           expect(ready(shown)).toMatchObject({
             seesPictures: true,
@@ -1078,9 +1230,7 @@ describe('pictures in the brainstorm chat', () => {
           ]);
           yield* brainstorm.send('Another');
           yield* idle(brainstorm);
-          expect(
-            (yield* entries(brainstorm)).filter((entry) => entry.type === 'proposal'),
-          ).toHaveLength(1);
+          expect((yield* entries(brainstorm)).filter((entry) => 'type' in entry)).toHaveLength(1);
         }),
       arrange,
     ),
@@ -1173,8 +1323,9 @@ describe('pictures in the brainstorm chat', () => {
             });
             expect(state.turns).toHaveLength(1);
             expect(
-              state.storedChat?.entries.find((entry) => entry.type === 'proposal'),
-            ).toMatchObject({ state: { _tag: 'attaching' } });
+              state.storedChat?.log.filter((stored) => stored.entry.kind === 'proposal').at(-1)
+                ?.entry,
+            ).toMatchObject({ proposal: { state: { _tag: 'attaching' } } });
 
             state.giteaRefusedPictures.clear();
             state.giteaCalls.length = 0;

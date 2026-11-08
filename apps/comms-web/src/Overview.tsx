@@ -25,13 +25,10 @@ import { startedNotice } from './started.js';
 
 export interface OverviewProps {
   readonly client: CommsClient;
-  readonly onOpen: (ref: string) => void;
   /** Opens a project's page, with a notice to show there. */
   readonly onProject: (project: string, notice?: string) => void;
   /** Opens the conversation of an agent the projects sheet started, with its note. */
   readonly onStarted: (ref: string, note: string | undefined) => void;
-  /** Opens the activity timeline. */
-  readonly onActivity: () => void;
   /** Opens the Settings page. */
   readonly onSettings: () => void;
 }
@@ -41,7 +38,6 @@ const Group = ({
   agents,
   projects,
   now,
-  onOpen,
   filter,
 }: {
   readonly title: string;
@@ -49,7 +45,6 @@ const Group = ({
   /** Every project's name, in the order that gives each its colour. */
   readonly projects: ReadonlyArray<string>;
   readonly now: number;
-  readonly onOpen: (ref: string) => void;
   /** Shown under the heading, such as the project filter. */
   readonly filter?: ReactNode;
 }) => (
@@ -65,7 +60,6 @@ const Group = ({
             hue={projectHue(agent.project, projects)}
             withProject
             now={now}
-            onOpen={onOpen}
           />
         ))}
       </AgentList>
@@ -78,14 +72,7 @@ const Group = ({
  * narrowed by a project filter. Its Projects action opens every project and the activity
  * timeline in a side sheet, and its Settings action opens the Settings page. It updates live.
  */
-export const Overview = ({
-  client,
-  onOpen,
-  onProject,
-  onStarted,
-  onActivity,
-  onSettings,
-}: OverviewProps) => {
+export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
   const overview = useQuery(overviewQuery(client));
   const projects = useQuery(projectsQuery(client));
@@ -128,8 +115,6 @@ export const Overview = ({
         overview={data}
         projects={projects.data?.map(({ name }) => name)}
         projectsError={projects.error?.message}
-        onProject={onProject}
-        onActivity={onActivity}
         onStarted={(project, created) => {
           setProjectsOpen(false);
           // A start without a running agent says so on the project's page.
@@ -153,13 +138,7 @@ export const Overview = ({
           ) : (
             <>
               {data.needsYou.length === 0 ? null : (
-                <Group
-                  title="Needs you"
-                  agents={data.needsYou}
-                  projects={names}
-                  now={now}
-                  onOpen={onOpen}
-                />
+                <Group title="Needs you" agents={data.needsYou} projects={names} now={now} />
               )}
               {groups.length === 0 ? null : (
                 <Group
@@ -167,7 +146,6 @@ export const Overview = ({
                   agents={agentsOf(groups, filter)}
                   projects={names}
                   now={now}
-                  onOpen={onOpen}
                   filter={
                     groups.length < 2 ? undefined : (
                       <ChipGroup

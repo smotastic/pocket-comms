@@ -4,3 +4,5 @@ POST /api/v1/brainstorm/proposals/{proposal}/decision removed `subschema #1, sub
 GET /api/v1/activity added `subschema #6` to the `events/items/` response property `anyOf` list for the response status `200`
 GET /api/v1/activity added the new `left` enum value to the `events/items/anyOf[subschema #5]/keys/items/` response property for the response status `200`
 GET /api/v1/activity added the new `right` enum value to the `events/items/anyOf[subschema #5]/keys/items/` response property for the response status `200`
+GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/entries` from the response with the `200` status
+GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/live` from the response with the `200` status

@@ -14,9 +14,11 @@ export const brainstormHandlers = HttpApiBuilder.group(
 
     return handlers
       .handle('state', () => brainstormInbound.state)
-      .handle('events', () =>
+      .handle('events', ({ query }) =>
         Effect.succeed(
-          brainstormInbound.events.pipe(Stream.map((data) => ({ event: 'brainstorm', data }))),
+          brainstormInbound
+            .events(query.after ?? 0)
+            .pipe(Stream.map((data) => ({ event: 'brainstorm', data }))),
         ),
       )
       .handle('send', ({ payload }) =>

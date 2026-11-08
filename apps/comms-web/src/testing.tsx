@@ -79,8 +79,10 @@ export interface FakeState {
   closeFailure?: RequestError;
   /** The failures of the next agent closes, in order; a close without one succeeds. */
   closeAgentFailures: Array<RequestError>;
-  /** The brainstorm chat as the server holds it. */
+  /** The brainstorm chat's state as the server holds it. */
   brainstorm: BrainstormStateView;
+  /** The brainstorm chat's entries, numbered from 1, which a sheet that follows gets first. */
+  brainstormLog: Array<BrainstormEventView & { readonly kind: 'entry' }>;
   /** A failure for the next brainstorm message or decision, as the server would report it. */
   brainstormFailure?: RequestError;
   /** The activity timeline as the server holds it, newest first. */
@@ -114,12 +116,11 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     closeAgentFailures: [],
     brainstorm: {
       _tag: 'Ready',
-      entries: [],
       answering: false,
-      live: '',
       seesPictures: true,
       pictures: [],
     },
+    brainstormLog: [],
     activity: { events: [] },
     quickReplies: ['Go ahead', 'Commit and open a PR'],
     ...initial,
@@ -141,6 +142,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     brainstormImageIds: [] as Array<ReadonlyArray<string>>,
     decisions: [] as Array<[string, ProposalDecision]>,
     brainstormResets: 0,
+    /** Where each follow of the brainstorm chat started: the `after` it asked for. */
+    brainstormFollows: [] as Array<number>,
     pushKeys: 0,
     subscribed: [] as Array<PushSubscriptionView>,
     unsubscribed: [] as Array<string>,
@@ -268,7 +271,10 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       state.quickReplies = replies;
       return replies;
     },
-    followBrainstorm: (onEvent, onLive) => {
+    followBrainstorm: (after, onEvent, onLive) => {
+      const from = after();
+      calls.brainstormFollows.push(from);
+      state.brainstormLog.filter((event) => event.sequence > from).forEach(onEvent);
       brainstormFollowers.add(onEvent);
       onLive(true);
       return () => brainstormFollowers.delete(onEvent);
@@ -310,8 +316,11 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       agentFollowers.get(ref)?.forEach((follow) => follow(event)),
     emitSubagent: (ref: string, id: string, event: SubagentEventView) =>
       subagentFollowers.get(`${ref}/${id}`)?.forEach((follow) => follow(event)),
-    emitBrainstorm: (event: BrainstormEventView) =>
-      brainstormFollowers.forEach((follow) => follow(event)),
+    /** Hands an event to the sheets that follow; an entry is also kept in the log. */
+    emitBrainstorm: (event: BrainstormEventView) => {
+      if (event.kind === 'entry') state.brainstormLog.push(event);
+      brainstormFollowers.forEach((follow) => follow(event));
+    },
     emitActivity: (next: ActivityView) => activityFollowers.forEach((follow) => follow(next)),
   };
 };

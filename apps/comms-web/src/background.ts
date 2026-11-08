@@ -26,7 +26,7 @@ export const backgroundMarker = (agent: AgentView) =>
       };
 
 /** The strip's items: each piece of work, and the subagents as links to their conversations. */
-export const stripItems = (agent: AgentView, now: number, onOpenSubagent: (id: string) => void) =>
+export const stripItems = (agent: AgentView, now: number) =>
   agent.background.map((item) => {
     const subagent = item.subagent;
     return {
@@ -34,9 +34,7 @@ export const stripItems = (agent: AgentView, now: number, onOpenSubagent: (id: s
       kind: KIND_LABELS[item.kind],
       description: item.description,
       since: since(item.startedAt, now),
-      ...(subagent === undefined
-        ? {}
-        : { href: subagentPath(agent.ref, subagent), onNavigate: () => onOpenSubagent(subagent) }),
+      ...(subagent === undefined ? {} : { href: subagentPath(agent.ref, subagent) }),
     };
   });
 
@@ -46,15 +44,13 @@ export const stripItems = (agent: AgentView, now: number, onOpenSubagent: (id: s
  * subagent whose id is not known yet only gets the note.
  */
 export const delegationLink =
-  (agent: AgentView, onOpenSubagent: (id: string) => void) =>
+  (agent: AgentView) =>
   (entry: ToolEntry): ToolLink | undefined => {
     if (entry.verb !== 'Delegated') return undefined;
     const running = agent.background.find((item) => item.id === entry.id);
     const subagent = entry.subagent ?? running?.subagent;
     const link: ToolLink = {
-      ...(subagent === undefined
-        ? {}
-        : { href: subagentPath(agent.ref, subagent), onNavigate: () => onOpenSubagent(subagent) }),
+      ...(subagent === undefined ? {} : { href: subagentPath(agent.ref, subagent) }),
       ...(running === undefined
         ? {}
         : { hint: running.inBackground ? 'running in the background' : 'running' }),

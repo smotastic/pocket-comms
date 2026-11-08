@@ -825,9 +825,7 @@ describe('the brainstorm API', () => {
     const call = brainstorm({
       state: Effect.succeed({
         _tag: 'Ready',
-        entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] }],
         answering: false,
-        live: '',
         seesPictures: true,
         pictures: [{ id: PICTURE, number: 1, available: true }],
       }),
@@ -838,25 +836,34 @@ describe('the brainstorm API', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       _tag: 'Ready',
-      entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] }],
       answering: false,
-      live: '',
       seesPictures: true,
       pictures: [{ id: PICTURE, number: 1, available: true }],
     });
   });
 
-  it('follows the chat as server-sent events', async () => {
+  it('follows the chat after a number as server-sent events', async () => {
+    const after: Array<number> = [];
     const call = brainstorm({
-      events: Stream.make({ type: 'delta', text: 'Nice' } as const),
+      events: (from) => {
+        after.push(from);
+        return Stream.make(
+          { kind: 'entry', sequence: 4, entry: { kind: 'turnEnded' } } as const,
+          { kind: 'delta', text: 'Nice' } as const,
+        );
+      },
     });
 
-    const response = await call('/api/v1/brainstorm/events');
+    const response = await call('/api/v1/brainstorm/events?after=3');
+    const all = await call('/api/v1/brainstorm/events');
 
     expect(response.headers.get('content-type')).toContain('text/event-stream');
     expect(await response.text()).toContain(
-      'event: brainstorm\ndata: {"type":"delta","text":"Nice"}',
+      'event: brainstorm\ndata: {"kind":"entry","sequence":4,"entry":{"kind":"turnEnded"}}\n\nevent: brainstorm\ndata: {"kind":"delta","text":"Nice"}',
     );
+    await all.text();
+    expect(after).toEqual([3, 0]);
+    expect((await call('/api/v1/brainstorm/events?after=-1')).status).toBe(422);
   });
 
   it('sends a message, decides on a proposal and starts a new chat', async () => {

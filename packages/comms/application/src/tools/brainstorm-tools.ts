@@ -4,6 +4,7 @@ import {
   orderIssues,
   parseIssueDraft,
   parseIssueEdit,
+  isProjectDoc,
   PROJECT_DOCS,
   type InvalidInputError,
   type IssueDraft,
@@ -65,6 +66,39 @@ export interface ChatHooks {
     numbers: ReadonlyArray<number>,
   ) => Effect.Effect<Result.Result<ReadonlyArray<string>, InvalidInputError>>;
 }
+
+/** A target shows at most this many characters; Pi chooses the project names it passes. */
+const MAX_TARGET = 80;
+
+/** The parts of a call's input a row may show; anything else in it is ignored. */
+const decodeShown = Schema.decodeUnknownOption(
+  Schema.Struct({
+    project: Schema.optional(Schema.String),
+    number: Schema.optional(Schema.Number),
+    file: Schema.optional(Schema.String),
+  }),
+);
+
+/**
+ * What a tool's row in the chat shows of its call (spec 026): the project, the issue or the file
+ * it works on, never the rest of its input, such as a proposed body.
+ */
+export const describeBrainstormCall = (
+  _tool: string,
+  input: Schema.Json,
+): { readonly target?: string } => {
+  const shown = decodeShown(input);
+  if (Option.isNone(shown)) return {};
+  const { project, number, file } = shown.value;
+  if (project === undefined || project === '') return {};
+  const target =
+    number !== undefined
+      ? `${project} #${number}`
+      : file !== undefined && isProjectDoc(file)
+        ? `${project}/${file}`
+        : project;
+  return { target: target.length <= MAX_TARGET ? target : `${target.slice(0, MAX_TARGET - 1)}…` };
+};
 
 export const makeBrainstormTools = Effect.gen(function* () {
   const projectsOutbound = yield* ProjectsOutbound;

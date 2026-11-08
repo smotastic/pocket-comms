@@ -15,6 +15,7 @@
   "dependencies": {
     "@pocket-comms/comms-application": "workspace:*",
     "@pocket-comms/comms-domain": "workspace:*",
+    "@smotastic/pocket-agent": "catalog:",
     "effect": "catalog:",
     "web-push": "catalog:"
   },
