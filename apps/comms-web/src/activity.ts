@@ -13,6 +13,8 @@ const KEY_LABELS: Record<Key, string> = {
   enter: 'Enter',
   esc: 'Esc',
   'ctrl+c': 'Ctrl-C',
+  pageup: 'Page up',
+  pagedown: 'Page down',
 };
 
 const STATUS_TEXTS = { working: 'Working', blocked: 'Needs you', done: 'Finished' } as const;

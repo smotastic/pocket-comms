@@ -6,3 +6,5 @@ GET /api/v1/activity added the new `left` enum value to the `events/items/anyOf[
 GET /api/v1/activity added the new `right` enum value to the `events/items/anyOf[subschema #5]/keys/items/` response property for the response status `200`
 GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/entries` from the response with the `200` status
 GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/live` from the response with the `200` status
+GET /api/v1/activity added the new `pageup` enum value to the `events/items/anyOf[subschema #5]/keys/items/` response property for the response status `200`
+GET /api/v1/activity added the new `pagedown` enum value to the `events/items/anyOf[subschema #5]/keys/items/` response property for the response status `200`

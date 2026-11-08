@@ -5,8 +5,35 @@ import * as Fiber from 'effect/Fiber';
 import * as Stream from 'effect/Stream';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fakeHerdrServer, herdrLists, type HerdrRequest } from '../testing/herdr-server.js';
+import {
+  fakeHerdrServer,
+  herdrLists,
+  type HerdrReply,
+  type HerdrRequest,
+} from '../testing/herdr-server.js';
 import { layerSocket } from './socket.js';
+
+/** Herdr with one Claude agent in `wJ:p1`, whose status fields `status` reads at each list. */
+const oneAgent =
+  (status: () => object) =>
+  (request: HerdrRequest): HerdrReply =>
+    request.method === 'agent.list'
+      ? {
+          result: {
+            type: 'agent_list',
+            agents: [
+              {
+                pane_id: 'wJ:p1',
+                workspace_id: 'wJ',
+                agent: 'claude',
+                terminal_title: '✳ A task',
+                terminal_title_stripped: 'A task',
+                ...status(),
+              },
+            ],
+          },
+        }
+      : herdrLists([])(request);
 
 const lists = (request: HerdrRequest) => {
   if (request.method === 'agent.list') {
@@ -200,6 +227,84 @@ describe('Herdr.layerSocket', () => {
         ['agent.prompt', { target: 'wJ:p1', text: 'hello' }],
         ['agent.send_keys', { target: 'wJ:p1', keys: ['1', 'enter'] }],
       ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('pages with the terminal sequences, which Herdr has no key names for, in order', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      yield* HerdrOutbound.use((herdr) =>
+        herdr.sendKeys('wJ:p1', ['pageup', 'pageup', 'down', 'pagedown']),
+      ).pipe(Effect.provide(layerSocket({ path: server.path })));
+
+      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
+        ['pane.send_text', { pane_id: 'wJ:p1', text: '\u001b[5~\u001b[5~' }],
+        ['agent.send_keys', { target: 'wJ:p1', keys: ['down'] }],
+        ['pane.send_text', { pane_id: 'wJ:p1', text: '\u001b[6~' }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live(
+    'keeps an agent paged away from its question waiting until Herdr reports another status',
+    () =>
+      Effect.gen(function* () {
+        let herdrStatus: object = { agent_status: 'blocked' };
+        const server = yield* fakeHerdrServer(oneAgent(() => herdrStatus));
+        const statuses = HerdrOutbound.use((herdr) => herdr.snapshot).pipe(
+          Effect.map(({ agents }) => agents.map((agent) => [agent.status, agent.completion])),
+        );
+        yield* Effect.gen(function* () {
+          expect(yield* statuses).toEqual([['blocked', undefined]]);
+          yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
+          herdrStatus = { agent_status: 'done', completion_seq: 8 };
+          expect(yield* statuses).toEqual([['blocked', undefined]]);
+          herdrStatus = { agent_status: 'idle', completion_seq: 8 };
+          expect(yield* statuses).toEqual([['blocked', undefined]]);
+          herdrStatus = { agent_status: 'blocked' };
+          expect(yield* statuses).toEqual([['blocked', undefined]]);
+          // Back at its question, a later done is a finished turn again.
+          herdrStatus = { agent_status: 'done', completion_seq: 9 };
+          expect(yield* statuses).toEqual([['done', 9]]);
+        }).pipe(Effect.provide(layerSocket({ path: server.path })));
+      }).pipe(Effect.scoped),
+  );
+
+  it.live('ends the paging with any other input, such as Escape or a typed answer', () =>
+    Effect.gen(function* () {
+      let herdrStatus: object = { agent_status: 'blocked' };
+      const server = yield* fakeHerdrServer(oneAgent(() => herdrStatus));
+      const status = HerdrOutbound.use((herdr) => herdr.snapshot).pipe(
+        Effect.map(({ agents }) => agents.map((agent) => agent.status)),
+      );
+      yield* Effect.gen(function* () {
+        yield* status;
+        yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
+        yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['esc']));
+        herdrStatus = { agent_status: 'idle', completion_seq: 8 };
+        expect(yield* status).toEqual(['idle']);
+
+        herdrStatus = { agent_status: 'blocked' };
+        yield* status;
+        yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
+        yield* HerdrOutbound.use((herdr) => herdr.typeText('wJ:p1', 'Use SQLite'));
+        herdrStatus = { agent_status: 'done', completion_seq: 9 };
+        expect(yield* status).toEqual(['done']);
+      }).pipe(Effect.provide(layerSocket({ path: server.path })));
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('does not hold an agent that did not wait when it was paged', () =>
+    Effect.gen(function* () {
+      let herdrStatus: object = { agent_status: 'idle' };
+      const server = yield* fakeHerdrServer(oneAgent(() => herdrStatus));
+      yield* Effect.gen(function* () {
+        yield* HerdrOutbound.use((herdr) => herdr.snapshot);
+        yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
+        herdrStatus = { agent_status: 'done', completion_seq: 8 };
+        const { agents } = yield* HerdrOutbound.use((herdr) => herdr.snapshot);
+        expect(agents.map((agent) => agent.status)).toEqual(['done']);
+      }).pipe(Effect.provide(layerSocket({ path: server.path })));
     }).pipe(Effect.scoped),
   );
 

@@ -4,7 +4,15 @@ import {
   HerdrUnavailableError,
   type HerdrSnapshot,
 } from '@pocket-comms/comms-application';
-import { AgentStatus, OTHER_GROUP, type Agent, type Workspace } from '@pocket-comms/comms-domain';
+import {
+  AgentStatus,
+  OTHER_GROUP,
+  type Agent,
+  pagedAwayAfter,
+  whilePagedAway,
+  type AgentKey,
+  type Workspace,
+} from '@pocket-comms/comms-domain';
 import * as Cause from 'effect/Cause';
 import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -79,6 +87,30 @@ const WorkspaceRecord = Schema.Struct({
     ),
   ),
 });
+
+// Herdr has no names for Page Up and Page Down, so they go to the pane as the terminal's own
+// sequences; the other keys keep Herdr's names.
+const PAGE_SEQUENCES: Partial<Record<AgentKey, string>> = {
+  pageup: '\u001b[5~',
+  pagedown: '\u001b[6~',
+};
+
+type KeyRun = { readonly text: string } | { readonly keys: ReadonlyArray<AgentKey> };
+
+/** Splits `keys` into runs of named keys and runs of page sequences, in their order. */
+const keyRuns = (keys: ReadonlyArray<AgentKey>): ReadonlyArray<KeyRun> =>
+  keys.reduce<Array<KeyRun>>((runs, key) => {
+    const sequence = PAGE_SEQUENCES[key];
+    const last = runs.at(-1);
+    if (sequence === undefined) {
+      if (last !== undefined && 'keys' in last)
+        runs[runs.length - 1] = { keys: [...last.keys, key] };
+      else runs.push({ keys: [key] });
+    } else if (last !== undefined && 'text' in last) {
+      runs[runs.length - 1] = { text: last.text + sequence };
+    } else runs.push({ text: sequence });
+    return runs;
+  }, []);
 
 const AgentList = Schema.Struct({ agents: Schema.Array(AgentRecord) });
 const WorkspaceList = Schema.Struct({ workspaces: Schema.Array(WorkspaceRecord) });
@@ -241,12 +273,30 @@ export const layerSocket = ({
       ),
     );
 
+  // The agents as last reported, and the waiting ones the owner paged away from their question,
+  // as they were then, by pane id.
+  let reported = new Map<string, Agent>();
+  const pagedAway = new Map<string, Agent>();
+
+  const reportAgents = (agents: ReadonlyArray<Agent>): ReadonlyArray<Agent> => {
+    const shown = agents.map((agent) => {
+      const waiting = pagedAway.get(agent.paneId);
+      if (waiting === undefined) return agent;
+      const paged = whilePagedAway(agent, waiting);
+      if (!paged.pagedAway) pagedAway.delete(agent.paneId);
+      return paged.agent;
+    });
+    reported = new Map(shown.map((agent) => [agent.paneId, agent]));
+    for (const paneId of pagedAway.keys()) if (!reported.has(paneId)) pagedAway.delete(paneId);
+    return shown;
+  };
+
   const snapshot: Effect.Effect<HerdrSnapshot, HerdrUnavailableError> = Effect.all([
     list('agent.list', AgentList),
     list('workspace.list', WorkspaceList),
   ]).pipe(
     Effect.map(([agents, workspaces]) => ({
-      agents: agents.agents.map(toAgent),
+      agents: reportAgents(agents.agents.map(toAgent)),
       workspaces: workspaces.workspaces.map(toWorkspace),
     })),
     Effect.withSpan('Herdr.snapshot'),
@@ -364,20 +414,48 @@ export const layerSocket = ({
           Effect.map((result) => result.read.text),
           Effect.withSpan('Herdr.readScreen'),
         ),
+      // Text, like any key but paging, ends the paging away from a question.
       prompt: (target, text) =>
-        request('agent.prompt', { target, text }, Schema.Unknown, target).pipe(
+        Effect.sync(() => pagedAway.delete(target)).pipe(
+          Effect.andThen(request('agent.prompt', { target, text }, Schema.Unknown, target)),
           Effect.asVoid,
           Effect.withSpan('Herdr.prompt'),
         ),
       // `agent.prompt` refuses a blocked agent and always submits; `pane.send_text` types only.
       typeText: (paneId, text) =>
-        request('pane.send_text', { pane_id: paneId, text }, Schema.Unknown, paneId).pipe(
+        Effect.sync(() => pagedAway.delete(paneId)).pipe(
+          Effect.andThen(
+            request('pane.send_text', { pane_id: paneId, text }, Schema.Unknown, paneId),
+          ),
           Effect.asVoid,
           Effect.withSpan('Herdr.typeText'),
         ),
-      sendKeys: (target, keys) =>
-        request('agent.send_keys', { target, keys }, Schema.Unknown, target).pipe(
-          Effect.asVoid,
+      sendKeys: (paneId, keys) =>
+        Effect.sync(() => {
+          const agent = reported.get(paneId);
+          if (!pagedAwayAfter(keys, agent, pagedAway.has(paneId))) pagedAway.delete(paneId);
+          else if (agent !== undefined && !pagedAway.has(paneId)) pagedAway.set(paneId, agent);
+        }).pipe(
+          Effect.andThen(
+            Effect.forEach(
+              keyRuns(keys),
+              (run) =>
+                'text' in run
+                  ? request(
+                      'pane.send_text',
+                      { pane_id: paneId, text: run.text },
+                      Schema.Unknown,
+                      paneId,
+                    )
+                  : request(
+                      'agent.send_keys',
+                      { target: paneId, keys: run.keys },
+                      Schema.Unknown,
+                      paneId,
+                    ),
+              { discard: true },
+            ),
+          ),
           Effect.withSpan('Herdr.sendKeys'),
         ),
       // `focus: false` is sent although it is Herdr's default, so a changed default can never

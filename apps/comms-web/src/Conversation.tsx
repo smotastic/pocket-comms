@@ -60,6 +60,8 @@ const KEYS: ReadonlyArray<{ value: Key; label: string; accessibleLabel?: string 
   { value: 'right', label: '→', accessibleLabel: 'Right' },
   { value: 'enter', label: 'Enter' },
   { value: 'esc', label: 'Esc' },
+  { value: 'pageup', label: 'Page up' },
+  { value: 'pagedown', label: 'Page down' },
 ];
 const CTRL_C = { value: 'ctrl+c', label: 'Ctrl-C', accessibleLabel: 'Hold to send Control C' };
 
@@ -202,6 +204,9 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
     prompt.reset();
     typed.reset();
     keys.mutate(key);
+    // Paging moves through the agent's own screen, so the owner reads on in the Screen view, which
+    // shows that screen alone with the keys, and pages back down there.
+    if (key === 'pageup') setChosen('screen');
   };
   const sendReply = (text: string) =>
     blocked ? typeText({ text, fromField: false }) : sendPrompt({ text, fromField: false }, []);

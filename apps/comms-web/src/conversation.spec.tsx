@@ -188,6 +188,29 @@ describe('the conversation', () => {
     expect(terminal.querySelector('pre')?.className).toBe(kept);
   });
 
+  it('pages up to the start of a long question on the screen, which keeps the keys', async () => {
+    const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
+
+    await openControls();
+    const keys = await screen.findByRole('group', { name: 'Keys' });
+    await userEvent.click(within(keys).getByRole('button', { name: 'Page up' }));
+
+    await waitFor(() => expect(fake.calls.keys).toEqual([['kirk', ['pageup']]]));
+    expect(await screen.findByRole('region', { name: 'Screen of kirk' })).toBeDefined();
+    expect(screen.queryByRole('region', { name: 'Claude needs your answer' })).toBeNull();
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Keys' })).getByRole('button', {
+        name: 'Page down',
+      }),
+    );
+    await waitFor(() =>
+      expect(fake.calls.keys).toEqual([
+        ['kirk', ['pageup']],
+        ['kirk', ['pagedown']],
+      ]),
+    );
+  });
+
   it('moves between questions with the Left and Right keys', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
 
