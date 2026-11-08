@@ -387,7 +387,8 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
             ) : null}
             {blocked ? (
               <Card title={`${kindLabel} needs your answer`}>
-                <TerminalScreen label={`Screen of ${name}`} text={screenText} />
+                {/* Wrapped, so the whole question reads on a phone; the Screen view keeps the lines. */}
+                <TerminalScreen label={`Screen of ${name}`} text={screenText} wrap />
               </Card>
             ) : null}
           </>
