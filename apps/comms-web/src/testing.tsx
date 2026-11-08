@@ -30,6 +30,7 @@ import {
   type PushSubscriptionView,
 } from './notifications.js';
 import { createAppRouter } from './router.js';
+import { MicrophoneContext, MicrophoneError, type Microphone } from './voice.js';
 
 // The kit loads its Markdown renderer lazily; on a cold CI runner that first import alone can take
 // longer than the default one second a `findBy` waits.
@@ -68,6 +69,8 @@ export interface FakeState {
   typeGate?: Promise<void>;
   /** A failure for the next image upload. */
   uploadFailure?: string;
+  /** What the next voice clip is transcribed to, or a failure. */
+  transcription: string | RequestError;
   projects: ReadonlyArray<ProjectView>;
   /** What the next task creation answers: the created worktree, or a failure. */
   created: TaskCreatedView | RequestError;
@@ -114,6 +117,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     issues: new Map(),
     implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
     closeAgentFailures: [],
+    transcription: 'dark mode for pocket-home',
     brainstorm: {
       _tag: 'Ready',
       answering: false,
@@ -131,6 +135,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     /** The image ids of each prompt, in the order of `prompts`. */
     promptImages: [] as Array<ReadonlyArray<string>>,
     uploads: [] as Array<Blob>,
+    /** The voice clips sent for transcription. */
+    clips: [] as Array<Blob>,
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
     typed: [] as Array<[string, string]>,
     seen: [] as Array<string>,
@@ -190,6 +196,11 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       return `image-${calls.uploads.length}`;
     },
     imageUrl: (id) => `/api/v1/images/${id}`,
+    transcribe: async (clip) => {
+      calls.clips.push(clip);
+      if (state.transcription instanceof RequestError) throw state.transcription;
+      return state.transcription;
+    },
     type: async (ref, text) => {
       await state.typeGate;
       if (state.typeFailure !== undefined) throw new RequestError(state.typeFailure, 409);
@@ -343,6 +354,38 @@ export const fakeImageHandling: ImageHandling = {
 };
 
 /**
+ * A microphone as the browser would offer it. `answer` decides whether the owner allows it;
+ * `recording` says whether it is taken right now.
+ */
+export const fakeMicrophone = () => {
+  const device = {
+    answer: 'granted' as 'granted' | 'denied',
+    recording: false,
+    /** How many recordings have started. */
+    started: 0,
+  };
+  const microphone: Microphone = {
+    start: async () => {
+      if (device.answer !== 'granted') {
+        throw new MicrophoneError(
+          'The microphone is not allowed. Allow it in the browser to record.',
+        );
+      }
+      device.recording = true;
+      device.started += 1;
+      const clip = new Blob([`clip ${device.started}`], { type: 'audio/mp4' });
+      return {
+        stop: async () => {
+          device.recording = false;
+          return clip;
+        },
+      };
+    },
+  };
+  return { device, microphone };
+};
+
+/**
  * A device's push support as the browser would report it. `subscribe` resolves to the
  * subscription unless the owner denies, which `answer` decides.
  */
@@ -384,10 +427,12 @@ export const renderApp = ({
   client,
   path = '/',
   devicePush = fakeDevicePush({ _tag: 'Unsupported' }).push,
+  microphone = fakeMicrophone().microphone,
 }: {
   readonly client: CommsClient;
   readonly path?: string;
   readonly devicePush?: DevicePush;
+  readonly microphone?: Microphone;
 }) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createAppRouter({
@@ -398,7 +443,9 @@ export const renderApp = ({
     <QueryClientProvider client={queryClient}>
       <ImageHandlingContext.Provider value={fakeImageHandling}>
         <DevicePushContext.Provider value={devicePush}>
-          <RouterProvider router={router} />
+          <MicrophoneContext.Provider value={microphone}>
+            <RouterProvider router={router} />
+          </MicrophoneContext.Provider>
         </DevicePushContext.Provider>
       </ImageHandlingContext.Provider>
     </QueryClientProvider>,

@@ -26,7 +26,7 @@ in the task's own commit.
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-contract comms-api comms-server`;
     `pnpm openapi:check`
 
-- [ ] **T05** — Web: `client.transcribe` and `useVoiceClip` (record, auto-stop at two minutes,
+- [x] **T05** — Web: `client.transcribe` and `useVoiceClip` (record, auto-stop at two minutes,
       transcribe, failed clip with retry and discard, the leave warning, refused microphone).
   - Gate: `pnpm nx test comms-web`
 
