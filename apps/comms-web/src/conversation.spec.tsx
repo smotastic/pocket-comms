@@ -1,6 +1,7 @@
-import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { TerminalScreen } from '@smotastic/pocket-design';
 import { axeViolations } from '@smotastic/pocket-design/testing';
 import { RequestError, type AgentView, type TranscriptView } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
@@ -163,6 +164,28 @@ describe('the conversation', () => {
     );
 
     await waitFor(() => expect(fake.calls.keys).toEqual([['kirk', ['1']]]));
+  });
+
+  it('wraps the question to the width of a phone, while the screen keeps its terminal lines', async () => {
+    // The kit's classes for a wrapped and an unwrapped screen; jsdom applies no stylesheet.
+    const lines = (wrap: boolean) => {
+      const { container, unmount } = render(<TerminalScreen label="Lines" text="" wrap={wrap} />);
+      const className = container.querySelector('pre')?.className;
+      unmount();
+      return className;
+    };
+    const wrapped = lines(true);
+    const kept = lines(false);
+    expect(wrapped).not.toBe(kept);
+    open(fakeAgent({ status: 'blocked', needsYou: true }));
+
+    const panel = await screen.findByRole('region', { name: 'Claude needs your answer' });
+    await waitFor(() => expect(panel.textContent).toContain('Allow command?'));
+    expect(panel.querySelector('pre')?.className).toBe(wrapped);
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Screen' }));
+    const terminal = await screen.findByRole('region', { name: 'Screen of kirk' });
+    expect(terminal.querySelector('pre')?.className).toBe(kept);
   });
 
   it('moves between questions with the Left and Right keys', async () => {
