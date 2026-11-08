@@ -1,21 +1,40 @@
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { RequestError, type BrainstormStateView } from './comms-client.js';
+import {
+  RequestError,
+  type BrainstormEventView,
+  type BrainstormStateView,
+} from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
 
-const ready = (overrides: Partial<Extract<BrainstormStateView, { _tag: 'Ready' }>> = {}) =>
-  ({
-    _tag: 'Ready',
-    entries: [],
-    answering: false,
-    live: '',
-    seesPictures: true,
-    pictures: [],
-    ...overrides,
-  }) as const;
+type Entry = Extract<BrainstormEventView, { readonly kind: 'entry' }>['entry'];
+type Ready = Extract<BrainstormStateView, { _tag: 'Ready' }>;
+
+/** A ready chat, and the entries the server holds, which a sheet that follows gets first. */
+const ready = (overrides: Partial<Ready> & { readonly entries?: ReadonlyArray<Entry> } = {}) => ({
+  _tag: 'Ready' as const,
+  answering: false,
+  seesPictures: true,
+  pictures: [],
+  entries: [],
+  ...overrides,
+});
+
+const said = (text: string, images: ReadonlyArray<string> = []): Entry => ({
+  kind: 'said',
+  id: `u-${text}`,
+  at: 1,
+  text,
+  images,
+});
+
+const recorded = (one: typeof proposal | typeof edit | Record<string, unknown>): Entry =>
+  ({ kind: 'proposal', proposal: one }) as Entry;
+
+const entry = (sequence: number, one: Entry) => ({ kind: 'entry', sequence, entry: one }) as const;
 
 const proposal = {
   type: 'proposal',
@@ -46,8 +65,19 @@ const edit = {
   state: { _tag: 'open' },
 } as const;
 
-const openChat = async (brainstorm: BrainstormStateView = ready(), path = '/') => {
-  const fake = fakeClient({ brainstorm });
+const openChat = async (
+  opened: ReturnType<typeof ready> | Extract<BrainstormStateView, { _tag: 'NotSetUp' }> = ready(),
+  path = '/',
+) => {
+  const {
+    entries,
+    ...brainstorm
+  }: { readonly entries: ReadonlyArray<Entry> } & BrainstormStateView =
+    opened._tag === 'Ready' ? opened : { ...opened, entries: [] };
+  const fake = fakeClient({
+    brainstorm,
+    brainstormLog: entries.map((one, index) => entry(index + 1, one)),
+  });
   renderApp({ client: fake.client, path });
   await userEvent.click(await screen.findByRole('button', { name: 'Brainstorm' }));
   const sheet = await screen.findByRole('dialog', { name: 'Brainstorm' });
@@ -91,8 +121,8 @@ describe('the way into the brainstorm chat', () => {
 });
 
 describe('the brainstorm chat', () => {
-  it('sends a message and shows Pi’s answer as it streams in', async () => {
-    const { sheet, calls, emitBrainstorm } = await openChat();
+  it('sends a message and shows Pi’s answer as it streams in, once', async () => {
+    const { sheet, calls, state, emitBrainstorm } = await openChat();
 
     await userEvent.type(
       within(sheet).getByRole('textbox', { name: 'Message' }),
@@ -101,25 +131,106 @@ describe('the brainstorm chat', () => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(calls.brainstormMessages).toEqual(['Idea: dark mode']));
 
-    act(() =>
-      emitBrainstorm({
-        type: 'state',
-        state: ready({
-          entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea: dark mode', images: [] }],
-          answering: true,
-        }),
-      }),
-    );
+    state.brainstorm = ready({ answering: true });
+    act(() => emitBrainstorm(entry(1, said('Idea: dark mode'))));
     expect(await within(sheet).findByText('Idea: dark mode')).toBeDefined();
-    expect(within(sheet).getByRole('status').textContent).toContain('Pi is thinking…');
-    expect(within(sheet).getByRole('textbox', { name: 'Message' })).toHaveProperty(
-      'disabled',
-      true,
+    expect(await within(sheet).findByText('Pi is thinking…')).toBeDefined();
+    await waitFor(() =>
+      expect(within(sheet).getByRole('textbox', { name: 'Message' })).toHaveProperty(
+        'disabled',
+        true,
+      ),
     );
 
-    act(() => emitBrainstorm({ type: 'delta', text: 'Which ' }));
-    act(() => emitBrainstorm({ type: 'delta', text: 'screens?' }));
+    act(() => emitBrainstorm({ kind: 'delta', text: 'Which ' }));
+    act(() => emitBrainstorm({ kind: 'delta', text: 'screens?' }));
     expect(await within(sheet).findByText('Which screens?')).toBeDefined();
+
+    state.brainstorm = ready();
+    act(() => emitBrainstorm(entry(2, { kind: 'agentMessage', text: 'Which screens?' })));
+    act(() => emitBrainstorm(entry(3, { kind: 'turnEnded' })));
+    await waitFor(() =>
+      expect(within(sheet).getByRole('textbox', { name: 'Message' })).toHaveProperty(
+        'disabled',
+        false,
+      ),
+    );
+    expect(within(sheet).getAllByText('Which screens?')).toHaveLength(1);
+    expect(within(sheet).queryByText('Pi is thinking…')).toBeNull();
+  });
+
+  it('shows each tool Pi runs as a row that settles, and one left running as stopped', async () => {
+    const { sheet, emitBrainstorm } = await openChat(ready({ entries: [said('Hi')] }));
+    await within(sheet).findByText('Hi');
+
+    act(() =>
+      emitBrainstorm(
+        entry(2, { kind: 'toolStarted', callId: 'c1', tool: 'read_issue', target: 'app #3' }),
+      ),
+    );
+    expect(await within(sheet).findByText('Reading issue')).toBeDefined();
+    expect(within(sheet).getByText('app #3')).toBeDefined();
+
+    act(() => emitBrainstorm(entry(3, { kind: 'toolFinished', callId: 'c1', isError: false })));
+    expect(await within(sheet).findByText('Read issue')).toBeDefined();
+    expect(within(sheet).getByText('done')).toBeDefined();
+
+    act(() =>
+      emitBrainstorm(
+        entry(4, {
+          kind: 'toolStarted',
+          callId: 'c2',
+          tool: 'read_project_doc',
+          target: 'app/README.md',
+        }),
+      ),
+    );
+    act(() => emitBrainstorm(entry(5, { kind: 'turnStopped' })));
+    expect(await within(sheet).findByText('stopped')).toBeDefined();
+    expect(within(sheet).queryByText('running')).toBeNull();
+  });
+
+  it('follows on after the last entry it has when the stream comes back', async () => {
+    const { sheet, calls } = await openChat(ready({ entries: [said('One'), said('Two')] }));
+    await within(sheet).findByText('Two');
+
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Brainstorm' }));
+    const again = await screen.findByRole('dialog', { name: 'Brainstorm' });
+
+    expect(await within(again).findByText('Two')).toBeDefined();
+    expect(within(again).getAllByText('One')).toHaveLength(1);
+    expect(calls.brainstormFollows).toEqual([0, 2]);
+  });
+
+  it('empties the conversation when a new chat starts', async () => {
+    const { sheet, emitBrainstorm } = await openChat(ready({ entries: [said('Old idea')] }));
+    await within(sheet).findByText('Old idea');
+
+    act(() => emitBrainstorm(entry(2, { kind: 'chatStarted' })));
+
+    await waitFor(() => expect(within(sheet).queryByText('Old idea')).toBeNull());
+    expect(within(sheet).getByText(/Note an idea in a few words/u)).toBeDefined();
+  });
+
+  it('shows a proposal once, as its latest record', async () => {
+    const { sheet } = await openChat(
+      ready({
+        entries: [
+          recorded(proposal),
+          { kind: 'agentMessage', text: 'Filed it for you.' },
+          recorded({
+            ...proposal,
+            state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
+          }),
+        ],
+      }),
+    );
+
+    expect(await within(sheet).findByRole('link', { name: 'Issue #12' })).toBeDefined();
+    expect(
+      within(sheet).getAllByRole('region', { name: 'Proposed issue: Dark mode' }),
+    ).toHaveLength(1);
   });
 
   it('shows why a message was refused', async () => {
@@ -136,9 +247,9 @@ describe('the brainstorm chat', () => {
     const { sheet } = await openChat(
       ready({
         entries: [
-          { type: 'user', id: 'u1', at: 1, text: 'Idea', images: [] },
-          { type: 'assistant', id: 'a1', at: 2, text: 'A **good** one.' },
-          { type: 'failed', id: 'f1', at: 3, reason: 'The model cannot be reached.' },
+          said('Idea'),
+          { kind: 'agentMessage', text: 'A **good** one.' },
+          { kind: 'turnFailed', reason: 'The model cannot be reached.' },
         ],
       }),
     );
@@ -163,9 +274,7 @@ describe('the brainstorm chat', () => {
   });
 
   it('starts a new chat only after a confirmation', async () => {
-    const { sheet, calls } = await openChat(
-      ready({ entries: [{ type: 'user', id: 'u1', at: 1, text: 'Idea', images: [] }] }),
-    );
+    const { sheet, calls } = await openChat(ready({ entries: [said('Idea')] }));
 
     await userEvent.click(await within(sheet).findByRole('button', { name: 'New chat' }));
     await userEvent.click(within(sheet).getByRole('button', { name: 'Keep this chat' }));
@@ -180,7 +289,7 @@ describe('the brainstorm chat', () => {
 
 describe('a proposal in the brainstorm chat', () => {
   it('creates the issue as the owner edited it', async () => {
-    const { sheet, calls } = await openChat(ready({ entries: [proposal] }));
+    const { sheet, calls } = await openChat(ready({ entries: [recorded(proposal)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
     await userEvent.selectOptions(
@@ -207,7 +316,7 @@ describe('a proposal in the brainstorm chat', () => {
   });
 
   it('discards it, and shows why Gitea refused an issue', async () => {
-    const { sheet, calls, state } = await openChat(ready({ entries: [proposal] }));
+    const { sheet, calls, state } = await openChat(ready({ entries: [recorded(proposal)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
     state.brainstormFailure = new RequestError('Gitea refused the token (403).', 503);
@@ -224,10 +333,10 @@ describe('a proposal in the brainstorm chat', () => {
     const { sheet } = await openChat(
       ready({
         entries: [
-          {
+          recorded({
             ...proposal,
             state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
-          },
+          }),
         ],
       }),
     );
@@ -241,7 +350,7 @@ describe('a proposal in the brainstorm chat', () => {
 
 describe('an edit in the brainstorm chat', () => {
   it('applies the title and body as the owner edited them, next to the current version', async () => {
-    const { sheet, calls } = await openChat(ready({ entries: [edit] }));
+    const { sheet, calls } = await openChat(ready({ entries: [recorded(edit)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
 
     await userEvent.click(within(card).getByRole('button', { name: /Current version/u }));
@@ -261,7 +370,7 @@ describe('an edit in the brainstorm chat', () => {
   });
 
   it('keeps the card open and says why when the issue changed', async () => {
-    const { sheet, calls, state } = await openChat(ready({ entries: [edit] }));
+    const { sheet, calls, state } = await openChat(ready({ entries: [recorded(edit)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
 
     state.brainstormFailure = new RequestError('Issue #11 changed since Pi read it.', 409);
@@ -277,7 +386,9 @@ describe('an edit in the brainstorm chat', () => {
 
   it('links an updated issue and offers no more actions', async () => {
     const { sheet } = await openChat(
-      ready({ entries: [{ ...edit, state: { _tag: 'updated', url: 'http://gitea/i/11' } }] }),
+      ready({
+        entries: [recorded({ ...edit, state: { _tag: 'updated', url: 'http://gitea/i/11' } })],
+      }),
     );
 
     expect(
@@ -321,7 +432,7 @@ describe('pictures in the brainstorm chat', () => {
   it('shows a message’s pictures by number, and says when the model cannot see them', async () => {
     const { sheet } = await openChat(
       ready({
-        entries: [{ type: 'user', id: 'u1', at: 1, text: 'Look', images: [A, B] }],
+        entries: [said('Look', [A, B])],
         pictures: [picture(A, 1), picture(B, 2)],
         seesPictures: false,
       }),
@@ -337,7 +448,7 @@ describe('pictures in the brainstorm chat', () => {
   it('checks the pictures Pi named and sends the owner’s choice in number order', async () => {
     const { sheet, calls } = await openChat(
       ready({
-        entries: [{ ...proposal, pictures: [B] }],
+        entries: [recorded({ ...proposal, pictures: [B] })],
         pictures: [picture(A, 1), picture(B, 2)],
       }),
     );
@@ -368,7 +479,7 @@ describe('pictures in the brainstorm chat', () => {
 
   it('shows a removed picture that cannot be checked', async () => {
     const { sheet } = await openChat(
-      ready({ entries: [proposal], pictures: [picture(A, 1, false)] }),
+      ready({ entries: [recorded(proposal)], pictures: [picture(A, 1, false)] }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
@@ -383,7 +494,7 @@ describe('pictures in the brainstorm chat', () => {
     const ids = ['a', 'b', 'c', 'd', 'e', 'f'].map((letter) => letter.repeat(26));
     const { sheet } = await openChat(
       ready({
-        entries: [{ ...proposal, pictures: ids.slice(0, 5) }],
+        entries: [recorded({ ...proposal, pictures: ids.slice(0, 5) })],
         pictures: ids.map((id, index) => picture(id, index + 1)),
       }),
     );
@@ -403,12 +514,12 @@ describe('pictures in the brainstorm chat', () => {
     const { sheet, calls } = await openChat(
       ready({
         entries: [
-          {
+          recorded({
             ...proposal,
             pictures: [A, B],
             attached: [{ image: A, url: 'http://gitea/attachments/1' }],
             state: { _tag: 'attaching', number: 12, url: 'http://gitea/i/12' },
-          },
+          }),
         ],
         pictures: [picture(A, 1), picture(B, 2)],
       }),
@@ -439,12 +550,12 @@ describe('pictures in the brainstorm chat', () => {
     const { sheet } = await openChat(
       ready({
         entries: [
-          {
+          recorded({
             ...proposal,
             pictures: [A],
             attached: [{ image: A, url: 'http://gitea/attachments/1' }],
             state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
-          },
+          }),
         ],
         pictures: [picture(A, 1)],
       }),
@@ -457,7 +568,7 @@ describe('pictures in the brainstorm chat', () => {
 
   it('applies an edit with the chosen pictures', async () => {
     const { sheet, calls } = await openChat(
-      ready({ entries: [{ ...edit, pictures: [A] }], pictures: [picture(A, 1)] }),
+      ready({ entries: [recorded({ ...edit, pictures: [A] })], pictures: [picture(A, 1)] }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
 

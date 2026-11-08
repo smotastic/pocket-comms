@@ -536,345 +536,10 @@
         "required": ["id", "kind", "description", "startedAt", "inBackground"],
         "type": "object"
       },
-      "BrainstormEntry": {
-        "anyOf": [
-          {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "description": "When the entry was added, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
-                "type": "string"
-              },
-              "images": {
-                "description": "The pictures the message attached, by image id, in order.",
-                "examples": [[]],
-                "items": {
-                  "description": "The id the server gave an uploaded image.",
-                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
-                  "pattern": "^[a-z2-7]{26}$",
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "text": {
-                "description": "The owner's message.",
-                "examples": ["Idea: dark mode for pocket-home"],
-                "type": "string"
-              },
-              "type": {
-                "description": "The owner's message.",
-                "enum": ["user"],
-                "examples": ["user"],
-                "type": "string"
-              }
-            },
-            "required": ["type", "id", "at", "text", "images"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "description": "When the entry was added, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
-                "type": "string"
-              },
-              "text": {
-                "description": "Pi's answer in Markdown.",
-                "examples": ["Nice. **Which screens** need it first?"],
-                "type": "string"
-              },
-              "type": {
-                "description": "Pi's answer.",
-                "enum": ["assistant"],
-                "examples": ["assistant"],
-                "type": "string"
-              }
-            },
-            "required": ["type", "id", "at", "text"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "description": "When the entry was added, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "attached": {
-                "description": "The chosen pictures that are already attachments of the issue in Gitea.",
-                "examples": [[]],
-                "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "image": {
-                      "description": "The id the server gave an uploaded image.",
-                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
-                      "pattern": "^[a-z2-7]{26}$",
-                      "type": "string"
-                    },
-                    "url": {
-                      "description": "The picture's attachment in Gitea.",
-                      "examples": [
-                        "http://localhost:3000/attachments/1c7f5b2e-3d4a-4f9b-8e6c-0a2b4c6d8e0f"
-                      ],
-                      "type": "string"
-                    }
-                  },
-                  "required": ["image", "url"],
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              "body": {
-                "description": "The issue's body in Markdown.",
-                "examples": ["A toggle in the settings that switches the app to dark colours."],
-                "maxLength": 20000,
-                "type": "string"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
-                "type": "string"
-              },
-              "kind": {
-                "description": "A new issue.",
-                "enum": ["issue"],
-                "examples": ["issue"],
-                "type": "string"
-              },
-              "pictures": {
-                "description": "The chat pictures that go with the proposal: the ones Pi named while it is open, the owner’s choice once decided.",
-                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
-                "items": {
-                  "description": "The id the server gave an uploaded image.",
-                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
-                  "pattern": "^[a-z2-7]{26}$",
-                  "type": "string"
-                },
-                "maxItems": 5,
-                "type": "array"
-              },
-              "project": {
-                "description": "The project the issue is for, by name.",
-                "examples": ["pocket-home"],
-                "maxLength": 100,
-                "minLength": 1,
-                "type": "string"
-              },
-              "state": {
-                "$ref": "#/components/schemas/ProposalState"
-              },
-              "title": {
-                "description": "The issue's title; it must not be blank.",
-                "examples": ["Dark mode toggle"],
-                "maxLength": 255,
-                "type": "string"
-              },
-              "type": {
-                "description": "An issue Pi proposes.",
-                "enum": ["proposal"],
-                "examples": ["proposal"],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "kind",
-              "id",
-              "at",
-              "project",
-              "title",
-              "body",
-              "pictures",
-              "attached",
-              "state"
-            ],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "description": "When the entry was added, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "attached": {
-                "description": "The chosen pictures that are already attachments of the issue in Gitea.",
-                "examples": [[]],
-                "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "image": {
-                      "description": "The id the server gave an uploaded image.",
-                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
-                      "pattern": "^[a-z2-7]{26}$",
-                      "type": "string"
-                    },
-                    "url": {
-                      "description": "The picture's attachment in Gitea.",
-                      "examples": [
-                        "http://localhost:3000/attachments/1c7f5b2e-3d4a-4f9b-8e6c-0a2b4c6d8e0f"
-                      ],
-                      "type": "string"
-                    }
-                  },
-                  "required": ["image", "url"],
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              "base": {
-                "additionalProperties": false,
-                "description": "The issue's title and body as Pi read them; the edit applies only while they are unchanged.",
-                "examples": [
-                  {
-                    "body": "An orchestrator agent.",
-                    "title": "Orchestrator mode"
-                  }
-                ],
-                "properties": {
-                  "body": {
-                    "description": "The issue's body as Pi read it.",
-                    "examples": ["An orchestrator agent."],
-                    "type": "string"
-                  },
-                  "title": {
-                    "description": "The issue's title as Pi read it.",
-                    "examples": ["Orchestrator mode"],
-                    "type": "string"
-                  }
-                },
-                "required": ["title", "body"],
-                "type": "object"
-              },
-              "body": {
-                "description": "The issue's whole new body in Markdown.",
-                "examples": ["Control the agents from the brainstorm chat."],
-                "maxLength": 20000,
-                "type": "string"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
-                "type": "string"
-              },
-              "kind": {
-                "description": "A new title and body for an existing issue.",
-                "enum": ["edit"],
-                "examples": ["edit"],
-                "type": "string"
-              },
-              "number": {
-                "description": "The issue's number.",
-                "examples": [11],
-                "type": "integer"
-              },
-              "pictures": {
-                "description": "The chat pictures that go with the proposal: the ones Pi named while it is open, the owner’s choice once decided.",
-                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
-                "items": {
-                  "description": "The id the server gave an uploaded image.",
-                  "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
-                  "pattern": "^[a-z2-7]{26}$",
-                  "type": "string"
-                },
-                "maxItems": 5,
-                "type": "array"
-              },
-              "project": {
-                "description": "The project the issue is for, by name.",
-                "examples": ["pocket-home"],
-                "maxLength": 100,
-                "minLength": 1,
-                "type": "string"
-              },
-              "state": {
-                "$ref": "#/components/schemas/EditState"
-              },
-              "title": {
-                "description": "The issue's whole new title; it must not be blank.",
-                "examples": ["Orchestrator mode from the brainstorm chat"],
-                "maxLength": 255,
-                "type": "string"
-              },
-              "type": {
-                "description": "An edit Pi proposes.",
-                "enum": ["proposal"],
-                "examples": ["proposal"],
-                "type": "string"
-              },
-              "url": {
-                "description": "The issue's page in Gitea.",
-                "examples": ["http://localhost:3000/smotastic/pocket-comms/issues/11"],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "kind",
-              "id",
-              "at",
-              "project",
-              "number",
-              "url",
-              "title",
-              "body",
-              "base",
-              "pictures",
-              "attached",
-              "state"
-            ],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "description": "When the entry was added, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["2f1c9a7e-4b7d-4c3a-9a51-6f0e8d2b1c44"],
-                "type": "string"
-              },
-              "reason": {
-                "description": "Why the turn failed.",
-                "examples": ["The model cannot be reached."],
-                "type": "string"
-              },
-              "type": {
-                "description": "A turn of Pi that failed.",
-                "enum": ["failed"],
-                "examples": ["failed"],
-                "type": "string"
-              }
-            },
-            "required": ["type", "id", "at", "reason"],
-            "type": "object"
-          }
-        ],
-        "description": "One entry of the brainstorm chat."
-      },
       "BrainstormEventEncoded": {
         "contentMediaType": "application/json",
         "description": "The event as JSON.",
-        "examples": ["{\"type\":\"delta\",\"text\":\"Nice\"}"],
+        "examples": ["{\"kind\":\"delta\",\"text\":\"Nice\"}"],
         "type": "string"
       },
       "BrainstormMessageRequest": {
@@ -926,19 +591,6 @@
                 "examples": [false],
                 "type": "boolean"
               },
-              "entries": {
-                "description": "The entries, oldest first.",
-                "examples": [[]],
-                "items": {
-                  "$ref": "#/components/schemas/BrainstormEntry"
-                },
-                "type": "array"
-              },
-              "live": {
-                "description": "The text of Pi's message so far, while it writes one.",
-                "examples": ["Nice. Which"],
-                "type": "string"
-              },
               "pictures": {
                 "description": "The pictures of the chat, by number.",
                 "examples": [[]],
@@ -973,7 +625,7 @@
                 "type": "boolean"
               }
             },
-            "required": ["_tag", "entries", "answering", "live", "seesPictures", "pictures"],
+            "required": ["_tag", "answering", "seesPictures", "pictures"],
             "type": "object"
           },
           {
@@ -1112,60 +764,6 @@
         },
         "required": ["project", "task", "branch"],
         "type": "object"
-      },
-      "EditState": {
-        "anyOf": [
-          {
-            "additionalProperties": false,
-            "properties": {
-              "_tag": {
-                "description": "The owner has not decided yet.",
-                "enum": ["open"],
-                "examples": ["open"],
-                "type": "string"
-              }
-            },
-            "required": ["_tag"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "_tag": {
-                "description": "The owner applied the edit and Gitea saved the issue's new title and body.",
-                "enum": ["updated"],
-                "examples": ["updated"],
-                "type": "string"
-              },
-              "url": {
-                "description": "The issue's page in Gitea.",
-                "examples": ["http://localhost:3000/smotastic/pocket-comms/issues/11"],
-                "type": "string"
-              }
-            },
-            "required": ["_tag", "url"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "_tag": {
-                "description": "The owner discarded the edit.",
-                "enum": ["discarded"],
-                "examples": ["discarded"],
-                "type": "string"
-              }
-            },
-            "required": ["_tag"],
-            "type": "object"
-          }
-        ],
-        "description": "Whether the edit was decided.",
-        "examples": [
-          {
-            "_tag": "open"
-          }
-        ]
       },
       "FieldError": {
         "additionalProperties": false,
@@ -1819,88 +1417,6 @@
           }
         ],
         "description": "The owner's decision on a proposal."
-      },
-      "ProposalState": {
-        "anyOf": [
-          {
-            "additionalProperties": false,
-            "properties": {
-              "_tag": {
-                "description": "The owner has not decided yet.",
-                "enum": ["open"],
-                "examples": ["open"],
-                "type": "string"
-              }
-            },
-            "required": ["_tag"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "_tag": {
-                "description": "The owner created the issue.",
-                "enum": ["created"],
-                "examples": ["created"],
-                "type": "string"
-              },
-              "number": {
-                "description": "The new issue's number.",
-                "examples": [12],
-                "type": "integer"
-              },
-              "url": {
-                "description": "The new issue's page in Gitea.",
-                "examples": ["http://localhost:3000/smotastic/pocket-home/issues/12"],
-                "type": "string"
-              }
-            },
-            "required": ["_tag", "number", "url"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "_tag": {
-                "description": "The owner discarded the proposal.",
-                "enum": ["discarded"],
-                "examples": ["discarded"],
-                "type": "string"
-              }
-            },
-            "required": ["_tag"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "_tag": {
-                "description": "The owner created the issue, and its pictures are not all attached yet: retry them or finish without them.",
-                "enum": ["attaching"],
-                "examples": ["attaching"],
-                "type": "string"
-              },
-              "number": {
-                "description": "The new issue's number.",
-                "examples": [12],
-                "type": "integer"
-              },
-              "url": {
-                "description": "The new issue's page in Gitea.",
-                "examples": ["http://localhost:3000/smotastic/pocket-home/issues/12"],
-                "type": "string"
-              }
-            },
-            "required": ["_tag", "number", "url"],
-            "type": "object"
-          }
-        ],
-        "description": "Whether the proposal was decided.",
-        "examples": [
-          {
-            "_tag": "open"
-          }
-        ]
       },
       "PushKey": {
         "additionalProperties": false,
@@ -3876,9 +3392,22 @@
     },
     "/api/v1/brainstorm/events": {
       "get": {
-        "description": "Server-sent events: the state at once and after every change, and the text Pi writes in between.",
+        "description": "Server-sent events: the entries after `after`, the reply Pi has written so far, then new entries and the text Pi writes, each once. Read the state again when an entry says a turn began or ended.",
         "operationId": "brainstorm.events",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Replay the entries after this number first, the last one the reader has; all when missing.",
+            "example": "12",
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "description": "Replay the entries after this number first, the last one the reader has; all when missing.",
+              "examples": ["12"],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {

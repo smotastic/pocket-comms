@@ -1,9 +1,10 @@
+import { emptyChat, foldChat, type ChatView } from '@smotastic/pocket-agent/chat';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   AgentEventView,
+  BrainstormEntryView,
   BrainstormEventView,
-  BrainstormStateView,
   CommsClient,
   SubagentView,
   TranscriptView,
@@ -130,30 +131,67 @@ export const useSubagentLive = (client: CommsClient, ref: string, id: string, ac
   return { live };
 };
 
-/** Applies a brainstorm event: a state replaces the held one, a delta extends Pi's live text. */
-export const applyBrainstormEvent = (
-  held: BrainstormStateView | undefined,
+/** The brainstorm chat as the sheet shows it: its items, Pi's draft, and whether Pi works. */
+export type BrainstormView = ChatView<BrainstormEntryView>;
+
+export const emptyBrainstorm: BrainstormView = emptyChat;
+
+/**
+ * Folds a brainstorm event into the view with the agent package's fold (spec 026). A New chat
+ * drops everything before it; the view keeps only where to follow on from.
+ */
+export const foldBrainstorm = (
+  view: BrainstormView,
   event: BrainstormEventView,
-): BrainstormStateView | undefined => {
-  if (event.type === 'state') return event.state;
-  return held?._tag === 'Ready' ? { ...held, live: held.live + event.text } : held;
+): BrainstormView => {
+  const next = foldChat(view, event);
+  return next !== view && event.kind === 'entry' && event.entry.kind === 'chatStarted'
+    ? { ...emptyBrainstorm, after: next.after }
+    : next;
 };
 
-/** Follows the brainstorm stream into the query cache while `active`, such as while it is open. */
+// The entries after which the chat's state may have changed: Pi started or ended a turn, a
+// message brought pictures, or a proposal changed.
+const CHANGES_STATE: ReadonlySet<string> = new Set([
+  'said',
+  'proposal',
+  'turnEnded',
+  'turnFailed',
+  'turnStopped',
+  'chatStarted',
+]);
+
+/**
+ * Follows the brainstorm stream while `active`, such as while the sheet is open, into a view that
+ * outlives a close: opened again, it follows on after its last entry. The state is read again when
+ * the stream says it may have changed, and after every (re)connect.
+ */
 export const useBrainstormLive = (client: CommsClient, active: boolean) => {
   const queryClient = useQueryClient();
   const [live, setLive] = useState(false);
+  const [view, setView] = useState(emptyBrainstorm);
+  const after = useRef(view.after);
+  after.current = view.after;
   useEffect(() => {
     if (!active) return undefined;
+    const refresh = () => void queryClient.invalidateQueries({ queryKey: brainstormKey });
     return client.followBrainstorm(
-      (event) =>
-        queryClient.setQueryData<BrainstormStateView>(brainstormKey, (held) =>
-          applyBrainstormEvent(held, event),
-        ),
-      setLive,
+      () => after.current,
+      (event) => {
+        setView((held) => {
+          const next = foldBrainstorm(held, event);
+          after.current = next.after;
+          return next;
+        });
+        if (event.kind === 'entry' && CHANGES_STATE.has(event.entry.kind)) refresh();
+      },
+      (connected) => {
+        setLive(connected);
+        if (connected) refresh();
+      },
     );
   }, [client, queryClient, active]);
-  return { live };
+  return { view, live };
 };
 
 /** The current time, renewed every `interval` milliseconds, for "4m ago" labels. */

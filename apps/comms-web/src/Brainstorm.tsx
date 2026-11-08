@@ -1,16 +1,20 @@
 import {
-  Activity,
+  AgentHeader,
+  AgentMessage,
+  AgentSheet,
+  AgentThread,
   Alert,
   Button,
   Composer,
   IconButton,
   Inline,
-  Markdown,
-  Sheet,
-  SheetHeader,
   Stack,
   Text,
+  ToolActivity,
+  TurnError,
+  UserMessage,
 } from '@smotastic/pocket-design';
+import type { ChatItem, ToolState } from '@smotastic/pocket-agent/chat';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { AttachedImages } from './AttachedImages.js';
@@ -23,116 +27,139 @@ import type {
 } from './comms-client.js';
 import { brainstormQuery, projectsQuery } from './comms-queries.js';
 import { IssueEditCard } from './IssueEditCard.js';
-import { useBrainstormLive } from './live.js';
+import { useBrainstormLive, type BrainstormView } from './live.js';
 import { ProposalCard } from './ProposalCard.js';
 import { PictureThumb, type ChatPicture } from './ProposalPictures.js';
-import { UserMessage } from './UserMessage.js';
 
 // The brainstorm chat: one ongoing chat with Pi, opened from the top bars. Pi proposes new issues
 // and edits of existing ones, and the owner decides on each. The owner's messages may attach
-// pictures, which go to Gitea with the proposals the owner chooses them for (spec 023).
+// pictures, which go to Gitea with the proposals the owner chooses them for (spec 023). Pi's reply
+// streams in, and each tool it runs shows as a row (spec 026).
 
 type Ready = Extract<BrainstormStateView, { readonly _tag: 'Ready' }>;
+type ProposalView = Extract<BrainstormEntryView, { readonly kind: 'proposal' }>['proposal'];
 
 /** What the chat says when Pi only learns that pictures were attached. */
 const BLIND = "This model can't see pictures";
 
-interface ChatProps {
-  readonly client: CommsClient;
-  readonly state: Ready;
-  readonly confirmingReset: boolean;
-  readonly onResetDone: () => void;
-}
+const PI = 'Pi';
 
-const Entry = ({
-  entry,
+/** What a row says Pi does with each tool, while it runs and after. */
+const TOOL_VERBS: Readonly<Record<string, readonly [running: string, done: string]>> = {
+  list_projects: ['Listing projects', 'Listed projects'],
+  list_open_issues: ['Listing open issues', 'Listed open issues'],
+  read_issue: ['Reading issue', 'Read issue'],
+  read_project_doc: ['Reading', 'Read'],
+  propose_issue: ['Proposing an issue', 'Proposed an issue'],
+  propose_issue_edit: ['Proposing an edit', 'Proposed an edit'],
+};
+
+/** A tool's state as the kit shows it: a tool its turn left behind is a failed one, "stopped". */
+const TOOL_STATES = {
+  running: { state: 'running', label: 'running' },
+  done: { state: 'done', label: 'done' },
+  failed: { state: 'failed', label: 'failed' },
+  stopped: { state: 'failed', label: 'stopped' },
+} as const satisfies Record<ToolState, { state: 'running' | 'done' | 'failed'; label: string }>;
+
+/** One thing the thread shows: an item of the stream, or a proposal as its latest record. */
+type Shown =
+  | Exclude<ChatItem<BrainstormEntryView>, { readonly kind: 'app' }>
+  | {
+      readonly kind: 'said';
+      readonly sequence: number;
+      readonly entry: Extract<BrainstormEntryView, { readonly kind: 'said' }>;
+    }
+  | { readonly kind: 'proposal'; readonly sequence: number; readonly proposal: ProposalView };
+
+/**
+ * The view's items as the thread shows them. A proposal is recorded again when it changes; it
+ * shows once, in the place of its first record, as its latest.
+ */
+export const shownItems = (view: BrainstormView): ReadonlyArray<Shown> => {
+  const latest = new Map<string, ProposalView>();
+  for (const item of view.items) {
+    if (item.kind === 'app' && item.entry.kind === 'proposal') {
+      latest.set(item.entry.proposal.id, item.entry.proposal);
+    }
+  }
+  const placed = new Set<string>();
+  return view.items.flatMap((item): ReadonlyArray<Shown> => {
+    if (item.kind !== 'app') return [item];
+    const { entry } = item;
+    if (entry.kind === 'said') return [{ kind: 'said', sequence: item.sequence, entry }];
+    if (entry.kind !== 'proposal' || placed.has(entry.proposal.id)) return [];
+    placed.add(entry.proposal.id);
+    return [
+      {
+        kind: 'proposal',
+        sequence: item.sequence,
+        proposal: latest.get(entry.proposal.id) ?? entry.proposal,
+      },
+    ];
+  });
+};
+
+const Proposal = ({
+  proposal,
   projects,
   pictures,
-  seesPictures,
   busy,
   decide,
 }: {
-  readonly entry: BrainstormEntryView;
+  readonly proposal: ProposalView;
   readonly projects: ReadonlyArray<string>;
   readonly pictures: ReadonlyArray<ChatPicture>;
-  readonly seesPictures: boolean;
   readonly busy: boolean;
   readonly decide: ReturnType<typeof useDecide>;
 }) => {
-  switch (entry.type) {
-    case 'user': {
-      const shown = pictures.filter((picture) => entry.images.includes(picture.id));
-      if (shown.length === 0) return <UserMessage text={entry.text} />;
-      return (
-        <Stack gap="xs">
-          <UserMessage
-            text={entry.text}
-            attachments={shown.map((picture) => (
-              <PictureThumb key={picture.id} picture={picture} />
-            ))}
-          />
-          {seesPictures ? null : (
-            <Text tone="muted" size="sm">
-              {BLIND}
-            </Text>
-          )}
-        </Stack>
-      );
-    }
-    case 'assistant':
-      return <Markdown text={entry.text} />;
-    case 'failed':
-      return <Text tone="muted">Pi did not answer: {entry.reason}</Text>;
-    case 'proposal': {
-      const failed = decide.variables?.id === entry.id ? decide.error : null;
-      if (entry.kind === 'edit') {
-        return (
-          <IssueEditCard
-            project={entry.project}
-            number={entry.number}
-            url={entry.url}
-            title={entry.title}
-            body={entry.body}
-            base={entry.base}
-            state={entry.state}
-            pictures={pictures}
-            chosen={entry.pictures}
-            attached={entry.attached}
-            busy={busy || decide.isPending}
-            {...(failed === null ? {} : { error: failed.message })}
-            onApply={(edit, chosen) =>
-              decide.mutate({
-                id: entry.id,
-                decision: { _tag: 'Apply', ...edit, pictures: chosen },
-              })
-            }
-            onDiscard={() => decide.mutate({ id: entry.id, decision: { _tag: 'Discard' } })}
-          />
-        );
-      }
-      return (
-        <ProposalCard
-          project={entry.project}
-          title={entry.title}
-          body={entry.body}
-          state={entry.state}
-          projects={projects}
-          pictures={pictures}
-          chosen={entry.pictures}
-          attached={entry.attached}
-          busy={busy || decide.isPending}
-          {...(failed === null ? {} : { error: failed.message })}
-          onCreate={(draft, chosen) =>
-            decide.mutate({ id: entry.id, decision: { _tag: 'Create', draft, pictures: chosen } })
-          }
-          onDiscard={() => decide.mutate({ id: entry.id, decision: { _tag: 'Discard' } })}
-          onFinishWithout={() =>
-            decide.mutate({ id: entry.id, decision: { _tag: 'FinishWithout' } })
-          }
-        />
-      );
-    }
+  const failed = decide.variables?.id === proposal.id ? decide.error : null;
+  if (proposal.kind === 'edit') {
+    return (
+      <IssueEditCard
+        project={proposal.project}
+        number={proposal.number}
+        url={proposal.url}
+        title={proposal.title}
+        body={proposal.body}
+        base={proposal.base}
+        state={proposal.state}
+        pictures={pictures}
+        chosen={proposal.pictures}
+        attached={proposal.attached}
+        busy={busy || decide.isPending}
+        {...(failed === null ? {} : { error: failed.message })}
+        onApply={(edit, chosen) =>
+          decide.mutate({
+            id: proposal.id,
+            decision: { _tag: 'Apply', ...edit, pictures: chosen },
+          })
+        }
+        onDiscard={() => decide.mutate({ id: proposal.id, decision: { _tag: 'Discard' } })}
+      />
+    );
   }
+  return (
+    <ProposalCard
+      project={proposal.project}
+      title={proposal.title}
+      body={proposal.body}
+      state={proposal.state}
+      projects={projects}
+      pictures={pictures}
+      chosen={proposal.pictures}
+      attached={proposal.attached}
+      busy={busy || decide.isPending}
+      {...(failed === null ? {} : { error: failed.message })}
+      onCreate={(draft, chosen) =>
+        decide.mutate({ id: proposal.id, decision: { _tag: 'Create', draft, pictures: chosen } })
+      }
+      onDiscard={() => decide.mutate({ id: proposal.id, decision: { _tag: 'Discard' } })}
+      onFinishWithout={() =>
+        decide.mutate({ id: proposal.id, decision: { _tag: 'FinishWithout' } })
+      }
+    />
+  );
 };
 
 const useDecide = (client: CommsClient) =>
@@ -141,54 +168,130 @@ const useDecide = (client: CommsClient) =>
       client.decideProposal(id, decision),
   });
 
-/** The conversation with Pi, the New chat confirmation and the composer's errors. */
-const Chat = ({ client, state, confirmingReset, onResetDone }: ChatProps) => {
+/** Whether Pi is answering: the server says so, or the stream shows Pi at work. */
+const busyOf = (state: Ready, view: BrainstormView) => state.answering || view.working;
+
+/** The conversation with Pi: the owner's messages, Pi's replies and tools, and the proposals. */
+const Thread = ({
+  client,
+  state,
+  view,
+}: {
+  readonly client: CommsClient;
+  readonly state: Ready;
+  readonly view: BrainstormView;
+}) => {
   const projects = useQuery(projectsQuery(client));
   const decide = useDecide(client);
-  const reset = useMutation({ mutationFn: client.resetBrainstorm, onSuccess: onResetDone });
   const names = (projects.data ?? []).map((project) => project.name);
   const pictures = state.pictures.map((picture) => ({
     ...picture,
     src: client.imageUrl(picture.id),
   }));
+  const busy = busyOf(state, view);
+  const shown = shownItems(view);
+  const toolRuns = shown.some((item) => item.kind === 'tool' && item.state === 'running');
 
   return (
-    <Stack gap="md">
-      {confirmingReset ? (
-        <Stack gap="sm">
-          <Text>
-            Start a new chat? This conversation is gone for good; issues created from it stay.
-          </Text>
-          {reset.error === null ? null : <Alert>{reset.error.message}</Alert>}
-          <Inline gap="sm">
-            <Button variant="danger" disabled={reset.isPending} onClick={() => reset.mutate()}>
-              Start a new chat
-            </Button>
-            <Button variant="secondary" onClick={onResetDone}>
-              Keep this chat
-            </Button>
-          </Inline>
-        </Stack>
-      ) : null}
-      {state.entries.length === 0 && !state.answering ? (
+    <AgentThread
+      label="Brainstorm conversation"
+      {...(view.draft === '' ? {} : { draft: view.draft })}
+      {...(busy && view.draft === '' && !toolRuns ? { activity: 'Pi is thinking…' } : {})}
+      empty={
         <Text tone="muted">
           Note an idea in a few words, or dictate it. Pi helps you think it through and proposes it
           as an issue when it is ready.
         </Text>
-      ) : null}
-      {state.entries.map((entry) => (
-        <Entry
-          key={entry.id}
-          entry={entry}
-          projects={names}
-          pictures={pictures}
-          seesPictures={state.seesPictures}
-          busy={state.answering}
-          decide={decide}
-        />
-      ))}
-      {state.answering && state.live !== '' ? <Markdown text={state.live} /> : null}
-      {state.answering && state.live === '' ? <Activity label="Pi is thinking…" /> : null}
+      }
+    >
+      {shown.map((item) => {
+        switch (item.kind) {
+          case 'said': {
+            const attached = pictures.filter((picture) => item.entry.images.includes(picture.id));
+            return (
+              <UserMessage
+                key={item.sequence}
+                author="You"
+                text={item.entry.text}
+                {...(attached.length === 0
+                  ? {}
+                  : {
+                      attachments: (
+                        <Stack gap="xs">
+                          <Inline gap="xs">
+                            {attached.map((picture) => (
+                              <PictureThumb key={picture.id} picture={picture} />
+                            ))}
+                          </Inline>
+                          {state.seesPictures ? null : (
+                            <Text tone="muted" size="sm">
+                              {BLIND}
+                            </Text>
+                          )}
+                        </Stack>
+                      ),
+                    })}
+              />
+            );
+          }
+          case 'agentMessage':
+            return <AgentMessage key={item.sequence} author={PI} text={item.text} />;
+          case 'tool': {
+            const [running, done] = TOOL_VERBS[item.tool] ?? [item.tool, item.tool];
+            const { state: shownState, label } = TOOL_STATES[item.state];
+            return (
+              <ToolActivity
+                key={item.sequence}
+                verb={item.state === 'running' ? running : done}
+                state={shownState}
+                stateLabel={label}
+                {...(item.target === undefined ? {} : { target: item.target })}
+                {...(item.detail === undefined ? {} : { detail: item.detail })}
+              />
+            );
+          }
+          case 'turnFailed':
+            return <TurnError key={item.sequence} message={`Pi did not answer: ${item.reason}`} />;
+          case 'proposal':
+            return (
+              <Proposal
+                key={item.sequence}
+                proposal={item.proposal}
+                projects={names}
+                pictures={pictures}
+                busy={busy}
+                decide={decide}
+              />
+            );
+        }
+      })}
+    </AgentThread>
+  );
+};
+
+/** Asks before a New chat, below the header, since the conversation is gone for good. */
+const ConfirmReset = ({
+  client,
+  onDone,
+}: {
+  readonly client: CommsClient;
+  readonly onDone: () => void;
+}) => {
+  const reset = useMutation({ mutationFn: client.resetBrainstorm, onSuccess: onDone });
+  return (
+    <Stack gap="sm">
+      <Text>
+        Start a new chat? This conversation is gone for good; issues created from it stay.
+      </Text>
+      {reset.error === null ? null : <Alert>{reset.error.message}</Alert>}
+      <Inline gap="sm">
+        <Button variant="danger" disabled={reset.isPending} onClick={() => reset.mutate()}>
+          Start a new chat
+        </Button>
+        <Button variant="secondary" onClick={onDone}>
+          Keep this chat
+        </Button>
+      </Inline>
     </Stack>
   );
 };
@@ -197,9 +300,11 @@ const Chat = ({ client, state, confirmingReset, onResetDone }: ChatProps) => {
 const Footer = ({
   client,
   state,
+  view,
 }: {
   readonly client: CommsClient;
   readonly state: BrainstormStateView | undefined;
+  readonly view: BrainstormView;
 }) => {
   const [draft, setDraft] = useState('');
   const images = useAttachments(client);
@@ -213,6 +318,7 @@ const Footer = ({
     },
   });
   const ready = state?._tag === 'Ready';
+  const busy = ready && busyOf(state, view);
   return (
     <Stack gap="sm">
       {send.error === null ? null : <Alert>{send.error.message}</Alert>}
@@ -229,7 +335,7 @@ const Footer = ({
         onSend={(text) => send.mutate({ text, imageIds: images.ids })}
         placeholder="An idea…"
         locked={send.isPending || images.pending}
-        disabled={!ready || state.answering}
+        disabled={!ready || busy}
         attach={{
           label: 'Attach image',
           icon: 'image',
@@ -238,7 +344,7 @@ const Footer = ({
           isDisabled: images.full,
         }}
         sendable={images.ids.length > 0}
-        {...(ready && state.answering ? { hint: 'Pi is answering.' } : {})}
+        {...(busy ? { hint: 'Pi is answering.' } : {})}
         {...(images.attachments.length === 0
           ? {}
           : {
@@ -279,7 +385,7 @@ export const Brainstorm = ({
   const [open, setOpen] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const chat = useQuery({ ...brainstormQuery(client), enabled: open });
-  useBrainstormLive(client, open);
+  const { view } = useBrainstormLive(client, open);
   const state = chat.data;
   const close = () => {
     setOpen(false);
@@ -289,39 +395,42 @@ export const Brainstorm = ({
   return (
     <OpenBrainstorm.Provider value={() => setOpen(true)}>
       {children}
-      <Sheet
+      <AgentSheet
         open={open}
         size="full"
-        follow
         label="Brainstorm"
-        bodyLabel="Brainstorm conversation"
+        conversationLabel="Brainstorm conversation"
         onClose={close}
         header={
-          <SheetHeader title="Brainstorm" subtitle="Ideas with Pi">
-            {state?._tag === 'Ready' ? (
-              <IconButton icon="plus" label="New chat" onClick={() => setConfirmingReset(true)} />
-            ) : null}
-            <IconButton icon="close" label="Close" onClick={close} />
-          </SheetHeader>
+          <AgentHeader
+            title="Brainstorm"
+            subtitle="Ideas with Pi"
+            {...(state?._tag === 'Ready'
+              ? { newSession: { label: 'New chat', onClick: () => setConfirmingReset(true) } }
+              : {})}
+            close={{ label: 'Close', onClick: close }}
+          />
         }
-        footer={<Footer client={client} state={state} />}
+        notices={
+          confirmingReset || chat.error !== null ? (
+            <Stack gap="sm">
+              {chat.error === null ? null : <Alert>{chat.error.message}</Alert>}
+              {confirmingReset ? (
+                <ConfirmReset client={client} onDone={() => setConfirmingReset(false)} />
+              ) : null}
+            </Stack>
+          ) : undefined
+        }
+        composer={<Footer client={client} state={state} view={view} />}
       >
-        {chat.error === null ? null : <Alert>{chat.error.message}</Alert>}
         {state?._tag === 'NotSetUp' ? (
           <Stack gap="sm">
             <Text>The brainstorm chat is not set up.</Text>
             <Text tone="muted">{state.reason}</Text>
           </Stack>
         ) : null}
-        {state?._tag === 'Ready' ? (
-          <Chat
-            client={client}
-            state={state}
-            confirmingReset={confirmingReset}
-            onResetDone={() => setConfirmingReset(false)}
-          />
-        ) : null}
-      </Sheet>
+        {state?._tag === 'Ready' ? <Thread client={client} state={state} view={view} /> : null}
+      </AgentSheet>
     </OpenBrainstorm.Provider>
   );
 };

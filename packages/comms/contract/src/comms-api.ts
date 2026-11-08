@@ -1,5 +1,6 @@
 import { Problems, ValidationMiddleware } from '@pocket-comms/contracts-problem-details';
 import * as Schema from 'effect/Schema';
+import { chatStreamEvent } from '@smotastic/pocket-agent/chat';
 import {
   HttpApi,
   HttpApiEndpoint,
@@ -881,32 +882,8 @@ export const EditState = Schema.Union([
   examples: [{ _tag: 'open' }],
 });
 
-export const BrainstormEntry = Schema.Union([
-  Schema.Struct({
-    type: Schema.tag('user').annotate({ description: "The owner's message.", examples: ['user'] }),
-    id: entryId,
-    at: entryAt,
-    text: Schema.String.annotate({
-      description: "The owner's message.",
-      examples: ['Idea: dark mode for pocket-home'],
-    }),
-    images: Schema.Array(ImageId).annotate({
-      description: 'The pictures the message attached, by image id, in order.',
-      examples: [[]],
-    }),
-  }),
-  Schema.Struct({
-    type: Schema.tag('assistant').annotate({
-      description: "Pi's answer.",
-      examples: ['assistant'],
-    }),
-    id: entryId,
-    at: entryAt,
-    text: Schema.String.annotate({
-      description: "Pi's answer in Markdown.",
-      examples: ['Nice. **Which screens** need it first?'],
-    }),
-  }),
+/** A proposal of Pi: a new issue or an edit of one, as it stands. */
+export const BrainstormProposal = Schema.Union([
   Schema.Struct({
     type: Schema.tag('proposal').annotate({
       description: 'An issue Pi proposes.',
@@ -957,19 +934,44 @@ export const BrainstormEntry = Schema.Union([
     ...PictureFields,
     state: EditState,
   }),
+]).annotate({ identifier: 'BrainstormProposal', description: 'A proposal of Pi, as it stands.' });
+
+/**
+ * The brainstorm chat's own entries (spec 026), among the agent package's shared ones: what the
+ * owner wrote, a record of a proposal, and the start of a new chat.
+ */
+export const BrainstormEntry = Schema.Union([
   Schema.Struct({
-    type: Schema.tag('failed').annotate({
-      description: 'A turn of Pi that failed.',
-      examples: ['failed'],
-    }),
+    kind: Schema.tag('said').annotate({ description: "The owner's message.", examples: ['said'] }),
     id: entryId,
     at: entryAt,
-    reason: Schema.String.annotate({
-      description: 'Why the turn failed.',
-      examples: ['The model cannot be reached.'],
+    text: Schema.String.annotate({
+      description: "The owner's message.",
+      examples: ['Idea: dark mode for pocket-home'],
+    }),
+    images: Schema.Array(ImageId).annotate({
+      description: 'The pictures the message attached, by image id, in order.',
+      examples: [[]],
     }),
   }),
-]).annotate({ identifier: 'BrainstormEntry', description: 'One entry of the brainstorm chat.' });
+  Schema.Struct({
+    kind: Schema.tag('proposal').annotate({
+      description:
+        'A proposal as Pi made it or as a decision changed it; the latest record of an id counts and shows in the place of its first.',
+      examples: ['proposal'],
+    }),
+    proposal: BrainstormProposal,
+  }),
+  Schema.Struct({
+    kind: Schema.tag('chatStarted').annotate({
+      description: 'A new chat starts here; drop everything before it.',
+      examples: ['chatStarted'],
+    }),
+  }),
+]).annotate({
+  identifier: 'BrainstormEntry',
+  description: "One of the brainstorm chat's own entries.",
+});
 
 export const BrainstormState = Schema.Union([
   Schema.Struct({
@@ -977,17 +979,9 @@ export const BrainstormState = Schema.Union([
       description: 'The chat works.',
       examples: ['Ready'],
     }),
-    entries: Schema.Array(BrainstormEntry).annotate({
-      description: 'The entries, oldest first.',
-      examples: [[]],
-    }),
     answering: Schema.Boolean.annotate({
       description: 'Pi is answering; the chat takes no message or decision until it is done.',
       examples: [false],
-    }),
-    live: Schema.String.annotate({
-      description: "The text of Pi's message so far, while it writes one.",
-      examples: ['Nice. Which'],
     }),
     seesPictures: Schema.Boolean.annotate({
       description:
@@ -1023,22 +1017,11 @@ export const BrainstormState = Schema.Union([
   description: 'The brainstorm chat, or why it is not set up.',
 });
 
-export const BrainstormEvent = Schema.Union([
-  Schema.Struct({
-    type: Schema.tag('state').annotate({
-      description: 'The chat changed; the state replaces the one the reader holds.',
-      examples: ['state'],
-    }),
-    state: BrainstormState,
-  }),
-  Schema.Struct({
-    type: Schema.tag('delta').annotate({
-      description: 'Pi wrote more of its message; append it to `live`.',
-      examples: ['delta'],
-    }),
-    text: Schema.String.annotate({ description: 'The new text.', examples: [' screens'] }),
-  }),
-]).annotate({ identifier: 'BrainstormEvent', description: 'One update of the brainstorm chat.' });
+/** One event of the brainstorm chat's stream: a numbered entry, text Pi writes, or its draft. */
+export const BrainstormEvent = chatStreamEvent(BrainstormEntry).annotate({
+  identifier: 'BrainstormEvent',
+  description: 'One event of the brainstorm chat.',
+});
 
 export const BrainstormMessageRequest = Schema.Struct({
   text: Schema.String.check(Schema.isMaxLength(20_000)).annotate({
@@ -1371,12 +1354,25 @@ const brainstorm = HttpApiGroup.make('brainstorm')
       }),
     ),
     HttpApiEndpoint.get('events', '/brainstorm/events', {
-      success: eventStream('brainstorm', BrainstormEvent, '{"type":"delta","text":"Nice"}'),
+      query: {
+        after: Schema.optionalKey(
+          Schema.NumberFromString.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)).pipe(
+            Schema.annotateEncoded({
+              description:
+                'Replay the entries after this number first, the last one the reader has; all when missing.',
+              examples: ['12'],
+            }),
+          ),
+        ),
+      },
+      // Named events like the other streams, so the document describes the JSON each one carries.
+      success: eventStream('brainstorm', BrainstormEvent, '{"kind":"delta","text":"Nice"}'),
+      error: Problems.Validation,
     }).annotateMerge(
       OpenApi.annotations({
         summary: 'Follow the brainstorm chat',
         description:
-          'Server-sent events: the state at once and after every change, and the text Pi writes in between.',
+          'Server-sent events: the entries after `after`, the reply Pi has written so far, then new entries and the text Pi writes, each once. Read the state again when an entry says a turn began or ended.',
       }),
     ),
     HttpApiEndpoint.post('send', '/brainstorm/messages', {

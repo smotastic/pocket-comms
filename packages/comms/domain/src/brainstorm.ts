@@ -82,21 +82,26 @@ export interface EditProposal extends IssueText, WithPictures {
 
 export type ProposalEntry = IssueProposal | EditProposal;
 
-/** One entry of the brainstorm conversation. `at` is in epoch milliseconds. */
+/**
+ * The chat's own entries (spec 026); Pi's replies, its tools and the ends of its turns are the
+ * agent package's shared entries around them. `at` is in epoch milliseconds.
+ */
 export type BrainstormEntry =
-  /** `images` are the ids of the pictures the message attached, in order. */
+  /** What the owner wrote; `images` are the ids of the pictures it attached, in order. */
   | {
-      readonly type: 'user';
+      readonly kind: 'said';
       readonly id: string;
       readonly at: number;
       readonly text: string;
       readonly images: ReadonlyArray<string>;
     }
-  /** `text` is Markdown. */
-  | { readonly type: 'assistant'; readonly id: string; readonly at: number; readonly text: string }
-  | ProposalEntry
-  /** A turn of Pi that failed, and why. */
-  | { readonly type: 'failed'; readonly id: string; readonly at: number; readonly reason: string };
+  /**
+   * A proposal as Pi made it, or as the owner's decision changed it later: the latest record of
+   * an id counts, and shows in the place of its first.
+   */
+  | { readonly kind: 'proposal'; readonly proposal: ProposalEntry }
+  /** A new chat starts here; the chat before it is gone. */
+  | { readonly kind: 'chatStarted' };
 
 const textIssues = (title: string, body: string): Array<FieldIssue> => {
   const issues: Array<FieldIssue> = [];
@@ -144,19 +149,14 @@ export const parseIssueEdit = (edit: IssueText): Result.Result<IssueText, Invali
     : Result.fail(new InvalidInputError({ issues }));
 };
 
-/** The proposal with this id, if there is one. */
+/** The latest record of the proposal with this id, if there is one. */
 export const proposalOf = (
   entries: ReadonlyArray<BrainstormEntry>,
   id: string,
 ): ProposalEntry | undefined =>
-  entries.find((entry): entry is ProposalEntry => entry.type === 'proposal' && entry.id === id);
-
-/** The entries with the proposal of the same id replaced by its decided version. */
-export const settleProposal = (
-  entries: ReadonlyArray<BrainstormEntry>,
-  decided: ProposalEntry,
-): ReadonlyArray<BrainstormEntry> =>
-  entries.map((entry) => (entry.type === 'proposal' && entry.id === decided.id ? decided : entry));
+  entries
+    .flatMap((entry) => (entry.kind === 'proposal' && entry.proposal.id === id ? [entry] : []))
+    .at(-1)?.proposal;
 
 /** At most this many pictures go with one proposal. */
 export const MAX_PROPOSAL_PICTURES = 5;
@@ -169,7 +169,7 @@ export interface ChatPicture {
 
 export const chatPictures = (entries: ReadonlyArray<BrainstormEntry>): ReadonlyArray<ChatPicture> =>
   entries
-    .flatMap((entry) => (entry.type === 'user' ? entry.images : []))
+    .flatMap((entry) => (entry.kind === 'said' ? entry.images : []))
     .map((id, index) => ({ id, number: index + 1 }));
 
 const invalidPictures = (message: string) =>

@@ -18,7 +18,6 @@ import {
   proposalOf,
   readOf,
   rememberRead,
-  settleProposal,
   withPictures,
   type BrainstormEntry,
   type IssueProposal,
@@ -38,10 +37,12 @@ const proposal = (id: string, state: IssueProposal['state'] = { _tag: 'open' }):
   state,
 });
 
+const recorded = (one: IssueProposal): BrainstormEntry => ({ kind: 'proposal', proposal: one });
+
 const entries: ReadonlyArray<BrainstormEntry> = [
-  { type: 'user', id: 'u1', at: 1, text: 'Idea: dark mode', images: [] },
-  proposal('p1'),
-  proposal('p2', { _tag: 'discarded' }),
+  { kind: 'said', id: 'u1', at: 1, text: 'Idea: dark mode', images: [] },
+  recorded(proposal('p1')),
+  recorded(proposal('p2', { _tag: 'discarded' })),
 ];
 
 describe('parseIssueDraft', () => {
@@ -82,18 +83,12 @@ describe('proposals', () => {
     expect(proposalOf(entries, 'nope')).toBeUndefined();
   });
 
-  it('replaces the decided proposal and leaves every other entry', () => {
+  it('finds the latest record of a proposal', () => {
     const decided: IssueProposal = {
       ...proposal('p1'),
-      project: 'pocket-comms',
-      title: 'Dark mode toggle',
-      body: 'B',
       state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
     };
-    const settled = settleProposal(entries, decided);
-    expect(settled[1]).toBe(decided);
-    expect(settled[0]).toBe(entries[0]);
-    expect(settled[2]).toBe(entries[2]);
+    expect(proposalOf([...entries, recorded(decided)], 'p1')).toBe(decided);
   });
 });
 
@@ -181,9 +176,9 @@ describe('pictures', () => {
   const imageB = 'b'.repeat(26);
   const imageC = 'c'.repeat(26);
   const chat: ReadonlyArray<BrainstormEntry> = [
-    { type: 'user', id: 'u1', at: 1, text: 'Like this?', images: [imageA, imageB] },
-    { type: 'assistant', id: 'a1', at: 2, text: 'Nice.' },
-    { type: 'user', id: 'u2', at: 3, text: '', images: [imageC] },
+    { kind: 'said', id: 'u1', at: 1, text: 'Like this?', images: [imageA, imageB] },
+    { kind: 'chatStarted' },
+    { kind: 'said', id: 'u2', at: 3, text: '', images: [imageC] },
   ];
 
   it('numbers the pictures of the chat from 1 in the order they were sent', () => {
@@ -216,7 +211,7 @@ describe('pictures', () => {
   it('refuses more than five chosen pictures', () => {
     const many: ReadonlyArray<BrainstormEntry> = [
       {
-        type: 'user',
+        kind: 'said',
         id: 'u1',
         at: 1,
         text: '',

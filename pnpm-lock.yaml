@@ -246,6 +246,9 @@ importers:
       '@pocket-comms/comms-contract':
         specifier: workspace:*
         version: link:../../packages/comms/contract
+      '@smotastic/pocket-agent':
+        specifier: 'catalog:'
+        version: 0.3.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(effect@4.0.0-rc.118)(supports-color@10.2.2)(ws@8.22.0)(zod@4.6.7)
       '@smotastic/pocket-design':
         specifier: 'catalog:'
         version: 0.11.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2)
@@ -352,6 +355,9 @@ importers:
       '@pocket-comms/contracts-problem-details':
         specifier: workspace:*
         version: link:../../contracts/problem-details
+      '@smotastic/pocket-agent':
+        specifier: 'catalog:'
+        version: 0.3.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(effect@4.0.0-rc.118)(supports-color@10.2.2)(ws@8.22.0)(zod@4.6.7)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.118
@@ -381,6 +387,9 @@ importers:
       '@pocket-comms/comms-domain':
         specifier: workspace:*
         version: link:../domain
+      '@smotastic/pocket-agent':
+        specifier: 'catalog:'
+        version: 0.3.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(effect@4.0.0-rc.118)(supports-color@10.2.2)(ws@8.22.0)(zod@4.6.7)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.118

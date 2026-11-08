@@ -3,6 +3,7 @@ import {
   type Agent,
   type AGENTS_TO_START,
   AgentEvent,
+  type BrainstormEntry,
   BrainstormEvent,
   type BrainstormState,
   CommsApi,
@@ -48,10 +49,8 @@ export type IssueView = typeof Issue.Type;
 export type IssueTaskCreatedView = typeof IssueTaskCreated.Type;
 export type BrainstormStateView = typeof BrainstormState.Type;
 export type BrainstormEventView = typeof BrainstormEvent.Type;
-export type BrainstormEntryView = Extract<
-  BrainstormStateView,
-  { readonly _tag: 'Ready' }
->['entries'][number];
+/** One of the brainstorm chat's own entries, among the agent package's shared ones. */
+export type BrainstormEntryView = typeof BrainstormEntry.Type;
 export type IssueDraftView = typeof IssueDraft.Type;
 export type ProposalDecision = typeof ProposalDecisionRequest.Type;
 
@@ -113,7 +112,12 @@ export interface CommsClient {
   readonly quickReplies: () => Promise<ReadonlyArray<string>>;
   /** Saves the list in place of the old one and answers it as saved. */
   readonly saveQuickReplies: (replies: ReadonlyArray<string>) => Promise<ReadonlyArray<string>>;
+  /**
+   * Follows the brainstorm chat after the entry `after()` answers, the last one the reader has;
+   * after a lost connection it follows again from the reader's new last one (spec 026).
+   */
   readonly followBrainstorm: (
+    after: () => number,
     onEvent: (event: BrainstormEventView) => void,
     onLive: OnLive,
   ) => Unsubscribe;
@@ -210,10 +214,12 @@ const REOPEN_MS = 3_000;
  * Follows one server-sent event stream with the browser's `EventSource`. The browser reconnects
  * by itself after a dropped connection, but gives up for good when a reconnect gets an error
  * status, as when the server restarts behind `tailscale serve`; then this opens the stream again.
+ * A `url` that is a function names where the reader is, so after any error the stream is closed
+ * and opened again at the function's new address, never at the old one the browser would reuse.
  * Each event decodes with the contract's schema; one that does not is skipped.
  */
 const follow = <A>(
-  url: string,
+  url: string | (() => string),
   name: string,
   schema: Schema.Decoder<A>,
   onData: (data: A) => void,
@@ -224,11 +230,12 @@ const follow = <A>(
   let reopen: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
   const open = () => {
-    const current = new EventSource(url);
+    const current = new EventSource(typeof url === 'string' ? url : url());
     source = current;
     current.onopen = () => onLive(true);
     current.onerror = () => {
       onLive(false);
+      if (typeof url !== 'string') current.close();
       if (current.readyState === EventSource.CLOSED && !stopped) {
         reopen = setTimeout(open, REOPEN_MS);
       }
@@ -331,8 +338,14 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
       run((api) => api.quickReplies.replace({ payload: { replies } })).then(
         (saved) => saved.replies,
       ),
-    followBrainstorm: (onEvent, onLive) =>
-      follow(`${baseUrl}/api/v1/brainstorm/events`, 'brainstorm', BrainstormEvent, onEvent, onLive),
+    followBrainstorm: (after, onEvent, onLive) =>
+      follow(
+        () => `${baseUrl}/api/v1/brainstorm/events?after=${after()}`,
+        'brainstorm',
+        BrainstormEvent,
+        onEvent,
+        onLive,
+      ),
     activity: () => run((api) => api.activity.activity()),
     followActivity: (onActivity, onLive) =>
       follow(`${baseUrl}/api/v1/activity/events`, 'activity', Activity, onActivity, onLive),

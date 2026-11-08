@@ -28,8 +28,11 @@ export class BrainstormInbound extends Context.Service<
   BrainstormInbound,
   {
     readonly state: Effect.Effect<BrainstormStateDto>;
-    /** The state at once, then every change and the text Pi writes. */
-    readonly events: Stream.Stream<BrainstormEventDto>;
+    /**
+     * The chat's entries after `after`, the reply Pi has written so far, then what follows: every
+     * entry once, and no text twice. A New chat starts with `chatStarted`.
+     */
+    readonly events: (after: number) => Stream.Stream<BrainstormEventDto>;
     /**
      * Adds the owner's message with the pictures it attaches, by image id, and starts Pi's
      * answer, without waiting for it.

@@ -1,16 +1,16 @@
 import type { BrainstormEntry, IssueRead } from '@pocket-comms/comms-domain';
-import type { RuntimeState } from '@smotastic/pocket-agent';
+import type { RuntimeState, StoredChatEntry } from '@smotastic/pocket-agent';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
 
 /**
- * The brainstorm chat as stored: its id, the shown entries, the issues Pi last read, and Pi's own
- * history.
+ * The brainstorm chat as stored: its id, its entries numbered in order (spec 026), the issues Pi
+ * last read, and Pi's own history.
  */
 export interface StoredChat {
   readonly id: string;
-  readonly entries: ReadonlyArray<BrainstormEntry>;
+  readonly log: ReadonlyArray<StoredChatEntry<BrainstormEntry>>;
   readonly reads: ReadonlyArray<IssueRead>;
   readonly runtime: Option.Option<RuntimeState>;
 }
