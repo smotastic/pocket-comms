@@ -9,7 +9,7 @@ in the task's own commit.
       the format, and refuses an empty clip, one over 5 MB and anything else.
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Application: `SpeechOutbound`, `SpeechInbound` and the transcribe use case (parse,
+- [x] **T02** — Application: `SpeechOutbound`, `SpeechInbound` and the transcribe use case (parse,
       transcribe, trim; not-set-up and unavailable errors); the brainstorm state's `voice` from the
       port; fakes.
   - Gate: `pnpm nx test comms-application`
