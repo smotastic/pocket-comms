@@ -10,7 +10,7 @@ in the task's own commit.
   - Gate: `pnpm nx run-many -t test -p comms-application comms-api comms-server`;
     `pnpm openapi:check`
 
-- [ ] **T02** — Web: `client.speech()` and `speechQuery`; Record voice in the agent chat's message
+- [x] **T02** — Web: `client.speech()` and `speechQuery`; Record voice in the agent chat's message
       composer with the clip row; a sent prompt clears only its own text.
   - Gate: `pnpm nx test comms-web`; `pnpm verify:local`
 

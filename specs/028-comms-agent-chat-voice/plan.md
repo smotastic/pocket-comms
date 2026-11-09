@@ -1,7 +1,7 @@
 # Plan 028 — pocket-comms: voice messages in the agent chat
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved with the spec by the owner (2026-11-09)
+- **Status:** `Done` — approved with the spec by the owner (2026-11-09)
 
 ## 1. Affected projects
 
@@ -30,8 +30,9 @@ None.
 - **Web.** `speechQuery(client)` with a long `staleTime` (the setting changes only on a restart).
   `Conversation` uses `useVoiceClip(client, (text) => setDraft((d) => appendText(d, text)))` and
   adds `{ id: 'voice', label: 'Record voice', icon: 'mic', … }` after Upload image when
-  `available`; the `attachments` slot holds `VoiceClipRow` above `AttachedImages`, as in the
-  brainstorm `Footer`. The clip's notice shows as an `Alert` with its tone. The hook stays mounted
+  `available`. `VoiceClipRow` sits in the footer above both composers, not in the message
+  composer's `attachments` slot as in the brainstorm `Footer`: a dialog replaces the message
+  composer, and Stop must stay in reach (changed in review, 2026-11-09). The clip's notice shows as an `Alert` with its tone. The hook stays mounted
   while the dialog composer shows, so a clip waits there (requirement 4). A successful prompt
   clears only the text it sent, as the brainstorm composer does since spec 027.
 

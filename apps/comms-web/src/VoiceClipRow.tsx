@@ -2,7 +2,7 @@ import { Alert, Button, Inline, LiveIndicator, Text } from '@smotastic/pocket-de
 import { formatLength, type VoiceClip } from './voice.js';
 
 /**
- * The voice clip above the composer (spec 027): the recording with its time and Stop, the wait
+ * The voice clip above the composer: the recording with its time and Stop, the wait
  * for the text, or a failed clip with Retry and Discard. Nothing while there is no clip.
  */
 export const VoiceClipRow = ({

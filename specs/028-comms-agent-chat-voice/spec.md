@@ -1,6 +1,6 @@
 # Spec 028 — pocket-comms: voice messages in the agent chat
 
-- **Status:** `Approved` — approved by the owner (2026-11-09)
+- **Status:** `Done` — approved by the owner (2026-11-09), implemented in its pull request
 - **Changes:** [spec 027](../027-comms-brainstorm-voice/spec.md) (out of scope: "recording in any
   other composer")
 - **Issue:** none; asked by the owner on 2026-11-09 after trying spec 027

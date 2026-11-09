@@ -1027,3 +1027,117 @@ describe('background work in the conversation', () => {
     expect(screen.queryByRole('link', { name: /Look/u })).toBeNull();
   });
 });
+
+describe('voice messages in the agent chat', () => {
+  /** Opens the chat once the app knows whether the server transcribes. */
+  const openWith = async (voice: boolean, agent = fakeAgent({ status: 'idle' })) => {
+    const fake = fakeClient({
+      agents: new Map([[agent.ref, agent]]),
+      transcripts: new Map([[agent.ref, transcript]]),
+      speechAvailable: voice,
+    });
+    const rendered = renderApp({ client: fake.client, path: `/agents/${agent.ref}` });
+    await waitFor(() => expect(fake.calls.speechAsked).toBe(1));
+    await screen.findByText('Fix the failing test');
+    return { ...fake, ...rendered };
+  };
+
+  const menu = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    return screen.getAllByRole('menuitem').map((item) => item.textContent);
+  };
+
+  const record = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Record voice' }));
+  };
+
+  const message = () => screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+
+  it('offers Record voice between Upload image and Quick replies when the server transcribes', async () => {
+    await openWith(true);
+
+    expect(await menu()).toEqual(['Upload image', 'Record voice', 'Quick replies']);
+  });
+
+  it('offers no Record voice without transcription', async () => {
+    await openWith(false);
+
+    expect(await menu()).toEqual(['Upload image', 'Quick replies']);
+  });
+
+  it('adds the words to the draft and sends nothing', async () => {
+    const { calls } = await openWith(true);
+    await userEvent.type(message(), 'Please');
+
+    await record();
+    await userEvent.click(await screen.findByRole('button', { name: 'Stop' }));
+
+    await waitFor(() => expect(message().value).toBe('Please dark mode for pocket-home'));
+    expect(calls.clips).toHaveLength(1);
+    expect(calls.prompts).toEqual([]);
+  });
+
+  it('keeps a failed clip with its reason, Retry and Discard', async () => {
+    const { state } = await openWith(true);
+    state.transcription = new RequestError('The speech service is not reachable.', 503);
+
+    await record();
+    await userEvent.click(await screen.findByRole('button', { name: 'Stop' }));
+
+    expect(await screen.findByText(/The speech service is not reachable\./u)).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeDefined();
+  });
+
+  it('offers no Record voice in the dialog’s composer', async () => {
+    await openWith(true, fakeAgent({ status: 'blocked' }));
+    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+
+    expect(await menu()).toEqual(['Quick replies']);
+  });
+
+  it('keeps Stop in reach when a dialog opens, and the words go to the message', async () => {
+    const fake = await openWith(true);
+    await record();
+    await screen.findByRole('button', { name: 'Stop' });
+
+    act(() =>
+      fake.emitAgent('kirk', {
+        type: 'agent',
+        agent: fakeAgent({ status: 'blocked', needsYou: true }),
+      }),
+    );
+    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    await waitFor(() => expect(fake.calls.clips).toHaveLength(1));
+    act(() => fake.emitAgent('kirk', { type: 'agent', agent: fakeAgent({ status: 'idle' }) }));
+
+    await waitFor(() => expect(message().value).toBe('dark mode for pocket-home'));
+    expect(
+      (
+        screen.queryByRole('textbox', {
+          name: 'Type into the dialog',
+        }) as HTMLTextAreaElement | null
+      )?.value ?? '',
+    ).toBe('');
+  });
+
+  it('keeps a transcript that arrives while a prompt is on its way', async () => {
+    const { state, calls } = await openWith(true);
+    let transcribed = () => undefined as void;
+    let sent = () => undefined as void;
+    state.transcriptionGate = new Promise((resolve) => (transcribed = resolve));
+    state.promptGate = new Promise((resolve) => (sent = resolve));
+
+    await record();
+    await userEvent.click(await screen.findByRole('button', { name: 'Stop' }));
+    await userEvent.type(message(), 'First idea{Enter}');
+    transcribed();
+    await waitFor(() => expect(message().value).toBe('First idea dark mode for pocket-home'));
+    sent();
+
+    await waitFor(() => expect(calls.prompts).toEqual([['kirk', 'First idea']]));
+    await waitFor(() => expect(message().value).toBe('dark mode for pocket-home'));
+  });
+});

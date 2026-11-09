@@ -11,6 +11,7 @@ import {
   MAX_RECORDING_MS,
   MicrophoneContext,
   useVoiceClip,
+  withoutSent,
   type Microphone,
 } from './voice.js';
 
@@ -41,6 +42,17 @@ describe('appendText', () => {
   it('separates it from a draft by one space', () => {
     expect(appendText('Idea:', 'dark mode')).toBe('Idea: dark mode');
     expect(appendText('Idea: ', 'dark mode')).toBe('Idea: dark mode');
+  });
+});
+
+describe('withoutSent', () => {
+  it('drops the sent text from the start of the draft and keeps what came after', () => {
+    expect(withoutSent('Idea', 'Idea')).toBe('');
+    expect(withoutSent('  Idea dark mode', 'Idea')).toBe('dark mode');
+  });
+
+  it('keeps a draft that no longer starts with the sent text', () => {
+    expect(withoutSent('Something else', 'Idea')).toBe('Something else');
   });
 });
 

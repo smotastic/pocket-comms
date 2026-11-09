@@ -24,12 +24,20 @@ import { delegationLink, stripItems } from './background.js';
 import { Chat } from './Chat.js';
 import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu } from './ConversationMenu.js';
-import { agentQuery, quickRepliesQuery, screenQuery, transcriptQuery } from './comms-queries.js';
+import {
+  agentQuery,
+  quickRepliesQuery,
+  screenQuery,
+  speechQuery,
+  transcriptQuery,
+} from './comms-queries.js';
 import { KeyPad } from './KeyPad.js';
 import { QuickReplies, SuggestedReplies } from './QuickReplies.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
+import { appendText, useVoiceClip, withoutSent } from './voice.js';
+import { VoiceClipRow } from './VoiceClipRow.js';
 
 export interface ConversationProps {
   readonly client: CommsClient;
@@ -167,17 +175,22 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const [answered, setAnswered] = useState<string>();
   const latestId = useRef<string>(undefined);
   const images = useAttachments(client);
+  const speech = useQuery(speechQuery(client));
+  // A clip belongs to the message, also while a dialog's composer shows.
+  const voice = useVoiceClip(client, (text) => setDraft((current) => appendText(current, text)));
   // A successful send from a field clears it, and the images; a failed one keeps both. A quick
   // reply leaves the fields alone. The clearing is on the mutation, not on `mutate`, so a reset
   // of the mutation by a later send cannot drop it.
   const prompt = useMutation({
     mutationFn: ({ text, imageIds }: Send & { imageIds: ReadonlyArray<string> }) =>
       client.prompt(agentRef, text, imageIds),
-    onSuccess: (_, { fromField, answers }) => {
+    onSuccess: (_, { text, fromField, answers }) => {
       if (answers !== undefined) setAnswered(answers);
       if (!fromField) return;
-      setDraft('');
+      // Only the sent text goes: a transcript that arrived meanwhile stays.
+      setDraft((current) => withoutSent(current, text));
       images.clear();
+      voice.dismiss();
     },
   });
   const keys = useMutation({ mutationFn: (key: Key) => client.keys(agentRef, [key]) });
@@ -301,6 +314,16 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
         <Stack gap="xs">
           {failure === null ? null : <Alert>{failure.message}</Alert>}
           {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
+          {voice.notice === undefined ? null : (
+            <Alert tone={voice.notice.tone}>{voice.notice.text}</Alert>
+          )}
+          {/* Above both composers, so Stop stays in reach when a dialog takes the field. */}
+          <VoiceClipRow
+            clip={voice.clip}
+            onStop={() => void voice.stop()}
+            onRetry={voice.retry}
+            onDiscard={voice.discard}
+          />
           {agent.background.length === 0 ? null : (
             <BackgroundStrip
               items={stripItems(agent, now)}
@@ -369,6 +392,17 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
                       onSelect: (files) => void images.add(files),
                     },
                   },
+                  ...(speech.data === true
+                    ? [
+                        {
+                          id: 'voice',
+                          label: 'Record voice',
+                          icon: 'mic' as const,
+                          onAction: () => void voice.start(),
+                          isDisabled: voice.clip._tag !== 'Idle',
+                        },
+                      ]
+                    : []),
                   ...repliesAction,
                 ],
               }}
