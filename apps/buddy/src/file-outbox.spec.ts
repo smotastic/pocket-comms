@@ -59,11 +59,12 @@ describe('FileOutbox', () => {
     }),
   );
 
-  it.live('ignores a clip that was never written to the end', () =>
+  it.live('throws away a clip that was never written to the end when it starts', () =>
     Effect.gen(function* () {
-      yield* Effect.promise(() => writeFile(join(folder, 'half.wav.part'), 'x'));
+      yield* Effect.promise(() => writeFile(join(folder, '000000000000001-000000.wav.part'), 'x'));
 
       expect(yield* withOutbox((outbox) => outbox.size)).toBe(0);
+      expect(yield* Effect.promise(() => readdir(folder))).toEqual([]);
     }),
   );
 
