@@ -313,6 +313,25 @@ describe('sending', () => {
     ),
   );
 
+  it.effect('keeps two clips recorded offline and sends both in order when comms is back', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        const offline = () => new Unreachable({ reason: 'No connection.' });
+        fake.comms.transcribeFailures.push(offline(), offline(), offline());
+        yield* say(fake);
+        yield* say(fake);
+
+        expect(lastView(fake)?.status).toBe('Offline · 2 waiting');
+        expect(fake.comms.sent).toEqual([]);
+
+        yield* wait(60_000);
+
+        expect(fake.comms.sent).toEqual(['idea 1', 'idea 2']);
+        expect(lastView(fake)?.status).toBe('Ready');
+      }),
+    ),
+  );
+
   it.effect('waits at most a minute between tries', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
