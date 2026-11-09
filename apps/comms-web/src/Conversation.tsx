@@ -12,6 +12,10 @@ import {
   Stack,
   TerminalScreen,
   Text,
+  appendText,
+  useVoiceClip,
+  VoiceClipRow,
+  withoutSent,
 } from '@smotastic/pocket-design';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -36,8 +40,7 @@ import { QuickReplies, SuggestedReplies } from './QuickReplies.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
-import { appendText, useVoiceClip, withoutSent } from './voice.js';
-import { VoiceClipRow } from './VoiceClipRow.js';
+import { voiceLabels, voiceNotice } from './voice.js';
 
 export interface ConversationProps {
   readonly client: CommsClient;
@@ -177,7 +180,10 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const images = useAttachments(client);
   const speech = useQuery(speechQuery(client));
   // A clip belongs to the message, also while a dialog's composer shows.
-  const voice = useVoiceClip(client, (text) => setDraft((current) => appendText(current, text)));
+  const voice = useVoiceClip(
+    (clip) => client.transcribe(clip),
+    (text) => setDraft((current) => appendText(current, text)),
+  );
   // A successful send from a field clears it, and the images; a failed one keeps both. A quick
   // reply leaves the fields alone. The clearing is on the mutation, not on `mutate`, so a reset
   // of the mutation by a later send cannot drop it.
@@ -315,11 +321,12 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           {failure === null ? null : <Alert>{failure.message}</Alert>}
           {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
           {voice.notice === undefined ? null : (
-            <Alert tone={voice.notice.tone}>{voice.notice.text}</Alert>
+            <Alert tone={voiceNotice(voice.notice).tone}>{voiceNotice(voice.notice).text}</Alert>
           )}
           {/* Above both composers, so Stop stays in reach when a dialog takes the field. */}
           <VoiceClipRow
             clip={voice.clip}
+            labels={voiceLabels}
             onStop={() => void voice.stop()}
             onRetry={voice.retry}
             onDiscard={voice.discard}

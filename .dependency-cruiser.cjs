@@ -27,7 +27,8 @@ const AGENT_RUNTIME = '(?:^|/)node_modules/@earendil-works/|^@earendil-works/';
 const AGENT_PACKAGE =
   '(?:^|/)node_modules/@smotastic/pocket-agent/|^@smotastic/pocket-agent(?:/|$)';
 const AGENT_ADAPTERS =
-  '(?:^|/)node_modules/@smotastic/pocket-agent/dist/(?:pi|web|testing)/|^@smotastic/pocket-agent/(?:pi|web|testing)$';
+  '(?:^|/)node_modules/@smotastic/pocket-agent/dist/(?:pi|speech-adapters|web|testing)/|' +
+  '^@smotastic/pocket-agent/(?:pi|speech|web|testing)$';
 const WORKSPACE = '^(?:apps|packages|blueprints)/';
 
 // Web apps follow a naming convention, so this file can tell them from servers and CLIs: the
@@ -217,8 +218,8 @@ module.exports = {
     {
       name: 'agent-adapters-outside-application',
       comment:
-        "The application layer takes the agent package's root entry only; its Pi and web adapters " +
-        'are wired by infrastructure and apps, its fakes are for tests (ADR 0014).',
+        "The application layer takes the agent package's root entry only; its Pi, speech and web " +
+        'adapters are wired by infrastructure and apps, its fakes are for tests (ADR 0014).',
       severity: 'error',
       from: { path: APPLICATION_LEVEL, pathNot: `${NOT_TEST_CODE}|/src/testing/` },
       to: { path: AGENT_ADAPTERS },

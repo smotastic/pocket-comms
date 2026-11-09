@@ -30,6 +30,7 @@ import {
   defaultReasonOf,
   makeChatFeed,
   makeTurnEngine,
+  Transcriber,
   type ChatLog,
   type TurnSink,
 } from '@smotastic/pocket-agent';
@@ -61,7 +62,6 @@ import {
 } from '../ports/brainstorm-store.outbound.port.js';
 import { GiteaOutbound, type LinkedRepository } from '../ports/gitea.outbound.port.js';
 import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
-import { SpeechOutbound } from '../ports/speech.outbound.port.js';
 import {
   describeBrainstormCall,
   makeBrainstormTools,
@@ -171,7 +171,7 @@ export const makeBrainstorm = Effect.gen(function* () {
   const store = yield* BrainstormStoreOutbound;
   const giteaOutbound = yield* GiteaOutbound;
   const imagesOutbound = yield* ImagesOutbound;
-  const speechOutbound = yield* SpeechOutbound;
+  const transcriber = yield* Transcriber;
   const issueProject = yield* makeIssueProject;
   const toolsFor = yield* makeBrainstormTools;
   // Turns run in the scope of the layer, so they outlive the request that started them.
@@ -213,7 +213,7 @@ export const makeBrainstorm = Effect.gen(function* () {
         answering,
         seesPictures: runtime.seesImages ?? false,
         pictures,
-        voice: speechOutbound.available,
+        voice: transcriber.available,
       }),
     );
   });

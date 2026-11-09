@@ -21,11 +21,15 @@ import {
   Push,
   QuickReplies,
   Seen,
-  Speech,
   StatusHistory,
   Transcript,
 } from '@pocket-comms/comms-infrastructure';
 import { layerPiRuntime } from '@smotastic/pocket-agent/pi';
+import {
+  layerOpenAiTranscriber,
+  layerTranscriberNotSetUp,
+  type OpenAiTranscriberOptions,
+} from '@smotastic/pocket-agent/speech';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 
@@ -57,7 +61,7 @@ export interface ServerOptions {
    */
   readonly stateDir: string;
   /** The speech-to-text service of voice messages; none leaves them off. */
-  readonly speech?: Speech.OpenAiOptions;
+  readonly speech?: OpenAiTranscriberOptions;
   readonly webDist?: string;
 }
 
@@ -88,7 +92,7 @@ export const services = ({
     Push.layer({ stateDir, subject: PUSH_SUBJECT }),
     Activity.layerFile({ folder: stateDir }),
     QuickReplies.layerFile({ folder: stateDir }),
-    speech === undefined ? Speech.layerNotSetUp : Speech.layerOpenAi(speech),
+    speech === undefined ? layerTranscriberNotSetUp : layerOpenAiTranscriber(speech),
     Seen.layerMemory,
     StatusHistory.layerMemory,
   );

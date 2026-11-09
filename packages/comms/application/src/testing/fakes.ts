@@ -13,8 +13,12 @@ import {
   type Workspace,
   type Worktree,
 } from '@pocket-comms/comms-domain';
-import { AgentRuntime, type TurnInput } from '@smotastic/pocket-agent';
-import { scriptedTurn, type ScriptStep } from '@smotastic/pocket-agent/testing';
+import { AgentRuntime, type Clip, type TurnInput } from '@smotastic/pocket-agent';
+import {
+  layerFakeTranscriber,
+  scriptedTurn,
+  type ScriptStep,
+} from '@smotastic/pocket-agent/testing';
 import * as Clock from 'effect/Clock';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
@@ -31,8 +35,6 @@ import {
   ProjectGitError,
   PushStoreError,
   QuickRepliesStoreError,
-  SpeechNotSetUpError,
-  SpeechUnavailableError,
   TranscriptUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
@@ -43,7 +45,6 @@ import {
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
 import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
-import { SpeechOutbound, type Clip } from '../ports/speech.outbound.port.js';
 import {
   SeenOutbound,
   StatusHistoryOutbound,
@@ -637,21 +638,6 @@ export const fakeLayer = () => {
                 }),
         }),
         Context.add(ImagesOutbound, images(fake)),
-        Context.add(SpeechOutbound, {
-          get available() {
-            return fake.speech.available;
-          },
-          transcribe: (clip) =>
-            Effect.suspend(
-              (): Effect.Effect<string, SpeechNotSetUpError | SpeechUnavailableError> => {
-                if (!fake.speech.available) return Effect.fail(new SpeechNotSetUpError());
-                fake.speech.clips.push(clip);
-                return fake.speech.failure === undefined
-                  ? Effect.succeed(fake.speech.text)
-                  : Effect.fail(new SpeechUnavailableError({ reason: fake.speech.failure }));
-              },
-            ),
-        }),
         Context.add(ActivityStoreOutbound, {
           events: Effect.sync(() => fake.activity),
           update: (change) =>
@@ -703,5 +689,11 @@ export const fakeLayer = () => {
       );
     }),
   );
-  return Layer.provideMerge(ports, state);
+  const transcriber = Layer.unwrap(
+    Effect.gen(function* () {
+      const fake = yield* FakeState;
+      return layerFakeTranscriber(fake.speech);
+    }),
+  );
+  return Layer.provideMerge(Layer.mergeAll(ports, transcriber), state);
 };

@@ -1,23 +1,21 @@
-import { parseClip } from '@pocket-comms/comms-domain';
+import { InvalidInputError } from '@pocket-comms/comms-domain';
+import { makeTranscription } from '@smotastic/pocket-agent';
 import * as Effect from 'effect/Effect';
 import type { SpeechDto } from '../dto/speech.dto.js';
-import { SpeechNotSetUpError } from '../errors.js';
-import { SpeechOutbound } from '../ports/speech.outbound.port.js';
 
-// Voice messages: a clip is checked by its content and its words come back; the server keeps none
-// of it.
+// Voice messages on the agent package's transcription: a clip is checked by its content and its
+// words come back; the server keeps none of it.
 
 export const makeSpeech = Effect.gen(function* () {
-  const speechOutbound = yield* SpeechOutbound;
+  const transcription = yield* makeTranscription;
 
-  const transcribe = Effect.fn('Speech.transcribe')(function* (bytes: Uint8Array) {
-    const format = yield* Effect.fromResult(parseClip(bytes));
-    if (!speechOutbound.available) return yield* new SpeechNotSetUpError();
-    const text = yield* speechOutbound.transcribe({ bytes, format });
-    return { text: text.trim() } satisfies SpeechDto;
-  });
+  const transcribe = (bytes: Uint8Array) =>
+    transcription.transcribe(bytes).pipe(
+      Effect.map((text): SpeechDto => ({ text })),
+      Effect.catchTag('ClipRefused', ({ reason }) =>
+        Effect.fail(new InvalidInputError({ issues: [{ field: 'file', message: reason }] })),
+      ),
+    );
 
-  const available = Effect.sync(() => speechOutbound.available);
-
-  return { available, transcribe };
+  return { available: transcription.available, transcribe };
 });
