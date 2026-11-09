@@ -13,6 +13,10 @@ import {
   ToolActivity,
   TurnError,
   UserMessage,
+  appendText,
+  useVoiceClip,
+  VoiceClipRow,
+  withoutSent,
 } from '@smotastic/pocket-design';
 import type { ChatItem, ToolState } from '@smotastic/pocket-agent/chat';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -30,8 +34,7 @@ import { IssueEditCard } from './IssueEditCard.js';
 import { useBrainstormLive, type BrainstormView } from './live.js';
 import { ProposalCard } from './ProposalCard.js';
 import { PictureThumb, type ChatPicture } from './ProposalPictures.js';
-import { appendText, useVoiceClip, withoutSent } from './voice.js';
-import { VoiceClipRow } from './VoiceClipRow.js';
+import { voiceLabels, voiceNotice } from './voice.js';
 
 // The brainstorm chat: one ongoing chat with Pi, opened from the top bars. Pi proposes new issues
 // and edits of existing ones, and the owner decides on each. The owner's messages may attach
@@ -310,7 +313,10 @@ const Footer = ({
 }) => {
   const [draft, setDraft] = useState('');
   const images = useAttachments(client);
-  const voice = useVoiceClip(client, (text) => setDraft((current) => appendText(current, text)));
+  const voice = useVoiceClip(
+    (clip) => client.transcribe(clip),
+    (text) => setDraft((current) => appendText(current, text)),
+  );
   // A successful send clears the text and the pictures; a failed one keeps both.
   const send = useMutation({
     mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
@@ -329,7 +335,7 @@ const Footer = ({
       {send.error === null ? null : <Alert>{send.error.message}</Alert>}
       {images.notice === undefined ? null : <Alert>{images.notice}</Alert>}
       {voice.notice === undefined ? null : (
-        <Alert tone={voice.notice.tone}>{voice.notice.text}</Alert>
+        <Alert tone={voiceNotice(voice.notice).tone}>{voiceNotice(voice.notice).text}</Alert>
       )}
       {ready && !state.seesPictures && images.attachments.length > 0 ? (
         <Text tone="muted" size="sm">
@@ -379,6 +385,7 @@ const Footer = ({
                 <Stack gap="sm">
                   <VoiceClipRow
                     clip={voice.clip}
+                    labels={voiceLabels}
                     onStop={() => void voice.stop()}
                     onRetry={voice.retry}
                     onDiscard={voice.discard}

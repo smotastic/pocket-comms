@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { configure, render } from '@testing-library/react';
+import { MicrophoneProvider, type Microphone } from '@smotastic/pocket-design';
+import { fakeMicrophone } from '@smotastic/pocket-design/testing';
 import {
   RequestError,
   type ActivityView,
@@ -30,7 +32,6 @@ import {
   type PushSubscriptionView,
 } from './notifications.js';
 import { createAppRouter } from './router.js';
-import { MicrophoneContext, MicrophoneError, type Microphone } from './voice.js';
 
 // The kit loads its Markdown renderer lazily; on a cold CI runner that first import alone can take
 // longer than the default one second a `findBy` waits.
@@ -372,49 +373,6 @@ export const fakeImageHandling: ImageHandling = {
 };
 
 /**
- * A microphone as the browser would offer it. `answer` decides whether the owner allows it;
- * `recording` says whether it is taken right now.
- */
-export const fakeMicrophone = () => {
-  let ended: (() => void) | undefined;
-  const device = {
-    answer: 'granted' as 'granted' | 'denied',
-    recording: false,
-    /** How many recordings have started. */
-    started: 0,
-    /** Records nothing, as a tap too short for any sound. */
-    silent: false,
-    /** Ends the recording by itself, as when a call takes the microphone. */
-    end: () => {
-      device.recording = false;
-      ended?.();
-    },
-  };
-  const microphone: Microphone = {
-    start: async (onEnded) => {
-      if (device.answer !== 'granted') {
-        throw new MicrophoneError(
-          'The microphone is not allowed. Allow it in the browser to record.',
-        );
-      }
-      ended = onEnded;
-      device.recording = true;
-      device.started += 1;
-      const clip = new Blob(device.silent ? [] : [`clip ${device.started}`], {
-        type: 'audio/mp4',
-      });
-      return {
-        stop: async () => {
-          device.recording = false;
-          return clip;
-        },
-      };
-    },
-  };
-  return { device, microphone };
-};
-
-/**
  * A device's push support as the browser would report it. `subscribe` resolves to the
  * subscription unless the owner denies, which `answer` decides.
  */
@@ -472,9 +430,9 @@ export const renderApp = ({
     <QueryClientProvider client={queryClient}>
       <ImageHandlingContext.Provider value={fakeImageHandling}>
         <DevicePushContext.Provider value={devicePush}>
-          <MicrophoneContext.Provider value={microphone}>
+          <MicrophoneProvider microphone={microphone}>
             <RouterProvider router={router} />
-          </MicrophoneContext.Provider>
+          </MicrophoneProvider>
         </DevicePushContext.Provider>
       </ImageHandlingContext.Provider>
     </QueryClientProvider>,

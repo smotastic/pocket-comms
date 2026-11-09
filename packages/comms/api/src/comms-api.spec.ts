@@ -15,8 +15,6 @@ import {
   ImageNotSavedError,
   ImagesInbound,
   SpeechInbound,
-  SpeechNotSetUpError,
-  SpeechUnavailableError,
   IssueChangedError,
   IssueClosedError,
   IssueNotFoundError,
@@ -43,6 +41,7 @@ import {
   type OverviewDto,
 } from '@pocket-comms/comms-application';
 import { InvalidInputError } from '@pocket-comms/comms-domain';
+import { TranscriberNotSetUp, TranscriberUnavailable } from '@smotastic/pocket-agent';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Stream from 'effect/Stream';
@@ -1383,7 +1382,7 @@ describe('the speech API', () => {
   });
 
   it('answers 503 when the server has no speech service', async () => {
-    const call = speech({ transcribe: () => Effect.fail(new SpeechNotSetUpError()) });
+    const call = speech({ transcribe: () => Effect.fail(new TranscriberNotSetUp()) });
 
     const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
 
@@ -1397,7 +1396,7 @@ describe('the speech API', () => {
     const call = speech({
       transcribe: () =>
         Effect.fail(
-          new SpeechUnavailableError({ reason: 'The speech service did not answer in time.' }),
+          new TranscriberUnavailable({ reason: 'The speech service did not answer in time.' }),
         ),
     });
 

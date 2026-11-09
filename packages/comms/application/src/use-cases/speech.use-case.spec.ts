@@ -2,7 +2,7 @@ import { describe, expect, it } from '@effect/vitest';
 import { InvalidInputError } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import { SpeechNotSetUpError, SpeechUnavailableError } from '../errors.js';
+import { TranscriberNotSetUp, TranscriberUnavailable } from '@smotastic/pocket-agent';
 import { SpeechInbound } from '../ports/speech.inbound.port.js';
 import { fakeLayer, FakeState } from '../testing/fakes.js';
 
@@ -40,7 +40,11 @@ describe('SpeechInbound.transcribe', () => {
 
       const error = yield* transcribe(new TextEncoder().encode('hello there')).pipe(Effect.flip);
 
-      expect(error).toBeInstanceOf(InvalidInputError);
+      expect(error).toEqual(
+        new InvalidInputError({
+          issues: [{ field: 'file', message: 'Only audio can be transcribed.' }],
+        }),
+      );
       expect(state.speech.clips).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
@@ -52,7 +56,7 @@ describe('SpeechInbound.transcribe', () => {
 
       const error = yield* transcribe(WEBM).pipe(Effect.flip);
 
-      expect(error).toBeInstanceOf(SpeechNotSetUpError);
+      expect(error).toBeInstanceOf(TranscriberNotSetUp);
       expect(state.speech.clips).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
@@ -65,7 +69,7 @@ describe('SpeechInbound.transcribe', () => {
       const error = yield* transcribe(WEBM).pipe(Effect.flip);
 
       expect(error).toEqual(
-        new SpeechUnavailableError({ reason: 'The speech service did not answer in time.' }),
+        new TranscriberUnavailable({ reason: 'The speech service did not answer in time.' }),
       );
     }).pipe(Effect.provide(layer())),
   );

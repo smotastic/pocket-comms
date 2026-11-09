@@ -20,8 +20,8 @@ export const speechHandlers = HttpApiBuilder.group(
         speechInbound.transcribe(payload).pipe(
           Effect.catchTags({
             InvalidInputError: problems.invalidInput,
-            SpeechNotSetUpError: problems.speechNotSetUp,
-            SpeechUnavailableError: problems.speechUnavailable,
+            TranscriberNotSetUp: problems.speechNotSetUp,
+            TranscriberUnavailable: problems.speechUnavailable,
           }),
         ),
       );

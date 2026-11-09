@@ -47,8 +47,6 @@ export {
   ProposalNotFoundError,
   PushStoreError,
   QuickRepliesStoreError,
-  SpeechNotSetUpError,
-  SpeechUnavailableError,
   HerdrRejectedError,
   HerdrUnavailableError,
   ImageNotFoundError,
@@ -94,7 +92,6 @@ export { QuickRepliesInbound } from './ports/quick-replies.inbound.port.js';
 export { QuickRepliesOutbound } from './ports/quick-replies.outbound.port.js';
 export { ProjectsOutbound } from './ports/projects.outbound.port.js';
 export { SpeechInbound } from './ports/speech.inbound.port.js';
-export { SpeechOutbound, type Clip } from './ports/speech.outbound.port.js';
 export { TasksInbound } from './ports/tasks.inbound.port.js';
 export {
   SeenOutbound,
