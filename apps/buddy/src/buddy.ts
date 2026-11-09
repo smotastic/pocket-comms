@@ -165,6 +165,8 @@ export const buddy = Effect.scoped(
           return start;
         case 'Release':
           return stop;
+        case 'Toggle':
+          return Effect.suspend(() => (current === undefined ? start : stop));
         case 'Limit':
           return current?.number === event.recording ? stop : Effect.void;
         case 'Create':

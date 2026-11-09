@@ -5,23 +5,20 @@ import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
 
 // The laptop's keyboard as the button. A terminal never says when a key is let go, so the space
-// bar starts a recording and the next space ends it; `y` creates a proposal, `n` discards it.
+// bar toggles a recording; `y` creates a proposal, `n` discards it, Ctrl+C quits.
 
 const CTRL_C = '\u0003';
 
-/** The intents of typed keys, and whether the space bar now holds a recording. */
-export const intentsOf = (keys: string, held: boolean) => {
+/** The intents of typed keys. */
+export const intentsOf = (keys: string) => {
   const intents: Array<Intent> = [];
-  let holding = held;
   for (const key of keys) {
-    if (key === ' ') {
-      intents.push({ _tag: holding ? 'Release' : 'Press' });
-      holding = !holding;
-    } else if (key.toLowerCase() === 'y') intents.push({ _tag: 'Create' });
+    if (key === ' ') intents.push({ _tag: 'Toggle' });
+    else if (key.toLowerCase() === 'y') intents.push({ _tag: 'Create' });
     else if (key.toLowerCase() === 'n') intents.push({ _tag: 'Discard' });
     else if (key === CTRL_C) intents.push({ _tag: 'Quit' });
   }
-  return { intents, held: holding };
+  return intents;
 };
 
 /** Reads raw keys from the terminal and gives it back as it was when the program ends. */
@@ -29,11 +26,8 @@ export const layer = Layer.succeed(Button, {
   intents: Stream.callback<Intent>((queue) =>
     Effect.acquireRelease(
       Effect.sync(() => {
-        let held = false;
         const onData = (chunk: Buffer) => {
-          const read = intentsOf(chunk.toString('utf8'), held);
-          held = read.held;
-          for (const intent of read.intents) Queue.offerUnsafe(queue, intent);
+          for (const intent of intentsOf(chunk.toString('utf8'))) Queue.offerUnsafe(queue, intent);
         };
         process.stdin.setRawMode?.(true);
         process.stdin.resume();

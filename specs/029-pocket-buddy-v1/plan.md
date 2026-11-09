@@ -29,14 +29,15 @@ None. The outbox is a folder of files on the buddy's machine.
 
 `apps/buddy/src`, Effect services, one file each, tested through fakes:
 
-- **Ports** (`Context.Service`): `Button` — a stream of `Press`, `Release`, `Create`,
-  `Discard` and `Quit` intents (the device's adapter turns a double press into `Create` and a long
+- **Ports** (`Context.Service`): `Button` — a stream of `Press`, `Release`, `Toggle`, `Create`,
+  `Discard` and `Quit` intents (`Toggle` starts a recording when none is under way and ends it
+  otherwise, for a keyboard that cannot tell a release) (the device's adapter turns a double press into `Create` and a long
   press into `Discard`, so the core knows no gestures; changed while building); `Recorder` — `start` → a recording whose `stop`
   answers WAV bytes; `Screen` — `show(view)`; `Outbox` — `put(clip)`, `oldest`, `remove(id)`,
   `size`; `Comms` — `transcribe`, `send`, `state`, `events(after)`, `decide`.
 - **Core** (`buddy.ts`): one program over the ports.
-  - _Recording:_ `Press` starts, `Release` stops (the laptop button turns each space into a
-    `Press` or a `Release` in turn), a fiber stops it at 120 s; clips under 0.5 s are dropped;
+  - _Recording:_ `Press` starts, `Release` stops, `Toggle` does whichever fits (the laptop's
+    space bar sends it), a fiber stops it at 120 s; clips under 0.5 s are dropped;
     others go to the outbox at once (requirement 2).
   - _Sender:_ a loop that takes the oldest clip, waits while `state.answering`, transcribes,
     sends, then removes it. Empty text removes it with "No speech was heard". A validation
@@ -49,8 +50,8 @@ None. The outbox is a folder of files on the buddy's machine.
   - _View:_ a pure `render(state) → ScreenView` (status line, sent text, answer cut to 280
     characters, proposal title with the gestures), tested on its own.
 - **Adapters for the laptop:**
-  - `TerminalButton`: raw-mode stdin; space toggles `Press`/`Release`, `y` → `Create`, `n` →
-    `Discard`, Ctrl+C ends the program.
+  - `TerminalButton`: raw-mode stdin; space → `Toggle`, `y` → `Create`, `n` → `Discard`,
+    Ctrl+C ends the program.
   - `FfmpegRecorder`: `ffmpeg -f avfoundation -i :<device> -ac 1 -ar 16000 -f wav pipe:1`;
     stopping sends `q` on stdin. 16 kHz mono WAV is about 3.8 MB for two minutes, under the
     server's 5 MB. The device can be chosen with `BUDDY_AUDIO_DEVICE` (default `0`).

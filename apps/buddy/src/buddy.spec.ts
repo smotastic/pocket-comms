@@ -127,6 +127,56 @@ describe('recording', () => {
 const say = (fake: Fake) =>
   press(fake, 'Press').pipe(Effect.andThen(wait(1_000)), Effect.andThen(press(fake, 'Release')));
 
+describe('the laptop’s toggle', () => {
+  const toggle = (fake: Fake) =>
+    Queue.offer(fake.intents, { _tag: 'Toggle' }).pipe(Effect.andThen(settle));
+
+  it.effect('starts a recording, and ends it on the next toggle', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.answering = true;
+        yield* toggle(fake);
+        expect(fake.recorder.recording).toBe(true);
+        yield* wait(1_000);
+        yield* toggle(fake);
+
+        expect(fake.recorder.recording).toBe(false);
+        expect(fake.outbox).toHaveLength(1);
+      }),
+    ),
+  );
+
+  it.effect('starts a new recording right after one ended at the limit', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.answering = true;
+        yield* toggle(fake);
+        yield* wait(120_000);
+        expect(fake.recorder.recording).toBe(false);
+
+        yield* toggle(fake);
+
+        expect(fake.recorder.recording).toBe(true);
+        expect(fake.recorder.started).toBe(2);
+      }),
+    ),
+  );
+
+  it.effect('tries the microphone again after it failed to start', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.recorder.failure = 'No microphone.';
+        yield* toggle(fake);
+        fake.recorder.failure = undefined;
+
+        yield* toggle(fake);
+
+        expect(fake.recorder.recording).toBe(true);
+      }),
+    ),
+  );
+});
+
 describe('sending', () => {
   it.effect('has a clip transcribed, sends its words and takes it out of the outbox', () =>
     withBuddy((fake) =>
