@@ -1,0 +1,20 @@
+{
+  "name": "buddy",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/buddy/src",
+  "projectType": "application",
+  "tags": ["scope:comms", "type:device"],
+  "targets": {
+    "test-typecheck": {},
+    "start": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "continuous": true,
+      "options": {
+        "command": "node --enable-source-maps dist/main.js",
+        "cwd": "{projectRoot}",
+        "tty": true
+      }
+    }
+  }
+}

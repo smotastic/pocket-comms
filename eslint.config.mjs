@@ -5,7 +5,8 @@
 // Nx tags in each project.json:
 //   scope:<service> / scope:shared / scope:contracts  — services cannot cross-depend
 //   layer:domain / layer:application / layer:infrastructure  — technical layers
-//   type:app / type:web  — deployables; a web app may use contracts only among the projects
+//   type:app / type:web / type:device  — deployables; a web or device app may use contracts only
+//   among the projects
 // The design system is the published package `@smotastic/pocket-design` (ADR 0009), no project;
 // `no-design-in-server-code` in `.dependency-cruiser.cjs` keeps it out of server code.
 import nx from '@nx/eslint-plugin';
@@ -90,6 +91,9 @@ export default [
             // A web app reaches its service through the contract and the typed client (ADR 0008),
             // and takes its look from the design package (ADR 0009).
             { sourceTag: 'type:web', onlyDependOnLibsWithTags: ['scope:contracts'] },
+            // A device app, such as the pocket buddy, is a client like a web app: it reaches its
+            // service through the contract and the typed client only.
+            { sourceTag: 'type:device', onlyDependOnLibsWithTags: ['scope:contracts'] },
           ],
         },
       ],

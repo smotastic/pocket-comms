@@ -35,6 +35,8 @@ const WORKSPACE = '^(?:apps|packages|blueprints)/';
 const WEB_APP = '^(?:apps|blueprints/[^/]+/apps)/[^/]*web/';
 // Servers likewise end in `server` (`apps/server/`, `apps/<name>-server/`).
 const SERVER_APP = '^(?:apps|blueprints/[^/]+/apps)/[^/]*server/';
+// Device apps, programs for a small device that is a client of a service: the pocket buddy.
+const DEVICE_APP = '^apps/buddy/';
 
 // The pure modules of `effect` that the domain may import (ADR 0002). Everything else in the
 // package performs or describes effects, services or I/O.
@@ -139,6 +141,15 @@ module.exports = {
         '(ADR 0008); server layers never reach the browser bundle.',
       severity: 'error',
       from: { path: WEB_APP },
+      to: { path: SERVER_LAYERS },
+    },
+    {
+      name: 'no-server-code-in-device',
+      comment:
+        'A device app talks to a service only through its contract package and the typed ' +
+        'client, like a web app; server layers never reach the device.',
+      severity: 'error',
+      from: { path: DEVICE_APP },
       to: { path: SERVER_LAYERS },
     },
     // ── Services and blueprints ──────────────────────────────────────────────────────────────

@@ -29,6 +29,9 @@
     },
     {
       "path": "./apps/comms-web"
+    },
+    {
+      "path": "./apps/buddy"
     }
   ]
 }
