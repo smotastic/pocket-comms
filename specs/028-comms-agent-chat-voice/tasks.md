@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Server: `SpeechInbound.available` and `GET /api/v1/speech`, with the regenerated
+- [x] **T01** — Server: `SpeechInbound.available` and `GET /api/v1/speech`, with the regenerated
       OpenAPI document.
   - Gate: `pnpm nx run-many -t test -p comms-application comms-api comms-server`;
     `pnpm openapi:check`

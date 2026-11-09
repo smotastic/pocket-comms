@@ -33,15 +33,19 @@ const operationsOf = (paths: ReadonlyArray<[string, unknown]>) =>
 
 const operations = () => operationsOf(Object.entries(document().paths));
 
-// The brainstorm chat (spec 013), the images (spec 014), the activity timeline (spec 017) and the
-// push subscriptions (spec 018) live in the server and need no Herdr.
+// The brainstorm chat (spec 013), the images (spec 014), the activity timeline (spec 017), the
+// push subscriptions (spec 018) and speech (spec 027) live in the server and need no Herdr.
 const herdrOperations = () =>
   operationsOf(
     Object.entries(document().paths).filter(
       ([path]) =>
-        !['/api/v1/brainstorm', '/api/v1/images', '/api/v1/activity', '/api/v1/push'].some(
-          (prefix) => path.startsWith(prefix),
-        ),
+        ![
+          '/api/v1/brainstorm',
+          '/api/v1/images',
+          '/api/v1/activity',
+          '/api/v1/push',
+          '/api/v1/speech',
+        ].some((prefix) => path.startsWith(prefix)),
     ),
   );
 
@@ -78,6 +82,7 @@ describe('CommsApi', () => {
       '/api/v1/push/subscriptions',
       '/api/v1/push/subscriptions/remove',
       '/api/v1/quick-replies',
+      '/api/v1/speech',
       '/api/v1/speech/transcriptions',
       '/api/v1/tasks',
     ]);
