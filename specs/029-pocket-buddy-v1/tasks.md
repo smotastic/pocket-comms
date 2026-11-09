@@ -11,7 +11,7 @@ in the task's own commit.
   - Gate: `pnpm nx run-many -t build,lint,test -p buddy`; an import of `comms-application` fails
     lint
 
-- [ ] **T02** — Recording into the outbox: press/release, the two-minute stop, the slip filter,
+- [x] **T02** — Recording into the outbox: press/release, the two-minute stop, the slip filter,
       `FileOutbox` that survives a restart.
   - Gate: `pnpm nx test buddy`
 
