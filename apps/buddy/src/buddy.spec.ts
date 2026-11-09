@@ -338,6 +338,28 @@ describe('sending', () => {
     ),
   );
 
+  it.effect('drops the clip comms refused to send, not the one after it', () =>
+    withBuddy(
+      (fake) =>
+        Effect.sync(() => {
+          expect(fake.comms.sent).toEqual(['idea 8']);
+          expect(fake.outbox).toEqual([]);
+        }),
+      (fake) => {
+        fake.outbox.push(
+          { id: 'a', bytes: Uint8Array.from([7]) },
+          { id: 'b', bytes: Uint8Array.from([8]) },
+        );
+        fake.comms.sendFailures.push(new Refused({ reason: 'The message is too long.' }));
+        // The refused clip leaves the outbox while it is sent, such as by hand.
+        fake.comms.onSend = () => {
+          fake.outbox = fake.outbox.filter((clip) => clip.id !== 'a');
+          fake.comms.onSend = () => undefined;
+        };
+      },
+    ),
+  );
+
   it.effect('keeps the clips while the chat or transcription is not set up', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {

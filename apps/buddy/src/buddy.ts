@@ -9,7 +9,7 @@ import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
 import { applyEvent } from './chat.js';
 import { Comms, type CommsError, type Decision } from './comms.js';
-import { Outbox } from './outbox.js';
+import { Outbox, type Clip } from './outbox.js';
 import { Recorder, type Recording } from './recorder.js';
 import { Screen } from './screen.js';
 import { initialState, render, type BuddyState, type Link } from './view.js';
@@ -196,29 +196,42 @@ export const buddy = Effect.scoped(
     const transcripts = new Map<string, string>();
     const setLink = (link: Link) => update((s) => ({ ...s, link }));
 
+    /** The clip a failed try was about, so the failure applies to it alone. */
+    class TryFailed {
+      constructor(
+        readonly error: CommsError,
+        readonly clip: string,
+      ) {}
+    }
+
     /** Sends the oldest clip; answers whether there was one. */
     const sendOldest = Effect.gen(function* () {
       const oldest = yield* outbox.oldest;
       if (Option.isNone(oldest)) return false;
       const clip = oldest.value;
-      if (yield* comms.answering) {
-        yield* setLink({ _tag: 'PiAnswering' });
-        yield* Effect.sleep(PI_WAIT_MILLIS);
-        return true;
-      }
-      yield* setLink({ _tag: 'Sending' });
-      const text = transcripts.get(clip.id) ?? (yield* comms.transcribe(clip.bytes));
-      transcripts.set(clip.id, text);
-      if (text === '') {
-        yield* forget(clip.id);
-        yield* update((s) => ({ ...s, link: { _tag: 'Idle' }, notice: 'No speech was heard.' }));
-        return true;
-      }
-      yield* comms.send(text);
-      yield* forget(clip.id);
-      yield* update((s) => ({ ...s, link: { _tag: 'Idle' }, sent: text, notice: undefined }));
+      yield* sendClip(clip).pipe(Effect.mapError((error) => new TryFailed(error, clip.id)));
       return true;
     });
+
+    const sendClip = (clip: Clip) =>
+      Effect.gen(function* () {
+        if (yield* comms.answering) {
+          yield* setLink({ _tag: 'PiAnswering' });
+          yield* Effect.sleep(PI_WAIT_MILLIS);
+          return;
+        }
+        yield* setLink({ _tag: 'Sending' });
+        const text = transcripts.get(clip.id) ?? (yield* comms.transcribe(clip.bytes));
+        transcripts.set(clip.id, text);
+        if (text === '') {
+          yield* forget(clip.id);
+          yield* update((s) => ({ ...s, link: { _tag: 'Idle' }, notice: 'No speech was heard.' }));
+          return;
+        }
+        yield* comms.send(text);
+        yield* forget(clip.id);
+        yield* update((s) => ({ ...s, link: { _tag: 'Idle' }, sent: text, notice: undefined }));
+      });
 
     const forget = (id: string) =>
       withCount(outbox.remove(id)).pipe(Effect.andThen(Effect.sync(() => transcripts.delete(id))));
@@ -227,14 +240,13 @@ export const buddy = Effect.scoped(
     type Pause = 'none' | 'pi' | 'backoff';
 
     /** What a failed try means for the clip, and how to wait before the next. */
-    const afterFailure = (error: CommsError): Effect.Effect<Pause> => {
+    const afterFailure = ({ error, clip }: TryFailed): Effect.Effect<Pause> => {
       switch (error._tag) {
         case 'Busy':
           return setLink({ _tag: 'PiAnswering' }).pipe(Effect.as('pi'));
         case 'Refused':
           return Effect.gen(function* () {
-            const oldest = yield* outbox.oldest;
-            if (Option.isSome(oldest)) yield* forget(oldest.value.id);
+            yield* forget(clip);
             yield* update((s) => ({ ...s, link: { _tag: 'Idle' }, notice: error.reason }));
             return 'none' as const;
           });

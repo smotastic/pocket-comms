@@ -36,6 +36,8 @@ export const makeFakes = Effect.gen(function* () {
       transcribeFailures: [] as Array<CommsError>,
       sendFailures: [] as Array<CommsError>,
       decideFailures: [] as Array<CommsError>,
+      /** Runs when a message is sent, before it answers. */
+      onSend: (): void => undefined,
       /** How long a decision takes to answer. */
       decideMillis: 0,
       transcribed: [] as Array<Uint8Array>,
@@ -113,7 +115,8 @@ export const makeFakes = Effect.gen(function* () {
           ),
         ),
       send: (text) =>
-        failNext(fake.comms.sendFailures).pipe(
+        Effect.sync(() => fake.comms.onSend()).pipe(
+          Effect.andThen(failNext(fake.comms.sendFailures)),
           Effect.andThen(Effect.sync(() => void fake.comms.sent.push(text))),
         ),
       answering: Effect.sync(() => fake.comms.answering),

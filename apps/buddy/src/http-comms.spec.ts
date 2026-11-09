@@ -138,6 +138,20 @@ describe('HttpComms', () => {
     }),
   );
 
+  it.live('tells that comms refused a message itself', () =>
+    Effect.gen(function* () {
+      const { url } = yield* serve((_, response) =>
+        problem(response, 422, 'invalid-request', {
+          errors: [{ field: 'text', message: 'The message is too long.' }],
+        }),
+      );
+
+      const error = yield* withComms(url, (comms) => comms.send('x')).pipe(Effect.flip);
+
+      expect(error).toMatchObject({ _tag: 'Refused', reason: 'The message is too long.' });
+    }),
+  );
+
   it.live('tells that comms refused this machine’s login', () =>
     Effect.gen(function* () {
       const { url } = yield* serve((_, response) => problem(response, 403, 'forbidden'));
