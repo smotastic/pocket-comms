@@ -6,7 +6,8 @@ import * as Queue from 'effect/Queue';
 import * as Ref from 'effect/Ref';
 import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
-import { Comms, type CommsError } from './comms.js';
+import { applyEvent } from './chat.js';
+import { Comms, type CommsError, type Decision } from './comms.js';
 import { Outbox } from './outbox.js';
 import { Recorder, type Recording } from './recorder.js';
 import { Screen } from './screen.js';
@@ -115,6 +116,49 @@ export const buddy = Effect.scoped(
       yield* Queue.offer(wake, undefined);
     });
 
+    // ── Following the chat ─────────────────────────────────────────────────────────────────
+    // The proposals the buddy decided itself, so it can tell how they ended.
+    const decidedHere = new Set<string>();
+    yield* Effect.forkScoped(
+      Effect.gen(function* () {
+        let after = 0;
+        let retry = FIRST_RETRY_MILLIS;
+        for (;;) {
+          yield* comms.events(after).pipe(
+            Stream.runForEach((event) =>
+              Effect.gen(function* () {
+                if (event.kind === 'entry') after = event.sequence;
+                retry = FIRST_RETRY_MILLIS;
+                yield* update((s) => applyEvent(s, event, decidedHere));
+              }),
+            ),
+            Effect.ignore,
+          );
+          yield* Effect.sleep(Duration.millis(retry));
+          retry = Math.min(retry * 2, LAST_RETRY_MILLIS);
+        }
+      }),
+    );
+
+    /** Creates or discards the proposal on the screen, when the buddy may decide it. */
+    const decide = (
+      decision: (proposal: { project: string; title: string; body: string }) => Decision,
+    ) =>
+      Effect.gen(function* () {
+        const shown = (yield* Ref.get(state)).proposals.at(-1);
+        if (shown?.kind !== 'issue') return;
+        decidedHere.add(shown.id);
+        const result = yield* comms.decide(shown.id, decision(shown)).pipe(Effect.result);
+        if (result._tag === 'Failure') {
+          decidedHere.delete(shown.id);
+          const failure = result.failure;
+          yield* update((s) => ({
+            ...s,
+            notice: failure._tag === 'Busy' ? 'Pi is still answering.' : failure.reason,
+          }));
+        }
+      }).pipe(Effect.forkScoped, Effect.asVoid);
+
     const react = (event: Event) => {
       switch (event._tag) {
         case 'Press':
@@ -124,7 +168,12 @@ export const buddy = Effect.scoped(
         case 'Limit':
           return current?.number === event.recording ? stop : Effect.void;
         case 'Create':
+          return decide(({ project, title, body }) => ({
+            _tag: 'Create',
+            draft: { project, title, body },
+          }));
         case 'Discard':
+          return decide(() => ({ _tag: 'Discard' }));
         case 'Quit':
           return Effect.void;
       }

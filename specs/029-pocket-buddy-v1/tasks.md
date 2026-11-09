@@ -19,7 +19,7 @@ in the task's own commit.
       `HttpComms`, the removal and retry rules with backoff.
   - Gate: `pnpm nx test buddy`
 
-- [ ] **T04** — The follower and the screen: Pi's answer from the event stream, the view with its
+- [x] **T04** — The follower and the screen: Pi's answer from the event stream, the view with its
       status line and the 280-character cut, proposals created with `y` and discarded with `n`.
   - Gate: `pnpm nx test buddy`
 

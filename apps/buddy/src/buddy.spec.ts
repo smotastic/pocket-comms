@@ -4,7 +4,7 @@ import * as Fiber from 'effect/Fiber';
 import * as Queue from 'effect/Queue';
 import { TestClock } from 'effect/testing';
 import { buddy } from './buddy.js';
-import { Busy, Failed, NotSetUp, Refused, Unreachable } from './comms.js';
+import { Busy, Failed, NotSetUp, Refused, Unreachable, type BrainstormEventView } from './comms.js';
 import { makeFakes, settle } from './testing.js';
 
 type Fake = Effect.Success<typeof makeFakes>['fake'];
@@ -298,6 +298,217 @@ describe('sending', () => {
         );
         yield* wait(2_000);
         expect(fake.comms.sent).toEqual(['idea 1']);
+      }),
+    ),
+  );
+});
+
+/** The stream's events, built short. */
+let sequence = 0;
+const entry = (
+  one: Extract<BrainstormEventView, { kind: 'entry' }>['entry'],
+): BrainstormEventView => ({
+  kind: 'entry',
+  sequence: ++sequence,
+  entry: one,
+});
+const said = (text: string) => entry({ kind: 'said', id: `u${sequence}`, at: 1, text, images: [] });
+const delta = (text: string): BrainstormEventView => ({ kind: 'delta', text });
+const issue = (
+  state:
+    | { _tag: 'open' }
+    | { _tag: 'created'; number: number; url: string }
+    | { _tag: 'discarded' },
+) =>
+  entry({
+    kind: 'proposal',
+    proposal: {
+      type: 'proposal',
+      kind: 'issue',
+      id: 'p1',
+      at: 2,
+      project: 'pocket-home',
+      title: 'Dark mode',
+      body: 'A toggle.',
+      pictures: [],
+      attached: [],
+      state,
+    },
+  });
+
+const stream = (fake: Fake, ...events: ReadonlyArray<BrainstormEventView>) =>
+  Queue.offerAll(fake.stream, events).pipe(Effect.andThen(settle));
+
+describe('following the chat', () => {
+  it.effect('shows the owner’s message and then Pi’s answer as it streams in', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* stream(fake, said('dark mode'), delta('Nice '), delta('idea.'));
+
+        expect(lastView(fake)).toMatchObject({ sent: 'dark mode', answer: 'Nice idea.' });
+
+        yield* stream(
+          fake,
+          entry({ kind: 'agentMessage', text: 'Nice idea.' }),
+          entry({ kind: 'turnEnded' }),
+        );
+        expect(lastView(fake)?.answer).toBe('Nice idea.');
+
+        yield* stream(fake, said('and a toggle'));
+        expect(lastView(fake)).toMatchObject({ sent: 'and a toggle' });
+        expect(lastView(fake)?.answer).toBeUndefined();
+      }),
+    ),
+  );
+
+  it.effect('takes the reply written so far when it starts following', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* stream(fake, said('dark mode'), { kind: 'draft', text: 'Nice so far' });
+
+        expect(lastView(fake)?.answer).toBe('Nice so far');
+      }),
+    ),
+  );
+
+  it.effect('empties the screen when a new chat starts', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* stream(fake, said('dark mode'), delta('Nice'), issue({ _tag: 'open' }));
+        yield* stream(fake, entry({ kind: 'chatStarted' }));
+
+        expect(lastView(fake)?.sent).toBeUndefined();
+        expect(lastView(fake)?.answer).toBeUndefined();
+        expect(lastView(fake)?.proposal).toBeUndefined();
+      }),
+    ),
+  );
+
+  it.effect('follows again after the last entry it has when the stream breaks', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* stream(fake, said('dark mode'));
+        const last = sequence;
+        yield* Queue.offer(fake.stream, { fail: new Unreachable({ reason: 'Gone.' }) });
+        yield* settle;
+
+        yield* wait(2_000);
+
+        expect(fake.comms.followed).toEqual([0, last]);
+      }),
+    ),
+  );
+});
+
+describe('proposals', () => {
+  it.effect('shows a proposed issue and creates it as Pi wrote it', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* stream(fake, issue({ _tag: 'open' }));
+        expect(lastView(fake)?.proposal).toEqual({
+          text: 'pocket-home: Dark mode',
+          decidable: true,
+        });
+
+        yield* Queue.offer(fake.intents, { _tag: 'Create' });
+        yield* settle;
+        expect(fake.comms.decisions).toEqual([
+          [
+            'p1',
+            {
+              _tag: 'Create',
+              draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+            },
+          ],
+        ]);
+
+        yield* stream(fake, issue({ _tag: 'created', number: 12, url: 'http://gitea/12' }));
+        expect(lastView(fake)?.proposal).toBeUndefined();
+        expect(lastView(fake)?.status).toBe('Ready · Issue #12 created.');
+      }),
+    ),
+  );
+
+  it.effect('discards a proposed issue', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* stream(fake, issue({ _tag: 'open' }));
+
+        yield* Queue.offer(fake.intents, { _tag: 'Discard' });
+        yield* settle;
+        expect(fake.comms.decisions).toEqual([['p1', { _tag: 'Discard' }]]);
+
+        yield* stream(fake, issue({ _tag: 'discarded' }));
+        expect(lastView(fake)?.proposal).toBeUndefined();
+      }),
+    ),
+  );
+
+  it.effect('lets a proposal decided in comms leave the screen without a word', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* stream(
+          fake,
+          issue({ _tag: 'open' }),
+          issue({ _tag: 'created', number: 12, url: 'u' }),
+        );
+
+        expect(lastView(fake)?.proposal).toBeUndefined();
+        expect(lastView(fake)?.status).toBe('Ready');
+      }),
+    ),
+  );
+
+  it.effect('says that an edit waits in comms and decides nothing', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* stream(
+          fake,
+          entry({
+            kind: 'proposal',
+            proposal: {
+              type: 'proposal',
+              kind: 'edit',
+              id: 'e1',
+              at: 3,
+              project: 'pocket-comms',
+              number: 11,
+              url: 'http://gitea/11',
+              title: 'New title',
+              body: 'New body',
+              base: { title: 'Old', body: 'Old body' },
+              pictures: [],
+              attached: [],
+              state: { _tag: 'open' },
+            },
+          }),
+        );
+
+        expect(lastView(fake)?.proposal).toEqual({
+          text: 'An edit of pocket-comms #11 waits in comms',
+          decidable: false,
+        });
+        yield* Queue.offer(fake.intents, { _tag: 'Create' });
+        yield* settle;
+        expect(fake.comms.decisions).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect('says why a decision failed', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.decideFailures.push(new Failed({ reason: 'Gitea is not reachable.' }));
+        yield* stream(fake, issue({ _tag: 'open' }));
+
+        yield* Queue.offer(fake.intents, { _tag: 'Create' });
+        yield* settle;
+
+        expect(lastView(fake)?.status).toBe('Ready · Gitea is not reachable.');
+        expect(lastView(fake)?.proposal).toEqual({
+          text: 'pocket-home: Dark mode',
+          decidable: true,
+        });
       }),
     ),
   );
