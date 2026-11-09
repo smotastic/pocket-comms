@@ -9,7 +9,7 @@ import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
 import { applyEvent } from './chat.js';
 import { Comms, type CommsError, type Decision } from './comms.js';
-import { Outbox, type Clip } from './outbox.js';
+import { Outbox, OutboxError, type Clip } from './outbox.js';
 import { Recorder, type Recording } from './recorder.js';
 import { Screen } from './screen.js';
 import { initialState, render, type BuddyState, type Link } from './view.js';
@@ -46,25 +46,21 @@ export const buddy = Effect.scoped(
     const dirty = yield* Queue.sliding<void>(1);
     const update = (change: (current: BuddyState) => BuddyState) =>
       Ref.update(state, change).pipe(Effect.andThen(Queue.offer(dirty, undefined)));
-    yield* Effect.forkScoped(
-      Effect.forever(
-        Effect.gen(function* () {
-          yield* Queue.take(dirty);
-          const now = yield* Clock.currentTimeMillis;
-          yield* screen.show(render(yield* Ref.get(state), now));
-        }),
-      ),
+    const drawing = Effect.forever(
+      Effect.gen(function* () {
+        yield* Queue.take(dirty);
+        const now = yield* Clock.currentTimeMillis;
+        yield* screen.show(render(yield* Ref.get(state), now));
+      }),
     );
     yield* Queue.offer(dirty, undefined);
 
     // The running time of a recording moves on the screen every second.
-    yield* Effect.forkScoped(
-      Effect.forever(
-        Effect.sleep(1000).pipe(
-          Effect.andThen(Ref.get(state)),
-          Effect.flatMap((current) =>
-            current.recordingSince === undefined ? Effect.void : Queue.offer(dirty, undefined),
-          ),
+    const ticking = Effect.forever(
+      Effect.sleep(1000).pipe(
+        Effect.andThen(Ref.get(state)),
+        Effect.flatMap((current) =>
+          current.recordingSince === undefined ? Effect.void : Queue.offer(dirty, undefined),
         ),
       ),
     );
@@ -77,7 +73,11 @@ export const buddy = Effect.scoped(
     const withCount = <A, E>(change: Effect.Effect<A, E>) =>
       change.pipe(
         Effect.tap(() =>
-          outbox.size.pipe(Effect.flatMap((waiting) => update((s) => ({ ...s, waiting })))),
+          // A count that cannot be read leaves the last one on the screen.
+          outbox.size.pipe(
+            Effect.flatMap((waiting) => update((s) => ({ ...s, waiting }))),
+            Effect.ignore,
+          ),
         ),
         Semaphore.withPermit(outboxLock),
       );
@@ -120,7 +120,11 @@ export const buddy = Effect.scoped(
       }
       yield* update((s) => ({ ...s, recordingSince: undefined }));
       if (length < MIN_CLIP_MILLIS) return;
-      yield* withCount(outbox.put(bytes.success));
+      const saved = yield* withCount(outbox.put(bytes.success)).pipe(Effect.result);
+      if (saved._tag === 'Failure') {
+        yield* update((s) => ({ ...s, notice: `The clip was not saved: ${saved.failure.reason}` }));
+        return;
+      }
       yield* Queue.offer(wake, undefined);
     });
 
@@ -130,26 +134,24 @@ export const buddy = Effect.scoped(
     // ── Following the chat ─────────────────────────────────────────────────────────────────
     // The proposals the buddy decided itself, so it can tell how they ended.
     const decidedHere = new Set<string>();
-    yield* Effect.forkScoped(
-      Effect.gen(function* () {
-        let after = 0;
-        let retry = FIRST_RETRY_MILLIS;
-        for (;;) {
-          yield* comms.events(after).pipe(
-            Stream.runForEach((event) =>
-              Effect.gen(function* () {
-                if (event.kind === 'entry') after = event.sequence;
-                retry = FIRST_RETRY_MILLIS;
-                yield* update((s) => applyEvent(s, event, decidedHere));
-              }),
-            ),
-            Effect.ignore,
-          );
-          yield* Effect.sleep(Duration.millis(retry));
-          retry = Math.min(retry * 2, LAST_RETRY_MILLIS);
-        }
-      }),
-    );
+    const following = Effect.gen(function* () {
+      let after = 0;
+      let retry = FIRST_RETRY_MILLIS;
+      for (;;) {
+        yield* comms.events(after).pipe(
+          Stream.runForEach((event) =>
+            Effect.gen(function* () {
+              if (event.kind === 'entry') after = event.sequence;
+              retry = FIRST_RETRY_MILLIS;
+              yield* update((s) => applyEvent(s, event, decidedHere));
+            }),
+          ),
+          Effect.ignore,
+        );
+        yield* Effect.sleep(Duration.millis(retry));
+        retry = Math.min(retry * 2, LAST_RETRY_MILLIS);
+      }
+    });
 
     /** Creates or discards the proposal on the screen, when the buddy may decide it. */
     const decide = (
@@ -212,7 +214,11 @@ export const buddy = Effect.scoped(
       const oldest = yield* outbox.oldest;
       if (Option.isNone(oldest)) return false;
       const clip = oldest.value;
-      yield* sendClip(clip).pipe(Effect.mapError((error) => new TryFailed(error, clip.id)));
+      yield* sendClip(clip).pipe(
+        Effect.mapError((error) =>
+          error instanceof OutboxError ? error : new TryFailed(error, clip.id),
+        ),
+      );
       return true;
     });
 
@@ -243,13 +249,17 @@ export const buddy = Effect.scoped(
     type Pause = 'none' | 'pi' | 'backoff';
 
     /** What a failed try means for the clip, and how to wait before the next. */
-    const afterFailure = ({ error, clip }: TryFailed): Effect.Effect<Pause> => {
+    const afterFailure = (failure: TryFailed | OutboxError): Effect.Effect<Pause> => {
+      if (failure instanceof OutboxError) {
+        return setLink({ _tag: 'Failed', reason: failure.reason }).pipe(Effect.as('backoff'));
+      }
+      const { error, clip } = failure;
       switch (error._tag) {
         case 'Busy':
           return setLink({ _tag: 'PiAnswering' }).pipe(Effect.as('pi'));
         case 'Refused':
           return Effect.gen(function* () {
-            yield* forget(clip);
+            yield* forget(clip).pipe(Effect.ignore);
             yield* update((s) => ({ ...s, link: { _tag: 'Idle' }, notice: error.reason }));
             return 'none' as const;
           });
@@ -262,33 +272,39 @@ export const buddy = Effect.scoped(
       }
     };
 
-    yield* Effect.forkScoped(
-      Effect.gen(function* () {
-        yield* countWaiting;
-        let retry = FIRST_RETRY_MILLIS;
-        for (;;) {
-          const result = yield* sendOldest.pipe(Effect.result);
-          if (result._tag === 'Success') {
-            retry = FIRST_RETRY_MILLIS;
-            if (!result.success) {
-              yield* Queue.take(wake).pipe(Effect.timeoutOption(OUTBOX_POLL_MILLIS));
-            }
-            continue;
+    const sending = Effect.gen(function* () {
+      yield* countWaiting.pipe(Effect.ignore);
+      let retry = FIRST_RETRY_MILLIS;
+      for (;;) {
+        const result = yield* sendOldest.pipe(Effect.result);
+        if (result._tag === 'Success') {
+          retry = FIRST_RETRY_MILLIS;
+          if (!result.success) {
+            yield* Queue.take(wake).pipe(Effect.timeoutOption(OUTBOX_POLL_MILLIS));
           }
-          const pause = yield* afterFailure(result.failure);
-          if (pause === 'pi') yield* Effect.sleep(PI_WAIT_MILLIS);
-          if (pause === 'backoff') {
-            yield* Effect.sleep(Duration.millis(retry));
-            retry = Math.min(retry * 2, LAST_RETRY_MILLIS);
-          }
+          continue;
         }
-      }),
-    );
+        const pause = yield* afterFailure(result.failure);
+        if (pause === 'pi') yield* Effect.sleep(PI_WAIT_MILLIS);
+        if (pause === 'backoff') {
+          yield* Effect.sleep(Duration.millis(retry));
+          retry = Math.min(retry * 2, LAST_RETRY_MILLIS);
+        }
+      }
+    });
 
-    yield* button.intents.pipe(
-      Stream.takeWhile((intent) => intent._tag !== 'Quit'),
-      Stream.merge(Stream.fromQueue(limits), { haltStrategy: 'left' }),
-      Stream.runForEach(react),
+    // The owner's intents run until they quit; the parts behind them run alongside, and a part
+    // that breaks ends the program rather than leaving it half working.
+    yield* Effect.raceFirst(
+      button.intents.pipe(
+        Stream.takeWhile((intent) => intent._tag !== 'Quit'),
+        Stream.merge(Stream.fromQueue(limits), { haltStrategy: 'left' }),
+        Stream.runForEach(react),
+      ),
+      Effect.all([drawing, ticking, following, sending], {
+        concurrency: 'unbounded',
+        discard: true,
+      }),
     );
   }),
 );

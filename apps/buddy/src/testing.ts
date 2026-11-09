@@ -5,7 +5,7 @@ import * as Queue from 'effect/Queue';
 import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
 import { Comms, type BrainstormEventView, type CommsError, type Decision } from './comms.js';
-import { Outbox, type Clip } from './outbox.js';
+import { Outbox, OutboxError, type Clip } from './outbox.js';
 import { Recorder, RecorderError } from './recorder.js';
 import { Screen, type ScreenView } from './screen.js';
 
@@ -24,6 +24,10 @@ export const makeFakes = Effect.gen(function* () {
     recorder: { recording: false, started: 0, failure: undefined as string | undefined },
     outbox: [] as Array<Clip>,
     nextClip: 0,
+    /** The outbox cannot be read while this is set, such as a disk gone. */
+    outboxFailure: undefined as string | undefined,
+    /** A defect of the event stream, as a bug in an adapter would raise. */
+    streamDefect: false,
     /** How long counting the outbox takes, to make overlapping operations visible. */
     sizeMillis: 0,
     /** How many outbox operations ran at once, at most. */
@@ -91,7 +95,11 @@ export const makeFakes = Effect.gen(function* () {
             return clip;
           }),
         ),
-      oldest: Effect.sync(() => Option.fromNullishOr(fake.outbox[0])),
+      oldest: Effect.suspend(() =>
+        fake.outboxFailure === undefined
+          ? Effect.succeed(Option.fromNullishOr(fake.outbox[0]))
+          : Effect.fail(new OutboxError({ reason: fake.outboxFailure })),
+      ),
       remove: (id) =>
         tracked(
           Effect.sync(() => {
@@ -124,6 +132,7 @@ export const makeFakes = Effect.gen(function* () {
         Stream.unwrap(
           Effect.sync(() => {
             fake.comms.followed.push(after);
+            if (fake.streamDefect) return Stream.die(new Error('A bug in the stream.'));
             return Stream.fromQueue(stream).pipe(
               Stream.mapEffect((item) =>
                 'fail' in item ? Effect.fail(item.fail) : Effect.succeed(item),

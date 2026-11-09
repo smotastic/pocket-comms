@@ -145,6 +145,37 @@ describe('stopping', () => {
   );
 });
 
+describe('failures of its own parts', () => {
+  it.effect('says when the outbox cannot be read and tries again', () =>
+    withBuddy(
+      (fake) =>
+        Effect.gen(function* () {
+          expect(lastView(fake)?.status).toBe('Failed: The disk is gone. · 1 waiting');
+
+          fake.outboxFailure = undefined;
+          yield* wait(2_000);
+
+          expect(fake.comms.sent).toEqual(['idea 7']);
+        }),
+      (fake) => {
+        fake.outbox.push({ id: 'a', bytes: Uint8Array.from([7]) });
+        fake.outboxFailure = 'The disk is gone.';
+      },
+    ),
+  );
+
+  it.effect('ends when a part of it breaks, instead of going on half dead', () =>
+    Effect.gen(function* () {
+      const { fake, layer } = yield* makeFakes;
+      fake.streamDefect = true;
+
+      const exit = yield* buddy.pipe(Effect.provide(layer), Effect.exit);
+
+      expect(exit._tag).toBe('Failure');
+    }),
+  );
+});
+
 describe('the laptop’s toggle', () => {
   const toggle = (fake: Fake) =>
     Queue.offer(fake.intents, { _tag: 'Toggle' }).pipe(Effect.andThen(settle));

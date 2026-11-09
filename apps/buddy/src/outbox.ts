@@ -1,4 +1,5 @@
 import * as Context from 'effect/Context';
+import * as Data from 'effect/Data';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
 
@@ -8,16 +9,19 @@ export interface Clip {
   readonly bytes: Uint8Array;
 }
 
+/** The outbox could not be read or written, such as a full or missing disk. */
+export class OutboxError extends Data.TaggedError('OutboxError')<{ readonly reason: string }> {}
+
 /**
  * The clips not yet in the chat, oldest first. It keeps them across restarts, so a clip is never
- * lost to a missing connection; a failure to read or write it is a defect.
+ * lost to a missing connection.
  */
 export class Outbox extends Context.Service<
   Outbox,
   {
-    readonly put: (bytes: Uint8Array) => Effect.Effect<Clip>;
-    readonly oldest: Effect.Effect<Option.Option<Clip>>;
-    readonly remove: (id: string) => Effect.Effect<void>;
-    readonly size: Effect.Effect<number>;
+    readonly put: (bytes: Uint8Array) => Effect.Effect<Clip, OutboxError>;
+    readonly oldest: Effect.Effect<Option.Option<Clip>, OutboxError>;
+    readonly remove: (id: string) => Effect.Effect<void, OutboxError>;
+    readonly size: Effect.Effect<number, OutboxError>;
   }
 >()('buddy/Outbox') {}
