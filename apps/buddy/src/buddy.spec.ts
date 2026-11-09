@@ -4,14 +4,19 @@ import * as Fiber from 'effect/Fiber';
 import * as Queue from 'effect/Queue';
 import { TestClock } from 'effect/testing';
 import { buddy } from './buddy.js';
+import { Busy, Failed, NotSetUp, Refused, Unreachable } from './comms.js';
 import { makeFakes, settle } from './testing.js';
 
-/** Runs the buddy on fakes; `body` drives it, then the owner quits. */
+type Fake = Effect.Success<typeof makeFakes>['fake'];
+
+/** Runs the buddy on fakes; `before` sets them up, `body` drives it, then the owner quits. */
 const withBuddy = <A, E>(
-  body: (fakes: Effect.Success<typeof makeFakes>['fake']) => Effect.Effect<A, E>,
+  body: (fake: Fake) => Effect.Effect<A, E>,
+  before?: (fake: Fake) => void,
 ) =>
   Effect.gen(function* () {
     const { fake, layer } = yield* makeFakes;
+    before?.(fake);
     const running = yield* buddy.pipe(Effect.provide(layer), Effect.forkChild);
     yield* settle;
     const result = yield* body(fake);
@@ -41,6 +46,7 @@ describe('recording', () => {
   it.effect('records while the button is held and keeps the clip in the outbox', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
+        fake.comms.answering = true;
         yield* press(fake, 'Press');
         expect(fake.recorder.recording).toBe(true);
         yield* wait(12_000);
@@ -70,6 +76,7 @@ describe('recording', () => {
   it.effect('ends a recording by itself after two minutes', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
+        fake.comms.answering = true;
         yield* press(fake, 'Press');
         yield* wait(119_999);
         expect(fake.recorder.recording).toBe(true);
@@ -101,6 +108,7 @@ describe('recording', () => {
   it.effect('keeps a recording that is under way when the owner quits', () =>
     Effect.gen(function* () {
       const { fake, layer } = yield* makeFakes;
+      fake.comms.answering = true;
       const running = yield* buddy.pipe(Effect.provide(layer), Effect.forkChild);
       yield* settle;
       yield* press(fake, 'Press');
@@ -112,5 +120,185 @@ describe('recording', () => {
       expect(fake.recorder.recording).toBe(false);
       expect(fake.outbox).toHaveLength(1);
     }),
+  );
+});
+
+/** Records one clip of a second. */
+const say = (fake: Fake) =>
+  press(fake, 'Press').pipe(Effect.andThen(wait(1_000)), Effect.andThen(press(fake, 'Release')));
+
+describe('sending', () => {
+  it.effect('has a clip transcribed, sends its words and takes it out of the outbox', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* say(fake);
+
+        expect(fake.comms.sent).toEqual(['idea 1']);
+        expect(fake.outbox).toEqual([]);
+        expect(lastView(fake)?.sent).toBe('idea 1');
+      }),
+    ),
+  );
+
+  it.effect('sends the clips left from before a restart, oldest first', () =>
+    withBuddy(
+      (fake) =>
+        Effect.sync(() => {
+          expect(fake.comms.sent).toEqual(['idea 7', 'idea 8']);
+        }),
+      (fake) => {
+        fake.outbox.push(
+          { id: 'a', bytes: Uint8Array.from([7]) },
+          { id: 'b', bytes: Uint8Array.from([8]) },
+        );
+      },
+    ),
+  );
+
+  it.effect('waits while Pi is answering', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.answering = true;
+        yield* say(fake);
+        expect(fake.comms.sent).toEqual([]);
+        expect(lastView(fake)?.status).toBe('Pi is answering · 1 waiting');
+
+        fake.comms.answering = false;
+        yield* wait(2_000);
+
+        expect(fake.comms.sent).toEqual(['idea 1']);
+      }),
+    ),
+  );
+
+  it.effect('keeps the clips while comms cannot be reached, waiting longer each time', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.transcribeFailures.push(
+          new Unreachable({ reason: 'No connection.' }),
+          new Unreachable({ reason: 'No connection.' }),
+        );
+        yield* say(fake);
+        expect(lastView(fake)?.status).toBe('Offline · 1 waiting');
+
+        yield* wait(2_000);
+        expect(fake.comms.sent).toEqual([]);
+        yield* wait(3_999);
+        expect(fake.comms.sent).toEqual([]);
+        yield* wait(1);
+
+        expect(fake.comms.sent).toEqual(['idea 1']);
+        expect(lastView(fake)?.status).toBe('Ready');
+      }),
+    ),
+  );
+
+  it.effect('waits at most a minute between tries', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        for (let i = 0; i < 8; i++) {
+          fake.comms.transcribeFailures.push(new Unreachable({ reason: 'No connection.' }));
+        }
+        yield* say(fake);
+        // 2, 4, 8, 16, 32, then 60 seconds each.
+        yield* wait((2 + 4 + 8 + 16 + 32 + 60 + 60) * 1000);
+        expect(fake.comms.sent).toEqual([]);
+        yield* wait(60_000);
+
+        expect(fake.comms.sent).toEqual(['idea 1']);
+      }),
+    ),
+  );
+
+  it.effect('does not count a wait for Pi as a failure', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        // The send waits for Pi, then the second clip finds comms gone once.
+        fake.comms.sendFailures.push(new Busy());
+        yield* say(fake);
+        yield* wait(2_000);
+        expect(fake.comms.sent).toEqual(['idea 1']);
+        fake.comms.transcribeFailures.push(new Unreachable({ reason: 'No connection.' }));
+        yield* say(fake);
+        yield* wait(2_000);
+
+        expect(fake.comms.sent).toEqual(['idea 1', 'idea 2']);
+      }),
+    ),
+  );
+
+  it.effect('does not transcribe again when the send has to wait for Pi', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.sendFailures.push(new Busy());
+        yield* say(fake);
+        yield* wait(2_000);
+
+        expect(fake.comms.sent).toEqual(['idea 1']);
+        expect(fake.comms.transcribed).toHaveLength(1);
+      }),
+    ),
+  );
+
+  it.effect('drops a clip without words and says so', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.transcript = () => '';
+        yield* say(fake);
+
+        expect(fake.comms.sent).toEqual([]);
+        expect(fake.outbox).toEqual([]);
+        expect(lastView(fake)?.status).toBe('Ready · No speech was heard.');
+      }),
+    ),
+  );
+
+  it.effect('drops a clip comms refuses and says why', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.transcribeFailures.push(
+          new Refused({ reason: 'Only audio can be transcribed.' }),
+        );
+        yield* say(fake);
+
+        expect(fake.outbox).toEqual([]);
+        expect(lastView(fake)?.status).toBe('Ready · Only audio can be transcribed.');
+      }),
+    ),
+  );
+
+  it.effect('keeps the clips while the chat or transcription is not set up', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.transcribeFailures.push(
+          new NotSetUp({ reason: 'Set COMMS_SPEECH_URL and COMMS_SPEECH_MODEL on the server.' }),
+        );
+        yield* say(fake);
+
+        expect(fake.outbox).toHaveLength(1);
+        expect(lastView(fake)?.status).toBe(
+          'Not set up: Set COMMS_SPEECH_URL and COMMS_SPEECH_MODEL on the server. · 1 waiting',
+        );
+        yield* wait(2_000);
+        expect(fake.comms.sent).toEqual(['idea 1']);
+      }),
+    ),
+  );
+
+  it.effect('keeps a clip after any other failure and tries again', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.transcribeFailures.push(
+          new Failed({ reason: 'The speech service did not answer in time.' }),
+        );
+        yield* say(fake);
+
+        expect(lastView(fake)?.status).toBe(
+          'Failed: The speech service did not answer in time. · 1 waiting',
+        );
+        yield* wait(2_000);
+        expect(fake.comms.sent).toEqual(['idea 1']);
+      }),
+    ),
   );
 });

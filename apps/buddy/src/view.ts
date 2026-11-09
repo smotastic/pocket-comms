@@ -1,18 +1,34 @@
 import type { ScreenView } from './screen.js';
 
-/** What the buddy is doing, for the status line. */
-export type Status =
-  | { readonly _tag: 'Ready' }
-  | { readonly _tag: 'Recording'; readonly startedAt: number };
+/** How the buddy stands with comms, for the status line. */
+export type Link =
+  | { readonly _tag: 'Idle' }
+  | { readonly _tag: 'Sending' }
+  | { readonly _tag: 'PiAnswering' }
+  | { readonly _tag: 'Offline' }
+  | { readonly _tag: 'NotSetUp'; readonly reason: string }
+  | { readonly _tag: 'Failed'; readonly reason: string };
 
 /** Everything the screen shows, kept by the core. */
 export interface BuddyState {
-  readonly status: Status;
+  /** When the recording under way started; none while not recording. */
+  readonly recordingSince: number | undefined;
+  readonly link: Link;
+  /** How many clips wait in the outbox. */
+  readonly waiting: number;
+  /** The words of the last message that reached the chat. */
+  readonly sent: string | undefined;
   /** The last thing worth telling the owner, such as why a recording failed. */
   readonly notice: string | undefined;
 }
 
-export const initialState: BuddyState = { status: { _tag: 'Ready' }, notice: undefined };
+export const initialState: BuddyState = {
+  recordingSince: undefined,
+  link: { _tag: 'Idle' },
+  waiting: 0,
+  sent: undefined,
+  notice: undefined,
+};
 
 /** A length as `m:ss`. */
 export const formatLength = (millis: number) => {
@@ -20,18 +36,33 @@ export const formatLength = (millis: number) => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };
 
-const statusLine = (status: Status, now: number) => {
-  switch (status._tag) {
-    case 'Ready':
+const linkLine = (link: Link) => {
+  switch (link._tag) {
+    case 'Idle':
       return 'Ready';
-    case 'Recording':
-      return `Recording ${formatLength(now - status.startedAt)}`;
+    case 'Sending':
+      return 'Sending';
+    case 'PiAnswering':
+      return 'Pi is answering';
+    case 'Offline':
+      return 'Offline';
+    case 'NotSetUp':
+      return `Not set up: ${link.reason}`;
+    case 'Failed':
+      return `Failed: ${link.reason}`;
   }
 };
 
 /** The screen for a state at `now`. */
 export const render = (state: BuddyState, now: number): ScreenView => ({
-  status: [statusLine(state.status, now), state.notice]
+  status: [
+    state.recordingSince === undefined
+      ? linkLine(state.link)
+      : `Recording ${formatLength(now - state.recordingSince)}`,
+    state.waiting > 0 ? `${state.waiting} waiting` : undefined,
+    state.notice,
+  ]
     .filter((part) => part !== undefined)
     .join(' · '),
+  ...(state.sent === undefined ? {} : { sent: state.sent }),
 });

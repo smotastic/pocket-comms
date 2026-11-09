@@ -15,7 +15,7 @@ in the task's own commit.
       `FileOutbox` that survives a restart.
   - Gate: `pnpm nx test buddy`
 
-- [ ] **T03** — The sender: oldest first, wait while Pi answers, transcribe and send through
+- [x] **T03** — The sender: oldest first, wait while Pi answers, transcribe and send through
       `HttpComms`, the removal and retry rules with backoff.
   - Gate: `pnpm nx test buddy`
 

@@ -5,7 +5,11 @@ import type * as Effect from 'effect/Effect';
 import type * as Stream from 'effect/Stream';
 
 export type BrainstormEventView = typeof BrainstormEvent.Type;
-export type Decision = typeof ProposalDecisionRequest.Type;
+/** The decisions the buddy makes on a proposal: create it as Pi wrote it, or discard it. */
+export type Decision = Extract<
+  typeof ProposalDecisionRequest.Type,
+  { readonly _tag: 'Create' | 'Discard' }
+>;
 
 /** comms cannot be reached: no connection, or it does not answer. */
 export class Unreachable extends Data.TaggedError('Unreachable')<{ readonly reason: string }> {}

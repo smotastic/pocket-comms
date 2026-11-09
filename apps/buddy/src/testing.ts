@@ -26,8 +26,8 @@ export const makeFakes = Effect.gen(function* () {
     nextClip: 0,
     comms: {
       answering: false,
-      /** What each clip is transcribed to, by its first byte; `text` otherwise. */
-      text: 'dark mode for pocket-home',
+      /** What a clip is transcribed to. */
+      transcript: (clip: Uint8Array): string => `idea ${clip[0] ?? 0}`,
       /** Failures for the next calls, in order, before they succeed. */
       transcribeFailures: [] as Array<CommsError>,
       sendFailures: [] as Array<CommsError>,
@@ -85,7 +85,7 @@ export const makeFakes = Effect.gen(function* () {
           Effect.andThen(
             Effect.sync(() => {
               fake.comms.transcribed.push(clip);
-              return fake.comms.text;
+              return fake.comms.transcript(clip);
             }),
           ),
         ),
