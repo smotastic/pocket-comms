@@ -1,7 +1,7 @@
 # Plan 029 — pocket buddy v1: capture ideas by voice into the brainstorm chat
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved with the spec by the owner (2026-11-09)
+- **Status:** `Done` — approved with the spec by the owner (2026-11-09)
 
 ## 1. Affected projects
 

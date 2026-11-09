@@ -1,6 +1,6 @@
 # Spec 029 — pocket buddy v1: capture ideas by voice into the brainstorm chat
 
-- **Status:** `Approved` — approved by the owner (2026-11-09)
+- **Status:** `Done` — approved by the owner (2026-11-09), implemented in its pull request
 - **Builds on:** [spec 027](../027-comms-brainstorm-voice/spec.md) (the transcription route) and
   [spec 013](../013-comms-brainstorm-chat/spec.md) (the brainstorm chat and its proposals)
 - **Issue:** none; planned with the owner on 2026-11-08 and 2026-11-09
