@@ -58,6 +58,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
 | HTTP handlers, problems, identity guard, health, web app route                    | `api`                                                       |
 | Composition root, config, OpenAPI document                                        | `apps/comms-server`                                         |
 | Web app                                                                           | `apps/comms-web`                                            |
+| Pocket buddy, a device client of the contract (speech, brainstorm)                | `apps/buddy`                                                |
 
 ## Rules of this service
 

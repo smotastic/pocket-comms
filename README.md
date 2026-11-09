@@ -118,6 +118,33 @@ the server running after a log-out, add a launch agent for `pnpm start` yourself
   event opens its agent's conversation, or its project when the agent is gone.
 - Nothing in the app moves the Herdr focus on the desktop. The "seen" state lives in server memory.
 
+## The pocket buddy
+
+`apps/buddy` is a small program that captures ideas by voice into the brainstorm chat: hold the
+button, speak, let go, and the words land in the chat as your message; the screen shows the start
+of Pi's answer, and a proposed issue can be created or discarded from it. For now it runs on a
+Mac, with the keyboard as the button, the microphone through `ffmpeg` and the terminal as the
+screen; a pocket device follows.
+
+```sh
+brew install ffmpeg                                   # once
+ffmpeg -f avfoundation -list_devices true -i ""       # find the microphone's audio index
+BUDDY_COMMS_URL=https://<mac>.<tailnet>.ts.net pnpm nx run buddy:start
+# or, if the keys do not reach it through Nx:
+pnpm nx run buddy:build && BUDDY_COMMS_URL=https://<mac>.<tailnet>.ts.net node apps/buddy/dist/main.js
+```
+
+| Setting              | Default           | Meaning                                                            |
+| -------------------- | ----------------- | ------------------------------------------------------------------ |
+| `BUDDY_COMMS_URL`    | none (required)   | The tailnet address of comms; the machine must be logged in as you |
+| `BUDDY_HOME`         | `~/.pocket-buddy` | Where the clips wait (`outbox/`) until they are in the chat        |
+| `BUDDY_AUDIO_DEVICE` | `0`               | The AVFoundation audio index of the microphone                     |
+
+Space starts a recording and space again sends it (a terminal cannot tell when a key is let go);
+`y` creates the proposed issue, `n` discards it, Ctrl+C quits. The first recording makes macOS ask
+for the terminal's microphone access. Clips wait on disk while comms cannot be reached or Pi is
+answering, and are sent in order afterwards, also after a restart.
+
 ## Structure
 
 ```text
@@ -126,6 +153,7 @@ packages/comms/        the service: domain, application, infrastructure (Herdr s
 apps/comms-server/     composition root and the committed OpenAPI document
 apps/comms-web/        React + Vite web app (TanStack Router and Query); its look and components
                        come from the shared design package @smotastic/pocket-design (ADR 0009)
+apps/buddy/            the pocket buddy: a voice client of the brainstorm chat (type:device)
 specs/                 feature specs; docs/ ADRs and conventions; tools/ template init
                        (the gates come from @smotastic/pocket-ci, ADR 0013)
 ```

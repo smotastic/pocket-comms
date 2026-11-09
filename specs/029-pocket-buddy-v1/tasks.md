@@ -23,6 +23,6 @@ in the task's own commit.
       status line and the 280-character cut, proposals created with `y` and discarded with `n`.
   - Gate: `pnpm nx test buddy`
 
-- [ ] **T05** — The laptop adapters (`TerminalButton`, `FfmpegRecorder`, `TerminalScreen`), the
+- [x] **T05** — The laptop adapters (`TerminalButton`, `FfmpegRecorder`, `TerminalScreen`), the
       README section, and a manual run against the deployed comms.
   - Gate: `pnpm verify:local`; the manual run in plan §5

@@ -29,8 +29,9 @@ None. The outbox is a folder of files on the buddy's machine.
 
 `apps/buddy/src`, Effect services, one file each, tested through fakes:
 
-- **Ports** (`Context.Service`): `Button` — a stream of `Press`, `Release`, `DoublePress`,
-  `LongPress`, `Create`, `Discard` intents; `Recorder` — `start` → a recording whose `stop`
+- **Ports** (`Context.Service`): `Button` — a stream of `Press`, `Release`, `Create`,
+  `Discard` and `Quit` intents (the device's adapter turns a double press into `Create` and a long
+  press into `Discard`, so the core knows no gestures; changed while building); `Recorder` — `start` → a recording whose `stop`
   answers WAV bytes; `Screen` — `show(view)`; `Outbox` — `put(clip)`, `oldest`, `remove(id)`,
   `size`; `Comms` — `transcribe`, `send`, `state`, `events(after)`, `decide`.
 - **Core** (`buddy.ts`): one program over the ports.
@@ -56,8 +57,9 @@ None. The outbox is a folder of files on the buddy's machine.
   - `TerminalScreen`: redraws a small box in the terminal.
   - `FileOutbox`: `${BUDDY_HOME:-~/.pocket-buddy}/outbox/<time>-<n>.wav`, written to a temporary
     name and renamed, so a crash leaves no half clip.
-  - `HttpComms`: `HttpApiClient` from the contract for the requests; the event stream is read
-    with `fetch` and decoded line by line into `BrainstormEvent` (Node has no `EventSource`).
+  - `HttpComms`: `HttpApiClient` from the contract for every request. The client decodes the
+    contract's server-sent event stream itself into `BrainstormEvent`s, so no `EventSource` and
+    no hand-written parser are needed (changed while building).
 - **Config:** `BUDDY_COMMS_URL` (required, the tailnet address of comms), `BUDDY_HOME`,
   `BUDDY_AUDIO_DEVICE`. Started with `pnpm nx run buddy:start`.
 - The device's adapters (GPIO button with double and long press, `arecord`, the display) come in
