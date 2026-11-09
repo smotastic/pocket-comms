@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — The `apps/buddy` project (Nx, Vitest, build, `start` target), the `type:device`
+- [x] **T01** — The `apps/buddy` project (Nx, Vitest, build, `start` target), the `type:device`
       lint rule, config (`BUDDY_COMMS_URL` required), the ports, and a program that starts and
       stops cleanly.
   - Gate: `pnpm nx run-many -t build,lint,test -p buddy`; an import of `comms-application` fails

@@ -1,0 +1,14 @@
+{
+  "name": "@pocket-comms/buddy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "@pocket-comms/comms-contract": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:"
+  }
+}
