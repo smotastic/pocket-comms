@@ -500,6 +500,45 @@ describe('proposals', () => {
     ),
   );
 
+  it.effect('asks only once while a decision is on its way, and still tells the number', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        fake.comms.decideMillis = 1_000;
+        yield* stream(fake, issue({ _tag: 'open' }));
+
+        yield* Queue.offer(fake.intents, { _tag: 'Create' });
+        yield* Queue.offer(fake.intents, { _tag: 'Create' });
+        yield* settle;
+        yield* wait(1_000);
+
+        expect(fake.comms.decided).toEqual(['p1']);
+        yield* stream(fake, issue({ _tag: 'created', number: 12, url: 'u' }));
+        expect(lastView(fake)?.status).toBe('Ready · Issue #12 created.');
+      }),
+    ),
+  );
+
+  it.effect('does not ask again for a proposal it decided before comms says so', () =>
+    withBuddy((fake) =>
+      Effect.gen(function* () {
+        yield* stream(fake, issue({ _tag: 'open' }));
+        yield* Queue.offer(fake.intents, { _tag: 'Create' });
+        yield* settle;
+
+        // A second y before the created entry arrives: comms would refuse it as decided.
+        fake.comms.decideFailures.push(
+          new Refused({ reason: 'The proposal was decided already.' }),
+        );
+        yield* Queue.offer(fake.intents, { _tag: 'Create' });
+        yield* settle;
+        yield* stream(fake, issue({ _tag: 'created', number: 12, url: 'u' }));
+
+        expect(fake.comms.decided).toEqual(['p1']);
+        expect(lastView(fake)?.status).toBe('Ready · Issue #12 created.');
+      }),
+    ),
+  );
+
   it.effect('discards a proposed issue', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {

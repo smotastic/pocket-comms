@@ -36,9 +36,13 @@ export const makeFakes = Effect.gen(function* () {
       transcribeFailures: [] as Array<CommsError>,
       sendFailures: [] as Array<CommsError>,
       decideFailures: [] as Array<CommsError>,
+      /** How long a decision takes to answer. */
+      decideMillis: 0,
       transcribed: [] as Array<Uint8Array>,
       sent: [] as Array<string>,
       decisions: [] as Array<[string, Decision]>,
+      /** Every decision asked for, also those that failed. */
+      decided: [] as Array<string>,
       /** The `after` of each time the events were followed. */
       followed: [] as Array<number>,
     },
@@ -125,7 +129,9 @@ export const makeFakes = Effect.gen(function* () {
           }),
         ),
       decide: (proposal, decision) =>
-        failNext(fake.comms.decideFailures).pipe(
+        Effect.sync(() => void fake.comms.decided.push(proposal)).pipe(
+          Effect.andThen(Effect.suspend(() => Effect.sleep(fake.comms.decideMillis))),
+          Effect.andThen(failNext(fake.comms.decideFailures)),
           Effect.andThen(Effect.sync(() => void fake.comms.decisions.push([proposal, decision]))),
         ),
     }),

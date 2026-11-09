@@ -154,7 +154,9 @@ export const buddy = Effect.scoped(
     ) =>
       Effect.gen(function* () {
         const shown = (yield* Ref.get(state)).proposals.at(-1);
-        if (shown?.kind !== 'issue') return;
+        // A proposal is decided once: a second press while the first is on its way, or before
+        // comms reports the outcome, asks nothing, so only this request can undo the mark.
+        if (shown?.kind !== 'issue' || decidedHere.has(shown.id)) return;
         decidedHere.add(shown.id);
         const result = yield* comms.decide(shown.id, decision(shown)).pipe(Effect.result);
         if (result._tag === 'Failure') {
