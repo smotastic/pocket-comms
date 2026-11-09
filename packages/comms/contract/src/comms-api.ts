@@ -1668,7 +1668,22 @@ export const SpeechText = Schema.Struct({
   }),
 }).annotate({ identifier: 'SpeechText', description: 'The words of a voice message.' });
 
+export const SpeechState = Schema.Struct({
+  available: Schema.Boolean.annotate({
+    description: 'The server has a speech service set up, so the composers offer Record voice.',
+    examples: [true],
+  }),
+}).annotate({ identifier: 'SpeechState', description: 'Whether voice messages work.' });
+
 const speech = HttpApiGroup.make('speech')
+  .add(
+    HttpApiEndpoint.get('state', '/speech', { success: SpeechState }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Say whether voice messages work',
+        description: 'Whether the server has a speech service set up, for every composer.',
+      }),
+    ),
+  )
   .add(
     HttpApiEndpoint.post('transcribe', '/speech/transcriptions', {
       payload: SpeechUpload,
@@ -1688,7 +1703,7 @@ const speech = HttpApiGroup.make('speech')
   .annotateMerge(
     OpenApi.annotations({
       title: 'Speech',
-      description: 'Voice messages turned into text for the brainstorm composer.',
+      description: 'Voice messages turned into text for the composers.',
     }),
   );
 

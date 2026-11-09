@@ -1646,6 +1646,19 @@
         "required": ["type", "title", "status"],
         "type": "object"
       },
+      "SpeechState": {
+        "additionalProperties": false,
+        "description": "Whether voice messages work.",
+        "properties": {
+          "available": {
+            "description": "The server has a speech service set up, so the composers offer Record voice.",
+            "examples": [true],
+            "type": "boolean"
+          }
+        },
+        "required": ["available"],
+        "type": "object"
+      },
       "SpeechText": {
         "additionalProperties": false,
         "description": "The words of a voice message.",
@@ -4601,6 +4614,48 @@
         "tags": ["Quick replies"]
       }
     },
+    "/api/v1/speech": {
+      "get": {
+        "description": "Whether the server has a speech service set up, for every composer.",
+        "operationId": "speech.state",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechState"
+                }
+              }
+            },
+            "description": "Whether voice messages work."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Say whether voice messages work",
+        "tags": ["Speech"]
+      }
+    },
     "/api/v1/speech/transcriptions": {
       "post": {
         "description": "Checks the clip by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the clip is kept.",
@@ -4772,7 +4827,7 @@
       "name": "Quick replies"
     },
     {
-      "description": "Voice messages turned into text for the brainstorm composer.",
+      "description": "Voice messages turned into text for the composers.",
       "name": "Speech"
     }
   ]

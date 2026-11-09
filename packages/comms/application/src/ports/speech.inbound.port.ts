@@ -11,6 +11,8 @@ import { makeSpeech } from '../use-cases/speech.use-case.js';
 export class SpeechInbound extends Context.Service<
   SpeechInbound,
   {
+    /** The server has a speech service set up, so the composers offer Record voice. */
+    readonly available: Effect.Effect<boolean>;
     readonly transcribe: (
       bytes: Uint8Array,
     ) => Effect.Effect<SpeechDto, InvalidInputError | SpeechNotSetUpError | SpeechUnavailableError>;

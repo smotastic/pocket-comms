@@ -12,14 +12,18 @@ export const speechHandlers = HttpApiBuilder.group(
     const speechInbound = yield* SpeechInbound;
 
     // The body is the clip itself; the use case checks what is in it.
-    return handlers.handle('transcribe', ({ payload }) =>
-      speechInbound.transcribe(payload).pipe(
-        Effect.catchTags({
-          InvalidInputError: problems.invalidInput,
-          SpeechNotSetUpError: problems.speechNotSetUp,
-          SpeechUnavailableError: problems.speechUnavailable,
-        }),
-      ),
-    );
+    return handlers
+      .handle('state', () =>
+        speechInbound.available.pipe(Effect.map((available) => ({ available }))),
+      )
+      .handle('transcribe', ({ payload }) =>
+        speechInbound.transcribe(payload).pipe(
+          Effect.catchTags({
+            InvalidInputError: problems.invalidInput,
+            SpeechNotSetUpError: problems.speechNotSetUp,
+            SpeechUnavailableError: problems.speechUnavailable,
+          }),
+        ),
+      );
   }),
 );

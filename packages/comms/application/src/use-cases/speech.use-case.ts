@@ -17,5 +17,7 @@ export const makeSpeech = Effect.gen(function* () {
     return { text: text.trim() } satisfies SpeechDto;
   });
 
-  return { transcribe };
+  const available = Effect.sync(() => speechOutbound.available);
+
+  return { available, transcribe };
 });

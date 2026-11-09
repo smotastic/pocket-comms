@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { CommsClient } from './comms-client.js';
 
-// A voice message of the brainstorm chat (spec 027): the phone records one clip, the server
-// transcribes it, and the text is added to the draft. The clip lives only on this page.
+// A composer's voice message: the phone records one clip, the server transcribes it, and the
+// text is added to the draft. The clip lives only on this page.
 
 /** A recording stops by itself after two minutes (requirement 3). */
 export const MAX_RECORDING_MS = 120_000;
@@ -84,6 +84,15 @@ export const MicrophoneContext = createContext<Microphone>(browserMicrophone);
 export const appendText = (draft: string, text: string) => {
   const kept = draft.trimEnd();
   return kept === '' ? text : `${kept} ${text}`;
+};
+
+/**
+ * The draft after `sent` went out: the composer sends the trimmed text, so a transcript that
+ * arrived meanwhile stays, and a draft changed otherwise stays whole.
+ */
+export const withoutSent = (draft: string, sent: string) => {
+  const kept = draft.trimStart();
+  return kept.startsWith(sent) ? kept.slice(sent.length).trimStart() : draft;
 };
 
 /** A clip's length as `m:ss`. */

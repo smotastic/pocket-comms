@@ -1410,6 +1410,21 @@ describe('the speech API', () => {
     });
   });
 
+  it('says whether transcription is set up', async () => {
+    const call = speech({ available: Effect.succeed(true) });
+
+    const response = await call('/api/v1/speech');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ available: true });
+  });
+
+  it('refuses the setting without the allowed login', async () => {
+    const call = speech({ available: Effect.succeed(true) });
+
+    expect((await call('/api/v1/speech', { login: null })).status).toBe(403);
+  });
+
   it('refuses a request without the allowed login', async () => {
     const call = speech({ transcribe: () => Effect.succeed({ text: 'no' }) });
 

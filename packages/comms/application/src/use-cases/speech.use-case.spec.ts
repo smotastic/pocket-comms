@@ -70,3 +70,16 @@ describe('SpeechInbound.transcribe', () => {
     }).pipe(Effect.provide(layer())),
   );
 });
+
+describe('SpeechInbound.available', () => {
+  it.effect('says whether the server has a speech service', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const inbound = yield* SpeechInbound;
+
+      expect(yield* inbound.available).toBe(true);
+      state.speech.available = false;
+      expect(yield* inbound.available).toBe(false);
+    }).pipe(Effect.provide(layer())),
+  );
+});

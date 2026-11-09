@@ -69,10 +69,14 @@ export interface FakeState {
   typeGate?: Promise<void>;
   /** A failure for the next image upload. */
   uploadFailure?: string;
+  /** Whether the server transcribes voice clips. */
+  speechAvailable: boolean;
   /** What the next voice clip is transcribed to, or a failure. */
   transcription: string | RequestError;
   /** Holds a transcription on its way until it resolves, such as to see the wait. */
   transcriptionGate?: Promise<void>;
+  /** Holds a prompt on its way until it resolves. */
+  promptGate?: Promise<void>;
   /** Holds a brainstorm message on its way until it resolves. */
   sendGate?: Promise<void>;
   projects: ReadonlyArray<ProjectView>;
@@ -121,6 +125,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     issues: new Map(),
     implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
     closeAgentFailures: [],
+    speechAvailable: false,
     transcription: 'dark mode for pocket-home',
     brainstorm: {
       _tag: 'Ready',
@@ -139,6 +144,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     /** The image ids of each prompt, in the order of `prompts`. */
     promptImages: [] as Array<ReadonlyArray<string>>,
     uploads: [] as Array<Blob>,
+    /** How often the app asked whether the server transcribes. */
+    speechAsked: 0,
     /** The voice clips sent for transcription. */
     clips: [] as Array<Blob>,
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
@@ -188,6 +195,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     },
     screen: async (ref) => state.screens.get(ref) ?? '',
     prompt: async (ref, text, imageIds = []) => {
+      await state.promptGate;
       if (state.promptFailure !== undefined) throw new RequestError(state.promptFailure, 409);
       calls.prompts.push([ref, text]);
       calls.promptImages.push(imageIds);
@@ -200,6 +208,10 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       return `image-${calls.uploads.length}`;
     },
     imageUrl: (id) => `/api/v1/images/${id}`,
+    speech: async () => {
+      calls.speechAsked += 1;
+      return state.speechAvailable;
+    },
     transcribe: async (clip) => {
       calls.clips.push(clip);
       await state.transcriptionGate;

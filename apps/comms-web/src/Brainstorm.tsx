@@ -30,7 +30,7 @@ import { IssueEditCard } from './IssueEditCard.js';
 import { useBrainstormLive, type BrainstormView } from './live.js';
 import { ProposalCard } from './ProposalCard.js';
 import { PictureThumb, type ChatPicture } from './ProposalPictures.js';
-import { appendText, useVoiceClip } from './voice.js';
+import { appendText, useVoiceClip, withoutSent } from './voice.js';
 import { VoiceClipRow } from './VoiceClipRow.js';
 
 // The brainstorm chat: one ongoing chat with Pi, opened from the top bars. Pi proposes new issues
@@ -315,13 +315,9 @@ const Footer = ({
   const send = useMutation({
     mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
       client.sendBrainstorm(text, imageIds),
-    // Only the sent text goes: a transcript that arrived meanwhile stays (spec 027).
+    // Only the sent text goes: a transcript that arrived meanwhile stays.
     onSuccess: (_, { text }) => {
-      // The composer sends the trimmed text.
-      setDraft((current) => {
-        const kept = current.trimStart();
-        return kept.startsWith(text) ? kept.slice(text.length).trimStart() : current;
-      });
+      setDraft((current) => withoutSent(current, text));
       images.clear();
       voice.dismiss();
     },
