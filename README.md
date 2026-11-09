@@ -130,7 +130,7 @@ screen; a pocket device follows.
 brew install ffmpeg                                   # once
 ffmpeg -f avfoundation -list_devices true -i ""       # find the microphone's audio index
 BUDDY_COMMS_URL=https://<mac>.<tailnet>.ts.net pnpm nx run buddy:start
-# or, if the keys do not reach it through Nx:
+# the same without Nx in between, such as when Nx's terminal UI is on (NX_TUI=true):
 pnpm nx run buddy:build && BUDDY_COMMS_URL=https://<mac>.<tailnet>.ts.net node apps/buddy/dist/main.js
 ```
 
@@ -140,7 +140,8 @@ pnpm nx run buddy:build && BUDDY_COMMS_URL=https://<mac>.<tailnet>.ts.net node a
 | `BUDDY_HOME`         | `~/.pocket-buddy` | Where the clips wait (`outbox/`) until they are in the chat        |
 | `BUDDY_AUDIO_DEVICE` | `0`               | The AVFoundation audio index of the microphone                     |
 
-Space starts a recording and space again sends it (a terminal cannot tell when a key is let go);
+Space starts a recording and space again sends it (a terminal cannot tell when a key is let go;
+after a recording ended by itself at two minutes, the next space starts a new one);
 `y` creates the proposed issue, `n` discards it, Ctrl+C quits. The first recording makes macOS ask
 for the terminal's microphone access. Clips wait on disk while comms cannot be reached or Pi is
 answering, and are sent in order afterwards, also after a restart.

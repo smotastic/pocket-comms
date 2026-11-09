@@ -43,10 +43,14 @@ export const formatScreen = (view: ScreenView, width: number) => {
   ].join('\n');
 };
 
+/** The width to draw in: the terminal's, up to 72 columns; 60 when it reports none or 0. */
+export const screenWidth = (columns: number | undefined) =>
+  columns === undefined || columns < 20 ? 60 : Math.min(columns, 72);
+
 export const layer = Layer.succeed(Screen, {
   show: (view) =>
     Effect.sync(() => {
-      const width = Math.min(process.stdout.columns ?? 60, 72);
+      const width = screenWidth(process.stdout.columns);
       process.stdout.write(`\u001b[2J\u001b[H${formatScreen(view, width)}\n`);
     }),
 });

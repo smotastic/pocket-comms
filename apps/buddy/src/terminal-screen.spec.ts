@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatScreen } from './terminal-screen.js';
+import { formatScreen, screenWidth } from './terminal-screen.js';
 
 describe('formatScreen', () => {
   it('shows the status, what was sent, the answer and the keys', () => {
@@ -25,5 +25,17 @@ describe('formatScreen', () => {
     const lines = formatScreen({ status: 'Ready', answer: 'word '.repeat(30) }, 30).split('\n');
 
     expect(Math.max(...lines.map((line) => line.length))).toBeLessThanOrEqual(30);
+  });
+});
+
+describe('screenWidth', () => {
+  it('fits the terminal, up to 72 columns', () => {
+    expect(screenWidth(50)).toBe(50);
+    expect(screenWidth(200)).toBe(72);
+  });
+
+  it('uses 60 columns when the terminal says nothing useful, such as 0', () => {
+    expect(screenWidth(undefined)).toBe(60);
+    expect(screenWidth(0)).toBe(60);
   });
 });
