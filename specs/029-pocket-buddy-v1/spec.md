@@ -99,6 +99,9 @@ button, the recording and the screen change.
   covers capturing ideas and creating proposed issues; laptop first, hardware later; hold to talk;
   no review before sending; double press creates, long press discards; the program lives in
   pocket-comms.
+- **Owner's decision of 2026-11-09:** delivery is at least once. When comms took a message but
+  its answer was lost, the buddy sends the clip again, so the chat may show it twice; there is no
+  deduplication.
 - comms trusts only the Tailscale login that `tailscale serve` adds, so the buddy must run on a
   machine logged in to the tailnet as the owner, not as a tagged device.
 - On the device the connection will come from the phone's hotspot; the outbox covers the gaps.
