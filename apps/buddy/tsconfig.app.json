@@ -11,6 +11,9 @@
   "references": [
     {
       "path": "../../packages/comms/contract/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/contracts/problem-details/tsconfig.lib.json"
     }
   ]
 }

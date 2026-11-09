@@ -234,6 +234,25 @@ describe('HttpComms', () => {
     }),
   );
 
+  it.live('tells that a proposal comms no longer has cannot be decided', () =>
+    Effect.gen(function* () {
+      const { url } = yield* serve((_, response) =>
+        problem(response, 404, 'proposal-not-found', {
+          detail: 'The brainstorm chat has no proposal p1.',
+        }),
+      );
+
+      const error = yield* withComms(url, (comms) => comms.decide('p1', { _tag: 'Discard' })).pipe(
+        Effect.flip,
+      );
+
+      expect(error).toMatchObject({
+        _tag: 'Refused',
+        reason: 'The brainstorm chat has no proposal p1.',
+      });
+    }),
+  );
+
   it.live('decides a proposal', () =>
     Effect.gen(function* () {
       const { url, seen } = yield* serve((_, response) => {

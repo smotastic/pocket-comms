@@ -6,6 +6,7 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@pocket-comms/comms-contract": "workspace:*",
+    "@pocket-comms/contracts-problem-details": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

@@ -1,4 +1,11 @@
 import { CommsApi } from '@pocket-comms/comms-contract';
+import {
+  ConflictProblem,
+  ForbiddenProblem,
+  NotFoundProblem,
+  ServiceUnavailableProblem,
+  ValidationProblem,
+} from '@pocket-comms/contracts-problem-details';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Stream from 'effect/Stream';
@@ -12,40 +19,41 @@ import { Busy, Comms, Failed, NotSetUp, Refused, Unreachable, type CommsError } 
 
 const PROBLEM_PREFIX = 'urn:pocket-comms:problem:';
 
-const field = (value: unknown, name: string): unknown =>
-  typeof value === 'object' && value !== null ? Reflect.get(value, name) : undefined;
+const slugOf = (problem: { readonly type: string }) =>
+  problem.type.startsWith(PROBLEM_PREFIX)
+    ? problem.type.slice(PROBLEM_PREFIX.length)
+    : problem.type;
 
-const text = (value: unknown) => (typeof value === 'string' ? value : undefined);
+const reasonOf = (problem: { readonly title: string; readonly detail?: string | undefined }) =>
+  problem.detail ?? problem.title;
 
-/** The words of a validation problem: its detail, or its first field's message. */
-const firstIssue = (error: unknown) => {
-  const errors = field(error, 'errors');
-  return Array.isArray(errors) ? text(field(errors[0], 'message')) : undefined;
-};
-
+/** The buddy's error for a failure of the client, by the contract's problem classes. */
 export const toCommsError = (error: unknown): CommsError => {
   if (HttpClientError.isHttpClientError(error)) {
     return new Unreachable({ reason: 'comms cannot be reached.' });
   }
-  const type = text(field(error, 'type'));
-  const status = field(error, 'status');
-  if (type === undefined || typeof status !== 'number') {
-    return new Failed({ reason: 'comms answered something the buddy does not understand.' });
+  if (error instanceof ValidationProblem) {
+    return new Refused({ reason: error.detail ?? error.errors[0]?.message ?? error.title });
   }
-  const slug = type.startsWith(PROBLEM_PREFIX) ? type.slice(PROBLEM_PREFIX.length) : type;
-  const reason =
-    text(field(error, 'detail')) ?? firstIssue(error) ?? text(field(error, 'title')) ?? slug;
-  if (slug === 'brainstorm-busy') return new Busy();
-  if (slug === 'brainstorm-not-set-up' || slug === 'speech-not-set-up') {
-    return new NotSetUp({ reason });
-  }
-  if (status === 403) {
+  if (error instanceof NotFoundProblem) return new Refused({ reason: reasonOf(error) });
+  if (error instanceof ForbiddenProblem) {
     return new NotSetUp({
       reason: 'comms refused this machine: log in to the tailnet as the owner.',
     });
   }
-  if (status === 422) return new Refused({ reason });
-  return new Failed({ reason });
+  if (error instanceof ConflictProblem) {
+    const slug = slugOf(error);
+    if (slug === 'brainstorm-busy') return new Busy();
+    if (slug === 'brainstorm-not-set-up') return new NotSetUp({ reason: reasonOf(error) });
+    // Any other conflict, such as a proposal decided already, does not go away by trying again.
+    return new Refused({ reason: reasonOf(error) });
+  }
+  if (error instanceof ServiceUnavailableProblem) {
+    return slugOf(error) === 'speech-not-set-up'
+      ? new NotSetUp({ reason: reasonOf(error) })
+      : new Failed({ reason: reasonOf(error) });
+  }
+  return new Failed({ reason: 'comms answered something the buddy does not understand.' });
 };
 
 export const layer = (baseUrl: string) =>

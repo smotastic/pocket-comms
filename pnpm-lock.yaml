@@ -221,6 +221,9 @@ importers:
       '@pocket-comms/comms-contract':
         specifier: workspace:*
         version: link:../../packages/comms/contract
+      '@pocket-comms/contracts-problem-details':
+        specifier: workspace:*
+        version: link:../../packages/contracts/problem-details
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.118
