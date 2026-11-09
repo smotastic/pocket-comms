@@ -127,6 +127,24 @@ describe('recording', () => {
 const say = (fake: Fake) =>
   press(fake, 'Press').pipe(Effect.andThen(wait(1_000)), Effect.andThen(press(fake, 'Release')));
 
+describe('stopping', () => {
+  it.effect('keeps a recording under way when the program is interrupted, such as by SIGTERM', () =>
+    Effect.gen(function* () {
+      const { fake, layer } = yield* makeFakes;
+      fake.comms.answering = true;
+      const running = yield* buddy.pipe(Effect.provide(layer), Effect.forkChild);
+      yield* settle;
+      yield* press(fake, 'Press');
+      yield* wait(2_000);
+
+      yield* Fiber.interrupt(running);
+
+      expect(fake.recorder.recording).toBe(false);
+      expect(fake.outbox).toHaveLength(1);
+    }),
+  );
+});
+
 describe('the laptop’s toggle', () => {
   const toggle = (fake: Fake) =>
     Queue.offer(fake.intents, { _tag: 'Toggle' }).pipe(Effect.andThen(settle));

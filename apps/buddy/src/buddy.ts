@@ -124,6 +124,9 @@ export const buddy = Effect.scoped(
       yield* Queue.offer(wake, undefined);
     });
 
+    // A recording under way when the program ends, by quitting or by a signal, is kept.
+    yield* Effect.addFinalizer(() => stop);
+
     // ── Following the chat ─────────────────────────────────────────────────────────────────
     // The proposals the buddy decided itself, so it can tell how they ended.
     const decidedHere = new Set<string>();
@@ -287,7 +290,5 @@ export const buddy = Effect.scoped(
       Stream.merge(Stream.fromQueue(limits), { haltStrategy: 'left' }),
       Stream.runForEach(react),
     );
-    // A recording under way when the owner quits is kept, not lost.
-    yield* stop;
   }),
 );

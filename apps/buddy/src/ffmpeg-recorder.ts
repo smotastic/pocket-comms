@@ -30,39 +30,60 @@ export const fixWavSizes = (bytes: Uint8Array): Uint8Array => {
   return fixed;
 };
 
-export const layer = (device: string) =>
-  Layer.succeed(Recorder, {
+/** How long a recorder may take to end after `q` before it is killed. */
+const STOP_MILLIS = 5_000;
+
+/** The parts of a recorder process: the program and its arguments. */
+export interface RecorderCommand {
+  readonly command: string;
+  readonly args: ReadonlyArray<string>;
+  readonly stopMillis?: number;
+}
+
+/** The arguments that record from the AVFoundation audio device `device`. */
+export const ffmpegArgs = (device: string) => [
+  ...['-hide_banner', '-loglevel', 'error', '-f', 'avfoundation', '-i', `:${device}`],
+  ...['-ac', '1', '-ar', '16000', '-f', 'wav', 'pipe:1'],
+];
+
+/**
+ * A recorder over a process that writes WAV to its output and ends on `q`. A process that does
+ * not end in time is killed, as is one whose recording is interrupted; what it wrote is kept.
+ */
+export const make = ({ command, args, stopMillis = STOP_MILLIS }: RecorderCommand) =>
+  Recorder.of({
     start: Effect.callback<
       { readonly stop: Effect.Effect<Uint8Array, RecorderError> },
       RecorderError
-    >((resume) => {
+    >((resume, signal) => {
       const chunks: Array<Buffer> = [];
       let errors = '';
-      const ffmpeg = spawn(
-        'ffmpeg',
-        [
-          ...['-hide_banner', '-loglevel', 'error', '-f', 'avfoundation', '-i', `:${device}`],
-          ...['-ac', '1', '-ar', '16000', '-f', 'wav', 'pipe:1'],
-        ],
-        { stdio: ['pipe', 'pipe', 'pipe'] },
-      );
-      const ended = new Promise<number | null>((done) => ffmpeg.on('close', done));
-      ffmpeg.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
-      ffmpeg.stderr.on('data', (chunk: Buffer) => (errors += chunk.toString()));
-      ffmpeg.on('error', () =>
+      const child = spawn(command, [...args], { stdio: ['pipe', 'pipe', 'pipe'] });
+      const ended = new Promise<void>((done) => child.on('close', () => done()));
+      const kill = () => {
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      };
+      signal.addEventListener('abort', kill);
+      child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+      child.stderr.on('data', (chunk: Buffer) => (errors += chunk.toString()));
+      // A process that is gone closes its input; writing `q` to it then must not crash the buddy.
+      child.stdin.on('error', () => undefined);
+      child.on('error', () =>
         resume(
           Effect.fail(
-            new RecorderError({ reason: 'ffmpeg is not installed: brew install ffmpeg.' }),
+            new RecorderError({ reason: `${command} is not installed: brew install ${command}.` }),
           ),
         ),
       );
-      ffmpeg.on('spawn', () =>
+      child.on('spawn', () =>
         resume(
           Effect.succeed({
             stop: Effect.tryPromise({
               try: async () => {
-                if (ffmpeg.exitCode === null) ffmpeg.stdin.end('q');
+                if (child.exitCode === null) child.stdin.end('q');
+                const timer = setTimeout(kill, stopMillis);
                 await ended;
+                clearTimeout(timer);
                 const bytes = Buffer.concat(chunks);
                 if (bytes.length === 0) throw new Error(errors.trim().split('\n').at(-1));
                 return fixWavSizes(new Uint8Array(bytes));
@@ -74,9 +95,12 @@ export const layer = (device: string) =>
                       ? `The microphone did not record: ${error.message}`
                       : 'The microphone did not record.',
                 }),
-            }),
+            }).pipe(Effect.onInterrupt(() => Effect.sync(kill))),
           }),
         ),
       );
     }),
   });
+
+export const layer = (device: string) =>
+  Layer.succeed(Recorder, make({ command: 'ffmpeg', args: ffmpegArgs(device) }));
