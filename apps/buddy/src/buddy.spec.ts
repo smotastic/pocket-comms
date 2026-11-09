@@ -205,6 +205,27 @@ describe('sending', () => {
     ),
   );
 
+  it.effect('counts the waiting clips one change at a time', () =>
+    withBuddy(
+      (fake) =>
+        Effect.gen(function* () {
+          // A clip ends while the sender still counts the outbox.
+          yield* press(fake, 'Press');
+          yield* wait(600);
+          yield* press(fake, 'Release');
+          yield* wait(5_000);
+
+          expect(fake.outboxOverlap).toBe(1);
+          expect(lastView(fake)?.status).toBe(
+            fake.outbox.length === 0 ? 'Ready' : `Ready · ${fake.outbox.length} waiting`,
+          );
+        }),
+      (fake) => {
+        fake.sizeMillis = 1_000;
+      },
+    ),
+  );
+
   it.effect('waits while Pi is answering', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {

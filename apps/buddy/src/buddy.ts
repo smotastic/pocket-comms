@@ -4,6 +4,7 @@ import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Queue from 'effect/Queue';
 import * as Ref from 'effect/Ref';
+import * as Semaphore from 'effect/Semaphore';
 import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
 import { applyEvent } from './chat.js';
@@ -70,9 +71,17 @@ export const buddy = Effect.scoped(
 
     // A new clip wakes the sender at once.
     const wake = yield* Queue.sliding<void>(1);
-    const countWaiting = outbox.size.pipe(
-      Effect.flatMap((waiting) => update((s) => ({ ...s, waiting }))),
-    );
+    // A change of the outbox and the count on the screen happen as one, so an older count never
+    // overwrites a newer one.
+    const outboxLock = yield* Semaphore.make(1);
+    const withCount = <A, E>(change: Effect.Effect<A, E>) =>
+      change.pipe(
+        Effect.tap(() =>
+          outbox.size.pipe(Effect.flatMap((waiting) => update((s) => ({ ...s, waiting })))),
+        ),
+        Semaphore.withPermit(outboxLock),
+      );
+    const countWaiting = withCount(Effect.void);
 
     // ── Recording ──────────────────────────────────────────────────────────────────────────
     const limits = yield* Queue.unbounded<Event>();
@@ -111,8 +120,7 @@ export const buddy = Effect.scoped(
       }
       yield* update((s) => ({ ...s, recordingSince: undefined }));
       if (length < MIN_CLIP_MILLIS) return;
-      yield* outbox.put(bytes.success);
-      yield* countWaiting;
+      yield* withCount(outbox.put(bytes.success));
       yield* Queue.offer(wake, undefined);
     });
 
@@ -211,12 +219,7 @@ export const buddy = Effect.scoped(
     });
 
     const forget = (id: string) =>
-      outbox
-        .remove(id)
-        .pipe(
-          Effect.andThen(Effect.sync(() => transcripts.delete(id))),
-          Effect.andThen(countWaiting),
-        );
+      withCount(outbox.remove(id)).pipe(Effect.andThen(Effect.sync(() => transcripts.delete(id))));
 
     /** A wait after a failed try: Pi's turn, or a backoff that grows with each failure. */
     type Pause = 'none' | 'pi' | 'backoff';

@@ -24,6 +24,10 @@ export const makeFakes = Effect.gen(function* () {
     recorder: { recording: false, started: 0, failure: undefined as string | undefined },
     outbox: [] as Array<Clip>,
     nextClip: 0,
+    /** How long counting the outbox takes, to make overlapping operations visible. */
+    sizeMillis: 0,
+    /** How many outbox operations ran at once, at most. */
+    outboxOverlap: 0,
     comms: {
       answering: false,
       /** What a clip is transcribed to. */
@@ -39,6 +43,13 @@ export const makeFakes = Effect.gen(function* () {
       followed: [] as Array<number>,
     },
   };
+
+  let inFlight = 0;
+  const tracked = <A, E>(operation: Effect.Effect<A, E>) =>
+    Effect.sync(() => {
+      inFlight += 1;
+      fake.outboxOverlap = Math.max(fake.outboxOverlap, inFlight);
+    }).pipe(Effect.andThen(operation), Effect.ensuring(Effect.sync(() => (inFlight -= 1))));
 
   const failNext = (failures: Array<CommsError>) =>
     Effect.suspend(() => {
@@ -67,17 +78,25 @@ export const makeFakes = Effect.gen(function* () {
     Layer.succeed(Screen, { show: (view) => Effect.sync(() => void fake.views.push(view)) }),
     Layer.succeed(Outbox, {
       put: (bytes) =>
-        Effect.sync(() => {
-          const clip = { id: `clip-${fake.nextClip++}`, bytes };
-          fake.outbox.push(clip);
-          return clip;
-        }),
+        tracked(
+          Effect.sync(() => {
+            const clip = { id: `clip-${fake.nextClip++}`, bytes };
+            fake.outbox.push(clip);
+            return clip;
+          }),
+        ),
       oldest: Effect.sync(() => Option.fromNullishOr(fake.outbox[0])),
       remove: (id) =>
-        Effect.sync(() => {
-          fake.outbox = fake.outbox.filter((clip) => clip.id !== id);
-        }),
-      size: Effect.sync(() => fake.outbox.length),
+        tracked(
+          Effect.sync(() => {
+            fake.outbox = fake.outbox.filter((clip) => clip.id !== id);
+          }),
+        ),
+      size: tracked(
+        Effect.sync(() => fake.outbox.length).pipe(
+          Effect.tap(() => (fake.sizeMillis > 0 ? Effect.sleep(fake.sizeMillis) : Effect.void)),
+        ),
+      ),
     }),
     Layer.succeed(Comms, {
       transcribe: (clip) =>
