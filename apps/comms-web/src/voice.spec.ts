@@ -28,6 +28,10 @@ describe('voiceLabels', () => {
     expect(voiceLabels.transcribing('0:12')).toBe('Transcribing 0:12…');
   });
 
+  it('words the limit of a recording', () => {
+    expect(voiceLabels.limit?.('2:00')).toBe('of 2:00');
+  });
+
   it('words Cancel and whether the microphone hears sound', () => {
     expect([voiceLabels.cancel, voiceLabels.hearing, voiceLabels.silence]).toEqual([
       'Cancel',

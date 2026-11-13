@@ -15,6 +15,7 @@ export const voiceLabels: VoiceClipLabels = {
     `Voice clip ${length} not transcribed: ${reason ?? 'The clip was not transcribed.'}`,
   retry: 'Retry',
   discard: 'Discard',
+  limit: (max) => `of ${max}`,
 };
 
 const NOTICES: Record<VoiceNotice, { readonly text: string; readonly tone: AlertTone }> = {
