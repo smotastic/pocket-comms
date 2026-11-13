@@ -628,6 +628,20 @@ describe('voice messages in the brainstorm chat', () => {
     expect(calls.brainstormMessages).toEqual([]);
   });
 
+  it('throws a recording away on Cancel: nothing is transcribed or added (Gitea #85)', async () => {
+    const { sheet, calls } = await openChat(ready({ voice: true }));
+    const message = within(sheet).getByRole('textbox', { name: 'Message' });
+    await userEvent.type(message, 'Idea:');
+
+    await choose(sheet, 'Record voice');
+    await userEvent.click(await within(sheet).findByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(within(sheet).queryByText('Recording')).toBeNull());
+    expect((message as HTMLTextAreaElement).value).toBe('Idea:');
+    expect(calls.clips).toEqual([]);
+    expect(within(sheet).queryByRole('alert')).toBeNull();
+  });
+
   it('keeps a failed clip with its reason, Retry and Discard (requirement 11)', async () => {
     const { sheet, state, calls } = await openChat(ready({ voice: true }));
     state.transcription = new RequestError('The speech service is not reachable.', 503);

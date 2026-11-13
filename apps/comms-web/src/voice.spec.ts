@@ -27,4 +27,12 @@ describe('voiceLabels', () => {
   it('words the wait for the text with its length', () => {
     expect(voiceLabels.transcribing('0:12')).toBe('Transcribing 0:12…');
   });
+
+  it('words Cancel and whether the microphone hears sound', () => {
+    expect([voiceLabels.cancel, voiceLabels.hearing, voiceLabels.silence]).toEqual([
+      'Cancel',
+      'Hearing you',
+      'No sound',
+    ]);
+  });
 });

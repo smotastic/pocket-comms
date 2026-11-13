@@ -386,7 +386,9 @@ const Footer = ({
                   <VoiceClipRow
                     clip={voice.clip}
                     labels={voiceLabels}
+                    level={voice.level}
                     onStop={() => void voice.stop()}
+                    onCancel={() => void voice.cancel()}
                     onRetry={voice.retry}
                     onDiscard={voice.discard}
                   />

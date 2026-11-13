@@ -7,6 +7,9 @@ export const voiceLabels: VoiceClipLabels = {
   starting: 'Starting the microphone…',
   recording: 'Recording',
   stop: 'Stop',
+  cancel: 'Cancel',
+  hearing: 'Hearing you',
+  silence: 'No sound',
   transcribing: (length) => `Transcribing ${length}…`,
   failed: (length, reason) =>
     `Voice clip ${length} not transcribed: ${reason ?? 'The clip was not transcribed.'}`,
