@@ -69,7 +69,7 @@ catalog:
   # The shared CI gates (ADR 0013); a CI change is a bump here.
   '@smotastic/pocket-ci': 0.2.6
   # Polaris, the shared design system of the pocket apps; a design change is a bump here.
-  '@smotastic/pocket-design': 0.15.0
+  '@smotastic/pocket-design': 0.17.0
   '@redocly/cli': ~2.55.0
   husky: ^9.1.7
   prettier: ~3.8.4
@@ -110,5 +110,5 @@ minimumReleaseAgeExclude:
   - '@testcontainers/postgresql@12.2.0'
   - testcontainers@12.2.0
   - '@smotastic/pocket-ci@0.2.6'
-  - '@smotastic/pocket-design@0.15.0'
+  - '@smotastic/pocket-design@0.17.0'
   - '@smotastic/pocket-agent@0.4.0'

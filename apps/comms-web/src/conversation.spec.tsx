@@ -1078,6 +1078,18 @@ describe('voice messages in the agent chat', () => {
     expect(calls.prompts).toEqual([]);
   });
 
+  it('throws a recording away on Cancel (Gitea #85)', async () => {
+    const { calls } = await openWith(true);
+    await userEvent.type(message(), 'Please');
+
+    await record();
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByText('Recording')).toBeNull());
+    expect(message().value).toBe('Please');
+    expect(calls.clips).toEqual([]);
+  });
+
   it('keeps a failed clip with its reason, Retry and Discard', async () => {
     const { state } = await openWith(true);
     state.transcription = new RequestError('The speech service is not reachable.', 503);
