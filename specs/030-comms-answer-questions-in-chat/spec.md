@@ -141,7 +141,8 @@ source of the waiting call; the card, the answer API and the keys stay as they a
 14. A hook script ships with the server. On Claude's `PreToolUse` for `AskUserQuestion` it writes
     the call (its session id, its tool use id and its questions) to a file of that session in the
     server's state folder (`questions/`, readable by the owner only). On `PostToolUse` for
-    `AskUserQuestion` and on `Stop`, it removes the session's file. It never blocks or changes
+    `AskUserQuestion`, and on `Stop`, `UserPromptSubmit` and `SessionStart` (no question can wait
+    then), it removes the session's file. It never blocks or changes
     Claude: it prints nothing and always exits `0`, also on input it cannot read.
 15. While a Claude session's file in `questions/` names a call that the session file does not
     hold yet, the transcript ends with that call as a waiting entry with its questions. Once the
@@ -150,7 +151,10 @@ source of the waiting call; the card, the answer API and the keys stay as they a
     hook's write.
 16. The screen check of requirement 10 reads a question that Claude draws behind a bar (`│`)
     and next to an option's preview box, as in the owner's report.
-17. The hook is set up once per machine in the owner's Claude settings (`~/.claude/settings.json`).
+17. A single-choice question whose options show previews (as in the owner's report) is answered
+    too: Claude's dialog moves to such an option by its digit and chooses it with Enter, so the
+    server presses both.
+18. The hook is set up once per machine in the owner's Claude settings (`~/.claude/settings.json`).
     Without it, the app behaves as before this spec: no answerable card.
 
 - Given a session whose file has no call `toolu_1` and a hook file naming `toolu_1` with the
@@ -159,7 +163,7 @@ source of the waiting call; the card, the answer API and the keys stay as they a
 - Given the same hook file and a session file that holds `toolu_1` with its answer, then the
   transcript shows the answered entry once and no waiting one.
 - Given the hook's `PreToolUse` input, then the session's file holds the call; given its
-  `PostToolUse` or `Stop` input, then the file is gone; given input that is not JSON, then nothing
+  `PostToolUse`, `Stop`, `UserPromptSubmit` or `SessionStart` input, then the file is gone; given input that is not JSON, then nothing
   is written and the hook exits `0`.
 - Checked live: a dialog with previews and four questions, as in the owner's report, shows its
   card in the Chat view.

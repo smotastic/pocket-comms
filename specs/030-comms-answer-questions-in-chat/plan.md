@@ -138,22 +138,32 @@ cached, so a card from before an answer in the terminal is refused.
 Checked live against Claude Code v2.1.323 on 2026-11-18 with a logging hook: `PreToolUse` for
 `AskUserQuestion` carries `session_id`, `tool_use_id`, `cwd` and `tool_input.questions`;
 `PostToolUse` follows an answer; a dialog cancelled with Esc fires no `PostToolUse`, and the
-session file then holds the call with its refusal.
+session file then holds the call with its refusal. A single choice whose options carry a
+`preview` takes a digit as a move, not a choice: `2 enter` answered a lone one (Green), and
+`2 enter 1 3 right 1` a call with it and a multiple choice (Green; Cat, Fish).
 
-| Path                            | Change                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/comms-server`             | `src/claude-hook.ts`, built to `dist/claude-hook.js`, with Node built-ins only: reads the hook input from stdin and writes or removes `<COMMS_STATE_DIR or ~/.pocket-comms>/questions/<session>.json` (0600, written to a temporary file and renamed). A session id other than `[A-Za-z0-9-]` is ignored. The composition passes the questions folder to the transcript layer. The README names the settings entry. |
-| `packages/comms/infrastructure` | `transcript/claude.ts`: `waitingCallOf(cwd, file)`, the pending tool entry of a hook file, through the same `summarise` as a session line. `transcript/files.ts`: an optional `questions` folder; `read` appends the waiting entry when no entry has its id; `follow` checks the file at each tick and emits the entry once.                                                                                        |
-| `packages/comms/domain`         | `showsQuestion` drops box-drawing characters (U+2500–U+257F) with the whitespace before it looks for the question.                                                                                                                                                                                                                                                                                                  |
-| `packages/comms/application`    | `Input.answer` no longer requires `blocked`.                                                                                                                                                                                                                                                                                                                                                                        |
-| `apps/comms-web`                | `Conversation`: the card is answerable whatever the status; the wrapped screen's card for `blocked` stays as it was for every other case.                                                                                                                                                                                                                                                                           |
+After review: the hook's entry (`claude-hook.ts`) runs whenever it starts, as Node gives a script
+started through the `current` link a different `import.meta.url` than its `argv[1]`; the work is
+in `claude-questions.ts`. `UserPromptSubmit` and `SessionStart` also remove the file, so a Claude
+killed while asking and then resumed shows no stale question. `Question.previews` (domain only,
+not in the contract) adds `enter` after a single choice's digit in `answerKeys`.
+
+| Path                            | Change                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/comms-server`             | `src/claude-hook.ts` (the entry) and `src/claude-questions.ts`, built to `dist/`, with Node built-ins only: reads the hook input from stdin and writes or removes `<COMMS_STATE_DIR or ~/.pocket-comms>/questions/<session>.json` (0600, written to a temporary file and renamed). A session id other than `[A-Za-z0-9-]` is ignored. The composition passes the questions folder to the transcript layer. The README names the settings entry. |
+| `packages/comms/infrastructure` | `transcript/claude.ts`: `waitingCallOf(cwd, file)`, the pending tool entry of a hook file, through the same `summarise` as a session line. `transcript/files.ts`: an optional `questions` folder; `read` appends the waiting entry when no entry has its id; `follow` checks the file at each tick and emits the entry once.                                                                                                                    |
+| `packages/comms/domain`         | `showsQuestion` drops box-drawing characters (U+2500–U+257F) with the whitespace before it looks for the question.                                                                                                                                                                                                                                                                                                                              |
+| `packages/comms/application`    | `Input.answer` no longer requires `blocked`.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `apps/comms-web`                | `Conversation`: the card is answerable whatever the status; the wrapped screen's card for `blocked` stays as it was for every other case.                                                                                                                                                                                                                                                                                                       |
 
 The settings entry, set up by hand on the owner's Mac (with the path of the deployed release):
 
 ```json
 "PreToolUse": [{ "matcher": "AskUserQuestion", "hooks": [{ "type": "command", "command": "node <release>/apps/comms-server/dist/claude-hook.js" }] }],
 "PostToolUse": [{ "matcher": "AskUserQuestion", "hooks": [{ "type": "command", "command": "node <release>/apps/comms-server/dist/claude-hook.js" }] }],
-"Stop": [{ "hooks": [{ "type": "command", "command": "node <release>/apps/comms-server/dist/claude-hook.js" }] }]
+"Stop": [{ "hooks": [{ "type": "command", "command": "node <release>/apps/comms-server/dist/claude-hook.js" }] }],
+"UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node <release>/apps/comms-server/dist/claude-hook.js" }] }],
+"SessionStart": [{ "hooks": [{ "type": "command", "command": "node <release>/apps/comms-server/dist/claude-hook.js" }] }]
 ```
 
 `<release>` is `~/pocket-cloud-data/pocket-comms/current`, the link `install-comms.sh` moves on
@@ -165,6 +175,7 @@ entry last; a session file that holds the call wins; `follow` emits the entry af
 writes it. Domain: the question behind `│` and beside a preview box is found. Use case: a `done`
 agent with a waiting call is answered. Web: a `done` agent's waiting call is answerable.
 
-**Risks.** A Claude killed while asking leaves its file behind until its next `Stop`; its card
-stays answerable, and a send gets `409` from the screen check. The hook runs on every `Stop` of
-every session; it only removes a file, so it adds a Node start (about 50 ms) to each turn's end.
+**Risks.** A Claude killed while asking leaves its file behind until it resumes or gets its next
+prompt; meanwhile its card stays answerable, and a send gets `409` from the screen check. The hook
+runs at every turn's end, prompt and session start; each run only removes a file and adds a Node
+start (about 50 ms).

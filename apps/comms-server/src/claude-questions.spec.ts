@@ -2,7 +2,7 @@ import { describe, expect, it } from '@effect/vitest';
 import { existsSync, mkdtempSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { handleHook, questionsFolder } from './claude-hook.js';
+import { handleHook, questionsFolder } from './claude-questions.js';
 
 const folder = () => join(mkdtempSync(join(tmpdir(), 'comms-hook-')), 'questions');
 
@@ -44,6 +44,8 @@ describe('the Claude hook', () => {
   it.each([
     ['an answer', event('PostToolUse', { tool_name: 'AskUserQuestion', tool_use_id: 'toolu_1' })],
     ['the end of the turn', event('Stop')],
+    ['a new prompt', event('UserPromptSubmit')],
+    ['a resumed session', event('SessionStart')],
   ])('forgets the call after %s', (_, input) => {
     const path = folder();
     handleHook(asked, path);
@@ -78,5 +80,8 @@ describe('the Claude hook', () => {
       '/srv/state/questions',
     );
     expect(questionsFolder({}, '/home/me')).toBe('/home/me/.pocket-comms/questions');
+    expect(questionsFolder({ COMMS_STATE_DIR: '' }, '/home/me')).toBe(
+      '/home/me/.pocket-comms/questions',
+    );
   });
 });

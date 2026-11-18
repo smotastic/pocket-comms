@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest';
 import { readFileSync } from 'node:fs';
-import { claudeSessionPath, createClaudeParser } from './claude.js';
+import { claudeSessionPath, createClaudeParser, waitingCallOf } from './claude.js';
 
 const fixture = readFileSync(
   new URL('../testing/fixtures/claude-session.jsonl', import.meta.url),
@@ -213,6 +213,31 @@ describe('createClaudeParser with AskUserQuestion', () => {
           { ...waiting[1], answer: 'Backend, Web' },
         ],
       }),
+    ]);
+  });
+
+  it('marks a single choice whose options show previews', () => {
+    const file = {
+      session: 's1',
+      call: 'toolu-p',
+      input: {
+        questions: [
+          {
+            question: 'Pick a color?',
+            options: [{ label: 'Red', preview: '##' }, { label: 'Blue' }],
+            multiSelect: false,
+          },
+        ],
+      },
+    };
+
+    expect(waitingCallOf('/work/app', 's1', file, 7)?.questions).toEqual([
+      {
+        text: 'Pick a color?',
+        options: [{ label: 'Red' }, { label: 'Blue' }],
+        multiple: false,
+        previews: true,
+      },
     ]);
   });
 

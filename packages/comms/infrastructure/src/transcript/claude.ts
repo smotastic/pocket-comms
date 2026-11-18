@@ -41,6 +41,12 @@ const optionsOf = (question: unknown): ReadonlyArray<QuestionOption> | undefined
   return read.every((option) => option !== undefined) ? read : undefined;
 };
 
+// Claude's dialog moves to an option with a preview by its digit instead of choosing it.
+const hasPreviews = (question: unknown) => {
+  const options = isRecord(question) ? question['options'] : undefined;
+  return Array.isArray(options) && options.some((option) => stringField(option, 'preview'));
+};
+
 // The questions of an `AskUserQuestion` call, each with its text, short header and options.
 const questionsOf = (input: unknown): ReadonlyArray<Question> => {
   const questions = isRecord(input) ? input['questions'] : undefined;
@@ -56,7 +62,11 @@ const questionsOf = (input: unknown): ReadonlyArray<Question> => {
         text,
         ...(options === undefined
           ? {}
-          : { options, multiple: isRecord(question) && question['multiSelect'] === true }),
+          : {
+              options,
+              multiple: isRecord(question) && question['multiSelect'] === true,
+              ...(hasPreviews(question) ? { previews: true } : {}),
+            }),
       },
     ];
   });

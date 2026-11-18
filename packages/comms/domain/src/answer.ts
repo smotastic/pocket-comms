@@ -5,9 +5,10 @@ import type { DialogKey } from './input.js';
 import type { Question } from './transcript.js';
 
 // Claude's question dialog, as of Claude Code v2.1.323: each question is a tab and the dialog
-// opens on the first. A single choice's digit chooses its option and moves on; a multiple
+// opens on the first. A single choice's digit chooses its option and moves on, unless its options
+// show previews: then the digit moves to the option and Enter chooses it. A multiple
 // choice's digit toggles its option and `right` moves on. One single-choice question is
-// submitted by its digit; any other call ends on a review whose option 1 submits it.
+// submitted once chosen; any other call ends on a review whose option 1 submits it.
 
 /** The digits of a question's options, in order; Claude offers at most four. */
 const DIGITS: ReadonlyArray<DialogKey> = ['1', '2', '3', '4'];
@@ -55,6 +56,7 @@ export const answerKeys = (
     if (Result.isFailure(checked)) return Result.fail(checked.failure);
     keys.push(...chosen.flatMap((option) => DIGITS[option] ?? []));
     if (question.multiple === true) keys.push('right');
+    else if (question.previews === true) keys.push('enter');
   }
   const submitsAtOnce = questions.length === 1 && questions[0]?.multiple !== true;
   if (!submitsAtOnce) keys.push('1');

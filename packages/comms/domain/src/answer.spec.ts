@@ -17,12 +17,16 @@ const multiple = (text: string, ...labels: ReadonlyArray<string>): Question => (
 const color = single('Pick a color?', 'Red', 'Green', 'Blue', 'Yellow');
 const size = single('Pick a size?', 'Small', 'Large');
 const pets = multiple('Which pets?', 'Cat', 'Dog', 'Fish');
+const withPreviews: Question = {
+  ...single('Pick a color?', 'Red', 'Green', 'Blue'),
+  previews: true,
+};
 
 const invalid = (message: string) =>
   Result.fail(new InvalidInputError({ issues: [{ field: 'answers', message }] }));
 
 describe('answerKeys', () => {
-  // Each sequence answered the call as intended in Claude Code v2.1.323 (plan 030, section 4).
+  // Each sequence answered the call as intended in Claude Code v2.1.323.
   it('chooses the only single choice with its digit, which submits', () => {
     expect(answerKeys([single('Pick a color?', 'Red', 'Green', 'Blue')], [[1]])).toEqual(
       Result.succeed(['2']),
@@ -40,6 +44,16 @@ describe('answerKeys', () => {
   it('answers a single and a multiple choice, then submits the review', () => {
     expect(answerKeys([color, pets], [[2], [0, 2]])).toEqual(
       Result.succeed(['3', '1', '3', 'right', '1']),
+    );
+  });
+
+  it('moves to a single choice with previews and chooses it with Enter, which submits', () => {
+    expect(answerKeys([withPreviews], [[1]])).toEqual(Result.succeed(['2', 'enter']));
+  });
+
+  it('answers a single choice with previews and a multiple choice, then submits the review', () => {
+    expect(answerKeys([withPreviews, pets], [[1], [0, 2]])).toEqual(
+      Result.succeed(['2', 'enter', '1', '3', 'right', '1']),
     );
   });
 
