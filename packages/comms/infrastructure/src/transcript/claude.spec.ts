@@ -135,7 +135,7 @@ describe('createClaudeParser with AskUserQuestion', () => {
     {
       question: 'Keep Effect?',
       header: 'Stack',
-      options: [{ label: 'Keep Effect' }, { label: 'Drop it' }],
+      options: [{ label: 'Keep Effect', description: 'The stack stays.' }, { label: 'Drop it' }],
       multiSelect: false,
     },
     {
@@ -165,9 +165,14 @@ describe('createClaudeParser with AskUserQuestion', () => {
       },
       ...(toolUseResult === undefined ? {} : { toolUseResult }),
     });
+  const stackOptions = [
+    { label: 'Keep Effect', description: 'The stack stays.' },
+    { label: 'Drop it' },
+  ];
+  const projectOptions = [{ label: 'Backend' }, { label: 'Web' }];
   const waiting = [
-    { header: 'Stack', text: 'Keep Effect?' },
-    { header: 'Projects', text: 'Which projects?' },
+    { header: 'Stack', text: 'Keep Effect?', options: stackOptions, multiple: false },
+    { header: 'Projects', text: 'Which projects?', options: projectOptions, multiple: true },
   ];
 
   it('carries the questions while the owner has not answered', () => {
@@ -204,8 +209,8 @@ describe('createClaudeParser with AskUserQuestion', () => {
       expect.objectContaining({
         outcome: 'ok',
         questions: [
-          { header: 'Stack', text: 'Keep Effect?', answer: 'my own idea' },
-          { header: 'Projects', text: 'Which projects?', answer: 'Backend, Web' },
+          { ...waiting[0], answer: 'my own idea' },
+          { ...waiting[1], answer: 'Backend, Web' },
         ],
       }),
     ]);
@@ -229,6 +234,27 @@ describe('createClaudeParser with AskUserQuestion', () => {
 
     expect(entry).toEqual(expect.not.objectContaining({ questions: expect.anything() }));
     expect(entry).toMatchObject({ verb: 'Used', target: 'AskUserQuestion' });
+  });
+
+  it('keeps a question without options when they cannot be read', () => {
+    const parser = createClaudeParser('/work/app');
+    const unreadable = asked.replace(
+      '"options":[{"label":"Keep Effect"',
+      '"options":[{"name":"Keep Effect"',
+    );
+
+    const [entry] = parser.push(unreadable);
+
+    expect(entry).toMatchObject({
+      questions: [{ header: 'Stack', text: 'Keep Effect?' }, waiting[1]],
+    });
+    expect(entry).toEqual(
+      expect.objectContaining({
+        questions: expect.arrayContaining([
+          expect.not.objectContaining({ options: expect.anything() }),
+        ]),
+      }),
+    );
   });
 
   it('finishes a call whose result names no answers', () => {

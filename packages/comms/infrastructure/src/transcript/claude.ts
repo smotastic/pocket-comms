@@ -1,4 +1,9 @@
-import { promptWithImages, type TranscriptEntry } from '@pocket-comms/comms-domain';
+import {
+  promptWithImages,
+  type Question,
+  type QuestionOption,
+  type TranscriptEntry,
+} from '@pocket-comms/comms-domain';
 import { join } from 'node:path';
 import { backgroundLog, subagentOf } from './claude-background.js';
 import {
@@ -21,15 +26,38 @@ import {
 export const claudeSessionPath = (home: string, cwd: string, session: string): string =>
   join(home, '.claude', 'projects', cwd.replace(/[/.]/g, '-'), `${session}.jsonl`);
 
-// The questions of an `AskUserQuestion` call, each with its text and short header.
-const questionsOf = (input: unknown) => {
+// A question's options, each with its label and description. The owner answers by choosing one
+// by its place, so a list with an option that cannot be read is left out as a whole.
+const optionsOf = (question: unknown): ReadonlyArray<QuestionOption> | undefined => {
+  const options = isRecord(question) ? question['options'] : undefined;
+  if (!Array.isArray(options) || options.length === 0) return undefined;
+  const read = options.map((option: unknown) => {
+    const label = stringField(option, 'label');
+    const description = stringField(option, 'description');
+    if (label === undefined) return undefined;
+    return description === undefined ? { label } : { label, description };
+  });
+  return read.every((option) => option !== undefined) ? read : undefined;
+};
+
+// The questions of an `AskUserQuestion` call, each with its text, short header and options.
+const questionsOf = (input: unknown): ReadonlyArray<Question> => {
   const questions = isRecord(input) ? input['questions'] : undefined;
   if (!Array.isArray(questions)) return [];
   return questions.flatMap((question: unknown) => {
     const text = stringField(question, 'question');
     if (text === undefined) return [];
     const header = stringField(question, 'header');
-    return [header === undefined ? { text } : { header, text }];
+    const options = optionsOf(question);
+    return [
+      {
+        ...(header === undefined ? {} : { header }),
+        text,
+        ...(options === undefined
+          ? {}
+          : { options, multiple: isRecord(question) && question['multiSelect'] === true }),
+      },
+    ];
   });
 };
 

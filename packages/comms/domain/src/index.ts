@@ -44,6 +44,7 @@ export { buildOverview, needsYou, type Overview, type OverviewGroup } from './ov
 export {
   activityOf,
   type Question,
+  type QuestionOption,
   type ToolOutcome,
   type ToolVerb,
   type TranscriptEntry,

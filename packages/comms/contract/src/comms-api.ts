@@ -253,6 +253,29 @@ export const TranscriptEntry = Schema.Union([
             description: 'The chosen option, several joined with ", ", or what the owner typed.',
             examples: ['Keep Effect'],
           }),
+          options: optional(
+            Schema.Array(
+              Schema.Struct({
+                label: Schema.String.annotate({
+                  description: 'The option as offered.',
+                  examples: ['Keep Effect'],
+                }),
+                description: optional(Schema.String, {
+                  description: 'What choosing it means.',
+                  examples: ['The backend stays on Effect.'],
+                }),
+              }).annotate({ identifier: 'QuestionOption', description: 'One offered option.' }),
+            ),
+            {
+              description:
+                'The options offered, in order; their indexes answer the question. Left out when they cannot be read.',
+              examples: [[{ label: 'Keep Effect' }, { label: 'Drop it' }]],
+            },
+          ),
+          multiple: optional(Schema.Boolean, {
+            description: 'Several options may be chosen; given together with `options`.',
+            examples: [false],
+          }),
         }).annotate({ identifier: 'Question', description: 'One question and its answer.' }),
       ),
       {

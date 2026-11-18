@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Options in the transcript: `Question.options` and `multiple` in the domain, the
+- [x] **T01** — Options in the transcript: `Question.options` and `multiple` in the domain, the
       Claude reader and the contract; the OpenAPI document
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-domain comms-infrastructure comms-contract comms-server`
 

@@ -261,6 +261,11 @@ describe('wire schemas', () => {
         questions: [
           { header: 'Stack', text: 'Keep Effect?', answer: 'Keep Effect' },
           { text: 'Keep Nx?' },
+          {
+            text: 'Which projects?',
+            options: [{ label: 'Backend', description: 'The API.' }, { label: 'Web' }],
+            multiple: true,
+          },
         ],
         outcome: 'ok',
       },

@@ -1571,6 +1571,42 @@
             "description": "A short label of the question.",
             "examples": ["Stack"]
           },
+          "multiple": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Several options may be chosen; given together with `options`.",
+            "examples": [false]
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/QuestionOption"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The options offered, in order; their indexes answer the question. Left out when they cannot be read.",
+            "examples": [
+              [
+                {
+                  "label": "Keep Effect"
+                },
+                {
+                  "label": "Drop it"
+                }
+              ]
+            ]
+          },
           "text": {
             "description": "The question.",
             "examples": ["Keep Effect as the backend stack?"],
@@ -1578,6 +1614,31 @@
           }
         },
         "required": ["text"],
+        "type": "object"
+      },
+      "QuestionOption": {
+        "additionalProperties": false,
+        "description": "One offered option.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What choosing it means.",
+            "examples": ["The backend stays on Effect."]
+          },
+          "label": {
+            "description": "The option as offered.",
+            "examples": ["Keep Effect"],
+            "type": "string"
+          }
+        },
+        "required": ["label"],
         "type": "object"
       },
       "QuickReplies": {
