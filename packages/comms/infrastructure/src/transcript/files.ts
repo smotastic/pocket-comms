@@ -15,8 +15,8 @@ import * as Stream from 'effect/Stream';
 import { existsSync } from 'node:fs';
 import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
-import { claudeSessionPath, createClaudeParser } from './claude.js';
-import { stringField, type TranscriptParser } from './entries.js';
+import { claudeSessionPath, createClaudeParser, waitingCallOf } from './claude.js';
+import { stringField, type ToolEntry, type TranscriptParser } from './entries.js';
 import { createPiParser, piSessionFolder, piSessionId } from './pi.js';
 
 export interface FilesOptions {
@@ -26,6 +26,11 @@ export interface FilesOptions {
   readonly maxEntries?: number;
   /** How often `follow` checks the file for new lines. Default 500 ms. */
   readonly pollInterval?: Duration.Input;
+  /**
+   * The folder where the server's Claude hook keeps each session's waiting `AskUserQuestion`
+   * call, which Claude writes to the session file only once it is answered. None leaves it out.
+   */
+  readonly questions?: string;
 }
 
 const parserFor = (source: TranscriptSource): TranscriptParser =>
@@ -57,6 +62,7 @@ const readAppended = async (path: string, offset: number) => {
 };
 
 const SUBAGENT_ID = /^[a-z0-9]{1,64}$/u;
+const SESSION_ID = /^[A-Za-z0-9-]{1,128}$/u;
 const META_FILE = /^agent-([a-z0-9]{1,64})\.meta\.json$/u;
 
 // Claude keeps a subagent's files next to its session: `<session>/subagents/agent-<id>.*`.
@@ -95,7 +101,12 @@ const search = async (root: string, matches: (name: string) => boolean) => {
 };
 
 /** The session files of Claude and Pi agents below `home`, read and followed by polling. */
-export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis' }: FilesOptions) =>
+export const layerFiles = ({
+  home,
+  maxEntries = 300,
+  pollInterval = '500 millis',
+  questions,
+}: FilesOptions) =>
   Layer.sync(TranscriptOutbound, () => {
     // A session file never moves, so a path once found is kept.
     const found = new Map<string, string>();
@@ -154,6 +165,32 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
         ),
       );
 
+    // The session's waiting call, unless the session file holds it already: once answered or
+    // cancelled the call is there, and a hook file left behind no longer counts.
+    const waitingCall = async (
+      source: TranscriptSource,
+      parser: TranscriptParser,
+    ): Promise<ToolEntry | undefined> => {
+      if (questions === undefined || source.format !== 'claude' || source.subagent !== undefined) {
+        return undefined;
+      }
+      if (!SESSION_ID.test(source.session)) return undefined;
+      const path = join(questions, `${source.session}.json`);
+      const [file, info] = await Promise.all([readJson(path), stat(path).catch(() => undefined)]);
+      if (info === undefined) return undefined;
+      const call = waitingCallOf(source.cwd, source.session, file, Math.floor(info.mtimeMs));
+      if (call === undefined || parser.entries().some((entry) => entry.id === call.id)) {
+        return undefined;
+      }
+      return call;
+    };
+
+    const withWaiting = async (source: TranscriptSource, parser: TranscriptParser) => {
+      const call = await waitingCall(source, parser);
+      const entries = parser.entries();
+      return (call === undefined ? entries : [...entries, call]).slice(-maxEntries);
+    };
+
     const failed = (source: TranscriptSource) => (cause: unknown) =>
       new TranscriptUnavailableError({
         ref: source.ref,
@@ -168,7 +205,8 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
       });
       const parser = parserFor(source);
       for (const line of text.split('\n')) parser.push(line);
-      return { entries: parser.entries().slice(-maxEntries), modifiedAt: Math.floor(info.mtimeMs) };
+      const entries = yield* Effect.promise(() => withWaiting(source, parser));
+      return { entries, modifiedAt: Math.floor(info.mtimeMs) };
     });
 
     // Emits the latest entries, then reads what was appended since `offset`. Only complete lines
@@ -190,6 +228,13 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
           for (const line of initial.subarray(0, end).toString('utf8').split('\n'))
             parser.push(line);
           let offset = end;
+          // The waiting call emitted last, so each is emitted once.
+          let shown: string | undefined;
+          const initialEntries = yield* Effect.promise(() => withWaiting(source, parser));
+          const initialCall = initialEntries.at(-1);
+          if (initialCall?.type === 'tool' && initialCall.outcome === 'pending') {
+            shown = initialCall.id;
+          }
 
           const readNew = Effect.tryPromise({
             try: async () => {
@@ -198,6 +243,11 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
               const changed = new Map<string, TranscriptEntry>();
               for (const line of appended.lines) {
                 for (const entry of parser.push(line)) changed.set(entry.id, entry);
+              }
+              const call = await waitingCall(source, parser);
+              if (call !== undefined && call.id !== shown) {
+                shown = call.id;
+                changed.set(call.id, call);
               }
               return [...changed.values()];
             },
@@ -214,7 +264,7 @@ export const layerFiles = ({ home, maxEntries = 300, pollInterval = '500 millis'
           );
 
           return Stream.concat(
-            Stream.succeed(parser.entries().slice(-maxEntries)),
+            Stream.succeed(initialEntries),
             Stream.tick(pollInterval).pipe(
               Stream.mapEffect(() => check),
               Stream.filter((entries) => entries.length > 0),

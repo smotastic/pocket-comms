@@ -32,6 +32,7 @@ import {
 } from '@smotastic/pocket-agent/speech';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import { join } from 'node:path';
 
 // The composition root of the server: it wires the adapters. It holds no business logic.
 
@@ -84,7 +85,8 @@ export const services = ({
     Herdr.layerSocket({ path: socketPath, agentArgs }),
     Projects.layerGit({ root: projectsRoot }),
     Gitea.layerHttp(gitea),
-    Transcript.layerFiles({ home }),
+    // The Claude hook (`claude-hook.ts`) keeps the waiting questions in the same state folder.
+    Transcript.layerFiles({ home, questions: join(stateDir, 'questions') }),
     // Optional: without a model the server starts and the chat says what is missing.
     layerPiRuntime({ prefix: 'COMMS_BRAINSTORM', required: false, attribution: ATTRIBUTION }),
     Brainstorm.layerFile({ folder: stateDir }),

@@ -152,13 +152,20 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const hasChat = agent?.format !== undefined;
   const [chosen, setChosen] = useState<View>('chat');
   const view: View = hasChat ? chosen : 'screen';
-  const blocked = agent?.status === 'blocked';
-
   const transcript = useQuery({ ...transcriptQuery(client, agentRef), enabled: hasChat });
+  // A dialog waits while the agent is blocked, or while a Claude agent's latest entry is a question
+  // waiting for its answer: Herdr reports such an agent as done.
+  const pendingEntry = transcript.data?.entries.at(-1);
+  const dialogWaits =
+    agent?.status === 'blocked' ||
+    (agent?.format === 'claude' &&
+      pendingEntry?.type === 'tool' &&
+      pendingEntry.outcome === 'pending' &&
+      pendingEntry.questions !== undefined);
   const quickReplies = useQuery(quickRepliesQuery(client));
   const screen = useQuery({
     ...screenQuery(client, agentRef),
-    enabled: agent !== undefined && (view === 'screen' || blocked),
+    enabled: agent !== undefined && (view === 'screen' || dialogWaits),
   });
 
   // Opening a done agent shows its completion, so it leaves Needs you (requirement 11). A failed
@@ -245,12 +252,12 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
     if (key === 'pageup') setChosen('screen');
   };
   const sendReply = (text: string) =>
-    blocked ? typeText({ text, fromField: false }) : sendPrompt({ text, fromField: false }, []);
+    dialogWaits ? typeText({ text, fromField: false }) : sendPrompt({ text, fromField: false }, []);
   // A refused text means nothing once the dialog is gone.
   const { reset: resetTyped } = typed;
   useEffect(() => {
-    if (!blocked) resetTyped();
-  }, [blocked, resetTyped]);
+    if (!dialogWaits) resetTyped();
+  }, [dialogWaits, resetTyped]);
 
   const gone = agentResult.error instanceof RequestError && agentResult.error.status === 404;
   const shown = useRef(false);
@@ -313,8 +320,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
       ? { call: latest.id, questions: latest.questions }
       : undefined;
   const sentCall = answer.isSuccess ? answer.variables.call : undefined;
-  const answerable =
-    asking !== undefined && view === 'chat' && (blocked || sentCall === asking.call);
+  const answerable = asking !== undefined && view === 'chat';
   const picked =
     asking !== undefined && choices?.call === asking.call
       ? choices.chosen
@@ -350,7 +356,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const screenText = screen.data ?? '';
   const name = agent.ref;
   const kindLabel = kindOf(agent.kind).label;
-  const withKeys = blocked || view === 'screen';
+  const withKeys = dialogWaits || view === 'screen';
   const owned = quickReplies.data ?? [];
   const repliesAction: ReadonlyArray<ComposerAction> =
     owned.length === 0
@@ -426,7 +432,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
               />
             </Disclosure>
           ) : null}
-          {blocked ? (
+          {dialogWaits ? (
             <Composer
               label="Type into the dialog"
               value={dialogText}
@@ -513,7 +519,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
               <Activity label={transcript.data?.activity ?? 'Thinking…'} />
             ) : null}
             {/* Once answers are sent, a dialog still up shows again, so the owner sees what is left. */}
-            {blocked && (answering === undefined || answering.sent) ? (
+            {dialogWaits && (answering === undefined || answering.sent) ? (
               <Card title={`${kindLabel} needs your answer`}>
                 {/* Wrapped, so the whole question reads on a phone; the Screen view keeps the lines. */}
                 <TerminalScreen label={`Screen of ${name}`} text={screenText} wrap />

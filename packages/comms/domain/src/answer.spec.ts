@@ -109,6 +109,25 @@ describe('showsQuestion', () => {
     expect(showsQuestion(screen, [color, pets])).toBe(true);
   });
 
+  it('reads a question behind its bar, with a preview beside the options', () => {
+    const question = single(
+      'On the phone, how should a markdown table in a page render? (The bug itself — words split letter by letter — gets fixed in every option.)',
+      'Cards on phone (Recommended)',
+    );
+    const screen = dialog(
+      '←  ☐ Phone look  ☐ Card title  ☐ Scope  ☐ Where  ✔ Submit  →',
+      '',
+      '│ On the phone, how should a markdown table in a page render? (The bug itself — words split',
+      '│ letter by letter — gets fixed in every option.)',
+      '',
+      '❯ 1. Cards on phone               ┌──────────────────────────┐',
+      '    (Recommended)                 │ ┌──────────────┐         │',
+      '  2. Table, no word splits        │ │ Bärenstärke  │         │',
+    );
+
+    expect(showsQuestion(screen, [question])).toBe(true);
+  });
+
   it('refuses a dialog with an answered tab', () => {
     const screen = dialog('←  ☒ Color  ☐ Pets  ✔ Submit  →', 'Pick a color?', '❯ 1. Red');
 

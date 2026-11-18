@@ -62,7 +62,8 @@ export const answerKeys = (
 };
 
 const TAB_ROW = /^\s*(?:←\s+)?[☐☒]/u;
-const withoutSpace = (text: string) => text.replace(/\s+/gu, '');
+// Claude draws a bar before a question's lines and boxes around previews; neither is its text.
+const withoutSpace = (text: string) => text.replace(/[\s\u2500-\u257f]+/gu, '');
 // Herdr reads the screen with its escape sequences: colours (CSI) and links (OSC).
 const ESCAPES =
   // eslint-disable-next-line no-control-regex -- the escape sequences are what is removed.
@@ -70,7 +71,8 @@ const ESCAPES =
 
 /**
  * Whether the screen ends in the dialog of these questions, still fresh: no tab answered, not the
- * review, and the first question shown. The dialog wraps its text, so spaces do not count.
+ * review, and the first question shown. The dialog wraps its text, so spaces and box drawing do
+ * not count.
  */
 export const showsQuestion = (screen: string, questions: ReadonlyArray<Question>): boolean => {
   const first = questions[0];

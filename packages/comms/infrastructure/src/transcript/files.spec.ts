@@ -6,6 +6,7 @@ import * as Option from 'effect/Option';
 import * as Stream from 'effect/Stream';
 import {
   appendFileSync,
+  rmSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -404,5 +405,149 @@ describe('Transcript.layerFiles subagents', () => {
       expect(modified).toEqual(Option.none());
       expect(meta).toEqual(Option.none());
     }).pipe(Effect.provide(layerFiles({ home: root })));
+  });
+});
+
+describe('the waiting question from the Claude hook', () => {
+  const questions = [
+    {
+      question: 'Pick a color?',
+      header: 'Color',
+      options: [{ label: 'Red', description: 'Warm' }, { label: 'Blue' }],
+      multiSelect: false,
+    },
+  ];
+  const hookFile = (folder: string, call = 'toolu-ask', session = 's1') => {
+    mkdirSync(folder, { recursive: true });
+    const path = join(folder, `${session}.json`);
+    writeFileSync(path, JSON.stringify({ session, cwd: '/work/app', call, input: { questions } }));
+    utimesSync(path, new Date(9_000), new Date(9_000));
+    return path;
+  };
+  const asked = (id: string, uuid: string) =>
+    `${JSON.stringify({
+      type: 'assistant',
+      isSidechain: false,
+      uuid,
+      timestamp: '2026-10-30T15:19:00Z',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'tool_use', id, name: 'AskUserQuestion', input: { questions } }],
+      },
+    })}\n`;
+  const waiting = {
+    type: 'tool',
+    id: 'toolu-ask',
+    at: 9_000,
+    verb: 'Used',
+    target: 'AskUserQuestion',
+    questions: [
+      {
+        header: 'Color',
+        text: 'Pick a color?',
+        options: [{ label: 'Red', description: 'Warm' }, { label: 'Blue' }],
+        multiple: false,
+      },
+    ],
+    outcome: 'pending',
+  };
+
+  it.effect('ends the transcript with the call the session file does not hold yet', () => {
+    const { root } = home();
+    const questionsFolder = join(root, 'questions');
+    hookFile(questionsFolder);
+    return Effect.gen(function* () {
+      const { entries } = yield* TranscriptOutbound.use((port) => port.read(claude));
+
+      expect(entries.at(-1)).toEqual(waiting);
+      expect(entries.at(-2)?.id).toBe('toolu-build');
+    }).pipe(Effect.provide(layerFiles({ home: root, questions: questionsFolder })));
+  });
+
+  it.effect("shows the session file's entry once it holds the call", () => {
+    const { root, claudeFile } = home();
+    const questionsFolder = join(root, 'questions');
+    hookFile(questionsFolder);
+    appendFileSync(claudeFile, asked('toolu-ask', 'q-1'));
+    return Effect.gen(function* () {
+      const { entries } = yield* TranscriptOutbound.use((port) => port.read(claude));
+
+      expect(entries.filter((entry) => entry.id === 'toolu-ask')).toHaveLength(1);
+      expect(entries.at(-1)?.at).not.toBe(9_000);
+    }).pipe(Effect.provide(layerFiles({ home: root, questions: questionsFolder })));
+  });
+
+  it.effect('ignores a file of another session, of a Pi agent, or without questions', () => {
+    const { root } = home();
+    const questionsFolder = join(root, 'questions');
+    writeFileSync(
+      hookFile(questionsFolder),
+      JSON.stringify({ session: 'other', call: 'toolu-ask', input: { questions } }),
+    );
+    hookFile(questionsFolder, 'toolu-ask', 's2');
+    return Effect.gen(function* () {
+      const kirk = yield* TranscriptOutbound.use((port) => port.read(claude));
+      const spock = yield* TranscriptOutbound.use((port) => port.read(pi));
+
+      expect(kirk.entries.at(-1)?.id).toBe('toolu-build');
+      expect(spock.entries.some((entry) => entry.id === 'toolu-ask')).toBe(false);
+    }).pipe(Effect.provide(layerFiles({ home: root, questions: questionsFolder })));
+  });
+
+  it.live('follows the call once the hook writes it, and only once', () => {
+    const { root } = home();
+    const questionsFolder = join(root, 'questions');
+    return Effect.gen(function* () {
+      const fiber = yield* TranscriptOutbound.use((port) =>
+        port.follow(claude).pipe(Stream.take(2), Stream.runCollect),
+      ).pipe(Effect.forkChild);
+      yield* Effect.sleep('60 millis');
+
+      hookFile(questionsFolder);
+      const [, second] = yield* Fiber.join(fiber);
+
+      expect(second).toEqual([waiting]);
+    }).pipe(
+      Effect.provide(
+        layerFiles({ home: root, questions: questionsFolder, pollInterval: '20 millis' }),
+      ),
+    );
+  });
+
+  it.live('starts with the waiting call', () => {
+    const { root } = home();
+    const questionsFolder = join(root, 'questions');
+    hookFile(questionsFolder);
+    return Effect.gen(function* () {
+      const [first] = yield* TranscriptOutbound.use((port) =>
+        port.follow(claude).pipe(Stream.take(1), Stream.runCollect),
+      );
+
+      expect(first?.map((entry) => entry.id)).toEqual(['toolu-build', 'toolu-ask']);
+    }).pipe(Effect.provide(layerFiles({ home: root, maxEntries: 2, questions: questionsFolder })));
+  });
+
+  it.live("emits the session file's entry when the call is answered", () => {
+    const { root, claudeFile } = home();
+    const questionsFolder = join(root, 'questions');
+    const path = hookFile(questionsFolder);
+    return Effect.gen(function* () {
+      const fiber = yield* TranscriptOutbound.use((port) =>
+        port.follow(claude).pipe(Stream.take(2), Stream.runCollect),
+      ).pipe(Effect.forkChild);
+      yield* Effect.sleep('60 millis');
+
+      rmSync(path);
+      appendFileSync(claudeFile, asked('toolu-ask', 'q-1'));
+      const [, second] = yield* Fiber.join(fiber);
+
+      expect(second?.map((entry) => [entry.id, entry.at])).toEqual([
+        ['toolu-ask', Date.parse('2026-10-30T15:19:00Z')],
+      ]);
+    }).pipe(
+      Effect.provide(
+        layerFiles({ home: root, questions: questionsFolder, pollInterval: '20 millis' }),
+      ),
+    );
   });
 });

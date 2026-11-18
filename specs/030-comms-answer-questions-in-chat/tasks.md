@@ -31,7 +31,7 @@ in the task's own commit.
       with the reader's option)
   - Gate: `pnpm nx run-many -t test,test-typecheck,lint,build -p comms-server`
 
-- [ ] **T08** — The questions folder in the composition; the reader adds the hook's waiting call; `showsQuestion` reads past box drawing;
+- [x] **T08** — The questions folder in the composition; the reader adds the hook's waiting call; `showsQuestion` reads past box drawing;
       `answer` and the web card no longer require `blocked`
   - Gate: `pnpm nx run-many -t test,test-typecheck,lint -p comms-domain comms-application comms-infrastructure comms-web comms-server`
 

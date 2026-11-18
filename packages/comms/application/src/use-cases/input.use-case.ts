@@ -76,7 +76,7 @@ export const makeInput = Effect.gen(function* () {
 
   // The keys answer a fresh dialog of this very call, so each check reads the session file and the
   // screen again: a question answered at the terminal or moved on is refused, and nothing is
-  // pressed.
+  // pressed. Herdr's status does not count: it shows an agent whose question waits as done.
   const answer = Effect.fn('Input.answer')(function* (
     ref: string,
     call: string,
@@ -89,7 +89,6 @@ export const makeInput = Effect.gen(function* () {
     if (transcriptFormatOf(agent) !== 'claude' || Option.isNone(source)) {
       return yield* notWaiting('Only a Claude agent asks questions the app can answer.');
     }
-    if (agent.status !== 'blocked') return yield* notWaiting('The agent is not waiting.');
     const { entries } = yield* transcriptOutbound
       .read(source.value)
       .pipe(Effect.catchTag('TranscriptUnavailableError', (error) => notWaiting(error.reason)));
