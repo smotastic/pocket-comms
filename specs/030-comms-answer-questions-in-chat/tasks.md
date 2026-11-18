@@ -27,6 +27,14 @@ in the task's own commit.
       screen
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T06** — Docs and live check: the comms service guide; checked live at 390 px; the spec's
-      status `Done`
+- [x] **T07** — The hook script and its tests (the composition passes the questions folder in T08,
+      with the reader's option)
+  - Gate: `pnpm nx run-many -t test,test-typecheck,lint,build -p comms-server`
+
+- [x] **T08** — The questions folder in the composition; the reader adds the hook's waiting call; `showsQuestion` reads past box drawing;
+      `answer` and the web card no longer require `blocked`
+  - Gate: `pnpm nx run-many -t test,test-typecheck,lint -p comms-domain comms-application comms-infrastructure comms-web comms-server`
+
+- [ ] **T06** — Docs and live check: the comms service guide and the hook's setup; the hook set up
+      on the owner's Mac; checked live at 390 px; the spec's status `Done`
   - Gate: `pnpm verify:local`

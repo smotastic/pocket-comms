@@ -1314,12 +1314,14 @@ describe("answering an agent's question in the chat", () => {
     expect(await screen.findByText('Herdr is not running.')).toBeDefined();
   });
 
-  it('offers no options while the agent is not blocked', async () => {
-    openAsking(fakeAgent({ status: 'working' }));
+  // Herdr reports a Claude agent whose question waits as done, not blocked.
+  it('offers the options, the keys and the dialog field whatever status Herdr reports', async () => {
+    openAsking(fakeAgent({ status: 'done' }));
 
-    expect(await screen.findByText('Can you undo an accepted item?')).toBeDefined();
-    expect(screen.queryByRole('radio', { name: 'No undo' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Send answers' })).toBeNull();
+    expect(await screen.findByRole('radio', { name: 'No undo' })).toBeDefined();
+    expect(screen.getByRole('button', { name: /^Controls/ })).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
+    expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
   });
 
   it('has no accessibility violations', async () => {

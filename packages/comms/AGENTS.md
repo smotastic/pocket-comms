@@ -72,10 +72,23 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
 - Answering a question from the chat (spec 030) presses the keys of Claude's `AskUserQuestion`
   dialog, worked out in `answerKeys` from its behaviour as of Claude Code v2.1.323: a single
   choice's digit chooses and moves on, a multiple choice's digit toggles and `right` moves on, and
-  `1` submits the review, which a lone single choice skips. `Input.answer` presses nothing unless
-  the call is the latest entry of a blocked Claude agent, has no result, and `showsQuestion` finds
-  the fresh dialog on the screen. When Claude Code changes its dialog, probe it live and change
-  `answerKeys` and its tests together; never widen the keys API for it.
+  `1` submits the review, which a lone single choice skips; a single choice whose options show
+  previews moves by its digit and chooses with `enter`. `Input.answer` presses nothing unless
+  the call is the latest entry of a Claude agent, has no result, and `showsQuestion` finds the
+  fresh dialog on the screen; Herdr's status does not count, as it reports such an agent as done.
+  When Claude Code changes its dialog, probe it live and change `answerKeys` and its tests
+  together; never widen the keys API for it.
+- Claude Code writes a waiting `AskUserQuestion` call to its session file only once it is
+  answered, so the waiting call comes from the server's Claude hook
+  (`apps/comms-server/src/claude-hook.ts`, its work in `claude-questions.ts`), which keeps it in
+  `<state>/questions/<session>.json` until `PostToolUse`, `Stop`, `UserPromptSubmit` or
+  `SessionStart`. The transcript reader adds it as the latest entry while the
+  session file does not hold its id. The hook must never get in Claude's way: Node built-ins
+  only, no output, exit `0`. Set it up once per machine in `~/.claude/settings.json`, for
+  `PreToolUse` and `PostToolUse` with the matcher `AskUserQuestion` and for `Stop`,
+  `UserPromptSubmit` and `SessionStart`, each with the
+  command `node ~/pocket-cloud-data/pocket-comms/current/apps/comms-server/dist/claude-hook.js`
+  (the deployed release; `COMMS_STATE_DIR` must match the server's when it is set).
 - Suggested replies (spec 025) come from fixed rules in `suggestedReplies`, never from a model,
   and travel on the assistant entries. The web app offers them only in the Chat view of an idle
   or done agent and sends one only as a prompt: a suggestion never presses a key, never types

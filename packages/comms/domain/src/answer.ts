@@ -5,9 +5,10 @@ import type { DialogKey } from './input.js';
 import type { Question } from './transcript.js';
 
 // Claude's question dialog, as of Claude Code v2.1.323: each question is a tab and the dialog
-// opens on the first. A single choice's digit chooses its option and moves on; a multiple
+// opens on the first. A single choice's digit chooses its option and moves on, unless its options
+// show previews: then the digit moves to the option and Enter chooses it. A multiple
 // choice's digit toggles its option and `right` moves on. One single-choice question is
-// submitted by its digit; any other call ends on a review whose option 1 submits it.
+// submitted once chosen; any other call ends on a review whose option 1 submits it.
 
 /** The digits of a question's options, in order; Claude offers at most four. */
 const DIGITS: ReadonlyArray<DialogKey> = ['1', '2', '3', '4'];
@@ -55,6 +56,7 @@ export const answerKeys = (
     if (Result.isFailure(checked)) return Result.fail(checked.failure);
     keys.push(...chosen.flatMap((option) => DIGITS[option] ?? []));
     if (question.multiple === true) keys.push('right');
+    else if (question.previews === true) keys.push('enter');
   }
   const submitsAtOnce = questions.length === 1 && questions[0]?.multiple !== true;
   if (!submitsAtOnce) keys.push('1');
@@ -62,7 +64,8 @@ export const answerKeys = (
 };
 
 const TAB_ROW = /^\s*(?:←\s+)?[☐☒]/u;
-const withoutSpace = (text: string) => text.replace(/\s+/gu, '');
+// Claude draws a bar before a question's lines and boxes around previews; neither is its text.
+const withoutSpace = (text: string) => text.replace(/[\s\u2500-\u257f]+/gu, '');
 // Herdr reads the screen with its escape sequences: colours (CSI) and links (OSC).
 const ESCAPES =
   // eslint-disable-next-line no-control-regex -- the escape sequences are what is removed.
@@ -70,7 +73,8 @@ const ESCAPES =
 
 /**
  * Whether the screen ends in the dialog of these questions, still fresh: no tab answered, not the
- * review, and the first question shown. The dialog wraps its text, so spaces do not count.
+ * review, and the first question shown. The dialog wraps its text, so spaces and box drawing do
+ * not count.
  */
 export const showsQuestion = (screen: string, questions: ReadonlyArray<Question>): boolean => {
   const first = questions[0];

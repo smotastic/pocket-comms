@@ -27,6 +27,11 @@ export interface Question {
   readonly options?: ReadonlyArray<QuestionOption> | undefined;
   /** Several options may be chosen; known together with `options`. */
   readonly multiple?: boolean | undefined;
+  /**
+   * The options show previews: Claude's dialog then moves to an option by its digit and chooses
+   * it with Enter. Known together with `options`; the app shows no previews.
+   */
+  readonly previews?: boolean | undefined;
   /** The chosen option's label, several joined with ", ", or what the owner typed. */
   readonly answer?: string | undefined;
 }

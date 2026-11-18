@@ -326,10 +326,20 @@ describe('AgentsInbound.answer', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  // Herdr reports a Claude agent whose question waits as done, not blocked.
+  it.effect('answers whatever status Herdr reports', () =>
+    Effect.gen(function* () {
+      const state = yield* waiting({ status: 'done' });
+
+      yield* answer([[3], [0, 2]]);
+
+      expect(pressed(state)).toHaveLength(1);
+    }).pipe(Effect.provide(layer())),
+  );
+
   const refusals: ReadonlyArray<[string, Partial<Agent>, Array<TranscriptEntry>, string, string]> =
     [
       ['a Pi agent', { kind: 'pi' }, [asks], dialog, 'toolu-q'],
-      ['an agent that is not blocked', { status: 'working' }, [asks], dialog, 'toolu-q'],
       ['another call', {}, [asks], dialog, 'toolu-other'],
       [
         'a call that is not the latest entry',

@@ -15,6 +15,7 @@ import {
   parseLine,
   relativeTo,
   stringField,
+  type ToolEntry,
   type ToolSummary,
   type TranscriptParser,
 } from './entries.js';
@@ -40,6 +41,12 @@ const optionsOf = (question: unknown): ReadonlyArray<QuestionOption> | undefined
   return read.every((option) => option !== undefined) ? read : undefined;
 };
 
+// Claude's dialog moves to an option with a preview by its digit instead of choosing it.
+const hasPreviews = (question: unknown) => {
+  const options = isRecord(question) ? question['options'] : undefined;
+  return Array.isArray(options) && options.some((option) => stringField(option, 'preview'));
+};
+
 // The questions of an `AskUserQuestion` call, each with its text, short header and options.
 const questionsOf = (input: unknown): ReadonlyArray<Question> => {
   const questions = isRecord(input) ? input['questions'] : undefined;
@@ -55,7 +62,11 @@ const questionsOf = (input: unknown): ReadonlyArray<Question> => {
         text,
         ...(options === undefined
           ? {}
-          : { options, multiple: isRecord(question) && question['multiSelect'] === true }),
+          : {
+              options,
+              multiple: isRecord(question) && question['multiSelect'] === true,
+              ...(hasPreviews(question) ? { previews: true } : {}),
+            }),
       },
     ];
   });
@@ -105,6 +116,24 @@ const summarise = (cwd: string | undefined, name: string, input: unknown): ToolS
     default:
       return { verb: 'Used', target: name };
   }
+};
+
+/**
+ * The waiting `AskUserQuestion` call of a session, from the file the server's Claude hook keeps
+ * (`{ session, call, input }`), as the pending entry its line in the session file will become.
+ * None for a file of another session or without readable questions.
+ */
+export const waitingCallOf = (
+  cwd: string | undefined,
+  session: string,
+  file: unknown,
+  at: number,
+): ToolEntry | undefined => {
+  const call = stringField(file, 'call');
+  if (call === undefined || stringField(file, 'session') !== session) return undefined;
+  const summary = summarise(cwd, 'AskUserQuestion', isRecord(file) ? file['input'] : undefined);
+  if (summary.questions === undefined) return undefined;
+  return { type: 'tool', id: call, at, ...summary, outcome: 'pending' };
 };
 
 // A prompt the owner typed. Claude also stores injected text as user messages: skill bodies and
