@@ -512,6 +512,15 @@ export const ActivityEvent = Schema.Union([
       examples: ['Use SQLite instead'],
     }),
   }),
+  Schema.Struct({
+    type: activityType('answered', "The owner answered an agent's question from the app."),
+    ...activityFields,
+    excerpt: Schema.String.annotate({
+      description:
+        'The chosen options, each question\'s joined with ", " and the questions with "; ", at most 80 characters.',
+      examples: ['Blue; Cat, Fish'],
+    }),
+  }),
 ]).annotate({ identifier: 'ActivityEvent', description: 'One event of the activity timeline.' });
 
 export const Activity = Schema.Struct({

@@ -63,6 +63,10 @@ export const answerKeys = (
 
 const TAB_ROW = /^\s*(?:←\s+)?[☐☒]/u;
 const withoutSpace = (text: string) => text.replace(/\s+/gu, '');
+// Herdr reads the screen with its escape sequences: colours (CSI) and links (OSC).
+const ESCAPES =
+  // eslint-disable-next-line no-control-regex -- the escape sequences are what is removed.
+  /\u001b\[[0-?]*[ -/]*[@-~]|\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)|\u001b[@-_]/gu;
 
 /**
  * Whether the screen ends in the dialog of these questions, still fresh: no tab answered, not the
@@ -71,7 +75,7 @@ const withoutSpace = (text: string) => text.replace(/\s+/gu, '');
 export const showsQuestion = (screen: string, questions: ReadonlyArray<Question>): boolean => {
   const first = questions[0];
   if (first === undefined) return false;
-  const lines = screen.split('\n');
+  const lines = screen.replace(ESCAPES, '').split('\n');
   const tabRow = lines.length - 1 - [...lines].reverse().findIndex((line) => TAB_ROW.test(line));
   if (tabRow === lines.length) return false;
   const dialog = lines.slice(tabRow).join('\n');

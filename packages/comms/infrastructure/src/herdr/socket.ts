@@ -10,7 +10,7 @@ import {
   type Agent,
   pagedAwayAfter,
   whilePagedAway,
-  type AgentKey,
+  type DialogKey,
   type Workspace,
 } from '@pocket-comms/comms-domain';
 import * as Cause from 'effect/Cause';
@@ -90,15 +90,15 @@ const WorkspaceRecord = Schema.Struct({
 
 // Herdr has no names for Page Up and Page Down, so they go to the pane as the terminal's own
 // sequences; the other keys keep Herdr's names.
-const PAGE_SEQUENCES: Partial<Record<AgentKey, string>> = {
+const PAGE_SEQUENCES: Partial<Record<DialogKey, string>> = {
   pageup: '\u001b[5~',
   pagedown: '\u001b[6~',
 };
 
-type KeyRun = { readonly text: string } | { readonly keys: ReadonlyArray<AgentKey> };
+type KeyRun = { readonly text: string } | { readonly keys: ReadonlyArray<DialogKey> };
 
 /** Splits `keys` into runs of named keys and runs of page sequences, in their order. */
-const keyRuns = (keys: ReadonlyArray<AgentKey>): ReadonlyArray<KeyRun> =>
+const keyRuns = (keys: ReadonlyArray<DialogKey>): ReadonlyArray<KeyRun> =>
   keys.reduce<Array<KeyRun>>((runs, key) => {
     const sequence = PAGE_SEQUENCES[key];
     const last = runs.at(-1);

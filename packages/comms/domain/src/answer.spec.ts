@@ -99,6 +99,16 @@ describe('showsQuestion', () => {
     expect(showsQuestion(screen, [question])).toBe(true);
   });
 
+  it('reads through the colours of the screen', () => {
+    const screen = dialog(
+      '\u001b[2m←\u001b[0m  \u001b[7m☐ Color\u001b[0m  ✔ Submit  →',
+      '\u001b[1mPick a \u001b[36mcolor?\u001b[39m\u001b[0m',
+      '\u001b]8;;https://x\u0007❯ 1. Red\u001b]8;;\u0007',
+    );
+
+    expect(showsQuestion(screen, [color, pets])).toBe(true);
+  });
+
   it('refuses a dialog with an answered tab', () => {
     const screen = dialog('←  ☒ Color  ☐ Pets  ✔ Submit  →', 'Pick a color?', '❯ 1. Red');
 

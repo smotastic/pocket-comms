@@ -325,6 +325,42 @@
             },
             "required": ["type", "id", "at", "agent", "live", "excerpt"],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent": {
+                "$ref": "#/components/schemas/ActivityAgent"
+              },
+              "at": {
+                "description": "When it happened, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "excerpt": {
+                "description": "The chosen options, each question's joined with \", \" and the questions with \"; \", at most 80 characters.",
+                "examples": ["Blue; Cat, Fish"],
+                "type": "string"
+              },
+              "id": {
+                "description": "The id of the event.",
+                "examples": ["0c6f5bd2-5a3e-4f7a-9d61-1f0f6f1c2a3b"],
+                "type": "string"
+              },
+              "live": {
+                "description": "Whether the agent still runs, so its conversation can open.",
+                "examples": [true],
+                "type": "boolean"
+              },
+              "type": {
+                "description": "The owner answered an agent's question from the app.",
+                "enum": ["answered"],
+                "examples": ["answered"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "agent", "live", "excerpt"],
+            "type": "object"
           }
         ],
         "description": "One event of the activity timeline."

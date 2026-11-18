@@ -18,6 +18,7 @@ import type {
   HerdrUnavailableError,
   NotAWorktreeError,
   ProjectGitError,
+  QuestionNotWaitingError,
   SubagentNotFoundError,
   TranscriptUnavailableError,
   WorktreeHasChangesError,
@@ -70,6 +71,18 @@ export class AgentsInbound extends Context.Service<
       ref: string,
       keys: ReadonlyArray<string>,
     ) => Effect.Effect<void, Lookup | InvalidInputError | HerdrRejectedError>;
+    /**
+     * Answers the waiting question call `call` with the chosen options' indexes, one list per
+     * question, by pressing the dialog's keys (spec 030).
+     */
+    readonly answer: (
+      ref: string,
+      call: string,
+      answers: ReadonlyArray<ReadonlyArray<number>>,
+    ) => Effect.Effect<
+      void,
+      Lookup | InvalidInputError | QuestionNotWaitingError | HerdrRejectedError
+    >;
     /** Removes the agent's worktree and closes its workspace; `force` drops its changes. */
     readonly close: (
       ref: string,

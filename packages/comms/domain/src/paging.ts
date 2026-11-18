@@ -1,5 +1,5 @@
 import type { Agent } from './agent.js';
-import type { AgentKey } from './input.js';
+import type { DialogKey } from './input.js';
 
 // Page Up scrolls a long question of a waiting agent so the owner can read its start. The agent's
 // question then leaves its screen, and Herdr reads the screen as a finished turn: done, and then
@@ -7,14 +7,14 @@ import type { AgentKey } from './input.js';
 // it waiting until Herdr reports another status, such as blocked once the question is back, or
 // until the owner does anything but page, such as answer or cancel the question.
 
-const PAGE_KEYS: ReadonlyArray<AgentKey> = ['pageup', 'pagedown'];
+const PAGE_KEYS: ReadonlyArray<DialogKey> = ['pageup', 'pagedown'];
 
 /**
  * Whether the agent is paged away from its question after `keys`: Page Up scrolls a waiting agent
  * away, paging keeps it away, and any other key ends it.
  */
 export const pagedAwayAfter = (
-  keys: ReadonlyArray<AgentKey>,
+  keys: ReadonlyArray<DialogKey>,
   agent: Agent | undefined,
   pagedAway: boolean,
 ): boolean => {

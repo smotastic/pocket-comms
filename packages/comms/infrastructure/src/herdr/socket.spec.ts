@@ -230,6 +230,19 @@ describe('Herdr.layerSocket', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live("presses the fourth option's digit by its key name, as the others", () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['4', 'right', '1'])).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+      );
+
+      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
+        ['agent.send_keys', { target: 'wJ:p1', keys: ['4', 'right', '1'] }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('pages with the terminal sequences, which Herdr has no key names for, in order', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);

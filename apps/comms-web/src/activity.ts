@@ -39,6 +39,8 @@ export const activityText = (event: ActivityEventView): string => {
       return `You pressed ${event.keys.map((key) => KEY_LABELS[key]).join(', ')}`;
     case 'typed':
       return `You typed: ${event.excerpt}`;
+    case 'answered':
+      return `You answered: ${event.excerpt}`;
   }
 };
 
