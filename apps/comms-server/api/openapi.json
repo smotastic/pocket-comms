@@ -325,6 +325,42 @@
             },
             "required": ["type", "id", "at", "agent", "live", "excerpt"],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent": {
+                "$ref": "#/components/schemas/ActivityAgent"
+              },
+              "at": {
+                "description": "When it happened, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "excerpt": {
+                "description": "The chosen options, each question's joined with \", \" and the questions with \"; \", at most 80 characters.",
+                "examples": ["Blue; Cat, Fish"],
+                "type": "string"
+              },
+              "id": {
+                "description": "The id of the event.",
+                "examples": ["0c6f5bd2-5a3e-4f7a-9d61-1f0f6f1c2a3b"],
+                "type": "string"
+              },
+              "live": {
+                "description": "Whether the agent still runs, so its conversation can open.",
+                "examples": [true],
+                "type": "boolean"
+              },
+              "type": {
+                "description": "The owner answered an agent's question from the app.",
+                "enum": ["answered"],
+                "examples": ["answered"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "agent", "live", "excerpt"],
+            "type": "object"
           }
         ],
         "description": "One event of the activity timeline."
@@ -484,6 +520,36 @@
           }
         },
         "required": ["kind"],
+        "type": "object"
+      },
+      "AnswerRequest": {
+        "additionalProperties": false,
+        "description": "The owner's answer to a waiting question.",
+        "properties": {
+          "answers": {
+            "description": "One list per question of the call, in the call's order.",
+            "examples": [[[2], [0, 2]]],
+            "items": {
+              "description": "The indexes of the question's chosen options, from 0.",
+              "examples": [[2]],
+              "items": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxItems": 4,
+              "type": "array"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "type": "array"
+          },
+          "call": {
+            "description": "The waiting question call: its transcript entry's id.",
+            "examples": ["toolu_01ABC"],
+            "type": "string"
+          }
+        },
+        "required": ["call", "answers"],
         "type": "object"
       },
       "BackgroundItem": {
@@ -1571,6 +1637,42 @@
             "description": "A short label of the question.",
             "examples": ["Stack"]
           },
+          "multiple": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Several options may be chosen; given together with `options`.",
+            "examples": [false]
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/QuestionOption"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The options offered, in order; their indexes answer the question. Left out when they cannot be read.",
+            "examples": [
+              [
+                {
+                  "label": "Keep Effect"
+                },
+                {
+                  "label": "Drop it"
+                }
+              ]
+            ]
+          },
           "text": {
             "description": "The question.",
             "examples": ["Keep Effect as the backend stack?"],
@@ -1578,6 +1680,31 @@
           }
         },
         "required": ["text"],
+        "type": "object"
+      },
+      "QuestionOption": {
+        "additionalProperties": false,
+        "description": "One offered option.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What choosing it means.",
+            "examples": ["The backend stays on Effect."]
+          },
+          "label": {
+            "description": "The option as offered.",
+            "examples": ["Keep Effect"],
+            "type": "string"
+          }
+        },
+        "required": ["label"],
         "type": "object"
       },
       "QuickReplies": {
@@ -2413,6 +2540,95 @@
         },
         "security": [],
         "summary": "Get an agent",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/answer": {
+      "post": {
+        "description": "Answers the agent's waiting question call with the chosen options by pressing the keys of its dialog, and submits it. Answers `409` and presses nothing when the call is not the latest entry of a blocked Claude agent, has a result, or is not on the agent's screen.",
+        "operationId": "agents.answer",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Answer a question",
         "tags": ["Agents"]
       }
     },

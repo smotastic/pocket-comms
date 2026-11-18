@@ -1,6 +1,6 @@
 import type {
   Agent,
-  AgentKey,
+  DialogKey,
   AgentStatus,
   AgentToStart,
   Workspace,
@@ -81,7 +81,7 @@ export class HerdrOutbound extends Context.Service<
     /** Presses `keys` in order in the pane `paneId`, never an agent's name. */
     readonly sendKeys: (
       paneId: string,
-      keys: ReadonlyArray<AgentKey>,
+      keys: ReadonlyArray<DialogKey>,
     ) => Effect.Effect<void, HerdrUnavailableError | HerdrRejectedError>;
     /** Creates a git worktree and opens it as a workspace, without moving the focus. */
     readonly createWorktree: (

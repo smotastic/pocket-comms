@@ -56,6 +56,7 @@ describe('CommsApi', () => {
       '/api/v1/activity/events',
       '/api/v1/agents',
       '/api/v1/agents/{agent}',
+      '/api/v1/agents/{agent}/answer',
       '/api/v1/agents/{agent}/close',
       '/api/v1/agents/{agent}/events',
       '/api/v1/agents/{agent}/keys',
@@ -130,9 +131,10 @@ describe('CommsApi', () => {
           { type: 'status', ...common, status: 'done' },
           { type: 'gone', ...common },
           { type: 'typed', ...common, excerpt: 'Use SQLite' },
+          { type: 'answered', ...common, excerpt: 'Blue; Cat, Fish' },
         ],
       }).events.map((event) => event.type),
-    ).toEqual(['keys', 'prompt', 'status', 'gone', 'typed']);
+    ).toEqual(['keys', 'prompt', 'status', 'gone', 'typed', 'answered']);
     expect(() => decode({ events: [{ type: 'status', ...common, status: 'idle' }] })).toThrow();
     expect(() => decode({ events: [{ type: 'keys', ...common, keys: ['x'] }] })).toThrow();
   });
@@ -261,6 +263,11 @@ describe('wire schemas', () => {
         questions: [
           { header: 'Stack', text: 'Keep Effect?', answer: 'Keep Effect' },
           { text: 'Keep Nx?' },
+          {
+            text: 'Which projects?',
+            options: [{ label: 'Backend', description: 'The API.' }, { label: 'Web' }],
+            multiple: true,
+          },
         ],
         outcome: 'ok',
       },

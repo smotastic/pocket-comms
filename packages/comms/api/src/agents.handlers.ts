@@ -94,6 +94,16 @@ export const agentsHandlers = HttpApiBuilder.group(
           }),
         ),
       )
+      .handle('answer', ({ params, payload }) =>
+        agentsInbound.answer(params.agent, payload.call, payload.answers).pipe(
+          Effect.catchTags({
+            ...lookup,
+            HerdrRejectedError: problems.herdrRejected,
+            InvalidInputError: problems.invalidInput,
+            QuestionNotWaitingError: problems.questionNotWaiting,
+          }),
+        ),
+      )
       .handle('seen', ({ params }) =>
         agentsInbound.markSeen(params.agent).pipe(Effect.catchTags(lookup)),
       )

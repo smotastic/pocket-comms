@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { InvalidInputError } from '@pocket-comms/comms-domain';
+import { InvalidInputError, type Agent, type TranscriptEntry } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import { AgentNotFoundError, HerdrRejectedError } from '../errors.js';
@@ -258,6 +258,114 @@ describe('AgentsInbound input in the activity timeline', () => {
       );
 
       expect(state.activity).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+});
+
+describe('AgentsInbound.answer', () => {
+  const asks = {
+    type: 'tool',
+    id: 'toolu-q',
+    at: 1,
+    verb: 'Used',
+    target: 'AskUserQuestion',
+    questions: [
+      {
+        header: 'Color',
+        text: 'Pick a color?',
+        options: [{ label: 'Red' }, { label: 'Green' }, { label: 'Blue' }, { label: 'Yellow' }],
+        multiple: false,
+      },
+      {
+        header: 'Pets',
+        text: 'Which pets?',
+        options: [{ label: 'Cat' }, { label: 'Dog' }, { label: 'Fish' }],
+        multiple: true,
+      },
+    ],
+    outcome: 'pending',
+  } satisfies TranscriptEntry;
+  const dialog = [
+    '←  ☐ Color  ☐ Pets  ✔ Submit  →',
+    'Pick a color?',
+    '❯ 1. Red',
+    'Enter to select · Tab/Arrow keys to navigate · Esc to cancel',
+  ].join('\n');
+
+  const waiting = (
+    agent: Partial<Agent> = {},
+    entries: Array<TranscriptEntry> = [asks],
+    screen = dialog,
+  ) =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.agents = [
+        fakeAgent({ paneId: 'w1:p1', name: 'kirk', status: 'blocked', session: 's1', ...agent }),
+      ];
+      state.transcripts.set('s1', { entries, modifiedAt: 1 });
+      state.screens.set('w1:p1', screen);
+      return state;
+    });
+
+  const answer = (answers: ReadonlyArray<ReadonlyArray<number>>, call = 'toolu-q') =>
+    AgentsInbound.use((inbound) => inbound.answer('kirk', call, answers));
+
+  const pressed = (state: FakeState['Service']) =>
+    state.calls.filter((call) => call.method === 'sendKeys');
+
+  it.effect('presses the keys that answer and submit the dialog, and records the answer', () =>
+    Effect.gen(function* () {
+      const state = yield* waiting();
+
+      yield* answer([[3], [0, 2]]);
+
+      expect(pressed(state)).toEqual([
+        { method: 'sendKeys', target: 'w1:p1', params: ['4', '1', '3', 'right', '1'] },
+      ]);
+      expect(state.activity).toMatchObject([{ type: 'answered', excerpt: 'Yellow; Cat, Fish' }]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  const refusals: ReadonlyArray<[string, Partial<Agent>, Array<TranscriptEntry>, string, string]> =
+    [
+      ['a Pi agent', { kind: 'pi' }, [asks], dialog, 'toolu-q'],
+      ['an agent that is not blocked', { status: 'working' }, [asks], dialog, 'toolu-q'],
+      ['another call', {}, [asks], dialog, 'toolu-other'],
+      [
+        'a call that is not the latest entry',
+        {},
+        [asks, { type: 'assistant', id: 'a1', at: 2, text: 'Thanks.' }],
+        dialog,
+        'toolu-q',
+      ],
+      ['an answered call', {}, [{ ...asks, outcome: 'ok' }], dialog, 'toolu-q'],
+      ['a screen without the question', {}, [asks], '❯ Try "fix the tests"', 'toolu-q'],
+    ];
+
+  it.effect.each(refusals)('refuses %s and presses nothing', ([, agent, entries, screen, call]) =>
+    Effect.gen(function* () {
+      const state = yield* waiting(agent, entries, screen);
+
+      const error = yield* answer([[3], [0, 2]], call).pipe(Effect.flip);
+
+      expect(error._tag).toBe('QuestionNotWaitingError');
+      expect(pressed(state)).toEqual([]);
+      expect(state.activity).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('refuses answers that do not fit the call and presses nothing', () =>
+    Effect.gen(function* () {
+      const state = yield* waiting();
+
+      const error = yield* answer([[3, 1], [0]]).pipe(Effect.flip);
+
+      expect(error).toEqual(
+        new InvalidInputError({
+          issues: [{ field: 'answers', message: 'Choose only one option for "Pick a color?".' }],
+        }),
+      );
+      expect(pressed(state)).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
 });

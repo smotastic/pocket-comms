@@ -1,7 +1,7 @@
 import { ImageThumb, Markdown, Text } from '@smotastic/pocket-design';
 import { MISSING } from './AttachedImages.js';
 import type { TranscriptView } from './comms-client.js';
-import { QuestionCard } from './QuestionCard.js';
+import { QuestionCard, type QuestionAnswering } from './QuestionCard.js';
 import { ToolLine } from './ToolLine.js';
 import { UserMessage } from './UserMessage.js';
 
@@ -18,13 +18,14 @@ const QUESTION_STATES = { pending: 'waiting', ok: 'answered', error: 'unanswered
 
 /**
  * A conversation's entries as a chat. `linkOf` makes a tool call a link, such as a delegation to
- * the subagent it started.
+ * the subagent it started; `answering` makes the waiting question call `call` answerable.
  */
 export const Chat = ({
   transcript,
   failed,
   imageUrl,
   linkOf = () => undefined,
+  answering,
 }: {
   readonly transcript: TranscriptView | undefined;
   /** Where an attached image of a prompt is served (spec 014). */
@@ -32,6 +33,7 @@ export const Chat = ({
   /** The session cannot be read, such as before the agent's first prompt. */
   readonly failed: boolean;
   readonly linkOf?: (entry: ToolEntry) => ToolLink | undefined;
+  readonly answering?: QuestionAnswering & { readonly call: string };
 }) => {
   if (transcript === undefined) {
     return (
@@ -70,12 +72,15 @@ export const Chat = ({
               return (
                 <QuestionCard
                   key={entry.id}
-                  questions={entry.questions.map(({ header, text, answer }) => ({
+                  questions={entry.questions.map(({ header, text, answer, options, multiple }) => ({
                     text,
                     ...(header === undefined ? {} : { header }),
                     ...(answer === undefined ? {} : { answer }),
+                    ...(options === undefined ? {} : { options }),
+                    ...(multiple === undefined ? {} : { multiple }),
                   }))}
                   state={QUESTION_STATES[entry.outcome]}
+                  {...(answering?.call === entry.id ? { answering } : {})}
                 />
               );
             }

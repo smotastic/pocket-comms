@@ -21,8 +21,9 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 023](../../specs/023-comms-brainstorm-pictures/spec.md),
 [spec 024](../../specs/024-comms-typed-answers/spec.md),
 [spec 025](../../specs/025-comms-quick-replies/spec.md),
-[spec 026](../../specs/026-comms-brainstorm-chat-stream/spec.md) and
-[spec 027](../../specs/027-comms-brainstorm-voice/spec.md).
+[spec 026](../../specs/026-comms-brainstorm-chat-stream/spec.md),
+[spec 027](../../specs/027-comms-brainstorm-voice/spec.md) and
+[spec 030](../../specs/030-comms-answer-questions-in-chat/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, the push devices and the
@@ -68,6 +69,13 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
 - Typed text (spec 024) goes through `HerdrOutbound.typeText` (`pane.send_text`), which never
   presses Enter: the owner submits a waiting dialog with the `enter` key. Do not add Enter to it,
   and do not route it through `prompt`, which submits.
+- Answering a question from the chat (spec 030) presses the keys of Claude's `AskUserQuestion`
+  dialog, worked out in `answerKeys` from its behaviour as of Claude Code v2.1.323: a single
+  choice's digit chooses and moves on, a multiple choice's digit toggles and `right` moves on, and
+  `1` submits the review, which a lone single choice skips. `Input.answer` presses nothing unless
+  the call is the latest entry of a blocked Claude agent, has no result, and `showsQuestion` finds
+  the fresh dialog on the screen. When Claude Code changes its dialog, probe it live and change
+  `answerKeys` and its tests together; never widen the keys API for it.
 - Suggested replies (spec 025) come from fixed rules in `suggestedReplies`, never from a model,
   and travel on the assistant entries. The web app offers them only in the Chat view of an idle
   or done agent and sends one only as a prompt: a suggestion never presses a key, never types

@@ -1,15 +1,22 @@
 import {
   activitySubject,
+  answerExcerpt,
+  answerKeys,
   parseKeys,
   parsePrompt,
   parseTyped,
   promptExcerpt,
   promptWithImages,
+  showsQuestion,
+  transcriptFormatOf,
 } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
+import * as Option from 'effect/Option';
+import { QuestionNotWaitingError } from '../errors.js';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { TranscriptOutbound } from '../ports/transcript.outbound.port.js';
 import { makeRecordActivity } from './activity-log.js';
-import { makeLoadAgents } from './agents.js';
+import { makeLoadAgents, sourceOf } from './agents.js';
 import { makeImagePaths } from './image-paths.js';
 
 // Commands go to the agent's pane id: the name may move to another agent between the lookup and
@@ -17,6 +24,7 @@ import { makeImagePaths } from './image-paths.js';
 
 export const makeInput = Effect.gen(function* () {
   const herdrOutbound = yield* HerdrOutbound;
+  const transcriptOutbound = yield* TranscriptOutbound;
   const { find } = yield* makeLoadAgents;
   const { imagePaths } = yield* makeImagePaths;
   const { record } = yield* makeRecordActivity;
@@ -66,5 +74,48 @@ export const makeInput = Effect.gen(function* () {
     ]);
   });
 
-  return { screen, prompt, type, sendKeys };
+  // The keys answer a fresh dialog of this very call, so each check reads the session file and the
+  // screen again: a question answered at the terminal or moved on is refused, and nothing is
+  // pressed.
+  const answer = Effect.fn('Input.answer')(function* (
+    ref: string,
+    call: string,
+    answers: ReadonlyArray<ReadonlyArray<number>>,
+  ) {
+    const { agent, workspace } = yield* find(ref);
+    const notWaiting = (reason: string) =>
+      Effect.fail(new QuestionNotWaitingError({ ref, reason }));
+    const source = sourceOf(agent);
+    if (transcriptFormatOf(agent) !== 'claude' || Option.isNone(source)) {
+      return yield* notWaiting('Only a Claude agent asks questions the app can answer.');
+    }
+    if (agent.status !== 'blocked') return yield* notWaiting('The agent is not waiting.');
+    const { entries } = yield* transcriptOutbound
+      .read(source.value)
+      .pipe(Effect.catchTag('TranscriptUnavailableError', (error) => notWaiting(error.reason)));
+    const latest = entries.at(-1);
+    if (
+      latest?.type !== 'tool' ||
+      latest.id !== call ||
+      latest.questions === undefined ||
+      latest.outcome !== 'pending'
+    ) {
+      return yield* notWaiting('This question was answered or moved on.');
+    }
+    const keys = yield* Effect.fromResult(answerKeys(latest.questions, answers));
+    const screen = yield* herdrOutbound.readScreen(agent.paneId);
+    if (!showsQuestion(screen, latest.questions)) {
+      return yield* notWaiting("The agent's screen does not show this question.");
+    }
+    yield* herdrOutbound.sendKeys(agent.paneId, keys);
+    yield* record([
+      {
+        type: 'answered',
+        excerpt: answerExcerpt(latest.questions, answers),
+        agent: activitySubject(agent, workspace),
+      },
+    ]);
+  });
+
+  return { screen, prompt, type, sendKeys, answer };
 });

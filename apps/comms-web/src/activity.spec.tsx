@@ -160,6 +160,7 @@ describe('activityText', () => {
     [{ type: 'prompt', excerpt: '', images: 2 }, 'You sent 2 images'],
     [{ type: 'keys', keys: ['enter'] }, 'You pressed Enter'],
     [{ type: 'typed', excerpt: 'Use SQLite' }, 'You typed: Use SQLite'],
+    [{ type: 'answered', excerpt: 'Blue; Cat, Fish' }, 'You answered: Blue; Cat, Fish'],
     [{ type: 'keys', keys: ['2', 'down', 'esc', 'ctrl+c'] }, 'You pressed 2, ↓, Esc, Ctrl-C'],
     [{ type: 'keys', keys: ['left', 'right'] }, 'You pressed ←, →'],
     [{ type: 'keys', keys: ['pageup', 'pagedown'] }, 'You pressed Page up, Page down'],

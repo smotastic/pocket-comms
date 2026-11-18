@@ -31,7 +31,9 @@ export {
   parseKeys,
   parsePrompt,
   parseTyped,
+  type DialogKey,
 } from './input.js';
+export { answerExcerpt, answerKeys, showsQuestion } from './answer.js';
 export {
   DEFAULT_QUICK_REPLIES,
   MAX_QUICK_REPLIES,
@@ -44,6 +46,7 @@ export { buildOverview, needsYou, type Overview, type OverviewGroup } from './ov
 export {
   activityOf,
   type Question,
+  type QuestionOption,
   type ToolOutcome,
   type ToolVerb,
   type TranscriptEntry,

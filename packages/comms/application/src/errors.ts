@@ -35,6 +35,15 @@ export class TranscriptUnavailableError extends Data.TaggedError('TranscriptUnav
   readonly reason: string;
 }> {}
 
+/**
+ * The agent's question is no longer waiting as the owner saw it: it was answered, it moved on, or
+ * the agent's screen does not show it.
+ */
+export class QuestionNotWaitingError extends Data.TaggedError('QuestionNotWaitingError')<{
+  readonly ref: string;
+  readonly reason: string;
+}> {}
+
 /** The agent's session has no subagent by that id, or its agent has no subagents at all. */
 export class SubagentNotFoundError extends Data.TaggedError('SubagentNotFoundError')<{
   readonly ref: string;

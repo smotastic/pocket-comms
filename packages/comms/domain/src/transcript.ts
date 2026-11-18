@@ -11,11 +11,22 @@ export type ToolVerb =
 
 export type ToolOutcome = 'ok' | 'error' | 'pending';
 
+/** One option a question offers, such as "Keep Effect". */
+export interface QuestionOption {
+  readonly label: string;
+  /** What choosing it means, when the agent said so. */
+  readonly description?: string | undefined;
+}
+
 /** One question an agent asked the owner, and the answer they chose once known. */
 export interface Question {
   /** A short label of the question, such as "Stack". */
   readonly header?: string | undefined;
   readonly text: string;
+  /** The options offered, in order; left out when they cannot be read. */
+  readonly options?: ReadonlyArray<QuestionOption> | undefined;
+  /** Several options may be chosen; known together with `options`. */
+  readonly multiple?: boolean | undefined;
   /** The chosen option's label, several joined with ", ", or what the owner typed. */
   readonly answer?: string | undefined;
 }

@@ -46,6 +46,7 @@ export {
   ProposalDecidedError,
   ProposalNotFoundError,
   PushStoreError,
+  QuestionNotWaitingError,
   QuickRepliesStoreError,
   HerdrRejectedError,
   HerdrUnavailableError,

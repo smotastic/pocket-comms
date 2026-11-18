@@ -29,6 +29,7 @@ import {
   PushInbound,
   PushStoreError,
   QuickRepliesInbound,
+  QuestionNotWaitingError,
   QuickRepliesStoreError,
   TasksInbound,
   WorktreeHasChangesError,
@@ -313,6 +314,73 @@ describe('the agents API', () => {
     const response = await call('/api/v1/agents/kirk/text', json({ text: 'x'.repeat(2_001) }));
 
     expect(response.status).toBe(422);
+  });
+
+  it("answers an agent's waiting question with the chosen options", async () => {
+    const answered: Array<unknown> = [];
+    const call = serve({
+      answer: (ref, toolCall, answers) =>
+        Effect.sync(() => void answered.push([ref, toolCall, answers])),
+    });
+
+    const response = await call(
+      '/api/v1/agents/kirk/answer',
+      json({ call: 'toolu-q', answers: [[3], [0, 2]] }),
+    );
+
+    expect(response.status).toBe(204);
+    expect(answered).toEqual([['kirk', 'toolu-q', [[3], [0, 2]]]]);
+  });
+
+  it('answers 409 when the question is no longer waiting', async () => {
+    const call = serve({
+      answer: (ref) =>
+        Effect.fail(new QuestionNotWaitingError({ ref, reason: 'The agent is not waiting.' })),
+    });
+
+    const response = await call('/api/v1/agents/kirk/answer', json({ call: 'q', answers: [[0]] }));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:question-not-waiting',
+      detail: 'The agent is not waiting.',
+    });
+  });
+
+  it('answers 422 for answers that do not fit the question', async () => {
+    const call = serve({
+      answer: () =>
+        Effect.fail(
+          new InvalidInputError({
+            issues: [{ field: 'answers', message: 'Answer each of the 2 questions.' }],
+          }),
+        ),
+    });
+
+    const response = await call('/api/v1/agents/kirk/answer', json({ call: 'q', answers: [[0]] }));
+
+    expect(response.status).toBe(422);
+  });
+
+  it.each([
+    ['no questions', []],
+    ['five questions', [[0], [0], [0], [0], [0]]],
+    ['five options', [[0, 1, 2, 3, 4]]],
+    ['a fraction', [[0.5]]],
+  ])('answers 422 for %s without asking the agent', async (_, answers) => {
+    const call = serve({ answer: () => Effect.die('not called') });
+
+    const response = await call('/api/v1/agents/kirk/answer', json({ call: 'q', answers }));
+
+    expect(response.status).toBe(422);
+  });
+
+  it('answers 404 when answering an unknown agent', async () => {
+    const call = serve({ answer: (ref) => Effect.fail(new AgentNotFoundError({ ref })) });
+
+    const response = await call('/api/v1/agents/spock/answer', json({ call: 'q', answers: [[0]] }));
+
+    expect(response.status).toBe(404);
   });
 
   it('marks an agent as seen', async () => {

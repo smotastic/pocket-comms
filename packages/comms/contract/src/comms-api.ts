@@ -253,6 +253,29 @@ export const TranscriptEntry = Schema.Union([
             description: 'The chosen option, several joined with ", ", or what the owner typed.',
             examples: ['Keep Effect'],
           }),
+          options: optional(
+            Schema.Array(
+              Schema.Struct({
+                label: Schema.String.annotate({
+                  description: 'The option as offered.',
+                  examples: ['Keep Effect'],
+                }),
+                description: optional(Schema.String, {
+                  description: 'What choosing it means.',
+                  examples: ['The backend stays on Effect.'],
+                }),
+              }).annotate({ identifier: 'QuestionOption', description: 'One offered option.' }),
+            ),
+            {
+              description:
+                'The options offered, in order; their indexes answer the question. Left out when they cannot be read.',
+              examples: [[{ label: 'Keep Effect' }, { label: 'Drop it' }]],
+            },
+          ),
+          multiple: optional(Schema.Boolean, {
+            description: 'Several options may be chosen; given together with `options`.',
+            examples: [false],
+          }),
         }).annotate({ identifier: 'Question', description: 'One question and its answer.' }),
       ),
       {
@@ -404,6 +427,29 @@ export const TypeRequest = Schema.Struct({
   }),
 }).annotate({ identifier: 'TypeRequest', description: 'Text to type into a waiting dialog.' });
 
+export const AnswerRequest = Schema.Struct({
+  call: Schema.String.annotate({
+    description: "The waiting question call: its transcript entry's id.",
+    examples: ['toolu_01ABC'],
+  }),
+  answers: Schema.Array(
+    Schema.Array(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))
+      .check(Schema.isMaxLength(4))
+      .annotate({
+        description: "The indexes of the question's chosen options, from 0.",
+        examples: [[2]],
+      }),
+  )
+    .check(Schema.isMinLength(1), Schema.isMaxLength(4))
+    .annotate({
+      description: "One list per question of the call, in the call's order.",
+      examples: [[[2], [0, 2]]],
+    }),
+}).annotate({
+  identifier: 'AnswerRequest',
+  description: "The owner's answer to a waiting question.",
+});
+
 export const ActivityAgent = Schema.Struct({
   ref: AgentParam,
   paneId: Schema.String.annotate({ description: "The agent's Herdr pane.", examples: ['wJ:p1'] }),
@@ -487,6 +533,15 @@ export const ActivityEvent = Schema.Union([
     excerpt: Schema.String.annotate({
       description: 'The typed text, at most 80 characters.',
       examples: ['Use SQLite instead'],
+    }),
+  }),
+  Schema.Struct({
+    type: activityType('answered', "The owner answered an agent's question from the app."),
+    ...activityFields,
+    excerpt: Schema.String.annotate({
+      description:
+        'The chosen options, each question\'s joined with ", " and the questions with "; ", at most 80 characters.',
+      examples: ['Blue; Cat, Fish'],
     }),
   }),
 ]).annotate({ identifier: 'ActivityEvent', description: 'One event of the activity timeline.' });
@@ -1227,6 +1282,18 @@ const group = HttpApiGroup.make('agents')
         summary: 'Type text',
         description:
           "Types the text into the agent's terminal as it is, such as an answer to a waiting dialog. It never presses Enter: the owner submits with the `enter` key.",
+      }),
+    ),
+    HttpApiEndpoint.post('answer', '/agents/:agent/answer', {
+      params: agent,
+      payload: AnswerRequest,
+      success: HttpApiSchema.NoContent,
+      error: [...problems, Problems.Conflict, Problems.Validation],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Answer a question',
+        description:
+          "Answers the agent's waiting question call with the chosen options by pressing the keys of its dialog, and submits it. Answers `409` and presses nothing when the call is not the latest entry of a blocked Claude agent, has a result, or is not on the agent's screen.",
       }),
     ),
     HttpApiEndpoint.post('seen', '/agents/:agent/seen', {

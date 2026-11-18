@@ -26,6 +26,7 @@ const events: ReadonlyArray<ActivityEvent> = [
   { id: 'e3', at: 3, type: 'prompt', excerpt: 'Fix the build', images: 2, agent },
   { id: 'e4', at: 4, type: 'keys', keys: ['2', 'enter'], agent },
   { id: 'e6', at: 4, type: 'typed', excerpt: 'Use SQLite', agent },
+  { id: 'e7', at: 4, type: 'answered', excerpt: 'Blue; Cat, Fish', agent },
   {
     id: 'e5',
     at: 5,
@@ -73,6 +74,7 @@ describe('the activity file store', () => {
         'e4',
         'e5',
         'e6',
+        'e7',
       ]);
     }),
   );
