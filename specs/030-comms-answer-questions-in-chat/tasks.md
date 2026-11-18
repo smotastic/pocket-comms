@@ -9,7 +9,7 @@ in the task's own commit.
       Claude reader and the contract; the OpenAPI document
   - Gate: `pnpm nx run-many -t test,typecheck -p comms-domain comms-infrastructure comms-contract comms-server`
 
-- [ ] **T02** — Domain: `answerKeys`, `showsQuestion`, `answerExcerpt` and `DialogKey`, pinned by
+- [x] **T02** — Domain: `answerKeys`, `showsQuestion`, `answerExcerpt` and `DialogKey`, pinned by
       the probed sequences
   - Gate: `pnpm nx test comms-domain`
 

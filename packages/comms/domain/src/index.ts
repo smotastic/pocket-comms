@@ -31,7 +31,9 @@ export {
   parseKeys,
   parsePrompt,
   parseTyped,
+  type DialogKey,
 } from './input.js';
+export { answerExcerpt, answerKeys, showsQuestion } from './answer.js';
 export {
   DEFAULT_QUICK_REPLIES,
   MAX_QUICK_REPLIES,

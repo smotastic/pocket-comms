@@ -26,6 +26,12 @@ export const AgentKey = Schema.Literals([
 ]);
 export type AgentKey = typeof AgentKey.Type;
 
+/**
+ * The keys the server presses to answer a question dialog (spec 030): the app's keys and the
+ * fourth option's digit, which the keys API does not offer.
+ */
+export type DialogKey = AgentKey | '4';
+
 const isAgentKey = Schema.is(AgentKey);
 
 const invalid = (field: string, message: string) =>
