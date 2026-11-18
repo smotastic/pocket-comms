@@ -19,7 +19,7 @@ in the task's own commit.
       every commit builds
   - Gate: `pnpm nx run-many -t test,test-typecheck,lint -p comms-application comms-infrastructure comms-contract comms-api comms-web`
 
-- [ ] **T04** — Contract and API: `AnswerRequest`, `POST /agents/:agent/answer` and its problems;
+- [x] **T04** — Contract and API: `AnswerRequest`, `POST /agents/:agent/answer` and its problems;
       the OpenAPI document
   - Gate: `pnpm nx run-many -t test -p comms-contract comms-api comms-server`
 

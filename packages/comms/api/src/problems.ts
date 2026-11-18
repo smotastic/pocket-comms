@@ -50,6 +50,14 @@ export const problems = {
         detail: error.reason,
       }),
     ),
+  questionNotWaiting: (error: { readonly reason: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'question-not-waiting',
+        title: 'The question is no longer waiting',
+        detail: error.reason,
+      }),
+    ),
   herdrRejected: (error: { readonly code: string; readonly message: string }) =>
     Effect.fail(
       conflictProblem({

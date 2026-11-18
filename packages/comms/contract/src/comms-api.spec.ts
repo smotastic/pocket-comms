@@ -56,6 +56,7 @@ describe('CommsApi', () => {
       '/api/v1/activity/events',
       '/api/v1/agents',
       '/api/v1/agents/{agent}',
+      '/api/v1/agents/{agent}/answer',
       '/api/v1/agents/{agent}/close',
       '/api/v1/agents/{agent}/events',
       '/api/v1/agents/{agent}/keys',

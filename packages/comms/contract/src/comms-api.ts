@@ -427,6 +427,29 @@ export const TypeRequest = Schema.Struct({
   }),
 }).annotate({ identifier: 'TypeRequest', description: 'Text to type into a waiting dialog.' });
 
+export const AnswerRequest = Schema.Struct({
+  call: Schema.String.annotate({
+    description: "The waiting question call: its transcript entry's id.",
+    examples: ['toolu_01ABC'],
+  }),
+  answers: Schema.Array(
+    Schema.Array(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))
+      .check(Schema.isMaxLength(4))
+      .annotate({
+        description: "The indexes of the question's chosen options, from 0.",
+        examples: [[2]],
+      }),
+  )
+    .check(Schema.isMinLength(1), Schema.isMaxLength(4))
+    .annotate({
+      description: "One list per question of the call, in the call's order.",
+      examples: [[[2], [0, 2]]],
+    }),
+}).annotate({
+  identifier: 'AnswerRequest',
+  description: "The owner's answer to a waiting question.",
+});
+
 export const ActivityAgent = Schema.Struct({
   ref: AgentParam,
   paneId: Schema.String.annotate({ description: "The agent's Herdr pane.", examples: ['wJ:p1'] }),
@@ -1259,6 +1282,18 @@ const group = HttpApiGroup.make('agents')
         summary: 'Type text',
         description:
           "Types the text into the agent's terminal as it is, such as an answer to a waiting dialog. It never presses Enter: the owner submits with the `enter` key.",
+      }),
+    ),
+    HttpApiEndpoint.post('answer', '/agents/:agent/answer', {
+      params: agent,
+      payload: AnswerRequest,
+      success: HttpApiSchema.NoContent,
+      error: [...problems, Problems.Conflict, Problems.Validation],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Answer a question',
+        description:
+          "Answers the agent's waiting question call with the chosen options by pressing the keys of its dialog, and submits it. Answers `409` and presses nothing when the call is not the latest entry of a blocked Claude agent, has a result, or is not on the agent's screen.",
       }),
     ),
     HttpApiEndpoint.post('seen', '/agents/:agent/seen', {
