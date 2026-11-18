@@ -23,7 +23,7 @@ in the task's own commit.
       the OpenAPI document
   - Gate: `pnpm nx run-many -t test -p comms-contract comms-api comms-server`
 
-- [ ] **T05** — Web: `CommsClient.answer`; the answerable question card in place of the wrapped
+- [x] **T05** — Web: `CommsClient.answer`; the answerable question card in place of the wrapped
       screen
   - Gate: `pnpm nx test comms-web`
 

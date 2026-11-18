@@ -73,7 +73,7 @@ export class AgentsInbound extends Context.Service<
     ) => Effect.Effect<void, Lookup | InvalidInputError | HerdrRejectedError>;
     /**
      * Answers the waiting question call `call` with the chosen options' indexes, one list per
-     * question, by pressing the dialog's keys (spec 030).
+     * question, by pressing the dialog's keys.
      */
     readonly answer: (
       ref: string,

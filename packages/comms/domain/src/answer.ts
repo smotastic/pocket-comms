@@ -4,10 +4,10 @@ import { InvalidInputError } from './errors.js';
 import type { DialogKey } from './input.js';
 import type { Question } from './transcript.js';
 
-// Claude's question dialog (spec 030, checked against Claude Code v2.1.323): each question is a
-// tab and the dialog opens on the first. A single choice's digit chooses its option and moves on;
-// a multiple choice's digit toggles its option and `right` moves on. One single-choice question
-// is submitted by its digit; any other call ends on a review whose option 1 submits it.
+// Claude's question dialog, as of Claude Code v2.1.323: each question is a tab and the dialog
+// opens on the first. A single choice's digit chooses its option and moves on; a multiple
+// choice's digit toggles its option and `right` moves on. One single-choice question is
+// submitted by its digit; any other call ends on a review whose option 1 submits it.
 
 /** The digits of a question's options, in order; Claude offers at most four. */
 const DIGITS: ReadonlyArray<DialogKey> = ['1', '2', '3', '4'];

@@ -35,7 +35,7 @@ export type ActivityChange =
   | { readonly type: 'keys'; readonly keys: ReadonlyArray<AgentKey> }
   /** Text the owner typed into a waiting dialog from the app, cut short. */
   | { readonly type: 'typed'; readonly excerpt: string }
-  /** The options the owner chose for a waiting question from the app, cut short (spec 030). */
+  /** The options the owner chose for a waiting question from the app, cut short. */
   | { readonly type: 'answered'; readonly excerpt: string };
 
 /** A change of one agent, before it gets its id and time. */

@@ -172,7 +172,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const [closing, setClosing] = useState(false);
   const [draft, setDraft] = useState('');
   // What the owner types into a waiting dialog, apart from the message they are writing.
-  const [answer, setAnswer] = useState('');
+  const [dialogText, setDialogText] = useState('');
   // The message the last successful prompt answered, so its suggestions are not sent again, and
   // the latest message, which the next prompt answers.
   const [answered, setAnswered] = useState<string>();
@@ -204,8 +204,23 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const typed = useMutation({
     mutationFn: ({ text }: Send) => client.type(agentRef, text),
     onSuccess: (_, { fromField }) => {
-      if (fromField) setAnswer('');
+      if (fromField) setDialogText('');
     },
+  });
+  // The options the owner chose for a waiting question, kept by its call so a new question starts
+  // empty and a failed send keeps them.
+  const [choices, setChoices] = useState<{
+    readonly call: string;
+    readonly chosen: ReadonlyArray<ReadonlyArray<number>>;
+  }>();
+  const answer = useMutation({
+    mutationFn: ({
+      call,
+      answers,
+    }: {
+      call: string;
+      answers: ReadonlyArray<ReadonlyArray<number>>;
+    }) => client.answer(agentRef, call, answers),
   });
   // Only the latest send can fail visibly: a new one clears the reason of the others.
   const failure = prompt.error ?? keys.error ?? typed.error;
@@ -286,6 +301,51 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
     view === 'chat' && waiting && latest?.type === 'assistant' && latest.id !== answered
       ? { id: latest.id, replies: latest.replies ?? [] }
       : undefined;
+
+  // A Claude agent's waiting question whose options are known is answered in its card, also while
+  // a sent answer waits for the session to record it.
+  const asking =
+    agent.format === 'claude' &&
+    latest?.type === 'tool' &&
+    latest.outcome === 'pending' &&
+    latest.questions !== undefined &&
+    latest.questions.every((question) => (question.options?.length ?? 0) > 0)
+      ? { call: latest.id, questions: latest.questions }
+      : undefined;
+  const sentCall = answer.isSuccess ? answer.variables.call : undefined;
+  const answerable =
+    asking !== undefined && view === 'chat' && (blocked || sentCall === asking.call);
+  const picked =
+    asking !== undefined && choices?.call === asking.call
+      ? choices.chosen
+      : (asking?.questions.map(() => []) ?? []);
+  const answerError =
+    asking === undefined || answer.error === null || answer.variables?.call !== asking.call
+      ? undefined
+      : answer.error instanceof RequestError && answer.error.problem === 'question-not-waiting'
+        ? 'This question was answered or moved on. Check the Screen view.'
+        : answer.error.message;
+  const answering =
+    asking === undefined || !answerable
+      ? undefined
+      : {
+          call: asking.call,
+          chosen: picked,
+          onChange: (question: number, options: ReadonlyArray<number>) =>
+            setChoices({
+              call: asking.call,
+              chosen: picked.map((current, index) => (index === question ? options : current)),
+            }),
+          onSend: () => {
+            prompt.reset();
+            keys.reset();
+            typed.reset();
+            answer.mutate({ call: asking.call, answers: picked });
+          },
+          sending: answer.isPending && answer.variables.call === asking.call,
+          sent: sentCall === asking.call,
+          ...(answerError === undefined ? {} : { error: answerError }),
+        };
 
   const screenText = screen.data ?? '';
   const name = agent.ref;
@@ -369,8 +429,8 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           {blocked ? (
             <Composer
               label="Type into the dialog"
-              value={answer}
-              onChange={setAnswer}
+              value={dialogText}
+              onChange={setDialogText}
               onSend={(text) => typeText({ text, fromField: true })}
               placeholder="Your answer"
               hint="Choose Type something or Other with the keys first, then press Enter to submit."
@@ -447,11 +507,13 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
               failed={transcript.error !== null}
               imageUrl={client.imageUrl}
               linkOf={delegationLink(agent)}
+              {...(answering === undefined ? {} : { answering })}
             />
             {agent.status === 'working' ? (
               <Activity label={transcript.data?.activity ?? 'Thinking…'} />
             ) : null}
-            {blocked ? (
+            {/* Once answers are sent, a dialog still up shows again, so the owner sees what is left. */}
+            {blocked && (answering === undefined || answering.sent) ? (
               <Card title={`${kindLabel} needs your answer`}>
                 {/* Wrapped, so the whole question reads on a phone; the Screen view keeps the lines. */}
                 <TerminalScreen label={`Screen of ${name}`} text={screenText} wrap />

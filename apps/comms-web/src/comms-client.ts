@@ -84,6 +84,15 @@ export interface CommsClient {
   /** Types the text into the agent's waiting dialog; it never presses Enter. */
   readonly type: (ref: string, text: string) => Promise<void>;
   readonly keys: (ref: string, keys: ReadonlyArray<Key>) => Promise<void>;
+  /**
+   * Answers the waiting question call `call` with the chosen options' indexes, one list per
+   * question; a `question-not-waiting` problem means the question was answered or moved on.
+   */
+  readonly answer: (
+    ref: string,
+    call: string,
+    answers: ReadonlyArray<ReadonlyArray<number>>,
+  ) => Promise<void>;
   readonly seen: (ref: string) => Promise<void>;
   /** Removes the agent's worktree and closes its workspace; `force` discards its changes. */
   readonly closeAgent: (ref: string, force: boolean) => Promise<void>;
@@ -300,6 +309,10 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
       run((api) => api.agents.text({ ...agent(ref), payload: { text } })).then(() => undefined),
     keys: (ref, keys) =>
       run((api) => api.agents.keys({ ...agent(ref), payload: { keys } })).then(() => undefined),
+    answer: (ref, call, answers) =>
+      run((api) => api.agents.answer({ ...agent(ref), payload: { call, answers } })).then(
+        () => undefined,
+      ),
     seen: (ref) => run((api) => api.agents.seen(agent(ref))).then(() => undefined),
     closeAgent: (ref, force) =>
       run((api) => api.agents.close({ ...agent(ref), payload: { force } })).then(() => undefined),

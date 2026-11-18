@@ -1153,3 +1153,179 @@ describe('voice messages in the agent chat', () => {
     await waitFor(() => expect(message().value).toBe('dark mode for pocket-home'));
   });
 });
+
+describe("answering an agent's question in the chat", () => {
+  const asks: TranscriptView['entries'][number] = {
+    type: 'tool',
+    id: 'q1',
+    at: 5,
+    verb: 'Used',
+    target: 'AskUserQuestion',
+    questions: [
+      {
+        header: 'Undo',
+        text: 'Can you undo an accepted item?',
+        options: [
+          { label: 'Yes, until the page changes again', description: 'Rückgängig restores it.' },
+          { label: 'No undo' },
+        ],
+        multiple: false,
+      },
+      {
+        header: 'Pets',
+        text: 'Which pets?',
+        options: [{ label: 'Cat' }, { label: 'Dog' }, { label: 'Fish' }],
+        multiple: true,
+      },
+    ],
+    outcome: 'pending',
+  };
+
+  const openAsking = (agent = fakeAgent({ status: 'blocked', needsYou: true })) => {
+    const fake = fakeClient({
+      agents: new Map([[agent.ref, agent]]),
+      transcripts: new Map([
+        [agent.ref, { entries: [asks], activity: 'Waiting for your answer…' }],
+      ]),
+      screens: new Map([[agent.ref, 'Can you undo an accepted item?']]),
+    });
+    return { ...fake, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
+  };
+
+  const choose = async () => {
+    await userEvent.click(await screen.findByRole('radio', { name: 'No undo' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Cat' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Fish' }));
+  };
+
+  it('lists the options in place of the screen, and keeps the keys and the dialog field', async () => {
+    openAsking();
+
+    const undo = await screen.findByRole('radiogroup', { name: 'Can you undo an accepted item?' });
+    expect(within(undo).getAllByRole('radio')).toHaveLength(2);
+    expect(screen.getByText('Rückgängig restores it.')).toBeDefined();
+    expect(screen.getByRole('group', { name: 'Which pets?' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Send answers' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+    expect(screen.queryByRole('region', { name: 'Claude needs your answer' })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Controls/ })).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
+  });
+
+  it('sends the chosen options once every question has one, and shows them as sent', async () => {
+    const fake = openAsking();
+
+    await userEvent.click(await screen.findByRole('radio', { name: 'No undo' }));
+    expect(screen.getByRole('button', { name: 'Send answers' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Cat' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Fish' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Send answers' }));
+
+    await waitFor(() => expect(fake.calls.answers).toEqual([['kirk', 'q1', [[1], [0, 2]]]]));
+    expect(await screen.findByText('Sent')).toBeDefined();
+    expect(screen.getByText('Cat, Fish')).toBeDefined();
+    expect(screen.queryByRole('radio', { name: 'No undo' })).toBeNull();
+  });
+
+  it('keeps showing the sent answers after the agent moves on, until the session records them', async () => {
+    const fake = openAsking();
+    await choose();
+    await userEvent.click(screen.getByRole('button', { name: 'Send answers' }));
+    await screen.findByText('Sent');
+
+    act(() => fake.emitAgent('kirk', { type: 'agent', agent: fakeAgent({ status: 'working' }) }));
+
+    expect(await screen.findByText('Sent')).toBeDefined();
+    expect(screen.getByText('No undo')).toBeDefined();
+  });
+
+  it('shows the screen again when the dialog stays up after a send', async () => {
+    openAsking();
+    await choose();
+    await userEvent.click(screen.getByRole('button', { name: 'Send answers' }));
+    await screen.findByText('Sent');
+
+    expect(await screen.findByRole('region', { name: 'Claude needs your answer' })).toBeDefined();
+  });
+
+  it('chooses one option of a single choice at a time', async () => {
+    openAsking();
+
+    await userEvent.click(await screen.findByRole('radio', { name: 'No undo' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Yes, until the page changes again' }));
+
+    expect((screen.getByRole('radio', { name: 'No undo' }) as HTMLInputElement).checked).toBe(
+      false,
+    );
+  });
+
+  it('offers no options for a call that is not the latest entry', async () => {
+    const fake = openAsking();
+    await screen.findByRole('radio', { name: 'No undo' });
+
+    act(() =>
+      fake.emitAgent('kirk', {
+        type: 'entries',
+        reset: false,
+        entries: [{ type: 'assistant', id: 'a9', at: 9, text: 'One more thing.' }],
+        activity: 'Thinking…',
+      }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole('radio', { name: 'No undo' })).toBeNull());
+  });
+
+  it('offers no options to an agent other than Claude', async () => {
+    openAsking(fakeAgent({ kind: 'pi', format: 'pi', status: 'blocked', needsYou: true }));
+
+    // The question shows in its card and on the wrapped screen.
+    expect(await screen.findAllByText('Can you undo an accepted item?')).toHaveLength(2);
+    expect(screen.queryByRole('radio', { name: 'No undo' })).toBeNull();
+  });
+
+  it('keeps the choices and says so when the question moved on', async () => {
+    const fake = openAsking();
+    fake.state.answerFailure = new RequestError(
+      "The agent's screen does not show this question.",
+      409,
+      [],
+      'question-not-waiting',
+    );
+
+    await choose();
+    await userEvent.click(screen.getByRole('button', { name: 'Send answers' }));
+
+    expect(
+      await screen.findByText('This question was answered or moved on. Check the Screen view.'),
+    ).toBeDefined();
+    expect((screen.getByRole('radio', { name: 'No undo' }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('shows the reason of another failure', async () => {
+    const fake = openAsking();
+    fake.state.answerFailure = new RequestError('Herdr is not running.', 503);
+
+    await choose();
+    await userEvent.click(screen.getByRole('button', { name: 'Send answers' }));
+
+    expect(await screen.findByText('Herdr is not running.')).toBeDefined();
+  });
+
+  it('offers no options while the agent is not blocked', async () => {
+    openAsking(fakeAgent({ status: 'working' }));
+
+    expect(await screen.findByText('Can you undo an accepted item?')).toBeDefined();
+    expect(screen.queryByRole('radio', { name: 'No undo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send answers' })).toBeNull();
+  });
+
+  it('has no accessibility violations', async () => {
+    openAsking();
+    await screen.findByRole('radio', { name: 'No undo' });
+
+    expect(await axeViolations(document.body)).toEqual([]);
+  });
+});

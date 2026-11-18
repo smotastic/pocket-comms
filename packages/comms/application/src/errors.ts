@@ -37,7 +37,7 @@ export class TranscriptUnavailableError extends Data.TaggedError('TranscriptUnav
 
 /**
  * The agent's question is no longer waiting as the owner saw it: it was answered, it moved on, or
- * the agent's screen does not show it (spec 030).
+ * the agent's screen does not show it.
  */
 export class QuestionNotWaitingError extends Data.TaggedError('QuestionNotWaitingError')<{
   readonly ref: string;

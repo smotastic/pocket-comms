@@ -76,7 +76,7 @@ export const makeInput = Effect.gen(function* () {
 
   // The keys answer a fresh dialog of this very call, so each check reads the session file and the
   // screen again: a question answered at the terminal or moved on is refused, and nothing is
-  // pressed (spec 030, requirement 10).
+  // pressed.
   const answer = Effect.fn('Input.answer')(function* (
     ref: string,
     call: string,

@@ -68,6 +68,8 @@ export interface FakeState {
   typeFailure?: string;
   /** Holds typed text on its way until it resolves, such as to see the page meanwhile. */
   typeGate?: Promise<void>;
+  /** A failure for the next answer to a question, as the server would report it. */
+  answerFailure?: RequestError;
   /** A failure for the next image upload. */
   uploadFailure?: string;
   /** Whether the server transcribes voice clips. */
@@ -151,6 +153,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     clips: [] as Array<Blob>,
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
     typed: [] as Array<[string, string]>,
+    answers: [] as Array<[string, string, ReadonlyArray<ReadonlyArray<number>>]>,
     seen: [] as Array<string>,
     tasks: [] as Array<NewTask>,
     implemented: [] as Array<[string, number, string, string?]>,
@@ -226,6 +229,12 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     },
     keys: async (ref, keys) => {
       calls.keys.push([ref, keys]);
+    },
+    answer: async (ref, call, answers) => {
+      const failure = state.answerFailure;
+      state.answerFailure = undefined;
+      if (failure !== undefined) throw failure;
+      calls.answers.push([ref, call, answers]);
     },
     seen: async (ref) => {
       calls.seen.push(ref);
