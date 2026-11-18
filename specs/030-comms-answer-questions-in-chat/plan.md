@@ -1,7 +1,8 @@
 # Plan 030 — pocket-comms: answer Claude's questions in the chat
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — approved with the spec by the owner (2026-11-18)
+- **Status:** `Approved` — approved with the spec by the owner (2026-11-18), section 7 with
+  the amendment (2026-11-18)
 
 ## 1. Affected projects
 
@@ -131,3 +132,39 @@ cached, so a card from before an answer in the terminal is refused.
   wrong question. This takes deliberate key presses on the Screen view first; the risk is accepted.
 - **Several clients answer at once.** The second send finds the call answered (transcript) or the
   screen changed and gets `409`.
+
+## 7. Amendment: the waiting call from a hook (spec section 7)
+
+Checked live against Claude Code v2.1.323 on 2026-11-18 with a logging hook: `PreToolUse` for
+`AskUserQuestion` carries `session_id`, `tool_use_id`, `cwd` and `tool_input.questions`;
+`PostToolUse` follows an answer; a dialog cancelled with Esc fires no `PostToolUse`, and the
+session file then holds the call with its refusal.
+
+| Path                            | Change                                                                                                                                                                                                                      |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/comms-server`             | `src/claude-hook.ts`, built to `dist/claude-hook.js`, with Node built-ins only: reads the hook input from stdin and writes or removes `<COMMS_STATE_DIR or ~/.pocket-comms>/questions/<session>.json` (0600, written to a temporary file and renamed). A session id other than `[A-Za-z0-9-]` is ignored. The composition passes the questions folder to the transcript layer. The README names the settings entry. |
+| `packages/comms/infrastructure` | `transcript/claude.ts`: `waitingCallOf(cwd, file)`, the pending tool entry of a hook file, through the same `summarise` as a session line. `transcript/files.ts`: an optional `questions` folder; `read` appends the waiting entry when no entry has its id; `follow` checks the file at each tick and emits the entry once. |
+| `packages/comms/domain`         | `showsQuestion` drops box-drawing characters (U+2500–U+257F) with the whitespace before it looks for the question.                                                                                                         |
+| `packages/comms/application`    | `Input.answer` no longer requires `blocked`.                                                                                                                                                                                |
+| `apps/comms-web`                | `Conversation`: the card is answerable whatever the status; the wrapped screen's card for `blocked` stays as it was for every other case.                                                                                  |
+
+The settings entry, set up by hand on the owner's Mac (with the path of the deployed release):
+
+```json
+"PreToolUse": [{ "matcher": "AskUserQuestion", "hooks": [{ "type": "command", "command": "node <release>/apps/comms-server/dist/claude-hook.js" }] }],
+"PostToolUse": [{ "matcher": "AskUserQuestion", "hooks": [{ "type": "command", "command": "node <release>/apps/comms-server/dist/claude-hook.js" }] }],
+"Stop": [{ "hooks": [{ "type": "command", "command": "node <release>/apps/comms-server/dist/claude-hook.js" }] }]
+```
+
+`<release>` is `~/pocket-cloud-data/pocket-comms/current`, the link `install-comms.sh` moves on
+each update, so the entry outlives releases.
+
+**Tests.** Hook: `PreToolUse` writes the file, `PostToolUse` and `Stop` remove it, other events,
+bad JSON and a bad session id write nothing and exit `0`. Reader: a hook file adds the waiting
+entry last; a session file that holds the call wins; `follow` emits the entry after the hook
+writes it. Domain: the question behind `│` and beside a preview box is found. Use case: a `done`
+agent with a waiting call is answered. Web: a `done` agent's waiting call is answerable.
+
+**Risks.** A Claude killed while asking leaves its file behind until its next `Stop`; its card
+stays answerable, and a send gets `409` from the screen check. The hook runs on every `Stop` of
+every session; it only removes a file, so it adds a Node start (about 50 ms) to each turn's end.
