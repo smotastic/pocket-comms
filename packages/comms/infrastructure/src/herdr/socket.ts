@@ -47,6 +47,11 @@ export interface SocketOptions {
    * How long `startAgent` waits for a new pane's shell to reach its prompt. Default 10 seconds.
    */
   readonly shellWait?: Duration.Input;
+  /**
+   * The pause between two keys of one `sendKeys`. Claude's dialog reads keys that arrive together
+   * as one input and ignores it, so each key goes alone. Default 50 ms.
+   */
+  readonly keyGap?: Duration.Input;
 }
 
 /** `$HERDR_SOCKET_PATH`, or `~/.config/herdr/herdr.sock`. */
@@ -95,22 +100,13 @@ const PAGE_SEQUENCES: Partial<Record<DialogKey, string>> = {
   pagedown: '\u001b[6~',
 };
 
-type KeyRun = { readonly text: string } | { readonly keys: ReadonlyArray<DialogKey> };
-
-/** Splits `keys` into runs of named keys and runs of page sequences, in their order. */
-const keyRuns = (keys: ReadonlyArray<DialogKey>): ReadonlyArray<KeyRun> =>
-  keys.reduce<Array<KeyRun>>((runs, key) => {
-    const sequence = PAGE_SEQUENCES[key];
-    const last = runs.at(-1);
-    if (sequence === undefined) {
-      if (last !== undefined && 'keys' in last)
-        runs[runs.length - 1] = { keys: [...last.keys, key] };
-      else runs.push({ keys: [key] });
-    } else if (last !== undefined && 'text' in last) {
-      runs[runs.length - 1] = { text: last.text + sequence };
-    } else runs.push({ text: sequence });
-    return runs;
-  }, []);
+// One key as Herdr takes it: a page sequence as text, any other key by its name.
+const keyRequest = (paneId: string, key: DialogKey) => {
+  const sequence = PAGE_SEQUENCES[key];
+  return sequence === undefined
+    ? { method: 'agent.send_keys', params: { target: paneId, keys: [key] } }
+    : { method: 'pane.send_text', params: { pane_id: paneId, text: sequence } };
+};
 
 const AgentList = Schema.Struct({ agents: Schema.Array(AgentRecord) });
 const WorkspaceList = Schema.Struct({ workspaces: Schema.Array(WorkspaceRecord) });
@@ -197,6 +193,7 @@ export const layerSocket = ({
   relistInterval = '2 seconds',
   agentArgs = [],
   shellWait = '10 seconds',
+  keyGap = '50 millis',
 }: SocketOptions) => {
   const unavailable = (reason: string) => new HerdrUnavailableError({ reason });
   let nextId = 0;
@@ -438,21 +435,13 @@ export const layerSocket = ({
         }).pipe(
           Effect.andThen(
             Effect.forEach(
-              keyRuns(keys),
-              (run) =>
-                'text' in run
-                  ? request(
-                      'pane.send_text',
-                      { pane_id: paneId, text: run.text },
-                      Schema.Unknown,
-                      paneId,
-                    )
-                  : request(
-                      'agent.send_keys',
-                      { target: paneId, keys: run.keys },
-                      Schema.Unknown,
-                      paneId,
-                    ),
+              keys,
+              (key, index) => {
+                const { method, params } = keyRequest(paneId, key);
+                return (index === 0 ? Effect.void : Effect.sleep(keyGap)).pipe(
+                  Effect.andThen(request(method, params, Schema.Unknown, paneId)),
+                );
+              },
               { discard: true },
             ),
           ),
