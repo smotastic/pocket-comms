@@ -2,7 +2,7 @@
 
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
 them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, it reads,
-closes and marks in progress the projects' Gitea issues, it runs the brainstorm chat with Pi, which proposes new issues and edits of existing ones, it keeps the images
+closes and marks in progress the projects' Gitea issues, it runs the brainstorm with Pi, which proposes new issues and edits of existing ones, it keeps the images
 the owner attaches to a prompt or a brainstorm message and attaches the chosen ones to approved issues in Gitea, it pushes a notification to the owner's devices when an agent
 needs them, and it follows the background work and the subagents of Claude agents. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
@@ -25,40 +25,40 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 027](../../specs/027-comms-brainstorm-voice/spec.md) and
 [spec 030](../../specs/030-comms-answer-questions-in-chat/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
-session file live in server memory; the brainstorm chat and the activity timeline are JSON files in
+session file live in server memory; the brainstorm and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, the push devices and the
 VAPID key pair are two JSON files in its `push` folder, and the owner's quick replies are
 `quick-replies.json` in the state folder.
 
 ## Where each file type goes
 
-| What                                                                              | Where                                                       |
-| --------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `CommsApi`, wire schemas (shared by server and web)                               | `contract`                                                  |
-| Agents, the overview rules, input rules, transcript entries, access               | `domain`                                                    |
-| New task rules (projects order, branch, task, agent name)                         | `domain` (`src/task.ts`)                                    |
-| Issue rules (remote, order, branch, task text, work per issue)                    | `domain` (`src/issue.ts`)                                   |
-| Brainstorm entries, proposals, issue drafts and edits, issue reads, chat pictures | `domain` (`src/brainstorm.ts`)                              |
-| Image rules (kinds, ids, limits, paths in a prompt)                               | `domain` (`src/image.ts`)                                   |
-| Voice clip rules, the speech-to-text service                                      | `@smotastic/pocket-agent` (`./speech`), wired by the server |
-| Suggested replies, the quick replies' rules and default list                      | `domain` (`src/replies.ts`)                                 |
-| The quick replies file                                                            | `infrastructure` (`src/quick-replies`)                      |
-| The image store                                                                   | `infrastructure` (`src/images`)                             |
-| Activity rules (snapshot diff, what is kept, prompt excerpts)                     | `domain` (`src/activity.ts`)                                |
-| The activity recorder and timeline                                                | `application` (`src/use-cases/activity*`)                   |
-| The activity file                                                                 | `infrastructure` (`src/activity`)                           |
-| When an agent notifies, the notification's text                                   | `domain` (`src/notification.ts`)                            |
-| The push watcher, subscribe and unsubscribe                                       | `application` (`src/use-cases/notify*`, `push*`)            |
-| The push devices and keys, the Web Push sender                                    | `infrastructure` (`src/push`)                               |
-| Pi's tools and instructions, the brainstorm turns                                 | `application` (`src/tools`, `src/use-cases/brainstorm*`)    |
-| Pi's runtime and login                                                            | `@smotastic/pocket-agent` (ADR 0014), wired by the server   |
-| The chat file                                                                     | `infrastructure` (`src/brainstorm`)                         |
-| `AgentsInbound`, `TasksInbound`, `IssuesInbound`, ports, use cases                | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
-| Herdr socket, git, Gitea over HTTP, session files, memory                         | `infrastructure`                                            |
-| HTTP handlers, problems, identity guard, health, web app route                    | `api`                                                       |
-| Composition root, config, OpenAPI document                                        | `apps/comms-server`                                         |
-| Web app                                                                           | `apps/comms-web`                                            |
-| Pocket buddy, a device client of the contract (speech, brainstorm)                | `apps/buddy`                                                |
+| What                                                                           | Where                                                       |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `CommsApi`, wire schemas (shared by server and web)                            | `contract`                                                  |
+| Agents, the overview rules, prompt and key rules, conversation entries, access | `domain`                                                    |
+| New task rules (projects order, branch, task, agent name)                      | `domain` (`src/task.ts`)                                    |
+| Issue rules (remote, order, branch, task text, work per issue)                 | `domain` (`src/issue.ts`)                                   |
+| Brainstorm entries, issue and edit proposals, issue reads, brainstorm images   | `domain` (`src/brainstorm.ts`)                              |
+| Image rules (kinds, ids, limits, paths in a prompt)                            | `domain` (`src/image.ts`)                                   |
+| Voice message rules, the speech-to-text service                                | `@smotastic/pocket-agent` (`./speech`), wired by the server |
+| Suggested replies, the quick replies' rules and default list                   | `domain` (`src/replies.ts`)                                 |
+| The quick replies file                                                         | `infrastructure` (`src/quick-replies`)                      |
+| The image store                                                                | `infrastructure` (`src/images`)                             |
+| Activity rules (snapshot diff, what is kept, prompt excerpts)                  | `domain` (`src/activity.ts`)                                |
+| The activity recorder and timeline                                             | `application` (`src/use-cases/activity*`)                   |
+| The activity file                                                              | `infrastructure` (`src/activity`)                           |
+| When an agent notifies, the notification's text                                | `domain` (`src/notification.ts`)                            |
+| The push watcher, subscribe and unsubscribe                                    | `application` (`src/use-cases/notify*`, `push*`)            |
+| The push devices and keys, the Web Push sender                                 | `infrastructure` (`src/push`)                               |
+| Pi's tools and instructions, the brainstorm turns                              | `application` (`src/tools`, `src/use-cases/brainstorm*`)    |
+| Pi's runtime and login                                                         | `@smotastic/pocket-agent` (ADR 0014), wired by the server   |
+| The brainstorm file                                                            | `infrastructure` (`src/brainstorm`)                         |
+| `AgentsInbound`, `TasksInbound`, `IssuesInbound`, ports, use cases             | `application` (`src/ports`, `src/use-cases`, `src/testing`) |
+| Herdr socket, git, Gitea over HTTP, session files, memory                      | `infrastructure`                                            |
+| HTTP handlers, problems, identity guard, health, web app route                 | `api`                                                       |
+| Composition root, config, OpenAPI document                                     | `apps/comms-server`                                         |
+| Web app                                                                        | `apps/comms-web`                                            |
+| Pocket buddy, a voice client of the contract (speech, brainstorm)              | `apps/buddy`                                                |
 
 ## Rules of this service
 
@@ -67,9 +67,9 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
 - `git` and Herdr run with argument arrays, never through a shell. A project is only ever a folder
   the projects port lists; never accept a path from a request.
 - Typed text (spec 024) goes through `HerdrOutbound.typeText` (`pane.send_text`), which never
-  presses Enter: the owner submits a waiting dialog with the `enter` key. Do not add Enter to it,
+  presses Enter: the owner submits a waiting agent question with the `enter` key. Do not add Enter to it,
   and do not route it through `prompt`, which submits.
-- Answering a question from the chat (spec 030) presses the keys of Claude's `AskUserQuestion`
+- Answering an agent question from the conversation (spec 030) presses the keys of Claude's `AskUserQuestion`
   dialog, worked out in `answerKeys` from its behaviour as of Claude Code v2.1.323: a single
   choice's digit chooses and moves on, a multiple choice's digit toggles and `right` moves on, and
   `1` submits the review, which a lone single choice skips; a single choice whose options show
@@ -83,7 +83,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   answered, so the waiting call comes from the server's Claude hook
   (`apps/comms-server/src/claude-hook.ts`, its work in `claude-questions.ts`), which keeps it in
   `<state>/questions/<session>.json` until `PostToolUse`, `Stop`, `UserPromptSubmit` or
-  `SessionStart`. The transcript reader adds it as the latest entry while the
+  `SessionStart`. The conversation reader adds it as the latest entry while the
   session file does not hold its id. The hook must never get in Claude's way: Node built-ins
   only, no output, exit `0`. Set it up once per machine in `~/.claude/settings.json`, for
   `PreToolUse` and `PostToolUse` with the matcher `AskUserQuestion` and for `Stop`,
@@ -93,7 +93,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
 - Suggested replies (spec 025) come from fixed rules in `suggestedReplies`, never from a model,
   and travel on the assistant entries. The web app offers them only in the Chat view of an idle
   or done agent and sends one only as a prompt: a suggestion never presses a key, never types
-  into a waiting dialog and never answers a blocked agent. A broken `quick-replies.json` is
+  into a waiting agent question and never answers a blocked agent. A broken `quick-replies.json` is
   reported and a read never replaces it; only the owner's next save writes over it.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
@@ -102,7 +102,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   adapter sends `GET`, a `PATCH` with exactly `{"state":"closed"}`, a `PATCH` with exactly
   `{"title","body"}`, a `POST` with exactly `{"title","body"}`, a `POST` that creates the
   `status/in-progress` label, a `POST` that adds it to an issue and a multipart `POST` of one
-  picture to an issue's `assets`; never a `PUT` (it would replace an issue's labels) or a
+  image to an issue's `assets`; never a `PUT` (it would replace an issue's labels) or a
   `DELETE`, and it follows no redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
   header; never log it, put it in an error or send it to the browser. Tests use the anonymised
   fixtures in `infrastructure/src/testing/fixtures` and a local fake server, never a real token.
@@ -117,33 +117,33 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   first prompt, through `issueTask`: never write it to Gitea and never store it.
 - Pi runs through the agent package's `AgentRuntime` and turn engine (ADRs 0012, 0014): the
   application imports `@smotastic/pocket-agent` and `./chat` only, the server `./pi`, tests
-  `./testing`; the contract, the chat file and the web app take the chat stream's `./chat`; no
+  `./testing`; the contract, the brainstorm file and the web app take the chat stream's `./chat`; no
   code here imports `@earendil-works/*`. A runtime change goes into pocket-factory's package and
   comes here as a catalog bump. Pi's tools only read (projects, open issues, one
   issue, `README.md` and `AGENTS.md`), none takes a path, and `propose_issue` and
   `propose_issue_edit` end the turn. Only the owner's decision on a proposal creates or changes an
   issue. Do not give Pi a tool that writes.
 - An edit applies only while the issue's title and body equal the ones Pi read (`baseChanged`);
-  the server re-reads the issue right before the `PATCH`, and before uploading any picture.
-- The brainstorm chat streams through the package's chat feed (spec 026): its entries are one
-  numbered log behind `ChatLog`, saved with the chat file, with one feed key whose numbers go on
+  the server re-reads the issue right before the `PATCH`, and before uploading any image.
+- The brainstorm streams through the package's chat feed (spec 026): its entries are one
+  numbered log behind `ChatLog`, saved with the brainstorm file, with one feed key whose numbers go on
   across a New chat (`chatStarted`). A proposal that changes is recorded again; never rewrite an
   entry. A tool row carries only `describeBrainstormCall`'s target, never a tool's input or
-  output. The chat is answering before it records what starts a turn and idle before the turn's
+  output. The brainstorm is answering before it records what starts a turn and idle before the turn's
   end is recorded, so the sheet reads the state again on those entries.
-- Brainstorm pictures (spec 023) are images of the image store, numbered across the chat
+- Brainstorm images (spec 023) are images of the image store, numbered across the brainstorm
   (`chatPictures`). Pi names them by number; only the owner's choice on the card goes to Gitea,
   and only on approval. Each upload is saved on the proposal (`attached`) before the next, so a
   retry never uploads one twice and never creates a second issue; the `## Pictures` block is
   appended to the body last. Pi gets the bytes only when the runtime `seesImages`. Pi may propose an edit only for an
-  issue it read in this chat, and never for one whose body was cut.
-- The brainstorm chat is optional: without its model settings the server starts and the chat says
+  issue it read in this brainstorm, and never for one whose body was cut.
+- The brainstorm is optional: without its model settings the server starts and the brainstorm says
   it is not set up. No test in CI calls a model; the use case runs on the package's scripted
   runtime.
 - Every route goes through the Tailscale identity guard (`api/src/identity.ts`), and the server
   listens on `127.0.0.1` only. Do not add a route outside `commsServerLayer`.
 - Session file formats are undocumented. Parsers skip what they do not know; tests use the
-  anonymised fixtures in `infrastructure/src/testing/fixtures`. Never commit a real transcript.
+  anonymised fixtures in `infrastructure/src/testing/fixtures`. Never commit a real session file.
 - Background work comes from Claude's session file only (`transcript/claude-background.ts`); Herdr's
   status stays as Herdr reports it, and the background work only keeps a done agent out of Needs
   you and holds its done push (spec 020). The overview and the push count it with the same
@@ -154,8 +154,8 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   an image id from a request is only ever looked up, never joined into a path. The server checks
   an upload by its content (JPEG or PNG), never by its name or declared type.
 - Voice messages go to the speech-to-text service through the agent package's `Transcriber`, and
-  only the server calls it (`COMMS_SPEECH_URL`, on the Mac's loopback). A clip stays in memory:
-  never write it to disk or log it. The server checks a clip by its content, never by its name or
+  only the server calls it (`COMMS_SPEECH_URL`, on the home server's loopback). A voice message stays in
+  memory: never write it to disk or log it. The server checks a voice message by its content, never by its name or
   declared type, sends no language, and a reason never names the service's address. Without both
   settings the server starts and the brainstorm state says `voice: false`.
 - The activity recorder runs in `ActivityInbound`'s layer scope from server start and records only
@@ -166,8 +166,8 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   store and the sender (`Push.layer` puts out the three ports only); never log it, put it in an
   error or send it to the browser. A device's endpoint is its address: keep it out of logs too.
   A broken `push/` file is reported, never replaced, because new keys end every subscription.
-- A push carries only the agent's name, its project and at most 120 characters of its question
-  or last message. Every push must show a notification on the device (the service worker in
+- A notification carries only the agent's name, its project and at most 120 characters of its question
+  or last message. Every Web Push message must show a notification on the device (the service worker in
   `apps/comms-web/public/sw.js` never skips one), or the browser drops the subscription.
 - After a contract change run `pnpm nx run comms-server:openapi` and commit the document.
 

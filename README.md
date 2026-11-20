@@ -1,16 +1,16 @@
 # pocket-comms
 
-A phone web app to **read and drive the Herdr coding agents** on the Mac mini, over Tailscale. It
-lists every live agent, shows Claude and Pi sessions as a chat, shows any agent's terminal screen,
-sends prompts and key presses, starts new tasks in fresh Herdr worktrees, and lists each project's
-open Gitea issues with "Implement with Claude" and "Close" actions. Install it to the iPhone home screen,
-and it pushes a notification when an agent needs you or is done. It complements the Moshi terminal
+A phone web app to **read and drive the Herdr coding agents** on the home server, over Tailscale.
+It lists every live agent, shows a Claude or Pi agent's conversation as a chat, shows any agent's
+screen, sends prompts and key presses, starts new tasks in fresh Herdr worktrees, and lists each
+project's open Gitea issues with "Implement with Claude" and "Close" actions. Install it to the
+iPhone home screen, and it pushes a notification when an agent needs you or is done. It complements the Moshi terminal
 app, which keeps approvals and the raw terminal.
 
 The behaviour is [spec 004](specs/004-pocket-comms-v1/spec.md), for new tasks
 [spec 005](specs/005-comms-new-task/spec.md), for Gitea issues
-[spec 006](specs/006-comms-gitea-issues/spec.md) and [spec 010](specs/010-comms-close-issues/spec.md) and for the overview by project
-[spec 007](specs/007-comms-sessions-by-project/spec.md), and for push notifications
+[spec 006](specs/006-comms-gitea-issues/spec.md) and [spec 010](specs/010-comms-close-issues/spec.md) and for the overview
+[spec 007](specs/007-comms-sessions-by-project/spec.md) and [spec 012](specs/012-comms-flat-overview/spec.md), and for notifications
 [spec 018](specs/018-comms-push-notifications/spec.md); the approved look is spec 004's
 [mockup](specs/004-pocket-comms-v1/mockup.html).
 
@@ -42,8 +42,8 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 | `COMMS_GITEA_TOKEN`             | none                         | A Gitea token with `write:issue` and `read:repository`; without it the issue lists say so                                                                         |
 | `COMMS_GITEA_HOSTS`             | `gitea`                      | Further host names (such as SSH aliases) of that Gitea in git remotes, comma-separated                                                                            |
 | `COMMS_STATE_DIR`               | `~/.pocket-comms`            | `brainstorm.json`, `activity.json`, images (`images/`, 30 days), push devices (`push/`)                                                                           |
-| `COMMS_BRAINSTORM_PROVIDER`     | none                         | The brainstorm chat's model provider, such as `openai`; without it the chat says it is not set up                                                                 |
-| `COMMS_BRAINSTORM_MODEL`        | none                         | The brainstorm chat's model, such as `gpt-6-luna`                                                                                                                 |
+| `COMMS_BRAINSTORM_PROVIDER`     | none                         | The brainstorm's model provider, such as `openai`; without it the brainstorm says it is not set up                                                                |
+| `COMMS_BRAINSTORM_MODEL`        | none                         | The brainstorm's model, such as `gpt-6-luna`                                                                                                                      |
 | `COMMS_BRAINSTORM_API_KEY`      | none                         | An API key for that provider; without it the server uses your Pi login                                                                                            |
 | `COMMS_BRAINSTORM_THINKING`     | `off`                        | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`                                                                                                       |
 | `COMMS_BRAINSTORM_PI_AUTH_FILE` | `~/.pi/agent/auth.json`      | Pi's credential file; `PI_CODING_AGENT_DIR` moves its folder as it does for Pi                                                                                    |
@@ -54,12 +54,12 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 The Gitea token is a secret: put it in the server's environment only. Create it in Gitea under
 **Settings → Applications → Manage Access Tokens** with the scopes `write:issue` and
 `read:repository`. The app reads with `GET`; it writes only the `PATCH` that closes an issue, the
-`POST` that creates one you approved in the brainstorm chat, and the `POST`s that mark an issue you
+`POST` that creates one you approved in the brainstorm, and the `POST`s that mark an issue you
 start with Implement with Claude as `status/in-progress` (creating that label in the repository the
 first time). It never removes a label. A token with `read:issue` still lists the issues, but
 closing, creating or marking one then fails; a failed mark leaves the started agent running.
 
-The brainstorm chat (the bulb in the top bar, or More in a conversation) runs Pi inside the server. Sign
+The brainstorm (the bulb in the top bar, or More in a conversation) runs Pi inside the server. Sign
 in with Pi once (`pi`, then `/login`) and set the provider and the model, for example
 `COMMS_BRAINSTORM_PROVIDER=openai` and `COMMS_BRAINSTORM_MODEL=gpt-6-luna`. Pi only reads the
 project list, a project's open issues and its `README.md` and `AGENTS.md`; an issue is created only
@@ -67,9 +67,9 @@ when you tap **Create issue** on its proposal.
 
 Notifications are switched on per device at the bottom of the Projects sheet. On the iPhone that
 works only in the app added to the home screen (iOS 16.4 or later); Safari alone offers no Web Push.
-The server makes its push key pair itself in `COMMS_STATE_DIR/push/` and pushes when an agent has
-been blocked, or done without you looking, for 10 seconds. Keep that folder: new keys would end
-every device's subscription.
+The server makes its push key pair itself in `COMMS_STATE_DIR/push/` and sends a notification when
+an agent has been blocked, or done without you looking, for 10 seconds. Keep that folder: new keys
+would end every device's subscription.
 
 The API is documented at `/docs` (the OpenAPI document at `/docs/openapi.json`), behind the same
 login check.
@@ -91,20 +91,22 @@ the server running after a log-out, add a launch agent for `pnpm start` yourself
 
 ## What it does
 
-- **Overview (`/`):** Needs you first (blocked agents and done agents not yet seen), then every
-  agent by repository, with its kind, status, terminal title and time since the last change. Live.
-- **Conversation (`/agents/<name>`):** a Claude or Pi session as a chat, live; Chat | Screen
-  switches to the pane's coloured screen. Other agent kinds show only the screen.
-- **Input:** the composer sends a prompt (Enter sends, Shift+Enter is a new line). While the agent
-  is blocked, an approval panel with its screen and the keys `1 2 3 ↑ ↓ Enter Esc` replaces the
-  composer; Ctrl-C sends only after a long press.
-- **New task (`+` on the overview):** pick a project, describe the task and check the branch (it is
-  suggested from the task, `feat/…` or `fix/…`). The server fetches `origin`, creates a Herdr
-  worktree from the default remote branch with the task's first line as its label, and, if asked,
-  starts a Claude or Pi agent there and sends it the task. An agent that shows a dialog first gets
-  nothing; answer it in its conversation, then send the task. Removing worktrees stays on the
-  desktop.
-- **Projects and issues (the issue icon on the overview):** each project's open Gitea issues (its
+- **Overview (`/`):** Needs you first (blocked agents and done agents not yet seen), then
+  Everything else: every other agent in one list, ordered by project, with a filter for one
+  project (agents without a project fall under Other). Each row shows the agent's status, project,
+  title and time since the last change. Live.
+- **Conversation (`/agents/<name>`):** a Claude or Pi agent's conversation as a chat, live;
+  Chat | Screen switches to its coloured screen. Other agent kinds show only the screen.
+- **Prompts and keys:** the composer sends a prompt (Enter sends, Shift+Enter is a new line). While
+  the agent is blocked, an approval panel with its screen and the keys `1 2 3 ↑ ↓ Enter Esc`
+  replaces the composer; Ctrl-C sends only after a long press.
+- **New task (on a project in the projects sheet, or its page):** pick a project, describe the task
+  and check the branch (it is suggested from the task, `feat/…` or `fix/…`). The server fetches
+  `origin`, creates a Herdr worktree from the default remote branch with the task's first line as
+  its label, and, if asked, starts a Claude or Pi agent there and sends it the task. An agent that
+  shows a dialog first gets nothing; answer it in its conversation, then send the task. Removing
+  worktrees stays on the desktop.
+- **Projects and issues (Projects on the overview):** each project's open Gitea issues (its
   `origin` names the repository), the most recently updated first, with labels, age, a link to
   Gitea and the agents working on each issue (worktrees on a `<type>/<number>-…` branch).
   **Implement with Claude** asks for the branch (suggested as `feat/<number>-<title>`), then starts
@@ -120,31 +122,31 @@ the server running after a log-out, add a launch agent for `pnpm start` yourself
 
 ## The pocket buddy
 
-`apps/buddy` is a small program that captures ideas by voice into the brainstorm chat: hold the
-button, speak, let go, and the words land in the chat as your message; the screen shows the start
-of Pi's answer, and a proposed issue can be created or discarded from it. For now it runs on a
-Mac, with the keyboard as the button, the microphone through `ffmpeg` and the terminal as the
-screen; a pocket device follows.
+`apps/buddy` is a small program that captures ideas by voice into the brainstorm: hold the
+button, speak, let go, and the transcription lands in the brainstorm as your message; the screen
+shows the start of Pi's answer, and an issue proposal can be created or discarded from it. For now
+it runs on a Mac, with the keyboard as the button, the microphone through `ffmpeg` and the
+terminal as the screen; pocket hardware follows.
 
 ```sh
 brew install ffmpeg                                   # once
 ffmpeg -f avfoundation -list_devices true -i ""       # find the microphone's audio index
-BUDDY_COMMS_URL=https://<mac>.<tailnet>.ts.net pnpm nx run buddy:start
+BUDDY_COMMS_URL=https://<machine>.<tailnet>.ts.net pnpm nx run buddy:start
 # the same without Nx in between, such as when Nx's terminal UI is on (NX_TUI=true):
-pnpm nx run buddy:build && BUDDY_COMMS_URL=https://<mac>.<tailnet>.ts.net node apps/buddy/dist/main.js
+pnpm nx run buddy:build && BUDDY_COMMS_URL=https://<machine>.<tailnet>.ts.net node apps/buddy/dist/main.js
 ```
 
-| Setting              | Default           | Meaning                                                            |
-| -------------------- | ----------------- | ------------------------------------------------------------------ |
-| `BUDDY_COMMS_URL`    | none (required)   | The tailnet address of comms; the machine must be logged in as you |
-| `BUDDY_HOME`         | `~/.pocket-buddy` | Where the clips wait (`outbox/`) until they are in the chat        |
-| `BUDDY_AUDIO_DEVICE` | `0`               | The AVFoundation audio index of the microphone                     |
+| Setting              | Default           | Meaning                                                                            |
+| -------------------- | ----------------- | ---------------------------------------------------------------------------------- |
+| `BUDDY_COMMS_URL`    | none (required)   | The tailnet address of comms; the machine must be logged in as you                 |
+| `BUDDY_HOME`         | `~/.pocket-buddy` | Where the outbox (`outbox/`) keeps voice messages until they are in the brainstorm |
+| `BUDDY_AUDIO_DEVICE` | `0`               | The AVFoundation audio index of the microphone                                     |
 
-Space starts a recording and space again sends it (a terminal cannot tell when a key is let go;
-after a recording ended by itself at two minutes, the next space starts a new one);
-`y` creates the proposed issue, `n` discards it, Ctrl+C quits. The first recording makes macOS ask
-for the terminal's microphone access. Clips wait on disk while comms cannot be reached or Pi is
-answering, and are sent in order afterwards, also after a restart.
+Space starts a voice message and space again sends it (a terminal cannot tell when a key is let
+go; after a voice message ended by itself at two minutes, the next space starts a new one);
+`y` creates the proposed issue, `n` discards it, Ctrl+C quits. The first voice message makes macOS
+ask for the terminal's microphone access. Voice messages wait in the outbox while comms cannot be
+reached or Pi is answering, and are sent in order afterwards, also after a restart.
 
 ## Structure
 
@@ -154,7 +156,7 @@ packages/comms/        the service: domain, application, infrastructure (Herdr s
 apps/comms-server/     composition root and the committed OpenAPI document
 apps/comms-web/        React + Vite web app (TanStack Router and Query); its look and components
                        come from the shared design package @smotastic/pocket-design (ADR 0009)
-apps/buddy/            the pocket buddy: a voice client of the brainstorm chat (type:device)
+apps/buddy/            the pocket buddy: a voice client of the brainstorm (type:device)
 specs/                 feature specs; docs/ ADRs and conventions; tools/ template init
                        (the gates come from @smotastic/pocket-ci, ADR 0013)
 ```
