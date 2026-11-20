@@ -225,7 +225,8 @@ describe('Herdr.layerSocket', () => {
 
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
         ['agent.prompt', { target: 'wJ:p1', text: 'hello' }],
-        ['agent.send_keys', { target: 'wJ:p1', keys: ['1', 'enter'] }],
+        ['agent.send_keys', { target: 'wJ:p1', keys: ['1'] }],
+        ['agent.send_keys', { target: 'wJ:p1', keys: ['enter'] }],
       ]);
     }).pipe(Effect.scoped),
   );
@@ -238,7 +239,28 @@ describe('Herdr.layerSocket', () => {
       );
 
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
-        ['agent.send_keys', { target: 'wJ:p1', keys: ['4', 'right', '1'] }],
+        ['agent.send_keys', { target: 'wJ:p1', keys: ['4'] }],
+        ['agent.send_keys', { target: 'wJ:p1', keys: ['right'] }],
+        ['agent.send_keys', { target: 'wJ:p1', keys: ['1'] }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  // Claude's dialog takes keys that arrive together as one input and ignores it, so the answers to
+  // several questions left it untouched (Claude Code v2.1.323).
+  it.live('sends each key alone, a pause after the one before', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      const started = Date.now();
+      yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['2', '1', '1'])).pipe(
+        Effect.provide(layerSocket({ path: server.path, keyGap: '40 millis' })),
+      );
+
+      expect(Date.now() - started).toBeGreaterThanOrEqual(80);
+      expect(server.requests.map((request) => request.params['keys'])).toEqual([
+        ['2'],
+        ['1'],
+        ['1'],
       ]);
     }).pipe(Effect.scoped),
   );
@@ -251,7 +273,8 @@ describe('Herdr.layerSocket', () => {
       ).pipe(Effect.provide(layerSocket({ path: server.path })));
 
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
-        ['pane.send_text', { pane_id: 'wJ:p1', text: '\u001b[5~\u001b[5~' }],
+        ['pane.send_text', { pane_id: 'wJ:p1', text: '\u001b[5~' }],
+        ['pane.send_text', { pane_id: 'wJ:p1', text: '\u001b[5~' }],
         ['agent.send_keys', { target: 'wJ:p1', keys: ['down'] }],
         ['pane.send_text', { pane_id: 'wJ:p1', text: '\u001b[6~' }],
       ]);

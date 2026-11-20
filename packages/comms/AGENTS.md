@@ -77,7 +77,8 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   the call is the latest entry of a Claude agent, has no result, and `showsQuestion` finds the
   fresh dialog on the screen; Herdr's status does not count, as it reports such an agent as done.
   When Claude Code changes its dialog, probe it live and change `answerKeys` and its tests
-  together; never widen the keys API for it.
+  together; never widen the keys API for it. The dialog ignores keys that reach it together as
+  one input, so `sendKeys` sends each key in a request of its own, a pause (`keyGap`) apart.
 - Claude Code writes a waiting `AskUserQuestion` call to its session file only once it is
   answered, so the waiting call comes from the server's Claude hook
   (`apps/comms-server/src/claude-hook.ts`, its work in `claude-questions.ts`), which keeps it in
