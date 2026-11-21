@@ -740,7 +740,7 @@ describe('a decision on a proposal', () => {
 
         yield* brainstorm.decide(proposal.id, {
           _tag: 'Create',
-          draft: { project: 'app', title: ' Dark mode toggle ', body: 'Edited.' },
+          issue: { project: 'app', title: ' Dark mode toggle ', body: 'Edited.' },
         });
         yield* idle(brainstorm);
 
@@ -785,7 +785,7 @@ describe('a decision on a proposal', () => {
           yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'X', body: '' },
+              issue: { project: 'app', title: 'X', body: '' },
             })
             .pipe(Effect.flip),
         ).toEqual(new ProposalDecidedError({ id: proposal.id }));
@@ -821,7 +821,7 @@ describe('a decision on a proposal', () => {
           yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'notes', title: 'Dark mode', body: '' },
+              issue: { project: 'notes', title: 'Dark mode', body: '' },
             })
             .pipe(Effect.flip),
         ).toEqual(new NoGiteaRemoteError({ project: 'notes' }));
@@ -831,7 +831,7 @@ describe('a decision on a proposal', () => {
           yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'Dark mode', body: '' },
+              issue: { project: 'app', title: 'Dark mode', body: '' },
             })
             .pipe(Effect.flip),
         ).toEqual(new GiteaUnavailableError({ reason: 'Gitea answered 403.' }));
@@ -847,7 +847,7 @@ describe('a decision on a proposal', () => {
       Effect.gen(function* () {
         const proposal = yield* proposed(brainstorm, state);
         const error = yield* brainstorm
-          .decide(proposal.id, { _tag: 'Create', draft: { project: 'app', title: '', body: '' } })
+          .decide(proposal.id, { _tag: 'Create', issue: { project: 'app', title: '', body: '' } })
           .pipe(Effect.flip);
         expect(error._tag).toBe('InvalidInputError');
         expect(created(state)).toEqual([]);
@@ -997,7 +997,7 @@ describe('a decision on an edit', () => {
           const error = yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'X', body: '' },
+              issue: { project: 'app', title: 'X', body: '' },
             })
             .pipe(Effect.flip);
           expect(error._tag).toBe('InvalidInputError');
@@ -1257,7 +1257,7 @@ describe('pictures in the brainstorm chat', () => {
 
           yield* brainstorm.decide(proposal.id, {
             _tag: 'Create',
-            draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+            issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
             pictures: [PICTURE_B, PICTURE_A],
           });
           yield* idle(brainstorm);
@@ -1296,7 +1296,7 @@ describe('pictures in the brainstorm chat', () => {
 
           yield* brainstorm.decide(proposal.id, {
             _tag: 'Create',
-            draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+            issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
             pictures: [],
           });
 
@@ -1318,7 +1318,7 @@ describe('pictures in the brainstorm chat', () => {
             state.giteaRefusedPictures.add('picture-2.jpg');
             const create = {
               _tag: 'Create',
-              draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
               pictures: [PICTURE_A, PICTURE_B],
             } as const;
 
@@ -1367,7 +1367,7 @@ describe('pictures in the brainstorm chat', () => {
           yield* Effect.flip(
             brainstorm.decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
               pictures: [PICTURE_A, PICTURE_B],
             }),
           );
@@ -1399,7 +1399,7 @@ describe('pictures in the brainstorm chat', () => {
           yield* Effect.flip(
             brainstorm.decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
               pictures: [PICTURE_A, PICTURE_B],
             }),
           );
@@ -1437,7 +1437,7 @@ describe('pictures in the brainstorm chat', () => {
           yield* Effect.flip(
             brainstorm.decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
               pictures: [PICTURE_B],
             }),
           );
@@ -1454,13 +1454,13 @@ describe('pictures in the brainstorm chat', () => {
         Effect.gen(function* () {
           const proposal = yield* proposed(brainstorm, state);
           state.images.delete(PICTURE_B);
-          const draft = { project: 'app', title: 'Blue door', body: 'Paint it.' };
+          const issue = { project: 'app', title: 'Blue door', body: 'Paint it.' };
 
           const removed = yield* Effect.flip(
-            brainstorm.decide(proposal.id, { _tag: 'Create', draft, pictures: [PICTURE_B] }),
+            brainstorm.decide(proposal.id, { _tag: 'Create', issue, pictures: [PICTURE_B] }),
           );
           const unknown = yield* Effect.flip(
-            brainstorm.decide(proposal.id, { _tag: 'Create', draft, pictures: [PICTURE_C] }),
+            brainstorm.decide(proposal.id, { _tag: 'Create', issue, pictures: [PICTURE_C] }),
           );
 
           expect(removed._tag).toBe('InvalidInputError');

@@ -187,7 +187,7 @@ export const buddy = Effect.scoped(
         case 'Create':
           return decide(({ project, title, body }) => ({
             _tag: 'Create',
-            draft: { project, title, body },
+            issue: { project, title, body },
           }));
         case 'Discard':
           return decide(() => ({ _tag: 'Discard' }));

@@ -6,7 +6,7 @@ import {
   InvalidInputError,
   missingPictures,
   parseImageIds,
-  parseIssueDraft,
+  parseProposedIssue,
   parseIssueEdit,
   parsePictureChoice,
   parsePrompt,
@@ -18,7 +18,7 @@ import {
   type AttachedPicture,
   type BrainstormEntry,
   type EditProposal,
-  type IssueDraft,
+  type ProposedIssue,
   type IssueProposal,
   type IssueRead,
   type IssueText,
@@ -65,7 +65,7 @@ import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.
 import {
   describeBrainstormCall,
   makeBrainstormTools,
-  type EditDraft,
+  type ProposedEdit,
 } from '../tools/brainstorm-tools.js';
 import { makeIssueProject } from './issue-project.js';
 
@@ -248,18 +248,18 @@ export const makeBrainstorm = Effect.gen(function* () {
 
   /** What the tools of a turn do in the chat `chatId`. */
   const hooksFor = (chatId: string) => ({
-    propose: (draft: IssueDraft, pictures: ReadonlyArray<string>) =>
+    propose: (issue: ProposedIssue, pictures: ReadonlyArray<string>) =>
       proposeIn(chatId, (id, at) => ({
         type: 'proposal',
         kind: 'issue',
         id,
         at,
-        ...draft,
+        ...issue,
         pictures,
         attached: [],
         state: { _tag: 'open' },
       })),
-    proposeEdit: ({ read, title, body, pictures }: EditDraft) =>
+    proposeEdit: ({ read, title, body, pictures }: ProposedEdit) =>
       proposeIn(chatId, (id, at) => ({
         type: 'proposal',
         kind: 'edit',
@@ -474,22 +474,22 @@ export const makeBrainstorm = Effect.gen(function* () {
    */
   const createIssue = (
     proposal: IssueProposal,
-    edited: IssueDraft,
+    edited: ProposedIssue,
     chosen: ReadonlyArray<string> | undefined,
   ) =>
     Effect.gen(function* () {
-      const draft = parseIssueDraft(edited);
-      if (Result.isFailure(draft)) return yield* draft.failure;
+      const proposed = parseProposedIssue(edited);
+      if (Result.isFailure(proposed)) return yield* proposed.failure;
       const pictures = yield* choosePictures(chosen);
-      const repository = yield* repositoryOf(draft.success.project);
+      const repository = yield* repositoryOf(proposed.success.project);
       const created = yield* giteaOutbound.createIssue(repository, {
-        title: draft.success.title,
-        body: draft.success.body,
+        title: proposed.success.title,
+        body: proposed.success.body,
       });
       yield* Effect.logInfo('Issue created').pipe(
-        Effect.annotateLogs({ project: draft.success.project, number: created.number }),
+        Effect.annotateLogs({ project: proposed.success.project, number: created.number }),
       );
-      const withIssue = { ...proposal, ...draft.success, pictures } satisfies IssueProposal;
+      const withIssue = { ...proposal, ...proposed.success, pictures } satisfies IssueProposal;
       if (pictures.length === 0) {
         return {
           ...withIssue,
@@ -563,7 +563,7 @@ export const makeBrainstorm = Effect.gen(function* () {
     }
     if (decision._tag === 'Discard') return Effect.succeed(discarded(proposal));
     return decision._tag === 'Create'
-      ? createIssue(proposal, decision.draft, decision.pictures)
+      ? createIssue(proposal, decision.issue, decision.pictures)
       : Effect.fail(mismatch(proposal));
   };
 

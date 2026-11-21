@@ -14,14 +14,14 @@ import {
 import { useState } from 'react';
 import { AttachedPictures, PictureChoice, type ChatPicture } from './ProposalPictures.js';
 
-/** An issue as the proposal drafts it: the project by its name, the title and the body. */
-export type ProposalDraft = {
+/** An issue as the proposal proposes it: the project by its name, the title and the body. */
+export type ProposedIssue = {
   readonly project: string;
   readonly title: string;
   readonly body: string;
 };
 
-export type ProposalCardProps = ProposalDraft & {
+export type ProposalCardProps = ProposedIssue & {
   /**
    * `open` until the owner decides; then the created issue, or `discarded`. `attaching` while the
    * created issue's pictures are not all attached.
@@ -31,7 +31,7 @@ export type ProposalCardProps = ProposalDraft & {
     | { readonly _tag: 'created'; readonly number: number; readonly url: string }
     | { readonly _tag: 'discarded' }
     | { readonly _tag: 'attaching'; readonly number: number; readonly url: string };
-  /** The projects the owner may choose from, by name; the drafted one is offered too. */
+  /** The projects the owner may choose from, by name; the proposed one is offered too. */
   readonly projects: ReadonlyArray<string>;
   /** The pictures of the chat the owner may choose from. */
   readonly pictures?: ReadonlyArray<ChatPicture>;
@@ -40,10 +40,10 @@ export type ProposalCardProps = ProposalDraft & {
   /** The chosen pictures that are attached to the issue in Gitea. */
   readonly attached?: ReadonlyArray<{ readonly image: string }>;
   /**
-   * Called with the draft as the owner edited it and the chosen pictures; while `attaching`, it
+   * Called with the issue as the owner edited it and the chosen pictures; while `attaching`, it
    * retries the pictures.
    */
-  readonly onCreate: (draft: ProposalDraft, pictures: ReadonlyArray<string>) => void;
+  readonly onCreate: (issue: ProposedIssue, pictures: ReadonlyArray<string>) => void;
   readonly onDiscard: () => void;
   /** While `attaching`: finish with the pictures attached so far. */
   readonly onFinishWithout?: () => void;
@@ -72,7 +72,7 @@ export const ProposalCard = ({
   busy = false,
   error,
 }: ProposalCardProps) => {
-  const [draft, setDraft] = useState<ProposalDraft>({ project, title, body });
+  const [issue, setIssue] = useState<ProposedIssue>({ project, title, body });
   // A picture the app no longer keeps cannot go along (spec 023, requirement 10).
   const [choice, setChoice] = useState<ReadonlyArray<string>>(() =>
     chosen.filter((id) => pictures.some((picture) => picture.id === id && picture.available)),
@@ -144,8 +144,8 @@ export const ProposalCard = ({
           </Text>
           <Select
             label="Project"
-            value={draft.project}
-            onChange={(value) => setDraft({ ...draft, project: value })}
+            value={issue.project}
+            onChange={(value) => setIssue({ ...issue, project: value })}
           >
             {names.map((name) => (
               <option key={name} value={name}>
@@ -155,14 +155,14 @@ export const ProposalCard = ({
           </Select>
           <Input
             label="Title"
-            value={draft.title}
-            onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+            value={issue.title}
+            onChange={(event) => setIssue({ ...issue, title: event.target.value })}
           />
           <TextArea
             label="Body"
             rows={6}
-            value={draft.body}
-            onChange={(event) => setDraft({ ...draft, body: event.target.value })}
+            value={issue.body}
+            onChange={(event) => setIssue({ ...issue, body: event.target.value })}
           />
           <PictureChoice pictures={pictures} chosen={choice} onChange={setChoice} disabled={busy} />
           {error === undefined ? null : <Alert>{error}</Alert>}
@@ -170,7 +170,7 @@ export const ProposalCard = ({
             <Button variant="secondary" disabled={busy} onClick={onDiscard}>
               Discard
             </Button>
-            <Button disabled={busy} onClick={() => onCreate(draft, choice)}>
+            <Button disabled={busy} onClick={() => onCreate(issue, choice)}>
               Create issue
             </Button>
           </Inline>

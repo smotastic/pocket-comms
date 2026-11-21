@@ -11,7 +11,7 @@ import {
   MAX_ISSUE_TITLE,
   MAX_PROPOSAL_PICTURES,
   missingPictures,
-  parseIssueDraft,
+  parseProposedIssue,
   parseIssueEdit,
   parsePictureChoice,
   picturesByNumber,
@@ -45,16 +45,16 @@ const entries: ReadonlyArray<BrainstormEntry> = [
   recorded(proposal('p2', { _tag: 'discarded' })),
 ];
 
-describe('parseIssueDraft', () => {
+describe('parseProposedIssue', () => {
   it('trims the fields', () => {
     expect(
-      parseIssueDraft({ project: ' pocket-home ', title: '  Dark mode ', body: '\nBody\n' }),
+      parseProposedIssue({ project: ' pocket-home ', title: '  Dark mode ', body: '\nBody\n' }),
     ).toEqual(Result.succeed({ project: 'pocket-home', title: 'Dark mode', body: 'Body' }));
   });
 
   it('refuses a blank title, a title over the limit and a body over the limit', () => {
-    const issues = (draft: { project: string; title: string; body: string }) => {
-      const result = parseIssueDraft(draft);
+    const issues = (issue: { project: string; title: string; body: string }) => {
+      const result = parseProposedIssue(issue);
       return Result.isFailure(result) ? result.failure.issues.map((issue) => issue.field) : [];
     };
     expect(issues({ project: 'a', title: ' ', body: '' })).toEqual(['title']);
@@ -70,7 +70,7 @@ describe('parseIssueDraft', () => {
   it('accepts a title of exactly the limit and an empty body', () => {
     expect(
       Result.isSuccess(
-        parseIssueDraft({ project: 'a', title: 'x'.repeat(MAX_ISSUE_TITLE), body: '' }),
+        parseProposedIssue({ project: 'a', title: 'x'.repeat(MAX_ISSUE_TITLE), body: '' }),
       ),
     ).toBe(true);
   });

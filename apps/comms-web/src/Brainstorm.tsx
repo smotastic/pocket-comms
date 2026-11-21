@@ -156,8 +156,8 @@ const Proposal = ({
       attached={proposal.attached}
       busy={busy || decide.isPending}
       {...(failed === null ? {} : { error: failed.message })}
-      onCreate={(draft, chosen) =>
-        decide.mutate({ id: proposal.id, decision: { _tag: 'Create', draft, pictures: chosen } })
+      onCreate={(issue, chosen) =>
+        decide.mutate({ id: proposal.id, decision: { _tag: 'Create', issue, pictures: chosen } })
       }
       onDiscard={() => decide.mutate({ id: proposal.id, decision: { _tag: 'Discard' } })}
       onFinishWithout={() =>

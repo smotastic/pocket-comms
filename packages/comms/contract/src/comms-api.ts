@@ -806,7 +806,7 @@ const entryAt = Millis.annotate({
   description: 'When the entry was added, in epoch milliseconds.',
 });
 
-const DraftFields = {
+const ProposedIssueFields = {
   project: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(100)).annotate({
     description: 'The project the issue is for, by name.',
     examples: ['pocket-home'],
@@ -864,8 +864,8 @@ const choice = optional(pictureIds, {
   examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
 });
 
-export const IssueDraft = Schema.Struct(DraftFields).annotate({
-  identifier: 'IssueDraft',
+export const ProposedIssue = Schema.Struct(ProposedIssueFields).annotate({
+  identifier: 'ProposedIssue',
   description: 'An issue as the owner edited it: exactly what is created.',
   examples: [{ project: 'pocket-home', title: 'Dark mode toggle', body: 'A toggle in settings.' }],
 });
@@ -954,7 +954,7 @@ export const BrainstormProposal = Schema.Union([
     }),
     id: entryId,
     at: entryAt,
-    ...DraftFields,
+    ...ProposedIssueFields,
     ...PictureFields,
     state: ProposalState,
   }),
@@ -969,7 +969,7 @@ export const BrainstormProposal = Schema.Union([
     }),
     id: entryId,
     at: entryAt,
-    project: DraftFields.project,
+    project: ProposedIssueFields.project,
     number: Schema.Int.annotate({ description: "The issue's number.", examples: [11] }),
     url: Schema.String.annotate({
       description: "The issue's page in Gitea.",
@@ -1103,7 +1103,7 @@ export const ProposalDecisionRequest = Schema.Union([
       description: 'Create the issue as shown.',
       examples: ['Create'],
     }),
-    draft: IssueDraft,
+    issue: ProposedIssue,
     pictures: choice,
   }),
   Schema.Struct({

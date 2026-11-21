@@ -263,14 +263,14 @@ describe('HttpComms', () => {
       yield* withComms(url, (comms) =>
         comms.decide('p1', {
           _tag: 'Create',
-          draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+          issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
         }),
       );
 
       expect(seen[0]?.url).toBe('/api/v1/brainstorm/proposals/p1/decision');
       expect(JSON.parse(seen[0]?.body.toString() ?? '')).toEqual({
         _tag: 'Create',
-        draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+        issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
       });
     }),
   );

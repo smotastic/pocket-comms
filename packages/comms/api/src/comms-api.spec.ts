@@ -955,7 +955,7 @@ describe('the brainstorm API', () => {
     );
     const decided = await call(
       '/api/v1/brainstorm/proposals/p-1/decision',
-      json({ _tag: 'Create', draft: { project: 'app', title: 'Dark mode', body: '' } }),
+      json({ _tag: 'Create', issue: { project: 'app', title: 'Dark mode', body: '' } }),
     );
     const reset = await call('/api/v1/brainstorm/reset', { method: 'POST' });
 
@@ -968,7 +968,7 @@ describe('the brainstorm API', () => {
       [
         'decide',
         'p-1',
-        { _tag: 'Create', draft: { project: 'app', title: 'Dark mode', body: '' } },
+        { _tag: 'Create', issue: { project: 'app', title: 'Dark mode', body: '' } },
       ],
       ['reset'],
     ]);

@@ -389,7 +389,7 @@ describe('brainstorm wire schemas', () => {
     expect(['..', 'a/b', ''].map(proposal)).toEqual([false, false, false]);
   });
 
-  it('takes a decision to create with a draft, to apply an edit, or to discard', () => {
+  it('takes a decision to create an issue proposal, to apply an edit, or to discard', () => {
     const decode = Schema.decodeUnknownSync(ProposalDecisionRequest);
     expect(decode({ _tag: 'Discard' })).toEqual({ _tag: 'Discard' });
     expect(decode({ _tag: 'Apply', title: 'T', body: 'B' })).toEqual({
@@ -402,7 +402,7 @@ describe('brainstorm wire schemas', () => {
       pictures: [PICTURE],
     });
     expect(
-      decode({ _tag: 'Create', draft: { project: 'a', title: 'T', body: '' }, pictures: [] }),
+      decode({ _tag: 'Create', issue: { project: 'a', title: 'T', body: '' }, pictures: [] }),
     ).toMatchObject({ pictures: [] });
     expect(() =>
       decode({ _tag: 'Apply', title: 'T', body: 'B', pictures: Array(6).fill(PICTURE) }),
@@ -411,7 +411,7 @@ describe('brainstorm wire schemas', () => {
     expect(() => decode({ _tag: 'Create' })).toThrow();
     expect(() => decode({ _tag: 'Apply', title: 'x'.repeat(256), body: '' })).toThrow();
     expect(() =>
-      decode({ _tag: 'Create', draft: { project: 'a', title: 'x'.repeat(256), body: '' } }),
+      decode({ _tag: 'Create', issue: { project: 'a', title: 'x'.repeat(256), body: '' } }),
     ).toThrow();
   });
 });

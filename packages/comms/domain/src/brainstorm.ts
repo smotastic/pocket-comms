@@ -3,15 +3,15 @@ import * as Result from 'effect/Result';
 import { InvalidInputError } from './errors.js';
 
 // The rules of the brainstorm chat: what the conversation holds, the issue or the edit
-// a proposal drafts and how it is decided, the pictures that go with it, the issues Pi read, and
+// a proposal proposes and how it is decided, the pictures that go with it, the issues Pi read, and
 // the project files Pi may read.
 
 /** Gitea's limit of an issue title. */
 export const MAX_ISSUE_TITLE = 255;
 export const MAX_ISSUE_BODY = 20_000;
 
-/** The issue a proposal drafts: the project by its name, the title and the Markdown body. */
-export interface IssueDraft {
+/** The issue a proposal proposes: the project by its name, the title and the Markdown body. */
+export interface ProposedIssue {
   readonly project: string;
   readonly title: string;
   readonly body: string;
@@ -55,7 +55,7 @@ export type EditState =
   | { readonly _tag: 'discarded' };
 
 /** A new issue Pi proposes. */
-export interface IssueProposal extends IssueDraft, WithPictures {
+export interface IssueProposal extends ProposedIssue, WithPictures {
   readonly type: 'proposal';
   readonly kind: 'issue';
   readonly id: string;
@@ -121,13 +121,13 @@ const textIssues = (title: string, body: string): Array<FieldIssue> => {
   return issues;
 };
 
-/** The draft, trimmed; a blank project or title, or a field over its limit, is refused. */
-export const parseIssueDraft = (
-  draft: IssueDraft,
-): Result.Result<IssueDraft, InvalidInputError> => {
-  const project = draft.project.trim();
-  const title = draft.title.trim();
-  const body = draft.body.trim();
+/** The proposed issue, trimmed; a blank project or title, or a field over its limit, is refused. */
+export const parseProposedIssue = (
+  issue: ProposedIssue,
+): Result.Result<ProposedIssue, InvalidInputError> => {
+  const project = issue.project.trim();
+  const title = issue.title.trim();
+  const body = issue.body.trim();
   const issues: Array<FieldIssue> = [
     ...(project === '' ? [{ field: 'project', message: 'Choose a project.' }] : []),
     ...textIssues(title, body),

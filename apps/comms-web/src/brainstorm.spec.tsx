@@ -308,7 +308,7 @@ describe('a proposal in the brainstorm chat', () => {
           'p1',
           {
             _tag: 'Create',
-            draft: { project: 'pocket-comms', title: 'Dark mode toggle', body: 'A toggle.' },
+            issue: { project: 'pocket-comms', title: 'Dark mode toggle', body: 'A toggle.' },
             pictures: [],
           },
         ],
@@ -470,7 +470,7 @@ describe('pictures in the brainstorm chat', () => {
           'p1',
           {
             _tag: 'Create',
-            draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+            issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
             pictures: [A, B],
           },
         ],
@@ -538,7 +538,7 @@ describe('pictures in the brainstorm chat', () => {
           'p1',
           {
             _tag: 'Create',
-            draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+            issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
             pictures: [A, B],
           },
         ],

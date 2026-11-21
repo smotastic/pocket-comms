@@ -2,12 +2,12 @@ import {
   cutDoc,
   cutIssueBody,
   orderIssues,
-  parseIssueDraft,
+  parseProposedIssue,
   parseIssueEdit,
   isProjectDoc,
   PROJECT_DOCS,
   type InvalidInputError,
-  type IssueDraft,
+  type ProposedIssue,
   type IssueRead,
   type IssueText,
 } from '@pocket-comms/comms-domain';
@@ -45,7 +45,7 @@ const refusal = (error: InvalidInputError) =>
   refuse(error.issues.map((issue) => issue.message).join(' '));
 
 /** An edit Pi proposes, with the issue as Pi last read it. */
-export interface EditDraft extends IssueText {
+export interface ProposedEdit extends IssueText {
   readonly read: IssueRead;
   /** The chat pictures that go along, by image id. */
   readonly pictures: ReadonlyArray<string>;
@@ -54,9 +54,12 @@ export interface EditDraft extends IssueText {
 /** What the tools of one turn do in the chat they run for. */
 export interface ChatHooks {
   /** Shows a new issue proposal, with these chat pictures by id, and answers its id. */
-  readonly propose: (draft: IssueDraft, pictures: ReadonlyArray<string>) => Effect.Effect<string>;
+  readonly propose: (
+    issue: ProposedIssue,
+    pictures: ReadonlyArray<string>,
+  ) => Effect.Effect<string>;
   /** Shows an edit proposal to the owner and answers its id. */
-  readonly proposeEdit: (edit: EditDraft) => Effect.Effect<string>;
+  readonly proposeEdit: (edit: ProposedEdit) => Effect.Effect<string>;
   /** Keeps this read as the last read of its issue. */
   readonly remember: (read: IssueRead) => Effect.Effect<void>;
   /** The last read of a project's issue in this chat, if Pi read it. */
@@ -236,17 +239,17 @@ export const makeBrainstormTools = Effect.gen(function* () {
       }),
       run: ({ pictures: numbers = [], ...input }) =>
         Effect.gen(function* () {
-          const draft = parseIssueDraft(input);
-          if (Result.isFailure(draft)) return yield* refusal(draft.failure);
+          const proposed = parseProposedIssue(input);
+          if (Result.isFailure(proposed)) return yield* refusal(proposed.failure);
           const pictures = yield* chat.pictures(numbers);
           if (Result.isFailure(pictures)) return yield* refusal(pictures.failure);
-          const { repository } = yield* findProject(draft.success.project);
+          const { repository } = yield* findProject(proposed.success.project);
           if (Option.isNone(repository)) {
             return yield* refuse(
-              `${draft.success.project} has no repository on Gitea, so no issue can be filed there.`,
+              `${proposed.success.project} has no repository on Gitea, so no issue can be filed there.`,
             );
           }
-          yield* chat.propose(draft.success, pictures.success);
+          yield* chat.propose(proposed.success, pictures.success);
           return {
             output: 'The owner sees the proposal now. Wait for their decision.',
             pause: true,

@@ -1,4 +1,4 @@
-import type { BrainstormEntry, ChatPicture, IssueDraft } from '@pocket-comms/comms-domain';
+import type { BrainstormEntry, ChatPicture, ProposedIssue } from '@pocket-comms/comms-domain';
 import type { ChatStreamEvent } from '@smotastic/pocket-agent/chat';
 
 /** The brainstorm chat as the sheet shows it, or why it is not set up. */
@@ -31,7 +31,7 @@ export type BrainstormEventDto = ChatStreamEvent<BrainstormEntry>;
 export type ProposalDecisionInput =
   | {
       readonly _tag: 'Create';
-      readonly draft: IssueDraft;
+      readonly issue: ProposedIssue;
       readonly pictures?: ReadonlyArray<string> | undefined;
     }
   | {

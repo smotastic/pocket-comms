@@ -23,7 +23,7 @@ export {
   ImageUpload,
   ImplementIssueRequest,
   Issue,
-  IssueDraft,
+  ProposedIssue,
   IssueList,
   IssueTaskCreated,
   IssueNumberParam,

@@ -9,7 +9,7 @@ import {
   CommsApi,
   type CreateTaskRequest,
   type Issue,
-  type IssueDraft,
+  type ProposedIssue,
   type IssueList,
   type IssueTaskCreated,
   type KEYS,
@@ -51,7 +51,7 @@ export type BrainstormStateView = typeof BrainstormState.Type;
 export type BrainstormEventView = typeof BrainstormEvent.Type;
 /** One of the brainstorm chat's own entries, among the agent package's shared ones. */
 export type BrainstormEntryView = typeof BrainstormEntry.Type;
-export type IssueDraftView = typeof IssueDraft.Type;
+export type ProposedIssueView = typeof ProposedIssue.Type;
 export type ProposalDecision = typeof ProposalDecisionRequest.Type;
 
 /** Stops a live subscription. */

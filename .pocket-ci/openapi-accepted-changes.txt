@@ -11,3 +11,4 @@ GET /api/v1/activity added the new `pagedown` enum value to the `events/items/an
 GET /api/v1/activity added `subschema #7` to the `events/items/` response property `anyOf` list for the response status `200`
 GET /api/v1/agents/{agent}/transcript api path removed without deprecation
 GET /api/v1/agents/{agent}/subagents/{subagent} removed the required property `activity` from the response with the `200` status
+POST /api/v1/brainstorm/proposals/{proposal}/decision added the new required request property `anyOf[subschema #1]/issue`

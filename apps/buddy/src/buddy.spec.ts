@@ -578,7 +578,7 @@ describe('proposals', () => {
             'p1',
             {
               _tag: 'Create',
-              draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+              issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
             },
           ],
         ]);
