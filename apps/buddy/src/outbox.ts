@@ -3,7 +3,7 @@ import * as Data from 'effect/Data';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
 
-/** A recorded clip waiting to reach the brainstorm chat. */
+/** A recorded clip waiting to reach the brainstorm. */
 export interface Clip {
   readonly id: string;
   readonly bytes: Uint8Array;
@@ -13,7 +13,7 @@ export interface Clip {
 export class OutboxError extends Data.TaggedError('OutboxError')<{ readonly reason: string }> {}
 
 /**
- * The clips not yet in the chat, oldest first. It keeps them across restarts, so a clip is never
+ * The clips not yet in the brainstorm, oldest first. It keeps them across restarts, so a clip is never
  * lost to a missing connection.
  */
 export class Outbox extends Context.Service<

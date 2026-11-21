@@ -186,7 +186,7 @@ describe('HttpComms', () => {
     }),
   );
 
-  it.live('says whether Pi is answering, and when the chat is not set up', () =>
+  it.live('says whether Pi is answering, and when the brainstorm is not set up', () =>
     Effect.gen(function* () {
       let answer: unknown = {
         _tag: 'Ready',
@@ -205,7 +205,7 @@ describe('HttpComms', () => {
     }),
   );
 
-  it.live('follows the chat’s events after a number, whatever chunks they come in', () =>
+  it.live('follows the brainstorm’s events after a number, whatever chunks they come in', () =>
     Effect.gen(function* () {
       const events =
         'event: brainstorm\ndata: {"kind":"entry","sequence":4,"entry":{"kind":"said","id":"u1","at":1,"text":"dark mode","images":[]}}\n\n' +
@@ -238,7 +238,7 @@ describe('HttpComms', () => {
     Effect.gen(function* () {
       const { url } = yield* serve((_, response) =>
         problem(response, 404, 'proposal-not-found', {
-          detail: 'The brainstorm chat has no proposal p1.',
+          detail: 'The brainstorm has no proposal p1.',
         }),
       );
 
@@ -248,7 +248,7 @@ describe('HttpComms', () => {
 
       expect(error).toMatchObject({
         _tag: 'Refused',
-        reason: 'The brainstorm chat has no proposal p1.',
+        reason: 'The brainstorm has no proposal p1.',
       });
     }),
   );

@@ -40,7 +40,7 @@ import {
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
 import {
   BrainstormStoreOutbound,
-  type StoredChat,
+  type StoredBrainstorm,
 } from '../ports/brainstorm-store.outbound.port.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
@@ -152,11 +152,11 @@ export class FakeState extends Context.Service<
     /** The turns the scripted runtime plays, in order, and what it was given. */
     readonly script: Array<ReadonlyArray<ScriptStep>>;
     readonly turns: Array<TurnInput>;
-    /** The stored brainstorm chat, and how often it was saved. */
-    storedChat: StoredChat | undefined;
+    /** The stored brainstorm, and how often it was saved. */
+    storedBrainstorm: StoredBrainstorm | undefined;
     saves: number;
-    /** Which saves of the chat die, as a broken disk would make them. */
-    saveDies: ((chat: StoredChat) => boolean) | undefined;
+    /** Which saves of the brainstorm die, as a broken disk would make them. */
+    saveDies: ((brainstorm: StoredBrainstorm) => boolean) | undefined;
     /** The kept images by id, with when each was saved in epoch milliseconds. */
     readonly images: Map<string, StoredImage & { readonly savedAt: number }>;
     /** The kept activity events, oldest first. */
@@ -596,7 +596,7 @@ export const fakeLayer = () => {
         seesImages: true,
         script: [],
         turns: [],
-        storedChat: undefined,
+        storedBrainstorm: undefined,
         saves: 0,
         saveDies: undefined,
         images: new Map(),
@@ -631,12 +631,12 @@ export const fakeLayer = () => {
           runTurn: (turn) => scriptedTurn({ turns: fake.script, received: fake.turns }, turn),
         }),
         Context.add(BrainstormStoreOutbound, {
-          load: Effect.sync(() => Option.fromNullishOr(fake.storedChat)),
-          save: (chat) =>
-            fake.saveDies?.(chat) === true
+          load: Effect.sync(() => Option.fromNullishOr(fake.storedBrainstorm)),
+          save: (brainstorm) =>
+            fake.saveDies?.(brainstorm) === true
               ? Effect.die('The disk is full.')
               : Effect.sync(() => {
-                  fake.storedChat = chat;
+                  fake.storedBrainstorm = brainstorm;
                   fake.saves += 1;
                 }),
         }),

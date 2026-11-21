@@ -36,7 +36,7 @@ import { ProposalCard } from './ProposalCard.js';
 import { BrainstormImageThumb, type BrainstormImage } from './ProposalImages.js';
 import { voiceLabels, voiceNotice } from './voice.js';
 
-// The brainstorm chat: one ongoing chat with Pi, opened from the top bars. Pi proposes new issues
+// The brainstorm: one ongoing brainstorm with Pi, opened from the top bars. Pi proposes new issues
 // and edits of existing ones, and the owner decides on each. The owner's messages may attach
 // images, which go to Gitea with the proposals the owner chooses them for (spec 023). Pi's reply
 // streams in, and each tool it runs shows as a row (spec 026).
@@ -44,7 +44,7 @@ import { voiceLabels, voiceNotice } from './voice.js';
 type Ready = Extract<BrainstormStateView, { readonly _tag: 'Ready' }>;
 type ProposalView = Extract<BrainstormEntryView, { readonly kind: 'proposal' }>['proposal'];
 
-/** What the chat says when Pi only learns that images were attached. */
+/** What the brainstorm says when Pi only learns that images were attached. */
 const BLIND = "This model can't see images";
 
 const PI = 'Pi';
@@ -274,7 +274,7 @@ const Thread = ({
   );
 };
 
-/** Asks before a New chat, below the header, since the conversation is gone for good. */
+/** Asks before a New brainstorm, below the header, since the conversation is gone for good. */
 const ConfirmReset = ({
   client,
   onDone,
@@ -286,22 +286,22 @@ const ConfirmReset = ({
   return (
     <Stack gap="sm">
       <Text>
-        Start a new chat? This conversation is gone for good; issues created from it stay.
+        Start a new brainstorm? This conversation is gone for good; issues created from it stay.
       </Text>
       {reset.error === null ? null : <Alert>{reset.error.message}</Alert>}
       <Inline gap="sm">
         <Button variant="danger" disabled={reset.isPending} onClick={() => reset.mutate()}>
-          Start a new chat
+          Start a new brainstorm
         </Button>
         <Button variant="secondary" onClick={onDone}>
-          Keep this chat
+          Keep this brainstorm
         </Button>
       </Inline>
     </Stack>
   );
 };
 
-/** The composer: it takes no message while Pi answers or while the chat is not set up. */
+/** The composer: it takes no message while Pi answers or while the brainstorm is not set up. */
 const Footer = ({
   client,
   state,
@@ -409,7 +409,7 @@ const Footer = ({
 
 const OpenBrainstorm = createContext<() => void>(() => undefined);
 
-/** Opens the brainstorm chat over the current screen. */
+/** Opens the brainstorm over the current screen. */
 export const useOpenBrainstorm = () => useContext(OpenBrainstorm);
 
 /** The Brainstorm action for a screen's top bar. */
@@ -418,7 +418,7 @@ export const BrainstormAction = () => (
 );
 
 /**
- * Holds the one chat sheet for every screen below it. Closing the sheet unmounts nothing there,
+ * Holds the one brainstorm sheet for every screen below it. Closing the sheet unmounts nothing there,
  * so the screen stays as it was.
  */
 export const Brainstorm = ({
@@ -430,9 +430,9 @@ export const Brainstorm = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
-  const chat = useQuery({ ...brainstormQuery(client), enabled: open });
+  const stateQuery = useQuery({ ...brainstormQuery(client), enabled: open });
   const { view } = useBrainstormLive(client, open);
-  const state = chat.data;
+  const state = stateQuery.data;
   const close = () => {
     setOpen(false);
     setConfirmingReset(false);
@@ -452,15 +452,15 @@ export const Brainstorm = ({
             title="Brainstorm"
             subtitle="Ideas with Pi"
             {...(state?._tag === 'Ready'
-              ? { newSession: { label: 'New chat', onClick: () => setConfirmingReset(true) } }
+              ? { newSession: { label: 'New brainstorm', onClick: () => setConfirmingReset(true) } }
               : {})}
             close={{ label: 'Close', onClick: close }}
           />
         }
         notices={
-          confirmingReset || chat.error !== null ? (
+          confirmingReset || stateQuery.error !== null ? (
             <Stack gap="sm">
-              {chat.error === null ? null : <Alert>{chat.error.message}</Alert>}
+              {stateQuery.error === null ? null : <Alert>{stateQuery.error.message}</Alert>}
               {confirmingReset ? (
                 <ConfirmReset client={client} onDone={() => setConfirmingReset(false)} />
               ) : null}
@@ -471,7 +471,7 @@ export const Brainstorm = ({
       >
         {state?._tag === 'NotSetUp' ? (
           <Stack gap="sm">
-            <Text>The brainstorm chat is not set up.</Text>
+            <Text>The brainstorm is not set up.</Text>
             <Text tone="muted">{state.reason}</Text>
           </Stack>
         ) : null}

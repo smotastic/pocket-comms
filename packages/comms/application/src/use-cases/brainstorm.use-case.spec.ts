@@ -28,7 +28,7 @@ import { BRAINSTORM_INSTRUCTIONS, makeBrainstorm } from './brainstorm.use-case.j
 type Brainstorm = Effect.Success<typeof makeBrainstorm>;
 
 const ready = (state: BrainstormStateDto) => {
-  if (state._tag !== 'Ready') throw new Error(`The chat is ${state._tag}.`);
+  if (state._tag !== 'Ready') throw new Error(`The brainstorm is ${state._tag}.`);
   return state;
 };
 
@@ -42,7 +42,7 @@ const idle = (brainstorm: Brainstorm) =>
     throw new Error('The turn did not end.');
   });
 
-/** What a sheet that follows the chat from its start holds once the stream is quiet. */
+/** What a sheet that follows the brainstorm from its start holds once the stream is quiet. */
 const follow = (brainstorm: Brainstorm, after = 0) =>
   Effect.gen(function* () {
     const events = yield* collect(brainstorm.events(after));
@@ -59,7 +59,7 @@ type Shown =
   | ProposalEntry;
 
 /**
- * The chat as the sheet shows it, without the tools: the owner's messages, Pi's replies and
+ * The brainstorm as the sheet shows it, without the tools: the owner's messages, Pi's replies and
  * failures, and each proposal as its latest record in the place of its first.
  */
 const entries = (brainstorm: Brainstorm) =>
@@ -70,7 +70,7 @@ const entries = (brainstorm: Brainstorm) =>
       if (item.kind === 'turnFailed') shown.push({ kind: 'turnFailed', reason: item.reason });
       if (item.kind !== 'app') continue;
       const entry = item.entry;
-      if (entry.kind === 'chatStarted') shown = [];
+      if (entry.kind === 'brainstormStarted') shown = [];
       if (entry.kind === 'said') shown.push(entry);
       if (entry.kind === 'proposal') {
         const at = shown.findIndex((one) => 'type' in one && one.id === entry.proposal.id);
@@ -81,7 +81,7 @@ const entries = (brainstorm: Brainstorm) =>
     return shown;
   });
 
-/** The tool rows of the chat: each tool's name, its summary and its state. */
+/** The tool rows of the brainstorm: each tool's name, its summary and its state. */
 const tools = (brainstorm: Brainstorm) =>
   Effect.map(follow(brainstorm), (view) =>
     view.items.flatMap((item) =>
@@ -102,7 +102,7 @@ const proposalIn = (all: ReadonlyArray<Shown>) =>
 
 const turnInputs = (state: FakeState['Service']) => state.turns.map((turn) => turn.input);
 
-// Runs a test with a fresh chat built after `arrange`, in a scope that ends its turns.
+// Runs a test with a fresh brainstorm built after `arrange`, in a scope that ends its turns.
 const run = (
   test: (
     brainstorm: Brainstorm,
@@ -127,8 +127,8 @@ const proposeEdit = (input: { project: string; number: number; title: string; bo
   input,
 });
 
-describe('the brainstorm chat', () => {
-  it.effect('adds the message, streams Pi’s answer and saves the chat', () =>
+describe('the brainstorm', () => {
+  it.effect('adds the message, streams Pi’s answer and saves the brainstorm', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.script.push([{ text: 'Nice idea. Which project?' }]);
@@ -153,14 +153,16 @@ describe('the brainstorm chat', () => {
           'propose_issue',
           'propose_issue_edit',
         ]);
-        expect(state.storedChat?.log.map((stored) => [stored.sequence, stored.entry.kind])).toEqual(
-          [
-            [1, 'said'],
-            [2, 'agentMessage'],
-            [3, 'turnEnded'],
-          ],
+        expect(
+          state.storedBrainstorm?.log.map((stored) => [stored.sequence, stored.entry.kind]),
+        ).toEqual([
+          [1, 'said'],
+          [2, 'agentMessage'],
+          [3, 'turnEnded'],
+        ]);
+        expect(state.storedBrainstorm?.runtime).toEqual(
+          Option.some({ adapter: 'scripted', state: 1 }),
         );
-        expect(state.storedChat?.runtime).toEqual(Option.some({ adapter: 'scripted', state: 1 }));
       }),
     ),
   );
@@ -251,7 +253,7 @@ describe('the brainstorm chat', () => {
     ),
   );
 
-  it.effect('starts with the stored chat after a restart', () =>
+  it.effect('starts with the stored brainstorm after a restart', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
@@ -264,7 +266,7 @@ describe('the brainstorm chat', () => {
           expect(state.turns[0]?.state).toEqual(Option.some({ adapter: 'scripted', state: 4 }));
         }),
       (state) => {
-        state.storedChat = {
+        state.storedBrainstorm = {
           id: 'chat-1',
           log: [
             { sequence: 1, entry: { kind: 'said', id: 'u1', at: 1, text: 'Kept', images: [] } },
@@ -276,7 +278,7 @@ describe('the brainstorm chat', () => {
     ),
   );
 
-  it.effect('starts an empty chat on reset and stops a running answer', () =>
+  it.effect('starts an empty brainstorm on reset and stops a running answer', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.script.push([{ until: Effect.never }]);
@@ -293,15 +295,17 @@ describe('the brainstorm chat', () => {
           voice: true,
         });
         expect(yield* entries(brainstorm)).toEqual([]);
-        // The new chat goes on from the stopped turn's numbers, so a sheet that follows sees it.
-        expect(state.storedChat?.log).toEqual([{ sequence: 3, entry: { kind: 'chatStarted' } }]);
-        expect(state.storedChat?.reads).toEqual([]);
-        expect(state.storedChat?.runtime).toEqual(Option.none());
+        // The new brainstorm goes on from the stopped turn's numbers, so a sheet that follows sees it.
+        expect(state.storedBrainstorm?.log).toEqual([
+          { sequence: 3, entry: { kind: 'brainstormStarted' } },
+        ]);
+        expect(state.storedBrainstorm?.reads).toEqual([]);
+        expect(state.storedBrainstorm?.runtime).toEqual(Option.none());
       }),
     ),
   );
 
-  it.effect('keeps a late write of a stopped turn out of the new chat', () =>
+  it.effect('keeps a late write of a stopped turn out of the new brainstorm', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.script.push([{ until: Effect.never }]);
@@ -355,13 +359,13 @@ describe('the brainstorm chat', () => {
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.script.push([{ text: 'Hello.' }]);
-        state.saveDies = (chat) => Option.isSome(chat.runtime);
+        state.saveDies = (stored) => Option.isSome(stored.runtime);
         yield* brainstorm.send('Hi');
         yield* idle(brainstorm);
 
         expect((yield* entries(brainstorm)).map(strip).at(-1)).toEqual({
           kind: 'turnFailed',
-          reason: 'The chat could not be saved after this answer.',
+          reason: 'The brainstorm could not be saved after this answer.',
         });
         state.saveDies = undefined;
         yield* brainstorm.send('Again');
@@ -431,7 +435,7 @@ describe('the brainstorm chat', () => {
     ),
   );
 
-  it.effect('settles a running tool as stopped when the owner starts a new chat', () =>
+  it.effect('settles a running tool as stopped when the owner starts a new brainstorm', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.readDocWait = Effect.never;
@@ -455,7 +459,7 @@ describe('the brainstorm chat', () => {
         expect(view.items.at(-1)).toEqual({
           kind: 'app',
           sequence: view.after,
-          entry: { kind: 'chatStarted' },
+          entry: { kind: 'brainstormStarted' },
         });
         expect(view.working).toBe(false);
       }),
@@ -650,7 +654,7 @@ describe('the brainstorm tools', () => {
             },
           ]);
           expect(outcomes.slice(2).map((outcome) => outcome.isError)).toEqual([true, true, true]);
-          expect(state.storedChat?.reads.map((read) => read.number)).toEqual([3, 5]);
+          expect(state.storedBrainstorm?.reads.map((read) => read.number)).toEqual([3, 5]);
         }),
       arrange,
     ),
@@ -682,39 +686,41 @@ describe('the brainstorm tools', () => {
     ),
   );
 
-  it.effect('propose an edit only for an issue read in this chat, with what was read as base', () =>
-    run(
-      (brainstorm, state) =>
-        Effect.gen(function* () {
-          state.script.push([
-            readIssue('app', 3),
-            proposeEdit({ project: 'app', number: 3, title: ' Login v2 ', body: 'New body.' }),
-            { text: 'Never said.' },
-          ]);
-          yield* brainstorm.send('Update login');
-          yield* idle(brainstorm);
+  it.effect(
+    'propose an edit only for an issue read in this brainstorm, with what was read as base',
+    () =>
+      run(
+        (brainstorm, state) =>
+          Effect.gen(function* () {
+            state.script.push([
+              readIssue('app', 3),
+              proposeEdit({ project: 'app', number: 3, title: ' Login v2 ', body: 'New body.' }),
+              { text: 'Never said.' },
+            ]);
+            yield* brainstorm.send('Update login');
+            yield* idle(brainstorm);
 
-          expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
-            type: 'proposal',
-            kind: 'edit',
-            project: 'app',
-            number: 3,
-            url: 'http://gitea.test/owner/app/issues/3',
-            title: 'Login v2',
-            body: 'New body.',
-            base: { title: 'Login', body: 'Users sign in.' },
-            state: { _tag: 'open' },
-          });
-          expect(state.giteaCalls.filter((call) => call.startsWith('updateIssue'))).toEqual([]);
+            expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
+              type: 'proposal',
+              kind: 'edit',
+              project: 'app',
+              number: 3,
+              url: 'http://gitea.test/owner/app/issues/3',
+              title: 'Login v2',
+              body: 'New body.',
+              base: { title: 'Login', body: 'Users sign in.' },
+              state: { _tag: 'open' },
+            });
+            expect(state.giteaCalls.filter((call) => call.startsWith('updateIssue'))).toEqual([]);
 
-          const [unread, blank] = yield* outputsOf(state, [
-            proposeEdit({ project: 'app', number: 5, title: 'X', body: '' }),
-            proposeEdit({ project: 'app', number: 3, title: ' ', body: '' }),
-          ]);
-          expect([unread?.isError, blank?.isError]).toEqual([true, true]);
-        }),
-      arrange,
-    ),
+            const [unread, blank] = yield* outputsOf(state, [
+              proposeEdit({ project: 'app', number: 5, title: 'X', body: '' }),
+              proposeEdit({ project: 'app', number: 3, title: ' ', body: '' }),
+            ]);
+            expect([unread?.isError, blank?.isError]).toEqual([true, true]);
+          }),
+        arrange,
+      ),
   );
 });
 
@@ -872,7 +878,7 @@ describe('a decision on an edit', () => {
           project: 'app',
           number: 11,
           title: 'Orchestrator',
-          body: '## Idea\n\nRun agents from the chat.',
+          body: '## Idea\n\nRun agents from the brainstorm.',
         }),
       ]);
       yield* brainstorm.send('Update #11');
@@ -915,7 +921,7 @@ describe('a decision on an edit', () => {
             state: { _tag: 'updated', url: 'http://gitea.test/owner/app/issues/11' },
           });
           expect(turnInputs(state)[1]).toContain('The owner updated the issue #11 in app');
-          expect(state.storedChat?.reads).toEqual([
+          expect(state.storedBrainstorm?.reads).toEqual([
             {
               project: 'app',
               number: 11,
@@ -1062,18 +1068,18 @@ describe('a decision on an edit', () => {
     ),
   );
 
-  it.effect('forgets the reads on New chat, also a read that ends after it', () =>
+  it.effect('forgets the reads on New brainstorm, also a read that ends after it', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
           yield* proposed(brainstorm, state);
           yield* brainstorm.reset();
-          expect(state.storedChat?.reads).toEqual([]);
+          expect(state.storedBrainstorm?.reads).toEqual([]);
 
           // Pi's tools run outside the turn and may finish after it was stopped.
           const read = state.turns[0]?.tools.find((tool) => tool.name === 'read_issue');
           yield* read?.run({ project: 'app', number: 11 }) ?? Effect.void;
-          expect(state.storedChat?.reads).toEqual([]);
+          expect(state.storedBrainstorm?.reads).toEqual([]);
 
           state.script.push([
             proposeEdit({ project: 'app', number: 11, title: 'Orchestrator', body: 'Late.' }),
@@ -1087,7 +1093,7 @@ describe('a decision on an edit', () => {
   );
 });
 
-describe('images in the brainstorm chat', () => {
+describe('images in the brainstorm', () => {
   const IMAGE_A = `image${'a'.repeat(20)}a`;
   const IMAGE_B = `image${'a'.repeat(20)}b`;
   const IMAGE_C = `image${'a'.repeat(20)}c`;
@@ -1127,7 +1133,7 @@ describe('images in the brainstorm chat', () => {
   const gitea = (state: FakeState['Service']) =>
     state.giteaCalls.filter((call) => !call.startsWith('openIssues'));
 
-  it.effect('sends the images to a model that sees them, numbered across the chat', () =>
+  it.effect('sends the images to a model that sees them, numbered across the brainstorm', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
@@ -1332,7 +1338,7 @@ describe('images in the brainstorm chat', () => {
           });
           expect(state.turns).toHaveLength(1);
           expect(
-            state.storedChat?.log.filter((stored) => stored.entry.kind === 'proposal').at(-1)
+            state.storedBrainstorm?.log.filter((stored) => stored.entry.kind === 'proposal').at(-1)
               ?.entry,
           ).toMatchObject({ proposal: { state: { _tag: 'attaching' } } });
 
@@ -1514,7 +1520,7 @@ describe('images in the brainstorm chat', () => {
             yield* brainstorm.decide(proposal.id, {
               _tag: 'Apply',
               title: 'Orchestrator',
-              body: 'Run agents from the chat.',
+              body: 'Run agents from the brainstorm.',
               images: [IMAGE_A],
             });
             yield* idle(brainstorm);
@@ -1524,7 +1530,7 @@ describe('images in the brainstorm chat', () => {
               'attachImage owner/app 11 image-1.png',
               `updateIssue owner/app 11 ${JSON.stringify({
                 title: 'Orchestrator',
-                body: 'Run agents from the chat.\n\n## Images\n\n![Image 1](http://gitea.test/attachments/11/image-1.png)',
+                body: 'Run agents from the brainstorm.\n\n## Images\n\n![Image 1](http://gitea.test/attachments/11/image-1.png)',
               })}`,
             ]);
             expect(proposalIn(yield* entries(brainstorm))?.state).toMatchObject({

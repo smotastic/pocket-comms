@@ -91,7 +91,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   command `node ~/pocket-cloud-data/pocket-comms/current/apps/comms-server/dist/claude-hook.js`
   (the deployed release; `COMMS_STATE_DIR` must match the server's when it is set).
 - Suggested replies (spec 025) come from fixed rules in `suggestedReplies`, never from a model,
-  and travel on the assistant entries. The web app offers them only in the Chat view of an idle
+  and travel on the assistant entries. The web app offers them only in the Conversation view of an idle
   or done agent and sends one only as a prompt: a suggestion never presses a key, never types
   into a waiting agent question and never answers a blocked agent. A broken `quick-replies.json` is
   reported and a read never replaces it; only the owner's next save writes over it.
@@ -127,7 +127,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   the server re-reads the issue right before the `PATCH`, and before uploading any image.
 - The brainstorm streams through the package's chat feed (spec 026): its entries are one
   numbered log behind `ChatLog`, saved with the brainstorm file, with one feed key whose numbers go on
-  across a New chat (`chatStarted`). A proposal that changes is recorded again; never rewrite an
+  across a New brainstorm (`brainstormStarted`). A proposal that changes is recorded again; never rewrite an
   entry. A tool row carries only `describeBrainstormCall`'s target, never a tool's input or
   output. The brainstorm is answering before it records what starts a turn and idle before the turn's
   end is recorded, so the sheet reads the state again on those entries.

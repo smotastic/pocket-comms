@@ -6,7 +6,7 @@ import type { RouterContext } from '../router-context.js';
 const ABSOLUTE = /^[a-z][a-z\d+.-]*:/iu;
 
 /**
- * Every screen, each able to open the brainstorm chat over it (specs 013 and 016). The kit's links
+ * Every screen, each able to open the brainstorm over it (specs 013 and 016). The kit's links
  * navigate through the router.
  */
 const Root = () => {

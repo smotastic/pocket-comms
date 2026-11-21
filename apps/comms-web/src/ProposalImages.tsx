@@ -4,7 +4,7 @@ import { MISSING } from './AttachedImages.js';
 /** At most this many images go with one proposal (spec 023, requirement 9). */
 export const MAX_PROPOSAL_IMAGES = 5;
 
-/** A image of the brainstorm chat, by its number, and where it is served. */
+/** A image of the brainstorm, by its number, and where it is served. */
 export interface BrainstormImage {
   readonly id: string;
   readonly number: number;
@@ -13,7 +13,7 @@ export interface BrainstormImage {
   readonly src: string;
 }
 
-/** The chat image as a thumbnail that opens it at full size. */
+/** The brainstorm image as a thumbnail that opens it at full size. */
 export const BrainstormImageThumb = ({ image }: { readonly image: BrainstormImage }) => (
   <ImageThumb
     label={`Image ${image.number}`}
@@ -32,7 +32,7 @@ export const inNumberOrder = (
   images.filter((image) => chosen.includes(image.id)).map((image) => image.id);
 
 /**
- * The chat images of an open proposal, each with a checkbox. A removed image cannot be
+ * The brainstorm images of an open proposal, each with a checkbox. A removed image cannot be
  * checked, and no more than `MAX_PROPOSAL_IMAGES` can be.
  */
 export const ImageChoice = ({

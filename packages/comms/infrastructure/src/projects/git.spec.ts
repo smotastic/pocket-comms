@@ -278,7 +278,7 @@ describe('Projects.layerGit for closing a worktree', () => {
   );
 });
 
-describe('Projects.layerGit for the brainstorm chat', () => {
+describe('Projects.layerGit for the brainstorm', () => {
   const readDoc = (root: string, name: string, doc: 'README.md' | 'AGENTS.md') =>
     ProjectsOutbound.use((outbound) =>
       outbound.readDoc({ name, path: join(root, name) }, doc),

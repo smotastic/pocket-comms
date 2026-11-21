@@ -6,7 +6,7 @@ import type { ProjectGitError } from '../errors.js';
 
 /**
  * The git repositories below the projects root, the git questions a new or closing worktree asks,
- * and the top-level docs the brainstorm chat reads.
+ * and the top-level docs the brainstorm reads.
  */
 export class ProjectsOutbound extends Context.Service<
   ProjectsOutbound,

@@ -7,7 +7,7 @@ import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
 
-// Images in the agent chat and the New task form (spec 014).
+// Images in the conversation and the New task form (spec 014).
 
 const image = (name: string) => new File(['x'], name, { type: 'image/png' });
 const picker = () => document.querySelector<HTMLInputElement>('input[type="file"]');

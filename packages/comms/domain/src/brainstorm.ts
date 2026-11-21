@@ -2,7 +2,7 @@ import type { FieldIssue } from '@pocket-comms/backend-shared';
 import * as Result from 'effect/Result';
 import { InvalidInputError } from './errors.js';
 
-// The rules of the brainstorm chat: what the conversation holds, the issue or the edit
+// The rules of the brainstorm: what the conversation holds, the issue or the edit
 // a proposal proposes and how it is decided, the images that go with it, the issues Pi read, and
 // the project files Pi may read.
 
@@ -33,14 +33,14 @@ export type ProposalState =
   | { readonly _tag: 'discarded' }
   | { readonly _tag: 'attaching'; readonly number: number; readonly url: string };
 
-/** A chat image that is an attachment of the issue in Gitea, and its link there. */
+/** A brainstorm image that is an attachment of the issue in Gitea, and its link there. */
 export interface AttachedImage {
   readonly image: string;
   readonly url: string;
 }
 
 /**
- * The chat images that go with a proposal, by image id: the ones Pi named, then the owner's
+ * The brainstorm images that go with a proposal, by image id: the ones Pi named, then the owner's
  * choice. `attached` are those already in Gitea, so a retry never uploads one twice.
  */
 interface WithImages {
@@ -83,7 +83,7 @@ export interface EditProposal extends IssueText, WithImages {
 export type ProposalEntry = IssueProposal | EditProposal;
 
 /**
- * The chat's own entries (spec 026); Pi's replies, its tools and the ends of its turns are the
+ * The brainstorm's own entries (spec 026); Pi's replies, its tools and the ends of its turns are the
  * agent package's shared entries around them. `at` is in epoch milliseconds.
  */
 export type BrainstormEntry =
@@ -100,8 +100,8 @@ export type BrainstormEntry =
    * an id counts, and shows in the place of its first.
    */
   | { readonly kind: 'proposal'; readonly proposal: ProposalEntry }
-  /** A new chat starts here; the chat before it is gone. */
-  | { readonly kind: 'chatStarted' };
+  /** A new brainstorm starts here; the brainstorm before it is gone. */
+  | { readonly kind: 'brainstormStarted' };
 
 const textIssues = (title: string, body: string): Array<FieldIssue> => {
   const issues: Array<FieldIssue> = [];
@@ -161,7 +161,7 @@ export const proposalOf = (
 /** At most this many images go with one proposal. */
 export const MAX_PROPOSAL_IMAGES = 5;
 
-/** A image of the chat and its number, counted from 1 in the order it was sent. */
+/** A image of the brainstorm and its number, counted from 1 in the order it was sent. */
 export interface BrainstormImage {
   readonly id: string;
   readonly number: number;
@@ -190,7 +190,8 @@ const chooseImages = <K extends 'id' | 'number'>(
   if (new Set(chosen).size !== chosen.length) return invalidImages('A image is chosen twice.');
   const images = brainstormImages(entries);
   const unknown = chosen.find((value) => !images.some((image) => image[key] === value));
-  if (unknown !== undefined) return invalidImages(`${name(unknown)} is no image of this chat.`);
+  if (unknown !== undefined)
+    return invalidImages(`${name(unknown)} is no image of this brainstorm.`);
   return Result.succeed(
     images.filter((image) => chosen.includes(image[key])).map((image) => image.id),
   );
@@ -202,7 +203,7 @@ export const imagesByNumber = (
   numbers: ReadonlyArray<number>,
 ) => chooseImages(entries, 'number', numbers, (number) => `Image ${number}`);
 
-/** The owner's choice of images by id, checked against the chat. */
+/** The owner's choice of images by id, checked against the brainstorm. */
 export const parseImageChoice = (
   entries: ReadonlyArray<BrainstormEntry>,
   ids: ReadonlyArray<string>,

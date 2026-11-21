@@ -291,7 +291,7 @@ export const ConversationEntry = Schema.Union([
       examples: ['ok'],
     }),
   }),
-]).annotate({ identifier: 'ConversationEntry', description: 'One entry of the chat.' });
+]).annotate({ identifier: 'ConversationEntry', description: 'One entry of the conversation.' });
 
 const Entries = Schema.Array(ConversationEntry).annotate({
   description: 'Entries, oldest first.',
@@ -789,7 +789,7 @@ export const IssueTaskCreated = Schema.Struct({
   description: 'The new worktree and its agent, and whether the issue was marked in progress.',
 });
 
-// ── The brainstorm chat (spec 013) ─────────────────────────────────────────────────────────
+// ── The brainstorm (spec 013) ─────────────────────────────────────────────────────────
 
 export const ProposalParam = Schema.String.check(
   Schema.isPattern(/^[A-Za-z0-9-]{1,64}$/u),
@@ -824,25 +824,25 @@ const ProposedIssueFields = {
 const EditFields = {
   title: Schema.String.check(Schema.isMaxLength(255)).annotate({
     description: "The issue's whole new title; it must not be blank.",
-    examples: ['Orchestrator mode from the brainstorm chat'],
+    examples: ['Orchestrator mode from the brainstorm'],
   }),
   body: Schema.String.check(Schema.isMaxLength(20_000)).annotate({
     description: "The issue's whole new body in Markdown.",
-    examples: ['Control the agents from the brainstorm chat.'],
+    examples: ['Control the agents from the brainstorm.'],
   }),
 };
 
 const brainstormImageIds = Schema.Array(ImageId)
   .check(Schema.isMaxLength(5))
   .annotate({
-    description: 'Chat images by image id, at most five.',
+    description: 'Brainstorm images by image id, at most five.',
     examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
   });
 
 const ImageFields = {
   images: brainstormImageIds.annotate({
     description:
-      'The chat images that go with the proposal: the ones Pi named while it is open, the owner’s choice once decided.',
+      'The brainstorm images that go with the proposal: the ones Pi named while it is open, the owner’s choice once decided.',
   }),
   attached: Schema.Array(
     Schema.Struct({
@@ -860,7 +860,7 @@ const ImageFields = {
 
 const choice = optional(brainstormImageIds, {
   description:
-    'The chat images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.',
+    'The brainstorm images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.',
   examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
 });
 
@@ -996,8 +996,8 @@ export const BrainstormProposal = Schema.Union([
 ]).annotate({ identifier: 'BrainstormProposal', description: 'A proposal of Pi, as it stands.' });
 
 /**
- * The brainstorm chat's own entries (spec 026), among the agent package's shared ones: what the
- * owner wrote, a record of a proposal, and the start of a new chat.
+ * The brainstorm's own entries (spec 026), among the agent package's shared ones: what the
+ * owner wrote, a record of a proposal, and the start of a new brainstorm.
  */
 export const BrainstormEntry = Schema.Union([
   Schema.Struct({
@@ -1022,24 +1022,24 @@ export const BrainstormEntry = Schema.Union([
     proposal: BrainstormProposal,
   }),
   Schema.Struct({
-    kind: Schema.tag('chatStarted').annotate({
-      description: 'A new chat starts here; drop everything before it.',
-      examples: ['chatStarted'],
+    kind: Schema.tag('brainstormStarted').annotate({
+      description: 'A new brainstorm starts here; drop everything before it.',
+      examples: ['brainstormStarted'],
     }),
   }),
 ]).annotate({
   identifier: 'BrainstormEntry',
-  description: "One of the brainstorm chat's own entries.",
+  description: "One of the brainstorm's own entries.",
 });
 
 export const BrainstormState = Schema.Union([
   Schema.Struct({
     _tag: Schema.tag('Ready').annotate({
-      description: 'The chat works.',
+      description: 'The brainstorm works.',
       examples: ['Ready'],
     }),
     answering: Schema.Boolean.annotate({
-      description: 'Pi is answering; the chat takes no message or decision until it is done.',
+      description: 'Pi is answering; the brainstorm takes no message or decision until it is done.',
       examples: [false],
     }),
     seesImages: Schema.Boolean.annotate({
@@ -1050,7 +1050,7 @@ export const BrainstormState = Schema.Union([
       Schema.Struct({
         id: ImageId,
         number: Schema.Int.annotate({
-          description: "The image's number in the chat, from 1 in the order it was sent.",
+          description: "The image's number in the brainstorm, from 1 in the order it was sent.",
           examples: [1],
         }),
         available: Schema.Boolean.annotate({
@@ -1058,7 +1058,7 @@ export const BrainstormState = Schema.Union([
           examples: [true],
         }),
       }),
-    ).annotate({ description: 'The images of the chat, by number.', examples: [[]] }),
+    ).annotate({ description: 'The images of the brainstorm, by number.', examples: [[]] }),
     voice: Schema.Boolean.annotate({
       description: 'The server can transcribe voice messages, so the composer offers recording.',
       examples: [true],
@@ -1066,7 +1066,7 @@ export const BrainstormState = Schema.Union([
   }),
   Schema.Struct({
     _tag: Schema.tag('NotSetUp').annotate({
-      description: 'The server has no model for the chat.',
+      description: 'The server has no model for the brainstorm.',
       examples: ['NotSetUp'],
     }),
     reason: Schema.String.annotate({
@@ -1076,13 +1076,13 @@ export const BrainstormState = Schema.Union([
   }),
 ]).annotate({
   identifier: 'BrainstormState',
-  description: 'The brainstorm chat, or why it is not set up.',
+  description: 'The brainstorm, or why it is not set up.',
 });
 
-/** One event of the brainstorm chat's stream: a numbered entry, text Pi writes, or its draft. */
+/** One event of the brainstorm's stream: a numbered entry, text Pi writes, or its draft. */
 export const BrainstormEvent = chatStreamEvent(BrainstormEntry).annotate({
   identifier: 'BrainstormEvent',
-  description: 'One event of the brainstorm chat.',
+  description: 'One event of the brainstorm.',
 });
 
 export const BrainstormMessageRequest = Schema.Struct({
@@ -1423,8 +1423,8 @@ const brainstorm = HttpApiGroup.make('brainstorm')
       success: BrainstormState,
     }).annotateMerge(
       OpenApi.annotations({
-        summary: 'Read the brainstorm chat',
-        description: 'The one brainstorm chat with Pi, or why it is not set up.',
+        summary: 'Read the brainstorm',
+        description: 'The one brainstorm with Pi, or why it is not set up.',
       }),
     ),
     HttpApiEndpoint.get('events', '/brainstorm/events', {
@@ -1444,7 +1444,7 @@ const brainstorm = HttpApiGroup.make('brainstorm')
       error: Problems.Validation,
     }).annotateMerge(
       OpenApi.annotations({
-        summary: 'Follow the brainstorm chat',
+        summary: 'Follow the brainstorm',
         description:
           'Server-sent events: the entries after `after`, the reply Pi has written so far, then new entries and the text Pi writes, each once. Read the state again when an entry says a turn began or ended.',
       }),
@@ -1481,8 +1481,8 @@ const brainstorm = HttpApiGroup.make('brainstorm')
       success: HttpApiSchema.NoContent,
     }).annotateMerge(
       OpenApi.annotations({
-        summary: 'Start a new chat',
-        description: 'Stops a running answer and replaces the chat with an empty one.',
+        summary: 'Start a new brainstorm',
+        description: 'Stops a running answer and replaces the brainstorm with an empty one.',
       }),
     ),
   )

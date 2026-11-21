@@ -798,7 +798,7 @@ describe('closing an agent', () => {
 });
 
 describe('the More menu', () => {
-  it('holds the brainstorm chat and leaves the top bar to the agent', async () => {
+  it('holds the brainstorm and leaves the top bar to the agent', async () => {
     open(fakeAgent({ workspace: 'feature', worktree: 'feature' }));
     const banner = await screen.findByRole('banner');
     await screen.findByText('Fix the failing test');
@@ -844,7 +844,7 @@ describe('the More menu', () => {
   });
 });
 
-describe('the brainstorm chat over a conversation', () => {
+describe('the brainstorm over a conversation', () => {
   it('leaves the draft in the composer', async () => {
     open();
     const box = await screen.findByRole('textbox', { name: 'Message' });
@@ -1028,7 +1028,7 @@ describe('background work in the conversation', () => {
   });
 });
 
-describe('voice messages in the agent chat', () => {
+describe('voice messages in the conversation', () => {
   /** Opens the chat once the app knows whether the server transcribes. */
   const openWith = async (voice: boolean, agent = fakeAgent({ status: 'idle' })) => {
     const fake = fakeClient({
@@ -1154,7 +1154,7 @@ describe('voice messages in the agent chat', () => {
   });
 });
 
-describe("answering an agent's question in the chat", () => {
+describe("answering an agent's question in the conversation", () => {
   const asks: ConversationView['entries'][number] = {
     type: 'tool',
     id: 'q1',

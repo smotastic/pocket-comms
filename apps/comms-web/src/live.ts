@@ -131,13 +131,13 @@ export const useSubagentLive = (client: CommsClient, ref: string, id: string, ac
   return { live };
 };
 
-/** The brainstorm chat as the sheet shows it: its items, Pi's draft, and whether Pi works. */
+/** The brainstorm as the sheet shows it: its items, Pi's draft, and whether Pi works. */
 export type BrainstormView = ChatView<BrainstormEntryView>;
 
 export const emptyBrainstorm: BrainstormView = emptyChat;
 
 /**
- * Folds a brainstorm event into the view with the agent package's fold (spec 026). A New chat
+ * Folds a brainstorm event into the view with the agent package's fold (spec 026). A New brainstorm
  * drops everything before it; the view keeps only where to follow on from.
  */
 export const foldBrainstorm = (
@@ -145,12 +145,12 @@ export const foldBrainstorm = (
   event: BrainstormEventView,
 ): BrainstormView => {
   const next = foldChat(view, event);
-  return next !== view && event.kind === 'entry' && event.entry.kind === 'chatStarted'
+  return next !== view && event.kind === 'entry' && event.entry.kind === 'brainstormStarted'
     ? { ...emptyBrainstorm, after: next.after }
     : next;
 };
 
-// The entries after which the chat's state may have changed: Pi started or ended a turn, a
+// The entries after which the brainstorm's state may have changed: Pi started or ended a turn, a
 // message brought images, or a proposal changed.
 const CHANGES_STATE: ReadonlySet<string> = new Set([
   'said',
@@ -158,7 +158,7 @@ const CHANGES_STATE: ReadonlySet<string> = new Set([
   'turnEnded',
   'turnFailed',
   'turnStopped',
-  'chatStarted',
+  'brainstormStarted',
 ]);
 
 /**

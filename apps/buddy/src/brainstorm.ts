@@ -1,7 +1,7 @@
 import type { BrainstormEventView } from './comms.js';
 import type { BuddyState, OpenProposal } from './view.js';
 
-// How one event of the brainstorm chat changes what the buddy shows.
+// How one event of the brainstorm changes what the buddy shows.
 
 type Proposal = Extract<
   Extract<BrainstormEventView, { readonly kind: 'entry' }>['entry'],
@@ -28,7 +28,7 @@ const outcome = (proposal: Proposal) =>
 
 /**
  * The state after `event`. `decidedHere` names the proposals the buddy decided itself; only
- * their outcome is told, so a chat replayed on start says nothing about old ones.
+ * their outcome is told, so a brainstorm replayed on start says nothing about old ones.
  */
 export const applyEvent = (
   state: BuddyState,
@@ -59,7 +59,7 @@ export const applyEvent = (
     case 'turnFailed':
     case 'turnStopped':
       return { ...state, answer: { ...state.answer, streaming: '' } };
-    case 'chatStarted':
+    case 'brainstormStarted':
       return { ...state, sent: undefined, answer: { messages: [], streaming: '' }, proposals: [] };
     case 'proposal': {
       const proposal = entry.proposal;

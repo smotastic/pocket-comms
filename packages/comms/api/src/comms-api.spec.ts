@@ -893,7 +893,7 @@ describe('the brainstorm API', () => {
   const brainstorm = (inbound: Partial<BrainstormInbound['Service']>) =>
     serve({}, undefined, {}, {}, inbound);
 
-  it('reads the chat', async () => {
+  it('reads the brainstorm', async () => {
     const call = brainstorm({
       state: Effect.succeed({
         _tag: 'Ready',
@@ -916,7 +916,7 @@ describe('the brainstorm API', () => {
     });
   });
 
-  it('follows the chat after a number as server-sent events', async () => {
+  it('follows the brainstorm after a number as server-sent events', async () => {
     const after: Array<number> = [];
     const call = brainstorm({
       events: (from) => {
@@ -940,7 +940,7 @@ describe('the brainstorm API', () => {
     expect((await call('/api/v1/brainstorm/events?after=-1')).status).toBe(422);
   });
 
-  it('sends a message, decides on a proposal and starts a new chat', async () => {
+  it('sends a message, decides on a proposal and starts a new brainstorm', async () => {
     const asked: Array<unknown> = [];
     const call = brainstorm({
       send: (text, imageIds) => Effect.sync(() => void asked.push(['send', text, imageIds])),

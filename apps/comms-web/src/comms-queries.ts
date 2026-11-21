@@ -60,7 +60,7 @@ export const issuesQuery = (client: CommsClient, project: string) =>
     refetchInterval: 30_000,
   });
 
-/** The brainstorm chat, read when its sheet opens; the stream keeps it current while open. */
+/** The brainstorm, read when its sheet opens; the stream keeps it current while open. */
 export const brainstormQuery = (client: CommsClient) =>
   queryOptions({ queryKey: brainstormKey, queryFn: () => client.brainstorm(), staleTime: 0 });
 

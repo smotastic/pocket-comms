@@ -62,7 +62,7 @@ export { AgentsInbound } from './ports/agents.inbound.port.js';
 export { BrainstormInbound } from './ports/brainstorm.inbound.port.js';
 export {
   BrainstormStoreOutbound,
-  type StoredChat,
+  type StoredBrainstorm,
 } from './ports/brainstorm-store.outbound.port.js';
 export {
   HerdrOutbound,

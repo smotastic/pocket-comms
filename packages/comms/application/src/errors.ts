@@ -29,7 +29,7 @@ export class WorktreeHasChangesError extends Data.TaggedError('WorktreeHasChange
   readonly ref: string;
 }> {}
 
-/** The agent has no session file the app can show as a chat. */
+/** The agent has no session file the app can show as a brainstorm. */
 export class ConversationUnavailableError extends Data.TaggedError('ConversationUnavailableError')<{
   readonly ref: string;
   readonly reason: string;
@@ -97,15 +97,15 @@ export class IssueClosedError extends Data.TaggedError('IssueClosedError')<{
   readonly number: number;
 }> {}
 
-/** The server has no model for the brainstorm chat; `reason` names the missing setting. */
+/** The server has no model for the brainstorm; `reason` names the missing setting. */
 export class BrainstormNotSetUpError extends Data.TaggedError('BrainstormNotSetUpError')<{
   readonly reason: string;
 }> {}
 
-/** Pi is still answering, so the chat takes no new message or decision yet. */
+/** Pi is still answering, so the brainstorm takes no new message or decision yet. */
 export class BrainstormBusyError extends Data.TaggedError('BrainstormBusyError') {}
 
-/** The brainstorm chat has no proposal with this id. */
+/** The brainstorm has no proposal with this id. */
 export class ProposalNotFoundError extends Data.TaggedError('ProposalNotFoundError')<{
   readonly id: string;
 }> {}

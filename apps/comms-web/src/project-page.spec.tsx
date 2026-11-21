@@ -85,7 +85,7 @@ describe('the project page', () => {
     ).toBeDefined();
   });
 
-  it('opens the brainstorm chat from the top bar, right before New task', async () => {
+  it('opens the brainstorm from the top bar, right before New task', async () => {
     renderApp({ client: fakeClient().client, path: '/projects/pocket-home' });
     const banner = await screen.findByRole('banner');
 

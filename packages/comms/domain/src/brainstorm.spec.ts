@@ -175,14 +175,14 @@ describe('images', () => {
   const imageA = 'a'.repeat(26);
   const imageB = 'b'.repeat(26);
   const imageC = 'c'.repeat(26);
-  const chat: ReadonlyArray<BrainstormEntry> = [
+  const history: ReadonlyArray<BrainstormEntry> = [
     { kind: 'said', id: 'u1', at: 1, text: 'Like this?', images: [imageA, imageB] },
-    { kind: 'chatStarted' },
+    { kind: 'brainstormStarted' },
     { kind: 'said', id: 'u2', at: 3, text: '', images: [imageC] },
   ];
 
-  it('numbers the images of the chat from 1 in the order they were sent', () => {
-    expect(brainstormImages(chat)).toEqual([
+  it('numbers the images of the brainstorm from 1 in the order they were sent', () => {
+    expect(brainstormImages(history)).toEqual([
       { id: imageA, number: 1 },
       { id: imageB, number: 2 },
       { id: imageC, number: 3 },
@@ -191,21 +191,21 @@ describe('images', () => {
   });
 
   it('finds the images Pi names by number, in their order', () => {
-    expect(imagesByNumber(chat, [3, 1])).toEqual(Result.succeed([imageA, imageC]));
+    expect(imagesByNumber(history, [3, 1])).toEqual(Result.succeed([imageA, imageC]));
   });
 
-  it('refuses a number that is no image of the chat, a repeat, and more than five', () => {
-    expect(Result.isFailure(imagesByNumber(chat, [4]))).toBe(true);
-    expect(Result.isFailure(imagesByNumber(chat, [0]))).toBe(true);
-    expect(Result.isFailure(imagesByNumber(chat, [1, 1]))).toBe(true);
-    expect(Result.isFailure(imagesByNumber(chat, [1, 2, 3, 1, 2, 3]))).toBe(true);
+  it('refuses a number that is no image of the history, a repeat, and more than five', () => {
+    expect(Result.isFailure(imagesByNumber(history, [4]))).toBe(true);
+    expect(Result.isFailure(imagesByNumber(history, [0]))).toBe(true);
+    expect(Result.isFailure(imagesByNumber(history, [1, 1]))).toBe(true);
+    expect(Result.isFailure(imagesByNumber(history, [1, 2, 3, 1, 2, 3]))).toBe(true);
   });
 
   it('checks the owner choice by id and puts it in number order', () => {
-    expect(parseImageChoice(chat, [imageC, imageB])).toEqual(Result.succeed([imageB, imageC]));
-    expect(parseImageChoice(chat, [])).toEqual(Result.succeed([]));
-    expect(Result.isFailure(parseImageChoice(chat, ['z'.repeat(26)]))).toBe(true);
-    expect(Result.isFailure(parseImageChoice(chat, [imageA, imageA]))).toBe(true);
+    expect(parseImageChoice(history, [imageC, imageB])).toEqual(Result.succeed([imageB, imageC]));
+    expect(parseImageChoice(history, [])).toEqual(Result.succeed([]));
+    expect(Result.isFailure(parseImageChoice(history, ['z'.repeat(26)]))).toBe(true);
+    expect(Result.isFailure(parseImageChoice(history, [imageA, imageA]))).toBe(true);
   });
 
   it('refuses more than five chosen images', () => {

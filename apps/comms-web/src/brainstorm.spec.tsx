@@ -13,7 +13,7 @@ afterEach(cleanup);
 type Entry = Extract<BrainstormEventView, { readonly kind: 'entry' }>['entry'];
 type Ready = Extract<BrainstormStateView, { _tag: 'Ready' }>;
 
-/** A ready chat, and the entries the server holds, which a sheet that follows gets first. */
+/** A ready brainstorm, and the entries the server holds, which a sheet that follows gets first. */
 const ready = (overrides: Partial<Ready> & { readonly entries?: ReadonlyArray<Entry> } = {}) => ({
   _tag: 'Ready' as const,
   answering: false,
@@ -59,7 +59,7 @@ const edit = {
   number: 11,
   url: 'http://gitea/i/11',
   title: 'Orchestrator mode',
-  body: 'Control agents from the chat.',
+  body: 'Control agents from the brainstorm.',
   base: { title: 'Orchestrator', body: 'An orchestrator agent.' },
   images: [],
   attached: [],
@@ -85,7 +85,7 @@ const openBrainstorm = async (
   return { ...fake, sheet };
 };
 
-describe('the way into the brainstorm chat', () => {
+describe('the way into the brainstorm', () => {
   it('is the overview’s top bar action and nothing else', async () => {
     renderApp({ client: fakeClient().client, path: '/' });
     const bar = await screen.findByRole('banner');
@@ -106,7 +106,7 @@ describe('the way into the brainstorm chat', () => {
     expect(screen.queryByRole('button', { name: 'Brainstorm' })).toBeNull();
   });
 
-  it('opens the chat ready to type, and closing returns to the screen', async () => {
+  it('opens the brainstorm ready to type, and closing returns to the screen', async () => {
     const { sheet } = await openBrainstorm();
 
     expect(within(sheet).getByRole('textbox', { name: 'Message' })).toBeDefined();
@@ -121,7 +121,7 @@ describe('the way into the brainstorm chat', () => {
   });
 });
 
-describe('the brainstorm chat', () => {
+describe('the brainstorm', () => {
   it('sends a message and shows Pi’s answer as it streams in, once', async () => {
     const { sheet, calls, state, emitBrainstorm } = await openBrainstorm();
 
@@ -204,11 +204,11 @@ describe('the brainstorm chat', () => {
     expect(calls.brainstormFollows).toEqual([0, 2]);
   });
 
-  it('empties the conversation when a new chat starts', async () => {
+  it('empties the conversation when a new brainstorm starts', async () => {
     const { sheet, emitBrainstorm } = await openBrainstorm(ready({ entries: [said('Old idea')] }));
     await within(sheet).findByText('Old idea');
 
-    act(() => emitBrainstorm(entry(2, { kind: 'chatStarted' })));
+    act(() => emitBrainstorm(entry(2, { kind: 'brainstormStarted' })));
 
     await waitFor(() => expect(within(sheet).queryByText('Old idea')).toBeNull());
     expect(within(sheet).getByText(/Note an idea in a few words/u)).toBeDefined();
@@ -265,30 +265,30 @@ describe('the brainstorm chat', () => {
       reason: 'Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL.',
     });
 
-    expect(await within(sheet).findByText('The brainstorm chat is not set up.')).toBeDefined();
+    expect(await within(sheet).findByText('The brainstorm is not set up.')).toBeDefined();
     expect(within(sheet).getByText(/COMMS_BRAINSTORM_MODEL/u)).toBeDefined();
     expect(within(sheet).getByRole('textbox', { name: 'Message' })).toHaveProperty(
       'disabled',
       true,
     );
-    expect(within(sheet).queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(within(sheet).queryByRole('button', { name: 'New brainstorm' })).toBeNull();
   });
 
-  it('starts a new chat only after a confirmation', async () => {
+  it('starts a new brainstorm only after a confirmation', async () => {
     const { sheet, calls } = await openBrainstorm(ready({ entries: [said('Idea')] }));
 
-    await userEvent.click(await within(sheet).findByRole('button', { name: 'New chat' }));
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Keep this chat' }));
+    await userEvent.click(await within(sheet).findByRole('button', { name: 'New brainstorm' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Keep this brainstorm' }));
     expect(calls.brainstormResets).toBe(0);
 
-    await userEvent.click(within(sheet).getByRole('button', { name: 'New chat' }));
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Start a new chat' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'New brainstorm' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Start a new brainstorm' }));
     await waitFor(() => expect(calls.brainstormResets).toBe(1));
-    expect(within(sheet).queryByRole('button', { name: 'Start a new chat' })).toBeNull();
+    expect(within(sheet).queryByRole('button', { name: 'Start a new brainstorm' })).toBeNull();
   });
 });
 
-describe('a proposal in the brainstorm chat', () => {
+describe('a proposal in the brainstorm', () => {
   it('creates the issue as the owner edited it', async () => {
     const { sheet, calls } = await openBrainstorm(ready({ entries: [recorded(proposal)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
@@ -349,7 +349,7 @@ describe('a proposal in the brainstorm chat', () => {
   });
 });
 
-describe('an edit in the brainstorm chat', () => {
+describe('an edit in the brainstorm', () => {
   it('applies the title and body as the owner edited them, next to the current version', async () => {
     const { sheet, calls } = await openBrainstorm(ready({ entries: [recorded(edit)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
@@ -399,7 +399,7 @@ describe('an edit in the brainstorm chat', () => {
   });
 });
 
-describe('images in the brainstorm chat', () => {
+describe('images in the brainstorm', () => {
   const A = 'a'.repeat(26);
   const B = 'b'.repeat(26);
   const image = (id: string, number: number, available = true) => ({ id, number, available });
@@ -582,7 +582,7 @@ describe('images in the brainstorm chat', () => {
           {
             _tag: 'Apply',
             title: 'Orchestrator mode',
-            body: 'Control agents from the chat.',
+            body: 'Control agents from the brainstorm.',
             images: [A],
           },
         ],
@@ -591,14 +591,14 @@ describe('images in the brainstorm chat', () => {
   });
 });
 
-describe('voice messages in the brainstorm chat', () => {
+describe('voice messages in the brainstorm', () => {
   /** Chooses an item of the composer's Actions menu. */
   const choose = async (sheet: HTMLElement, name: string) => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Actions' }));
     await userEvent.click(screen.getByRole('menuitem', { name }));
   };
 
-  /** The recorder, a sheet of its own over the chat (Gitea #85). */
+  /** The recorder, a sheet of its own over the brainstorm (Gitea #85). */
   const recorder = () => screen.findByRole('dialog', { name: 'Recording' });
 
   const record = async (sheet: HTMLElement) => {
@@ -687,7 +687,7 @@ describe('voice messages in the brainstorm chat', () => {
     ).not.toBe('true');
   });
 
-  it('records only one clip at a time, the chat out of reach meanwhile (requirement 5)', async () => {
+  it('records only one clip at a time, the brainstorm out of reach meanwhile (requirement 5)', async () => {
     const { sheet } = await openBrainstorm(ready({ voice: true }));
 
     await choose(sheet, 'Record voice');

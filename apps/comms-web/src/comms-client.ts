@@ -49,7 +49,7 @@ export type IssueView = typeof Issue.Type;
 export type IssueTaskCreatedView = typeof IssueTaskCreated.Type;
 export type BrainstormStateView = typeof BrainstormState.Type;
 export type BrainstormEventView = typeof BrainstormEvent.Type;
-/** One of the brainstorm chat's own entries, among the agent package's shared ones. */
+/** One of the brainstorm's own entries, among the agent package's shared ones. */
 export type BrainstormEntryView = typeof BrainstormEntry.Type;
 export type ProposedIssueView = typeof ProposedIssue.Type;
 export type ProposalDecision = typeof ProposalDecisionRequest.Type;
@@ -107,7 +107,7 @@ export interface CommsClient {
     additionalInformation?: string,
   ) => Promise<IssueTaskCreatedView>;
   readonly closeIssue: (project: string, number: number) => Promise<void>;
-  /** The brainstorm chat (spec 013). */
+  /** The brainstorm (spec 013). */
   readonly brainstorm: () => Promise<BrainstormStateView>;
   /**
    * Sends the owner's message with the attached images, by the ids `uploadImage` gave them;
@@ -115,7 +115,7 @@ export interface CommsClient {
    */
   readonly sendBrainstorm: (text: string, imageIds?: ReadonlyArray<string>) => Promise<void>;
   readonly decideProposal: (id: string, decision: ProposalDecision) => Promise<void>;
-  /** Starts an empty brainstorm chat. */
+  /** Starts an empty brainstorm. */
   readonly resetBrainstorm: () => Promise<void>;
   /** The server's public key, which a device subscribes to push with. */
   readonly pushKey: () => Promise<string>;
@@ -126,7 +126,7 @@ export interface CommsClient {
   /** Saves the list in place of the old one and answers it as saved. */
   readonly saveQuickReplies: (replies: ReadonlyArray<string>) => Promise<ReadonlyArray<string>>;
   /**
-   * Follows the brainstorm chat after the entry `after()` answers, the last one the reader has;
+   * Follows the brainstorm after the entry `after()` answers, the last one the reader has;
    * after a lost connection it follows again from the reader's new last one (spec 026).
    */
   readonly followBrainstorm: (

@@ -660,18 +660,18 @@
             "additionalProperties": false,
             "properties": {
               "_tag": {
-                "description": "The chat works.",
+                "description": "The brainstorm works.",
                 "enum": ["Ready"],
                 "examples": ["Ready"],
                 "type": "string"
               },
               "answering": {
-                "description": "Pi is answering; the chat takes no message or decision until it is done.",
+                "description": "Pi is answering; the brainstorm takes no message or decision until it is done.",
                 "examples": [false],
                 "type": "boolean"
               },
               "images": {
-                "description": "The images of the chat, by number.",
+                "description": "The images of the brainstorm, by number.",
                 "examples": [[]],
                 "items": {
                   "additionalProperties": false,
@@ -688,7 +688,7 @@
                       "type": "string"
                     },
                     "number": {
-                      "description": "The image's number in the chat, from 1 in the order it was sent.",
+                      "description": "The image's number in the brainstorm, from 1 in the order it was sent.",
                       "examples": [1],
                       "type": "integer"
                     }
@@ -716,7 +716,7 @@
             "additionalProperties": false,
             "properties": {
               "_tag": {
-                "description": "The server has no model for the chat.",
+                "description": "The server has no model for the brainstorm.",
                 "enum": ["NotSetUp"],
                 "examples": ["NotSetUp"],
                 "type": "string"
@@ -731,7 +731,7 @@
             "type": "object"
           }
         ],
-        "description": "The brainstorm chat, or why it is not set up."
+        "description": "The brainstorm, or why it is not set up."
       },
       "CloseRequest": {
         "additionalProperties": false,
@@ -1016,7 +1016,7 @@
             "type": "object"
           }
         ],
-        "description": "One entry of the chat."
+        "description": "One entry of the conversation."
       },
       "CreateTaskRequest": {
         "additionalProperties": false,
@@ -1614,7 +1614,7 @@
               "images": {
                 "anyOf": [
                   {
-                    "description": "Chat images by image id, at most five.",
+                    "description": "Brainstorm images by image id, at most five.",
                     "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
                     "items": {
                       "description": "The id the server gave an uploaded image.",
@@ -1629,7 +1629,7 @@
                     "type": "null"
                   }
                 ],
-                "description": "The chat images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.",
+                "description": "The brainstorm images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.",
                 "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
               },
               "issue": {
@@ -1663,14 +1663,14 @@
               },
               "body": {
                 "description": "The issue's whole new body in Markdown.",
-                "examples": ["Control the agents from the brainstorm chat."],
+                "examples": ["Control the agents from the brainstorm."],
                 "maxLength": 20000,
                 "type": "string"
               },
               "images": {
                 "anyOf": [
                   {
-                    "description": "Chat images by image id, at most five.",
+                    "description": "Brainstorm images by image id, at most five.",
                     "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
                     "items": {
                       "description": "The id the server gave an uploaded image.",
@@ -1685,12 +1685,12 @@
                     "type": "null"
                   }
                 ],
-                "description": "The chat images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.",
+                "description": "The brainstorm images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.",
                 "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
               },
               "title": {
                 "description": "The issue's whole new title; it must not be blank.",
-                "examples": ["Orchestrator mode from the brainstorm chat"],
+                "examples": ["Orchestrator mode from the brainstorm"],
                 "maxLength": 255,
                 "type": "string"
               }
@@ -3623,7 +3623,7 @@
     },
     "/api/v1/brainstorm": {
       "get": {
-        "description": "The one brainstorm chat with Pi, or why it is not set up.",
+        "description": "The one brainstorm with Pi, or why it is not set up.",
         "operationId": "brainstorm.state",
         "parameters": [],
         "responses": {
@@ -3635,7 +3635,7 @@
                 }
               }
             },
-            "description": "The brainstorm chat, or why it is not set up."
+            "description": "The brainstorm, or why it is not set up."
           },
           "403": {
             "content": {
@@ -3659,7 +3659,7 @@
           }
         },
         "security": [],
-        "summary": "Read the brainstorm chat",
+        "summary": "Read the brainstorm",
         "tags": ["Brainstorm"]
       }
     },
@@ -3788,7 +3788,7 @@
           }
         },
         "security": [],
-        "summary": "Follow the brainstorm chat",
+        "summary": "Follow the brainstorm",
         "tags": ["Brainstorm"]
       }
     },
@@ -3938,7 +3938,7 @@
     },
     "/api/v1/brainstorm/reset": {
       "post": {
-        "description": "Stops a running answer and replaces the chat with an empty one.",
+        "description": "Stops a running answer and replaces the brainstorm with an empty one.",
         "operationId": "brainstorm.reset",
         "parameters": [],
         "responses": {
@@ -3967,7 +3967,7 @@
           }
         },
         "security": [],
-        "summary": "Start a new chat",
+        "summary": "Start a new brainstorm",
         "tags": ["Brainstorm"]
       }
     },

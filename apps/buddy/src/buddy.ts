@@ -7,15 +7,15 @@ import * as Ref from 'effect/Ref';
 import * as Semaphore from 'effect/Semaphore';
 import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
-import { applyEvent } from './chat.js';
+import { applyEvent } from './brainstorm.js';
 import { Comms, type CommsError, type Decision } from './comms.js';
 import { Outbox, OutboxError, type Clip } from './outbox.js';
 import { Recorder, type Recording } from './recorder.js';
 import { Screen } from './screen.js';
 import { initialState, render, type BuddyState, type Link } from './view.js';
 
-// The buddy's program over its ports: it records what the owner says, sends it to the brainstorm
-// chat, follows Pi's answer and keeps the screen current. It ends when the owner quits.
+// The buddy's program over its ports: it records what the owner says, sends it to the
+// brainstorm, follows Pi's answer and keeps the screen current. It ends when the owner quits.
 
 /** A recording ends by itself after two minutes. */
 export const MAX_RECORDING_MILLIS = 120_000;
@@ -131,7 +131,7 @@ export const buddy = Effect.scoped(
     // A recording under way when the program ends, by quitting or by a signal, is kept.
     yield* Effect.addFinalizer(() => stop);
 
-    // ── Following the chat ─────────────────────────────────────────────────────────────────
+    // ── Following the brainstorm ─────────────────────────────────────────────────────────────────
     // The proposals the buddy decided itself, so it can tell how they ended.
     const decidedHere = new Set<string>();
     const following = Effect.gen(function* () {

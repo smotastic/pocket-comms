@@ -11,7 +11,7 @@ const props = (overrides: Partial<IssueEditCardProps> = {}): IssueEditCardProps 
   number: 11,
   url: 'http://gitea/i/11',
   title: 'Orchestrator mode',
-  body: 'Control agents from the chat.',
+  body: 'Control agents from the brainstorm.',
   base: { title: 'Orchestrator', body: 'An orchestrator agent.' },
   state: { _tag: 'open' },
   onApply: () => undefined,
@@ -36,7 +36,7 @@ describe('IssueEditCard', () => {
     expect(onApply).toHaveBeenCalledWith(
       {
         title: 'Orchestrator from chat',
-        body: 'Control agents from the chat.',
+        body: 'Control agents from the brainstorm.',
       },
       [],
     );

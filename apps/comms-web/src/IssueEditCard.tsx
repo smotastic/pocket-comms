@@ -33,7 +33,7 @@ export type IssueEditCardProps = IssueText & {
     | { readonly _tag: 'open' }
     | { readonly _tag: 'updated'; readonly url: string }
     | { readonly _tag: 'discarded' };
-  /** The images of the chat the owner may choose from. */
+  /** The images of the brainstorm the owner may choose from. */
   readonly images?: ReadonlyArray<BrainstormImage>;
   /** The chosen images by id: the ones Pi named while open, the owner's choice afterwards. */
   readonly chosen?: ReadonlyArray<string>;
@@ -42,7 +42,7 @@ export type IssueEditCardProps = IssueText & {
   /** Called with the title and body as the owner edited them, and the chosen images. */
   readonly onApply: (edit: IssueText, images: ReadonlyArray<string>) => void;
   readonly onDiscard: () => void;
-  /** The decision is on its way, or the chat takes none now: the actions are off. */
+  /** The decision is on its way, or the brainstorm takes none now: the actions are off. */
   readonly busy?: boolean;
   /** Why the last decision failed; the card stays open. */
   readonly error?: string;

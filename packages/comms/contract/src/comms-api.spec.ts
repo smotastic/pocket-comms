@@ -33,7 +33,7 @@ const operationsOf = (paths: ReadonlyArray<[string, unknown]>) =>
 
 const operations = () => operationsOf(Object.entries(document().paths));
 
-// The brainstorm chat (spec 013), the images (spec 014), the activity timeline (spec 017), the
+// The brainstorm (spec 013), the images (spec 014), the activity timeline (spec 017), the
 // push subscriptions (spec 018) and speech live in the server and need no Herdr.
 const herdrOperations = () =>
   operationsOf(
@@ -50,7 +50,7 @@ const herdrOperations = () =>
   );
 
 describe('CommsApi', () => {
-  it('serves the agents, the tasks, the issues, the brainstorm chat, the images, the activity and speech under /api/v1', () => {
+  it('serves the agents, the tasks, the issues, the brainstorm, the images, the activity and speech under /api/v1', () => {
     expect(Object.keys(document().paths).sort()).toEqual([
       '/api/v1/activity',
       '/api/v1/activity/events',
@@ -306,7 +306,7 @@ describe('wire schemas', () => {
 const IMAGE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
 
 describe('brainstorm wire schemas', () => {
-  it('round-trips an event of every kind, the chat’s own entries among the shared ones', () => {
+  it('round-trips an event of every kind, the brainstorm’s own entries among the shared ones', () => {
     const issue = {
       type: 'proposal',
       kind: 'issue',
@@ -348,7 +348,7 @@ describe('brainstorm wire schemas', () => {
       { kind: 'turnFailed', reason: 'The model cannot be reached.' },
       { kind: 'turnEnded' },
       { kind: 'turnStopped' },
-      { kind: 'chatStarted' },
+      { kind: 'brainstormStarted' },
     ];
     const events = [
       ...entries.map((entry, index) => ({ kind: 'entry', sequence: index + 1, entry })),
@@ -366,7 +366,7 @@ describe('brainstorm wire schemas', () => {
     expect(() => decode({ text: 'x', imageIds: Array(6).fill(IMAGE) })).toThrow();
   });
 
-  it('shows the chat images, whether the model sees them and whether voice works', () => {
+  it('shows the brainstorm images, whether the model sees them and whether voice works', () => {
     const state = {
       _tag: 'Ready',
       answering: false,

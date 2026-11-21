@@ -12,7 +12,7 @@ export type Link =
 /** At most this much of Pi's answer shows; the rest is in comms. */
 export const ANSWER_LENGTH = 280;
 
-/** A proposal still open in the chat, as the buddy shows it. */
+/** A proposal still open in the brainstorm, as the buddy shows it. */
 export type OpenProposal =
   | {
       readonly kind: 'issue';
@@ -35,7 +35,7 @@ export interface BuddyState {
   readonly link: Link;
   /** How many clips wait in the outbox. */
   readonly waiting: number;
-  /** The words of the last message that reached the chat. */
+  /** The words of the last message that reached the brainstorm. */
   readonly sent: string | undefined;
   /** Pi's answer to it: the messages Pi finished, and the one being written. */
   readonly answer: { readonly messages: ReadonlyArray<string>; readonly streaming: string };

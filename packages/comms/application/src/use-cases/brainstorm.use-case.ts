@@ -58,7 +58,7 @@ import {
 } from '../errors.js';
 import {
   BrainstormStoreOutbound,
-  type StoredChat,
+  type StoredBrainstorm,
 } from '../ports/brainstorm-store.outbound.port.js';
 import { GiteaOutbound, type LinkedRepository } from '../ports/gitea.outbound.port.js';
 import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
@@ -69,7 +69,7 @@ import {
 } from '../tools/brainstorm-tools.js';
 import { makeIssueProject } from './issue-project.js';
 
-// The brainstorm chat (spec 013): one conversation with Pi, kept in the store after every change.
+// The brainstorm (spec 013): one conversation with Pi, kept in the store after every change.
 // One turn runs at a time, in the background of the server, on the agent package's turn engine
 // (ADR 0014); the sheet follows it live through the package's chat feed (spec 026). The owner's
 // messages may attach images, which go to Gitea with an issue the owner approves (spec 023).
@@ -94,14 +94,14 @@ const discarded = <P extends ProposalEntry>(proposal: P): P => ({
   state: { _tag: 'discarded' },
 });
 
-/** How long one turn of Pi may take, so a hung model never keeps the chat busy for good. */
+/** How long one turn of Pi may take, so a hung model never keeps the brainstorm busy for good. */
 const TURN_DEADLINE = '5 minutes';
 
-/** Why a turn failed, as the chat shows it; a defect has no reason the owner could use. */
+/** Why a turn failed, as the brainstorm shows it; a defect has no reason the owner could use. */
 const reasonOf = (cause: Cause.Cause<unknown>) =>
   Cause.hasDies(cause) ? 'The turn failed unexpectedly.' : defaultReasonOf(cause);
 
-const emptyChat = (): StoredChat => ({
+const emptyBrainstorm = (): StoredBrainstorm => ({
   id: newId(),
   log: [],
   reads: [],
@@ -109,14 +109,14 @@ const emptyChat = (): StoredChat => ({
 });
 
 /**
- * The key of the chat's feed. The server has one chat, so its entries are numbered on across a
- * New chat, and a sheet that follows from an older number still gets the new chat's start.
+ * The key of the brainstorm's feed. The server has one brainstorm, so its entries are numbered on across a
+ * New brainstorm, and a sheet that follows from an older number still gets the new brainstorm's start.
  */
 const FEED = 'brainstorm';
 
-/** The chat's own entries, without the package's shared ones. */
-const ownEntries = (chat: StoredChat): ReadonlyArray<BrainstormEntry> =>
-  chat.log.flatMap(({ entry }) => (isChatEntry(entry) ? [] : [entry]));
+/** The brainstorm's own entries, without the package's shared ones. */
+const ownEntries = (ongoing: StoredBrainstorm): ReadonlyArray<BrainstormEntry> =>
+  ongoing.log.flatMap(({ entry }) => (isChatEntry(entry) ? [] : [entry]));
 
 /** A decision that does not fit the kind of proposal it is for, or the state it is in. */
 const mismatch = (proposal: ProposalEntry) =>
@@ -134,7 +134,7 @@ const mismatch = (proposal: ProposalEntry) =>
     ],
   });
 
-/** The number of each image of the chat, by its id. */
+/** The number of each image of the brainstorm, by its id. */
 const numbersOf = (entries: ReadonlyArray<BrainstormEntry>) =>
   new Map(brainstormImages(entries).map((image) => [image.id, image.number]));
 
@@ -176,23 +176,24 @@ export const makeBrainstorm = Effect.gen(function* () {
   const toolsFor = yield* makeBrainstormTools;
   // Turns run in the scope of the layer, so they outlive the request that started them.
   const engine = yield* makeTurnEngine({ deadline: TURN_DEADLINE, reasonOf });
-  // One change of the chat at a time, so two decisions never create the same issue twice.
+  // One change of the brainstorm at a time, so two decisions never create the same issue twice.
   const lock = yield* Semaphore.make(1);
 
-  let chat = Option.getOrElse(yield* store.load, emptyChat);
+  let ongoing = Option.getOrElse(yield* store.load, emptyBrainstorm);
   let answering = false;
-  // The number of the last entry; a New chat goes on from it.
-  let sequence = chat.log.at(-1)?.sequence ?? 0;
+  // The number of the last entry; a New brainstorm goes on from it.
+  let sequence = ongoing.log.at(-1)?.sequence ?? 0;
 
-  /** The chat's entries behind the package's port, saved with the chat after each one. */
+  /** The brainstorm's entries behind the package's port, saved with the brainstorm after each one. */
   const log: ChatLog<BrainstormEntry> = {
     append: (_key, entry) =>
       Effect.suspend(() => {
         sequence += 1;
-        chat = { ...chat, log: [...chat.log, { sequence, entry }] };
-        return Effect.as(store.save(chat), sequence);
+        ongoing = { ...ongoing, log: [...ongoing.log, { sequence, entry }] };
+        return Effect.as(store.save(ongoing), sequence);
       }),
-    list: (_key, after) => Effect.sync(() => chat.log.filter((stored) => stored.sequence > after)),
+    list: (_key, after) =>
+      Effect.sync(() => ongoing.log.filter((stored) => stored.sequence > after)),
   };
   const feed = yield* makeChatFeed(log);
 
@@ -202,7 +203,7 @@ export const makeBrainstorm = Effect.gen(function* () {
     }
     // A image the clean-up removed can no longer go to Gitea (spec 023, requirement 10).
     return Effect.map(
-      Effect.forEach(brainstormImages(ownEntries(chat)), (image) =>
+      Effect.forEach(brainstormImages(ownEntries(ongoing)), (image) =>
         Effect.map(imagesOutbound.path(image.id), (path) => ({
           ...image,
           available: Option.isSome(path),
@@ -218,38 +219,38 @@ export const makeBrainstorm = Effect.gen(function* () {
     );
   });
 
-  /** Replaces the chat's other parts and saves it; its entries change only through the feed. */
-  const change = (next: StoredChat) =>
+  /** Replaces the brainstorm's other parts and saves it; its entries change only through the feed. */
+  const change = (next: StoredBrainstorm) =>
     Effect.suspend(() => {
-      chat = next;
+      ongoing = next;
       return store.save(next);
     });
 
   /**
-   * Records an entry of the chat `chatId`. A turn's late write after New chat changes nothing: Pi's
+   * Records an entry of the brainstorm `brainstormId`. A turn's late write after New brainstorm changes nothing: Pi's
    * tools may still finish after their turn was stopped.
    */
-  const recordIn = (chatId: string, entry: (at: number) => BrainstormEntry) =>
+  const recordIn = (brainstormId: string, entry: (at: number) => BrainstormEntry) =>
     Effect.flatMap(Clock.currentTimeMillis, (at) =>
       Effect.suspend(() =>
-        chat.id === chatId ? Effect.asVoid(feed.record(FEED, entry(at))) : Effect.void,
+        ongoing.id === brainstormId ? Effect.asVoid(feed.record(FEED, entry(at))) : Effect.void,
       ),
     );
 
-  /** Records a proposal in the chat `chatId` and answers its id. */
-  const proposeIn = (chatId: string, proposal: (id: string, at: number) => ProposalEntry) =>
+  /** Records a proposal in the brainstorm `brainstormId` and answers its id. */
+  const proposeIn = (brainstormId: string, proposal: (id: string, at: number) => ProposalEntry) =>
     Effect.suspend(() => {
       const id = newId();
       return Effect.as(
-        recordIn(chatId, (at) => ({ kind: 'proposal', proposal: proposal(id, at) })),
+        recordIn(brainstormId, (at) => ({ kind: 'proposal', proposal: proposal(id, at) })),
         id,
       );
     });
 
-  /** What the tools of a turn do in the chat `chatId`. */
-  const hooksFor = (chatId: string) => ({
+  /** What the tools of a turn do in the brainstorm `brainstormId`. */
+  const hooksFor = (brainstormId: string) => ({
     propose: (issue: ProposedIssue, images: ReadonlyArray<string>) =>
-      proposeIn(chatId, (id, at) => ({
+      proposeIn(brainstormId, (id, at) => ({
         type: 'proposal',
         kind: 'issue',
         id,
@@ -260,7 +261,7 @@ export const makeBrainstorm = Effect.gen(function* () {
         state: { _tag: 'open' },
       })),
     proposeEdit: ({ read, title, body, images }: ProposedEdit) =>
-      proposeIn(chatId, (id, at) => ({
+      proposeIn(brainstormId, (id, at) => ({
         type: 'proposal',
         kind: 'edit',
         id,
@@ -277,14 +278,16 @@ export const makeBrainstorm = Effect.gen(function* () {
       })),
     remember: (read: IssueRead) =>
       Effect.suspend(() =>
-        chat.id === chatId
-          ? change({ ...chat, reads: rememberRead(chat.reads, read) })
+        ongoing.id === brainstormId
+          ? change({ ...ongoing, reads: rememberRead(ongoing.reads, read) })
           : Effect.void,
       ),
     readOf: (project: string, number: number) =>
-      Effect.sync(() => (chat.id === chatId ? readOf(chat.reads, project, number) : undefined)),
+      Effect.sync(() =>
+        ongoing.id === brainstormId ? readOf(ongoing.reads, project, number) : undefined,
+      ),
     images: (numbers: ReadonlyArray<number>) =>
-      Effect.sync(() => imagesByNumber(ownEntries(chat), numbers)),
+      Effect.sync(() => imagesByNumber(ownEntries(ongoing), numbers)),
   });
 
   const ensureSetUp = Option.match(runtime.notSetUp, {
@@ -297,7 +300,7 @@ export const makeBrainstorm = Effect.gen(function* () {
   );
 
   /**
-   * The turn is over: the chat takes the next message. It is idle before the turn's end is
+   * The turn is over: the brainstorm takes the next message. It is idle before the turn's end is
    * recorded, so a sheet that reads the state on that entry sees it idle.
    */
   const finished = Effect.sync(() => {
@@ -305,18 +308,20 @@ export const makeBrainstorm = Effect.gen(function* () {
   });
 
   /**
-   * Where the events of a turn in the chat `chatId` go: the package's sink writes the reply, each
+   * Where the events of a turn in the brainstorm `brainstormId` go: the package's sink writes the reply, each
    * tool as its summary and the turn's end to the feed. A failed save of the end is shown as a
    * failure.
    */
-  const sinkOf = (chatId: string): TurnSink => {
+  const sinkOf = (brainstormId: string): TurnSink => {
     const sink = chatSink(feed, FEED, {
       ended: (state) =>
         Effect.suspend(() =>
-          chat.id === chatId ? change({ ...chat, runtime: Option.some(state) }) : Effect.void,
+          ongoing.id === brainstormId
+            ? change({ ...ongoing, runtime: Option.some(state) })
+            : Effect.void,
         ).pipe(Effect.ensuring(finished)),
       describeCall: describeBrainstormCall,
-      reasonOf: () => 'The chat could not be saved after this answer.',
+      reasonOf: () => 'The brainstorm could not be saved after this answer.',
     });
     return {
       ...sink,
@@ -326,17 +331,17 @@ export const makeBrainstorm = Effect.gen(function* () {
   };
 
   /**
-   * Starts a turn in the background, within `TURN_DEADLINE`. The caller marks the chat answering
+   * Starts a turn in the background, within `TURN_DEADLINE`. The caller marks the brainstorm answering
    * before it records what starts the turn; the turn's end marks it idle.
    */
   const startTurn = (input: string, images: ReadonlyArray<StoredImage> = []) =>
     Effect.gen(function* () {
-      const chatId = chat.id;
+      const brainstormId = ongoing.id;
       // The turn before may still be leaving the engine after its end was shown.
-      yield* engine.awaitTurn(chatId);
+      yield* engine.awaitTurn(brainstormId);
       yield* engine
         .start({
-          key: chatId,
+          key: brainstormId,
           input,
           images: images.map((image) => ({
             mimeType: IMAGE_MEDIA_TYPES[image.kind],
@@ -344,12 +349,12 @@ export const makeBrainstorm = Effect.gen(function* () {
           })),
           prepare: Effect.sync(() => ({
             instructions: BRAINSTORM_INSTRUCTIONS,
-            tools: toolsFor(hooksFor(chatId)),
-            state: chat.runtime,
+            tools: toolsFor(hooksFor(brainstormId)),
+            state: ongoing.runtime,
           })),
-          sink: sinkOf(chatId),
+          sink: sinkOf(brainstormId),
         })
-        // The chat is idle here and holds the lock, so a busy key is a bug.
+        // The brainstorm is idle here and holds the lock, so a busy key is a bug.
         .pipe(Effect.orDie);
     });
 
@@ -373,11 +378,11 @@ export const makeBrainstorm = Effect.gen(function* () {
       issues: [{ field: 'images', message: `Image ${number} was removed from the app.` }],
     });
 
-  /** The owner's choice of chat images, in number order, each still kept by the app. */
+  /** The owner's choice of brainstorm images, in number order, each still kept by the app. */
   const chooseImages = (ids: ReadonlyArray<string> = []) =>
     Effect.gen(function* () {
-      const chosen = yield* Effect.fromResult(parseImageChoice(ownEntries(chat), ids));
-      const numbers = numbersOf(ownEntries(chat));
+      const chosen = yield* Effect.fromResult(parseImageChoice(ownEntries(ongoing), ids));
+      const numbers = numbersOf(ownEntries(ongoing));
       for (const id of chosen) {
         if (Option.isNone(yield* imagesOutbound.path(id))) {
           return yield* removed(numbers.get(id) ?? 0);
@@ -400,7 +405,7 @@ export const makeBrainstorm = Effect.gen(function* () {
     number: number,
   ) =>
     Effect.gen(function* () {
-      const numbers = numbersOf(ownEntries(chat));
+      const numbers = numbersOf(ownEntries(ongoing));
       let current = proposal;
       for (const id of missingImages(current.images, current.attached)) {
         const imageNumber = numbers.get(id) ?? 0;
@@ -423,7 +428,7 @@ export const makeBrainstorm = Effect.gen(function* () {
     attached: ReadonlyArray<AttachedImage>,
     ids: ReadonlyArray<string>,
   ) => {
-    const numbers = numbersOf(ownEntries(chat));
+    const numbers = numbersOf(ownEntries(ongoing));
     return withImages(
       body,
       attached
@@ -598,9 +603,9 @@ export const makeBrainstorm = Effect.gen(function* () {
     if (Result.isFailure(parsed)) return yield* parsed.failure;
     const images = yield* readImages(imageIds);
     yield* ensureIdle;
-    const first = brainstormImages(ownEntries(chat)).length + 1;
+    const first = brainstormImages(ownEntries(ongoing)).length + 1;
     answering = true;
-    yield* recordIn(chat.id, (at) => ({
+    yield* recordIn(ongoing.id, (at) => ({
       kind: 'said',
       id: newId(),
       at,
@@ -623,7 +628,7 @@ export const makeBrainstorm = Effect.gen(function* () {
   ) {
     yield* ensureSetUp;
     yield* ensureIdle;
-    const proposal = proposalOf(ownEntries(chat), id);
+    const proposal = proposalOf(ownEntries(ongoing), id);
     if (proposal === undefined) return yield* new ProposalNotFoundError({ id });
     if (proposal.state._tag !== 'open' && proposal.state._tag !== 'attaching') {
       return yield* new ProposalDecidedError({ id });
@@ -631,11 +636,11 @@ export const makeBrainstorm = Effect.gen(function* () {
     const settled = yield* decided(proposal, decision);
     answering = true;
     yield* change({
-      ...chat,
+      ...ongoing,
       // Pi's next edit of the issue starts from the version the owner just saved.
       reads:
         settled.kind === 'edit' && settled.state._tag === 'updated'
-          ? rememberRead(chat.reads, {
+          ? rememberRead(ongoing.reads, {
               project: settled.project,
               number: settled.number,
               url: settled.url,
@@ -643,18 +648,18 @@ export const makeBrainstorm = Effect.gen(function* () {
               body: settled.body,
               cut: false,
             })
-          : chat.reads,
+          : ongoing.reads,
     });
     yield* saveProposal(settled);
-    yield* startTurn(decisionNote(settled, numbersOf(ownEntries(chat))));
+    yield* startTurn(decisionNote(settled, numbersOf(ownEntries(ongoing))));
   }, lock.withPermits(1));
 
   const reset = Effect.fn('Brainstorm.reset')(function* () {
-    // The stopped turn records its stop, and its running tools with it, before the chat goes.
-    yield* engine.stop(chat.id);
+    // The stopped turn records its stop, and its running tools with it, before the brainstorm goes.
+    yield* engine.stop(ongoing.id);
     answering = false;
-    chat = emptyChat();
-    yield* feed.record(FEED, { kind: 'chatStarted' });
+    ongoing = emptyBrainstorm();
+    yield* feed.record(FEED, { kind: 'brainstormStarted' });
   }, lock.withPermits(1));
 
   return { state, events, send, decide, reset };

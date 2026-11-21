@@ -4,7 +4,7 @@ import { useOpenBrainstorm } from './Brainstorm.js';
 
 /**
  * The conversation's More action (spec 016): the top bar has no room for more icons next to the
- * agent's name, so the brainstorm chat and Close wait in a sheet.
+ * agent's name, so the brainstorm and Close wait in a sheet.
  */
 export const ConversationMenu = ({
   close,

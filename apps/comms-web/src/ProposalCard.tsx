@@ -33,7 +33,7 @@ export type ProposalCardProps = ProposedIssue & {
     | { readonly _tag: 'attaching'; readonly number: number; readonly url: string };
   /** The projects the owner may choose from, by name; the proposed one is offered too. */
   readonly projects: ReadonlyArray<string>;
-  /** The images of the chat the owner may choose from. */
+  /** The images of the brainstorm the owner may choose from. */
   readonly images?: ReadonlyArray<BrainstormImage>;
   /** The chosen images by id: the ones Pi named while open, the owner's choice afterwards. */
   readonly chosen?: ReadonlyArray<string>;
@@ -47,7 +47,7 @@ export type ProposalCardProps = ProposedIssue & {
   readonly onDiscard: () => void;
   /** While `attaching`: finish with the images attached so far. */
   readonly onFinishWithout?: () => void;
-  /** The decision is on its way, or the chat takes none now: the actions are off. */
+  /** The decision is on its way, or the brainstorm takes none now: the actions are off. */
   readonly busy?: boolean;
   /** Why the last decision failed; the card stays open. */
   readonly error?: string;

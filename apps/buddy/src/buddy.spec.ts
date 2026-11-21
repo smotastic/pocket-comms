@@ -428,7 +428,7 @@ describe('sending', () => {
     ),
   );
 
-  it.effect('keeps the clips while the chat or transcription is not set up', () =>
+  it.effect('keeps the clips while the brainstorm or transcription is not set up', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         fake.comms.transcribeFailures.push(
@@ -500,7 +500,7 @@ const issue = (
 const stream = (fake: Fake, ...events: ReadonlyArray<BrainstormEventView>) =>
   Queue.offerAll(fake.stream, events).pipe(Effect.andThen(settle));
 
-describe('following the chat', () => {
+describe('following the brainstorm', () => {
   it.effect('shows the owner’s message and then Pi’s answer as it streams in', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
@@ -532,11 +532,11 @@ describe('following the chat', () => {
     ),
   );
 
-  it.effect('empties the screen when a new chat starts', () =>
+  it.effect('empties the screen when a new brainstorm starts', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         yield* stream(fake, said('dark mode'), delta('Nice'), issue({ _tag: 'open' }));
-        yield* stream(fake, entry({ kind: 'chatStarted' }));
+        yield* stream(fake, entry({ kind: 'brainstormStarted' }));
 
         expect(lastView(fake)?.sent).toBeUndefined();
         expect(lastView(fake)?.answer).toBeUndefined();

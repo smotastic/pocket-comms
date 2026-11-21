@@ -15,3 +15,4 @@ POST /api/v1/brainstorm/proposals/{proposal}/decision added the new required req
 GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/pictures` from the response with the `200` status
 GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/seesPictures` from the response with the `200` status
 POST /api/v1/brainstorm/proposals/{proposal}/decision removed `subschema #1, subschema #3, subschema #4` from the request body `anyOf` list
+GET /api/v1/brainstorm added `subschema #1, subschema #2` to the response body `anyOf` list for the response status `200`

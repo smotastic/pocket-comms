@@ -85,7 +85,7 @@ describe('the composed server', () => {
     expect((await serve()('/api/v1/projects/nope/issues')).status).toBe(404);
   });
 
-  it('says that the brainstorm chat is not set up without a model, and still serves', async () => {
+  it('says that the brainstorm is not set up without a model, and still serves', async () => {
     const response = await serve()('/api/v1/brainstorm');
 
     expect(response.status).toBe(200);

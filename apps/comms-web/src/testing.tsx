@@ -93,9 +93,9 @@ export interface FakeState {
   closeFailure?: RequestError;
   /** The failures of the next agent closes, in order; a close without one succeeds. */
   closeAgentFailures: Array<RequestError>;
-  /** The brainstorm chat's state as the server holds it. */
+  /** The brainstorm's state as the server holds it. */
   brainstorm: BrainstormStateView;
-  /** The brainstorm chat's entries, numbered from 1, which a sheet that follows gets first. */
+  /** The brainstorm's entries, numbered from 1, which a sheet that follows gets first. */
   brainstormLog: Array<BrainstormEventView & { readonly kind: 'entry' }>;
   /** A failure for the next brainstorm message or decision, as the server would report it. */
   brainstormFailure?: RequestError;
@@ -164,7 +164,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     brainstormImageIds: [] as Array<ReadonlyArray<string>>,
     decisions: [] as Array<[string, ProposalDecision]>,
     brainstormResets: 0,
-    /** Where each follow of the brainstorm chat started: the `after` it asked for. */
+    /** Where each follow of the brainstorm started: the `after` it asked for. */
     brainstormFollows: [] as Array<number>,
     pushKeys: 0,
     subscribed: [] as Array<PushSubscriptionView>,
