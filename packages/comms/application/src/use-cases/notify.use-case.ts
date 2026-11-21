@@ -6,7 +6,7 @@ import {
   conversationFormatOf,
   watchStep,
   type Agent,
-  type Attention,
+  type NeedsYouReason,
   type Change,
   type Reading,
 } from '@pocket-comms/comms-domain';
@@ -34,13 +34,13 @@ export const makeNotify = Effect.gen(function* () {
   const pushSenderOutbound = yield* PushSenderOutbound;
   const backgroundOf = yield* makeBackgroundOf;
 
-  const excerpt = (agent: Agent, attention: Attention) => {
+  const excerpt = (agent: Agent, reason: NeedsYouReason) => {
     const format = conversationFormatOf(agent);
     if (format === undefined || agent.session === undefined) return Effect.succeed(undefined);
     return conversationOutbound
       .read({ ref: agentRef(agent), format, session: agent.session, cwd: agent.cwd })
       .pipe(
-        Effect.map((conversation) => excerptOf(attention, conversation.entries)),
+        Effect.map((conversation) => excerptOf(reason, conversation.entries)),
         Effect.orElseSucceed(() => undefined),
       );
   };
@@ -48,9 +48,9 @@ export const makeNotify = Effect.gen(function* () {
   const send = Effect.fn('Push.send')(function* (change: Change, agent: Agent, project?: string) {
     const notification = notificationOf({
       agent,
-      attention: change.attention,
+      reason: change.reason,
       project,
-      excerpt: yield* excerpt(agent, change.attention),
+      excerpt: yield* excerpt(agent, change.reason),
     });
     const subscriptions = yield* pushSubscriptionsOutbound.list;
     yield* Effect.forEach(
@@ -95,9 +95,9 @@ export const makeNotify = Effect.gen(function* () {
   // interrupted by a newer change of the same agent; only the wait is.
   const deliver = (change: Change, seenAs: Agent) =>
     Effect.gen(function* () {
-      let wasQuiet = change.attention === 'blocked' || (yield* quiet(seenAs));
+      let wasQuiet = change.reason === 'blocked' || (yield* quiet(seenAs));
       let held = yield* holding(change);
-      while (held !== undefined && change.attention === 'done') {
+      while (held !== undefined && change.reason === 'done') {
         const isQuiet = yield* quiet(held.agent);
         if (wasQuiet && isQuiet) break;
         wasQuiet = isQuiet;

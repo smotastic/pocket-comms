@@ -131,7 +131,9 @@ const Agents = Schema.Array(Agent).annotate({
 });
 
 export const Overview = Schema.Struct({
-  needsYou: Agents.annotate({ description: 'Blocked agents, then unseen done agents.' }),
+  needsYou: Agents.annotate({
+    description: 'Blocked agents, then done agents whose result the owner has not seen.',
+  }),
   groups: Schema.Array(
     Schema.Struct({
       key: Schema.String.annotate({

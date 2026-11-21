@@ -173,11 +173,11 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
 
   // Opening a done agent shows its completion, so it leaves Needs you (requirement 11). A failed
   // attempt is tried again; the overview keeps the agent under Needs you until one succeeds.
-  const unseenDone = agent?.status === 'done' && agent.needsYou;
+  const doneNotSeen = agent?.status === 'done' && agent.needsYou;
   const { mutate: markSeen } = useMutation({ mutationFn: () => client.seen(agentRef), retry: 3 });
   useEffect(() => {
-    if (unseenDone) markSeen();
-  }, [markSeen, unseenDone]);
+    if (doneNotSeen) markSeen();
+  }, [markSeen, doneNotSeen]);
 
   const [closing, setClosing] = useState(false);
   const [draft, setDraft] = useState('');

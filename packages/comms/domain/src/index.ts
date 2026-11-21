@@ -143,7 +143,7 @@ export {
   notificationOf,
   stillHolds,
   watchStep,
-  type Attention,
+  type NeedsYouReason,
   type Change,
   type Notification,
   type PushSubscription,

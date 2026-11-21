@@ -108,7 +108,7 @@ describe('buildOverview', () => {
     ]);
   });
 
-  it('lists blocked agents and unseen done agents under Needs you, blocked first', () => {
+  it('lists blocked agents and done agents not yet seen under Needs you, blocked first', () => {
     const overview = buildOverview(
       [
         agent({ paneId: 'w1:p1', status: 'done', completion: 4 }),

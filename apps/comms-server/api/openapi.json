@@ -1517,7 +1517,7 @@
             "type": "array"
           },
           "needsYou": {
-            "description": "Blocked agents, then unseen done agents.",
+            "description": "Blocked agents, then done agents whose result the owner has not seen.",
             "examples": [[]],
             "items": {
               "$ref": "#/components/schemas/Agent"
