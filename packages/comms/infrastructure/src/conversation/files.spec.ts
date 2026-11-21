@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { TranscriptOutbound, type TranscriptSource } from '@pocket-comms/comms-application';
+import { ConversationOutbound, type ConversationSource } from '@pocket-comms/comms-application';
 import * as Effect from 'effect/Effect';
 import * as Fiber from 'effect/Fiber';
 import * as Option from 'effect/Option';
@@ -22,12 +22,17 @@ import { piSessionFolder } from './pi.js';
 const fixture = (name: string) =>
   readFileSync(new URL(`../testing/fixtures/${name}`, import.meta.url), 'utf8');
 
-const claude: TranscriptSource = { ref: 'kirk', format: 'claude', session: 's1', cwd: '/work/app' };
-const pi: TranscriptSource = { ref: 'spock', format: 'pi', session: 's2', cwd: '/work/app' };
+const claude: ConversationSource = {
+  ref: 'kirk',
+  format: 'claude',
+  session: 's1',
+  cwd: '/work/app',
+};
+const pi: ConversationSource = { ref: 'spock', format: 'pi', session: 's2', cwd: '/work/app' };
 
 /** A fresh home folder with a Claude and a Pi session of the fixtures. */
 const home = () => {
-  const root = mkdtempSync(join(tmpdir(), 'comms-transcripts-'));
+  const root = mkdtempSync(join(tmpdir(), 'comms-conversations-'));
   const claudeFile = claudeSessionPath(root, '/work/app', 's1');
   mkdirSync(join(claudeFile, '..'), { recursive: true });
   writeFileSync(claudeFile, fixture('claude-session.jsonl'));
@@ -47,14 +52,14 @@ const line = (text: string, uuid: string) =>
     message: { role: 'assistant', content: [{ type: 'text', text }] },
   })}\n`;
 
-describe('Transcript.layerFiles', () => {
+describe('Conversation.layerFiles', () => {
   it.effect('reads the entries and the modification time of a Claude session', () => {
     const { root, claudeFile } = home();
     utimesSync(claudeFile, new Date(5_000), new Date(5_000));
     return Effect.gen(function* () {
-      const transcript = yield* TranscriptOutbound.use((port) => port.read(claude));
+      const conversation = yield* ConversationOutbound.use((port) => port.read(claude));
 
-      expect(transcript.entries.map((entry) => entry.id)).toEqual([
+      expect(conversation.entries.map((entry) => entry.id)).toEqual([
         'u-1',
         'a-1:0',
         'toolu-edit',
@@ -63,7 +68,7 @@ describe('Transcript.layerFiles', () => {
         'a-5:0',
         'toolu-build',
       ]);
-      expect(transcript.modifiedAt).toBe(5_000);
+      expect(conversation.modifiedAt).toBe(5_000);
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
@@ -71,10 +76,10 @@ describe('Transcript.layerFiles', () => {
     const { root, claudeFile } = home();
     utimesSync(claudeFile, 5.0004567, 5.0004567);
     return Effect.gen(function* () {
-      const transcript = yield* TranscriptOutbound.use((port) => port.read(claude));
-      const modified = yield* TranscriptOutbound.use((port) => port.modifiedAt(claude));
+      const conversation = yield* ConversationOutbound.use((port) => port.read(claude));
+      const modified = yield* ConversationOutbound.use((port) => port.modifiedAt(claude));
 
-      expect(transcript.modifiedAt).toBe(5_000);
+      expect(conversation.modifiedAt).toBe(5_000);
       expect(modified).toEqual(Option.some(5_000));
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
@@ -82,61 +87,61 @@ describe('Transcript.layerFiles', () => {
   it.effect('reads a Pi session from its timestamped file', () => {
     const { root } = home();
     return Effect.gen(function* () {
-      const transcript = yield* TranscriptOutbound.use((port) => port.read(pi));
+      const conversation = yield* ConversationOutbound.use((port) => port.read(pi));
 
-      expect(transcript.entries[0]).toMatchObject({ type: 'user', text: 'Port the chat kit' });
+      expect(conversation.entries[0]).toMatchObject({ type: 'user', text: 'Port the chat kit' });
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
   it.effect('reads a Pi session that Herdr names by its file path', () => {
     const { root, piFile } = home();
     // Only the id in the file name counts; the path is never opened as it is.
-    const named: TranscriptSource = { ...pi, session: `/elsewhere/${piFile.split('/').pop()}` };
+    const named: ConversationSource = { ...pi, session: `/elsewhere/${piFile.split('/').pop()}` };
     return Effect.gen(function* () {
-      const transcript = yield* TranscriptOutbound.use((port) => port.read(named));
+      const conversation = yield* ConversationOutbound.use((port) => port.read(named));
 
-      expect(transcript.entries[0]).toMatchObject({ type: 'user', text: 'Port the chat kit' });
+      expect(conversation.entries[0]).toMatchObject({ type: 'user', text: 'Port the chat kit' });
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
   it.effect('finds a Claude session in another project folder', () => {
     const { root } = home();
-    const moved: TranscriptSource = { ...claude, cwd: '/work/app/packages/web' };
+    const moved: ConversationSource = { ...claude, cwd: '/work/app/packages/web' };
     return Effect.gen(function* () {
-      const transcript = yield* TranscriptOutbound.use((port) => port.read(moved));
+      const conversation = yield* ConversationOutbound.use((port) => port.read(moved));
 
-      expect(transcript.entries).toHaveLength(7);
+      expect(conversation.entries).toHaveLength(7);
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
   it.effect('keeps only the latest entries', () => {
     const { root } = home();
     return Effect.gen(function* () {
-      const transcript = yield* TranscriptOutbound.use((port) => port.read(claude));
+      const conversation = yield* ConversationOutbound.use((port) => port.read(claude));
 
-      expect(transcript.entries.map((entry) => entry.id)).toEqual(['a-5:0', 'toolu-build']);
+      expect(conversation.entries.map((entry) => entry.id)).toEqual(['a-5:0', 'toolu-build']);
     }).pipe(Effect.provide(layerFiles({ home: root, maxEntries: 2 })));
   });
 
   it.effect('reports a missing session file', () => {
     const { root } = home();
     return Effect.gen(function* () {
-      const error = yield* TranscriptOutbound.use((port) =>
+      const error = yield* ConversationOutbound.use((port) =>
         port.read({ ...claude, session: 'gone' }),
       ).pipe(Effect.flip);
 
-      expect(error._tag).toBe('TranscriptUnavailableError');
+      expect(error._tag).toBe('ConversationUnavailableError');
       expect(
-        yield* TranscriptOutbound.use((port) => port.modifiedAt({ ...claude, session: 'gone' })),
+        yield* ConversationOutbound.use((port) => port.modifiedAt({ ...claude, session: 'gone' })),
       ).toEqual(Option.none());
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
   it.live('waits for a session file that does not exist yet', () => {
     const { root } = home();
-    const later: TranscriptSource = { ...claude, session: 'later' };
+    const later: ConversationSource = { ...claude, session: 'later' };
     return Effect.gen(function* () {
-      const fiber = yield* TranscriptOutbound.use((port) =>
+      const fiber = yield* ConversationOutbound.use((port) =>
         port.follow(later).pipe(Stream.take(1), Stream.runCollect),
       ).pipe(Effect.forkChild);
       yield* Effect.sleep('60 millis');
@@ -151,7 +156,7 @@ describe('Transcript.layerFiles', () => {
   it.live('starts with the latest entries', () => {
     const { root } = home();
     return Effect.gen(function* () {
-      const [first] = yield* TranscriptOutbound.use((port) =>
+      const [first] = yield* ConversationOutbound.use((port) =>
         port.follow(claude).pipe(Stream.take(1), Stream.runCollect),
       );
 
@@ -162,7 +167,7 @@ describe('Transcript.layerFiles', () => {
   it.live('follows the lines appended to the file, also when one arrives in pieces', () => {
     const { root, claudeFile } = home();
     return Effect.gen(function* () {
-      const fiber = yield* TranscriptOutbound.use((port) =>
+      const fiber = yield* ConversationOutbound.use((port) =>
         Effect.succeed(port.follow(claude)),
       ).pipe(
         Effect.flatMap((stream) => stream.pipe(Stream.drop(1), Stream.take(2), Stream.runCollect)),
@@ -188,7 +193,7 @@ describe('Transcript.layerFiles', () => {
   it.live('reports the outcome of a tool call that started before the stream did', () => {
     const { root, claudeFile } = home();
     return Effect.gen(function* () {
-      const fiber = yield* TranscriptOutbound.use((port) =>
+      const fiber = yield* ConversationOutbound.use((port) =>
         Effect.succeed(port.follow(claude)),
       ).pipe(
         Effect.flatMap((stream) => stream.pipe(Stream.drop(1), Stream.take(1), Stream.runCollect)),
@@ -216,7 +221,7 @@ describe('Transcript.layerFiles', () => {
   });
 });
 
-describe('Transcript.layerFiles background', () => {
+describe('Conversation.layerFiles background', () => {
   // A session whose background work starts before the 300 latest entries.
   const backgroundHome = () => {
     const { root, claudeFile } = home();
@@ -231,7 +236,7 @@ describe('Transcript.layerFiles background', () => {
   it.effect('finds work started before the latest entries a chat shows', () => {
     const { root } = backgroundHome();
     return Effect.gen(function* () {
-      const items = yield* TranscriptOutbound.use((port) => port.background(claude));
+      const items = yield* ConversationOutbound.use((port) => port.background(claude));
 
       expect(items.map((item) => item.id)).toEqual([
         'toolu-ci',
@@ -245,7 +250,7 @@ describe('Transcript.layerFiles background', () => {
   it.effect('reads only what was appended since the last call', () => {
     const { root, claudeFile, lines } = backgroundHome();
     return Effect.gen(function* () {
-      const port = yield* TranscriptOutbound;
+      const port = yield* ConversationOutbound;
       yield* port.background(claude);
       appendFileSync(claudeFile, `${lines.slice(8).join('\n')}\n`);
 
@@ -258,7 +263,7 @@ describe('Transcript.layerFiles background', () => {
   it.effect('reads a replaced session file again from its start', () => {
     const { root, claudeFile, lines } = backgroundHome();
     return Effect.gen(function* () {
-      const port = yield* TranscriptOutbound;
+      const port = yield* ConversationOutbound;
       yield* port.background(claude);
       writeFileSync(claudeFile, `${lines.slice(0, 3).join('\n')}\n`);
 
@@ -271,7 +276,7 @@ describe('Transcript.layerFiles background', () => {
   it.effect('gives the same answer to reads of one session at the same time', () => {
     const { root, claudeFile, lines } = backgroundHome();
     return Effect.gen(function* () {
-      const port = yield* TranscriptOutbound;
+      const port = yield* ConversationOutbound;
       appendFileSync(claudeFile, `${lines.slice(8).join('\n')}\n`);
 
       const answers = yield* Effect.all(
@@ -297,7 +302,7 @@ describe('Transcript.layerFiles background', () => {
     );
     writeFileSync(join(folder, 'agent-broken.meta.json'), '{ not json');
     return Effect.gen(function* () {
-      const items = yield* TranscriptOutbound.use((port) => port.background(claude));
+      const items = yield* ConversationOutbound.use((port) => port.background(claude));
 
       expect(items.find((item) => item.id === 'toolu-fg')?.subagent).toBe('afedcba9876543210');
     }).pipe(Effect.provide(layerFiles({ home: root })));
@@ -306,7 +311,7 @@ describe('Transcript.layerFiles background', () => {
   it.effect('shows a subagent without a meta file without its id', () => {
     const { root } = backgroundHome();
     return Effect.gen(function* () {
-      const items = yield* TranscriptOutbound.use((port) => port.background(claude));
+      const items = yield* ConversationOutbound.use((port) => port.background(claude));
 
       expect(items.find((item) => item.id === 'toolu-fg')?.subagent).toBeUndefined();
     }).pipe(Effect.provide(layerFiles({ home: root })));
@@ -315,23 +320,23 @@ describe('Transcript.layerFiles background', () => {
   it.effect('has no background work for a Pi session', () => {
     const { root } = home();
     return Effect.gen(function* () {
-      expect(yield* TranscriptOutbound.use((port) => port.background(pi))).toEqual([]);
+      expect(yield* ConversationOutbound.use((port) => port.background(pi))).toEqual([]);
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
   it.effect('fails for a session without a file', () => {
     const { root } = home();
     return Effect.gen(function* () {
-      const error = yield* TranscriptOutbound.use((port) =>
+      const error = yield* ConversationOutbound.use((port) =>
         port.background({ ...claude, session: 'missing' }),
       ).pipe(Effect.flip);
 
-      expect(error._tag).toBe('TranscriptUnavailableError');
+      expect(error._tag).toBe('ConversationUnavailableError');
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 });
 
-describe('Transcript.layerFiles subagents', () => {
+describe('Conversation.layerFiles subagents', () => {
   // The session s1 with the subagent a0123456789abcdef: its conversation and its meta file.
   const subagentHome = () => {
     const { root, claudeFile } = home();
@@ -354,16 +359,20 @@ describe('Transcript.layerFiles subagents', () => {
   it.effect("reads a subagent's own conversation", () => {
     const { root } = subagentHome();
     return Effect.gen(function* () {
-      const transcript = yield* TranscriptOutbound.use((port) => port.read(subagent));
+      const conversation = yield* ConversationOutbound.use((port) => port.read(subagent));
 
-      expect(transcript.entries.map((entry) => entry.type)).toEqual(['user', 'tool', 'assistant']);
+      expect(conversation.entries.map((entry) => entry.type)).toEqual([
+        'user',
+        'tool',
+        'assistant',
+      ]);
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
   it.effect('reads what Claude records about a subagent', () => {
     const { root } = subagentHome();
     return Effect.gen(function* () {
-      const meta = yield* TranscriptOutbound.use((port) => port.subagentMeta(subagent));
+      const meta = yield* ConversationOutbound.use((port) => port.subagentMeta(subagent));
 
       expect(meta).toEqual(
         Option.some({
@@ -378,7 +387,7 @@ describe('Transcript.layerFiles subagents', () => {
   it.effect('has no record of a subagent without a meta file', () => {
     const { root } = subagentHome();
     return Effect.gen(function* () {
-      const meta = yield* TranscriptOutbound.use((port) =>
+      const meta = yield* ConversationOutbound.use((port) =>
         port.subagentMeta({ ...claude, subagent: 'b2' }),
       );
 
@@ -390,18 +399,18 @@ describe('Transcript.layerFiles subagents', () => {
     const { root, folder } = subagentHome();
     writeFileSync(join(folder, '..', 'x.jsonl'), fixture('claude-subagent.jsonl'));
     return Effect.gen(function* () {
-      const error = yield* TranscriptOutbound.use((port) =>
+      const error = yield* ConversationOutbound.use((port) =>
         port.read({ ...claude, subagent: '../x' }),
       ).pipe(Effect.flip);
-      const modified = yield* TranscriptOutbound.use((port) =>
+      const modified = yield* ConversationOutbound.use((port) =>
         port.modifiedAt({ ...claude, subagent: '../x' }),
       );
 
-      const meta = yield* TranscriptOutbound.use((port) =>
+      const meta = yield* ConversationOutbound.use((port) =>
         port.subagentMeta({ ...claude, subagent: '../x' }),
       );
 
-      expect(error._tag).toBe('TranscriptUnavailableError');
+      expect(error._tag).toBe('ConversationUnavailableError');
       expect(modified).toEqual(Option.none());
       expect(meta).toEqual(Option.none());
     }).pipe(Effect.provide(layerFiles({ home: root })));
@@ -452,12 +461,12 @@ describe('the waiting question from the Claude hook', () => {
     outcome: 'pending',
   };
 
-  it.effect('ends the transcript with the call the session file does not hold yet', () => {
+  it.effect('ends the conversation with the call the session file does not hold yet', () => {
     const { root } = home();
     const questionsFolder = join(root, 'questions');
     hookFile(questionsFolder);
     return Effect.gen(function* () {
-      const { entries } = yield* TranscriptOutbound.use((port) => port.read(claude));
+      const { entries } = yield* ConversationOutbound.use((port) => port.read(claude));
 
       expect(entries.at(-1)).toEqual(waiting);
       expect(entries.at(-2)?.id).toBe('toolu-build');
@@ -470,7 +479,7 @@ describe('the waiting question from the Claude hook', () => {
     hookFile(questionsFolder);
     appendFileSync(claudeFile, asked('toolu-ask', 'q-1'));
     return Effect.gen(function* () {
-      const { entries } = yield* TranscriptOutbound.use((port) => port.read(claude));
+      const { entries } = yield* ConversationOutbound.use((port) => port.read(claude));
 
       expect(entries.filter((entry) => entry.id === 'toolu-ask')).toHaveLength(1);
       expect(entries.at(-1)?.at).not.toBe(9_000);
@@ -486,8 +495,8 @@ describe('the waiting question from the Claude hook', () => {
     );
     hookFile(questionsFolder, 'toolu-ask', 's2');
     return Effect.gen(function* () {
-      const kirk = yield* TranscriptOutbound.use((port) => port.read(claude));
-      const spock = yield* TranscriptOutbound.use((port) => port.read(pi));
+      const kirk = yield* ConversationOutbound.use((port) => port.read(claude));
+      const spock = yield* ConversationOutbound.use((port) => port.read(pi));
 
       expect(kirk.entries.at(-1)?.id).toBe('toolu-build');
       expect(spock.entries.some((entry) => entry.id === 'toolu-ask')).toBe(false);
@@ -498,7 +507,7 @@ describe('the waiting question from the Claude hook', () => {
     const { root } = home();
     const questionsFolder = join(root, 'questions');
     return Effect.gen(function* () {
-      const fiber = yield* TranscriptOutbound.use((port) =>
+      const fiber = yield* ConversationOutbound.use((port) =>
         port.follow(claude).pipe(Stream.take(2), Stream.runCollect),
       ).pipe(Effect.forkChild);
       yield* Effect.sleep('60 millis');
@@ -519,7 +528,7 @@ describe('the waiting question from the Claude hook', () => {
     const questionsFolder = join(root, 'questions');
     hookFile(questionsFolder);
     return Effect.gen(function* () {
-      const [first] = yield* TranscriptOutbound.use((port) =>
+      const [first] = yield* ConversationOutbound.use((port) =>
         port.follow(claude).pipe(Stream.take(1), Stream.runCollect),
       );
 
@@ -532,7 +541,7 @@ describe('the waiting question from the Claude hook', () => {
     const questionsFolder = join(root, 'questions');
     const path = hookFile(questionsFolder);
     return Effect.gen(function* () {
-      const fiber = yield* TranscriptOutbound.use((port) =>
+      const fiber = yield* ConversationOutbound.use((port) =>
         port.follow(claude).pipe(Stream.take(2), Stream.runCollect),
       ).pipe(Effect.forkChild);
       yield* Effect.sleep('60 millis');

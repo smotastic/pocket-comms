@@ -1,8 +1,8 @@
 import type {
   AgentStatus,
   BackgroundItem,
-  TranscriptEntry,
-  TranscriptFormat,
+  ConversationEntry,
+  ConversationFormat,
 } from '@pocket-comms/comms-domain';
 
 /** An agent as the app shows it. */
@@ -13,7 +13,7 @@ export interface AgentDto {
   readonly name: string | undefined;
   readonly kind: string | undefined;
   /** The session format the app renders as a chat; none means the app shows only the screen. */
-  readonly format: TranscriptFormat | undefined;
+  readonly format: ConversationFormat | undefined;
   readonly status: AgentStatus;
   readonly title: string;
   readonly cwd: string | undefined;
@@ -40,8 +40,8 @@ export interface OverviewDto {
   readonly groups: ReadonlyArray<OverviewGroupDto>;
 }
 
-export interface TranscriptDto {
-  readonly entries: ReadonlyArray<TranscriptEntry>;
+export interface ConversationDto {
+  readonly entries: ReadonlyArray<ConversationEntry>;
   /** What a working agent does now, such as "Running pnpm test…". */
   readonly activity: string;
 }
@@ -53,7 +53,7 @@ export type AgentEventDto =
       readonly type: 'entries';
       /** The entries replace what the reader holds: the first event of a session. */
       readonly reset: boolean;
-      readonly entries: ReadonlyArray<TranscriptEntry>;
+      readonly entries: ReadonlyArray<ConversationEntry>;
       readonly activity: string;
     };
 
@@ -70,7 +70,7 @@ export interface SubagentInfoDto {
 }
 
 export interface SubagentDto extends SubagentInfoDto {
-  readonly entries: ReadonlyArray<TranscriptEntry>;
+  readonly entries: ReadonlyArray<ConversationEntry>;
   readonly activity: string;
 }
 

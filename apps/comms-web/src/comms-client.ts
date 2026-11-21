@@ -20,7 +20,7 @@ import {
   type Subagent,
   SubagentEvent,
   type TaskCreated,
-  type Transcript,
+  type Conversation,
 } from '@pocket-comms/comms-contract';
 import * as Cause from 'effect/Cause';
 import * as Effect from 'effect/Effect';
@@ -35,7 +35,7 @@ export type ActivityView = typeof Activity.Type;
 export type ActivityEventView = ActivityView['events'][number];
 export type OverviewView = typeof Overview.Type;
 export type OverviewStateView = typeof OverviewState.Type;
-export type TranscriptView = typeof Transcript.Type;
+export type ConversationView = typeof Conversation.Type;
 export type AgentEventView = typeof AgentEvent.Type;
 export type SubagentView = typeof Subagent.Type;
 export type SubagentEventView = typeof SubagentEvent.Type;
@@ -67,7 +67,7 @@ export type OnLive = (live: boolean) => void;
 export interface CommsClient {
   readonly overview: () => Promise<OverviewView>;
   readonly agent: (ref: string) => Promise<AgentView>;
-  readonly transcript: (ref: string) => Promise<TranscriptView>;
+  readonly conversation: (ref: string) => Promise<ConversationView>;
   /** A subagent of the agent's session, with its own conversation. */
   readonly subagent: (ref: string, id: string) => Promise<SubagentView>;
   readonly screen: (ref: string) => Promise<string>;
@@ -284,7 +284,7 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
   return {
     overview: () => run((api) => api.agents.overview()),
     agent: (ref) => run((api) => api.agents.agent(agent(ref))),
-    transcript: (ref) => run((api) => api.agents.transcript(agent(ref))),
+    conversation: (ref) => run((api) => api.agents.conversation(agent(ref))),
     subagent: (ref, id) =>
       run((api) => api.agents.subagent({ params: { agent: ref, subagent: id } })),
     screen: (ref) => run((api) => api.agents.screen(agent(ref))).then((screen) => screen.text),

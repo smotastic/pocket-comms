@@ -1,11 +1,11 @@
 import { ImageThumb, Markdown, Text } from '@smotastic/pocket-design';
 import { MISSING } from './AttachedImages.js';
-import type { TranscriptView } from './comms-client.js';
+import type { ConversationView } from './comms-client.js';
 import { QuestionCard, type QuestionAnswering } from './QuestionCard.js';
 import { ToolLine } from './ToolLine.js';
 import { UserMessage } from './UserMessage.js';
 
-export type ToolEntry = Extract<TranscriptView['entries'][number], { readonly type: 'tool' }>;
+export type ToolEntry = Extract<ConversationView['entries'][number], { readonly type: 'tool' }>;
 
 /** Where a tool line leads, when it leads somewhere, and a note on what it started. */
 export interface ToolLink {
@@ -20,14 +20,14 @@ const QUESTION_STATES = { pending: 'waiting', ok: 'answered', error: 'unanswered
  * A conversation's entries as a chat. `linkOf` makes a tool call a link, such as a delegation to
  * the subagent it started; `answering` makes the waiting question call `call` answerable.
  */
-export const Chat = ({
-  transcript,
+export const ConversationEntries = ({
+  conversation,
   failed,
   imageUrl,
   linkOf = () => undefined,
   answering,
 }: {
-  readonly transcript: TranscriptView | undefined;
+  readonly conversation: ConversationView | undefined;
   /** Where an attached image of a prompt is served (spec 014). */
   readonly imageUrl: (id: string) => string;
   /** The session cannot be read, such as before the agent's first prompt. */
@@ -35,15 +35,15 @@ export const Chat = ({
   readonly linkOf?: (entry: ToolEntry) => ToolLink | undefined;
   readonly answering?: QuestionAnswering & { readonly call: string };
 }) => {
-  if (transcript === undefined) {
+  if (conversation === undefined) {
     return (
       <Text tone="muted">{failed ? 'No conversation yet.' : 'Loading the conversation…'}</Text>
     );
   }
-  if (transcript.entries.length === 0) return <Text tone="muted">Nothing was said yet.</Text>;
+  if (conversation.entries.length === 0) return <Text tone="muted">Nothing was said yet.</Text>;
   return (
     <>
-      {transcript.entries.map((entry) => {
+      {conversation.entries.map((entry) => {
         switch (entry.type) {
           case 'user':
             return (

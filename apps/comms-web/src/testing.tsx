@@ -22,7 +22,7 @@ import {
   type SubagentEventView,
   type SubagentView,
   type TaskCreatedView,
-  type TranscriptView,
+  type ConversationView,
 } from './comms-client.js';
 import { ImageHandlingContext, UnreadableImageError, type ImageHandling } from './attachments.js';
 import {
@@ -58,7 +58,7 @@ export const fakeAgent = (overrides: Partial<AgentView> = {}): AgentView => ({
 export interface FakeState {
   overview: OverviewView;
   readonly agents: Map<string, AgentView>;
-  readonly transcripts: Map<string, TranscriptView>;
+  readonly conversations: Map<string, ConversationView>;
   /** The subagents of each agent, by `<ref>/<id>`. */
   readonly subagents: Map<string, SubagentView>;
   readonly screens: Map<string, string>;
@@ -117,7 +117,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
   const state: FakeState = {
     overview: { needsYou: [], groups: [] },
     agents: new Map(),
-    transcripts: new Map(),
+    conversations: new Map(),
     subagents: new Map(),
     screens: new Map(),
     projects: [
@@ -191,7 +191,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
   const client: CommsClient = {
     overview: async () => state.overview,
     agent: async (ref) => find(ref),
-    transcript: async (ref) => state.transcripts.get(ref) ?? { entries: [], activity: 'Thinking…' },
+    conversation: async (ref) => state.conversations.get(ref) ?? { entries: [], activity: 'Thinking…' },
     subagent: async (ref, id) => {
       const subagent = state.subagents.get(`${ref}/${id}`);
       if (subagent === undefined) throw new RequestError(`${ref} has no subagent ${id}.`, 404);

@@ -1,10 +1,10 @@
 import {
-  TranscriptOutbound,
-  TranscriptUnavailableError,
+  ConversationOutbound,
+  ConversationUnavailableError,
   type SubagentMeta,
-  type TranscriptSource,
+  type ConversationSource,
 } from '@pocket-comms/comms-application';
-import type { BackgroundItem, TranscriptEntry } from '@pocket-comms/comms-domain';
+import type { BackgroundItem, ConversationEntry } from '@pocket-comms/comms-domain';
 import * as Clock from 'effect/Clock';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -16,7 +16,7 @@ import { existsSync } from 'node:fs';
 import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { claudeSessionPath, createClaudeParser, waitingCallOf } from './claude.js';
-import { stringField, type ToolEntry, type TranscriptParser } from './entries.js';
+import { stringField, type ToolEntry, type ConversationParser } from './entries.js';
 import { createPiParser, piSessionFolder, piSessionId } from './pi.js';
 
 export interface FilesOptions {
@@ -33,7 +33,7 @@ export interface FilesOptions {
   readonly questions?: string;
 }
 
-const parserFor = (source: TranscriptSource): TranscriptParser =>
+const parserFor = (source: ConversationSource): ConversationParser =>
   source.format === 'claude'
     ? createClaudeParser(source.cwd, { sidechain: source.subagent !== undefined })
     : createPiParser(source.cwd);
@@ -107,12 +107,12 @@ export const layerFiles = ({
   pollInterval = '500 millis',
   questions,
 }: FilesOptions) =>
-  Layer.sync(TranscriptOutbound, () => {
+  Layer.sync(ConversationOutbound, () => {
     // A session file never moves, so a path once found is kept.
     const found = new Map<string, string>();
 
     // A subagent's conversation lies next to its session's file, under an id of its own.
-    const find = async (source: TranscriptSource): Promise<string | undefined> => {
+    const find = async (source: ConversationSource): Promise<string | undefined> => {
       const session = await findSession(source);
       if (source.subagent === undefined || session === undefined) return session;
       if (!SUBAGENT_ID.test(source.subagent)) return undefined;
@@ -120,7 +120,7 @@ export const layerFiles = ({
       return existsSync(path) ? path : undefined;
     };
 
-    const findSession = async (source: TranscriptSource): Promise<string | undefined> => {
+    const findSession = async (source: ConversationSource): Promise<string | undefined> => {
       const key = `${source.format}:${source.session}`;
       const known = found.get(key);
       if (known !== undefined) return known;
@@ -151,12 +151,12 @@ export const layerFiles = ({
       return path;
     };
 
-    const locate = (source: TranscriptSource) =>
+    const locate = (source: ConversationSource) =>
       Effect.promise(() => find(source)).pipe(
         Effect.flatMap((path) =>
           path === undefined
             ? Effect.fail(
-                new TranscriptUnavailableError({
+                new ConversationUnavailableError({
                   ref: source.ref,
                   reason: `No session file for session ${source.session}.`,
                 }),
@@ -168,8 +168,8 @@ export const layerFiles = ({
     // The session's waiting call, unless the session file holds it already: once answered or
     // cancelled the call is there, and a hook file left behind no longer counts.
     const waitingCall = async (
-      source: TranscriptSource,
-      parser: TranscriptParser,
+      source: ConversationSource,
+      parser: ConversationParser,
     ): Promise<ToolEntry | undefined> => {
       if (questions === undefined || source.format !== 'claude' || source.subagent !== undefined) {
         return undefined;
@@ -185,19 +185,19 @@ export const layerFiles = ({
       return call;
     };
 
-    const withWaiting = async (source: TranscriptSource, parser: TranscriptParser) => {
+    const withWaiting = async (source: ConversationSource, parser: ConversationParser) => {
       const call = await waitingCall(source, parser);
       const entries = parser.entries();
       return (call === undefined ? entries : [...entries, call]).slice(-maxEntries);
     };
 
-    const failed = (source: TranscriptSource) => (cause: unknown) =>
-      new TranscriptUnavailableError({
+    const failed = (source: ConversationSource) => (cause: unknown) =>
+      new ConversationUnavailableError({
         ref: source.ref,
         reason: cause instanceof Error ? cause.message : 'The session file cannot be read.',
       });
 
-    const read = Effect.fn('Transcript.read')(function* (source: TranscriptSource) {
+    const read = Effect.fn('Conversation.read')(function* (source: ConversationSource) {
       const path = yield* locate(source);
       const [text, info] = yield* Effect.tryPromise({
         try: () => Promise.all([readFile(path, 'utf8'), stat(path)]),
@@ -212,7 +212,7 @@ export const layerFiles = ({
     // Emits the latest entries, then reads what was appended since `offset`. Only complete lines
     // are parsed; a line still being written is read again at the next check, once it is whole. A
     // file that is missing or cannot be read yet is tried again at every check.
-    const follow = (source: TranscriptSource) =>
+    const follow = (source: ConversationSource) =>
       Stream.unwrap(
         Effect.gen(function* () {
           const { path, initial } = yield* Effect.gen(function* () {
@@ -240,7 +240,7 @@ export const layerFiles = ({
             try: async () => {
               const appended = await readAppended(path, offset);
               offset = appended.offset;
-              const changed = new Map<string, TranscriptEntry>();
+              const changed = new Map<string, ConversationEntry>();
               for (const line of appended.lines) {
                 for (const entry of parser.push(line)) changed.set(entry.id, entry);
               }
@@ -256,7 +256,7 @@ export const layerFiles = ({
 
           // A failed check (a file briefly locked or rotated) is logged and retried at the next one.
           const check = readNew.pipe(
-            Effect.catchTag('TranscriptUnavailableError', (error) =>
+            Effect.catchTag('ConversationUnavailableError', (error) =>
               Effect.logWarning('The session file cannot be read', { reason: error.reason }).pipe(
                 Effect.as([]),
               ),
@@ -273,7 +273,7 @@ export const layerFiles = ({
         }),
       );
 
-    const modifiedAt = (source: TranscriptSource) =>
+    const modifiedAt = (source: ConversationSource) =>
       Effect.promise(async () => {
         const path = await find(source);
         if (path === undefined) return Option.none<number>();
@@ -285,7 +285,10 @@ export const layerFiles = ({
 
     // Background work needs every line since the session started, so each session keeps its
     // parser and how far it has read; later calls read only what was appended.
-    const tracked = new Map<string, { parser: TranscriptParser; offset: number; usedAt: number }>();
+    const tracked = new Map<
+      string,
+      { parser: ConversationParser; offset: number; usedAt: number }
+    >();
     // The reads of one session run one after another, so no line reaches its parser twice.
     const reading = new Map<string, Promise<unknown>>();
     const inTurn = <A>(path: string, task: () => Promise<A>): Promise<A> => {
@@ -299,7 +302,7 @@ export const layerFiles = ({
       return next;
     };
 
-    const background = Effect.fn('Transcript.background')(function* (source: TranscriptSource) {
+    const background = Effect.fn('Conversation.background')(function* (source: ConversationSource) {
       if (source.format !== 'claude') return [];
       const path = yield* locate(source);
       const now = yield* Clock.currentTimeMillis;
@@ -336,7 +339,7 @@ export const layerFiles = ({
       return items;
     });
 
-    const subagentMeta = (source: TranscriptSource) =>
+    const subagentMeta = (source: ConversationSource) =>
       Effect.promise(async () => {
         const session = await findSession(source);
         const id = source.subagent;
@@ -353,5 +356,5 @@ export const layerFiles = ({
         });
       });
 
-    return TranscriptOutbound.of({ read, follow, modifiedAt, background, subagentMeta });
+    return ConversationOutbound.of({ read, follow, modifiedAt, background, subagentMeta });
   });

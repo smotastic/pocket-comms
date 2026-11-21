@@ -22,7 +22,7 @@ import {
   QuickReplies,
   Seen,
   StatusHistory,
-  Transcript,
+  Conversation,
 } from '@pocket-comms/comms-infrastructure';
 import { layerPiRuntime } from '@smotastic/pocket-agent/pi';
 import {
@@ -86,7 +86,7 @@ export const services = ({
     Projects.layerGit({ root: projectsRoot }),
     Gitea.layerHttp(gitea),
     // The Claude hook (`claude-hook.ts`) keeps the waiting questions in the same state folder.
-    Transcript.layerFiles({ home, questions: join(stateDir, 'questions') }),
+    Conversation.layerFiles({ home, questions: join(stateDir, 'questions') }),
     // Optional: without a model the server starts and the chat says what is missing.
     layerPiRuntime({ prefix: 'COMMS_BRAINSTORM', required: false, attribution: ATTRIBUTION }),
     Brainstorm.layerFile({ folder: stateDir }),

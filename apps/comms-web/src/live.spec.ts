@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TranscriptView } from './comms-client.js';
+import type { ConversationView } from './comms-client.js';
 import { mergeEntries } from './live.js';
 
 const user = { type: 'user', id: 'u1', at: 1, text: 'Run the tests' } as const;
@@ -15,7 +15,7 @@ const done = { ...pending, outcome: 'ok' } as const;
 const reply = { type: 'assistant', id: 'a1', at: 3, text: 'Green.' } as const;
 
 describe('mergeEntries', () => {
-  const held: TranscriptView = { entries: [user, pending], activity: 'Running pnpm test…' };
+  const held: ConversationView = { entries: [user, pending], activity: 'Running pnpm test…' };
 
   it('replaces what it holds on a reset', () => {
     expect(

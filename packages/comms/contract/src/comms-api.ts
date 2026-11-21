@@ -186,7 +186,7 @@ const imageIds = optional(Schema.Array(ImageId).check(Schema.isMaxLength(5)), {
 const id = Schema.String.annotate({ description: 'The id of the entry.', examples: ['u-1'] });
 const at = Millis.annotate({ description: 'When the entry was written, in epoch milliseconds.' });
 
-export const TranscriptEntry = Schema.Union([
+export const ConversationEntry = Schema.Union([
   Schema.Struct({
     type: Schema.tag('user').annotate({ description: "The owner's prompt.", examples: ['user'] }),
     id,
@@ -289,9 +289,9 @@ export const TranscriptEntry = Schema.Union([
       examples: ['ok'],
     }),
   }),
-]).annotate({ identifier: 'TranscriptEntry', description: 'One entry of the chat.' });
+]).annotate({ identifier: 'ConversationEntry', description: 'One entry of the chat.' });
 
-const Entries = Schema.Array(TranscriptEntry).annotate({
+const Entries = Schema.Array(ConversationEntry).annotate({
   description: 'Entries, oldest first.',
   examples: [[]],
 });
@@ -300,10 +300,12 @@ const CurrentActivity = Schema.String.annotate({
   examples: ['Running pnpm test…'],
 });
 
-export const Transcript = Schema.Struct({ entries: Entries, activity: CurrentActivity }).annotate({
-  identifier: 'Transcript',
-  description: 'The latest entries of the agent’s session.',
-});
+export const Conversation = Schema.Struct({ entries: Entries, activity: CurrentActivity }).annotate(
+  {
+    identifier: 'Conversation',
+    description: 'The latest entries of the agent’s session.',
+  },
+);
 
 export const AgentEvent = Schema.Union([
   Schema.Struct({
@@ -429,7 +431,7 @@ export const TypeRequest = Schema.Struct({
 
 export const AnswerRequest = Schema.Struct({
   call: Schema.String.annotate({
-    description: "The waiting question call: its transcript entry's id.",
+    description: "The waiting question call: its conversation entry's id.",
     examples: ['toolu_01ABC'],
   }),
   answers: Schema.Array(
@@ -1188,9 +1190,9 @@ const group = HttpApiGroup.make('agents')
     }).annotateMerge(
       OpenApi.annotations({ summary: 'Get an agent', description: 'Returns one live agent.' }),
     ),
-    HttpApiEndpoint.get('transcript', '/agents/:agent/transcript', {
+    HttpApiEndpoint.get('conversation', '/agents/:agent/conversation', {
       params: agent,
-      success: Transcript,
+      success: Conversation,
       error: problems,
     }).annotateMerge(
       OpenApi.annotations({

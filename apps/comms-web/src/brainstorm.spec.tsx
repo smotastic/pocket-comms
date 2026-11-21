@@ -66,7 +66,7 @@ const edit = {
   state: { _tag: 'open' },
 } as const;
 
-const openChat = async (
+const openBrainstorm = async (
   opened: ReturnType<typeof ready> | Extract<BrainstormStateView, { _tag: 'NotSetUp' }> = ready(),
   path = '/',
 ) => {
@@ -107,7 +107,7 @@ describe('the way into the brainstorm chat', () => {
   });
 
   it('opens the chat ready to type, and closing returns to the screen', async () => {
-    const { sheet } = await openChat();
+    const { sheet } = await openBrainstorm();
 
     expect(within(sheet).getByRole('textbox', { name: 'Message' })).toBeDefined();
     expect(within(sheet).getByText(/Note an idea in a few words/u)).toBeDefined();
@@ -123,7 +123,7 @@ describe('the way into the brainstorm chat', () => {
 
 describe('the brainstorm chat', () => {
   it('sends a message and shows Pi’s answer as it streams in, once', async () => {
-    const { sheet, calls, state, emitBrainstorm } = await openChat();
+    const { sheet, calls, state, emitBrainstorm } = await openBrainstorm();
 
     await userEvent.type(
       within(sheet).getByRole('textbox', { name: 'Message' }),
@@ -161,7 +161,7 @@ describe('the brainstorm chat', () => {
   });
 
   it('shows each tool Pi runs as a row that settles, and one left running as stopped', async () => {
-    const { sheet, emitBrainstorm } = await openChat(ready({ entries: [said('Hi')] }));
+    const { sheet, emitBrainstorm } = await openBrainstorm(ready({ entries: [said('Hi')] }));
     await within(sheet).findByText('Hi');
 
     act(() =>
@@ -192,7 +192,7 @@ describe('the brainstorm chat', () => {
   });
 
   it('follows on after the last entry it has when the stream comes back', async () => {
-    const { sheet, calls } = await openChat(ready({ entries: [said('One'), said('Two')] }));
+    const { sheet, calls } = await openBrainstorm(ready({ entries: [said('One'), said('Two')] }));
     await within(sheet).findByText('Two');
 
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
@@ -205,7 +205,7 @@ describe('the brainstorm chat', () => {
   });
 
   it('empties the conversation when a new chat starts', async () => {
-    const { sheet, emitBrainstorm } = await openChat(ready({ entries: [said('Old idea')] }));
+    const { sheet, emitBrainstorm } = await openBrainstorm(ready({ entries: [said('Old idea')] }));
     await within(sheet).findByText('Old idea');
 
     act(() => emitBrainstorm(entry(2, { kind: 'chatStarted' })));
@@ -215,7 +215,7 @@ describe('the brainstorm chat', () => {
   });
 
   it('shows a proposal once, as its latest record', async () => {
-    const { sheet } = await openChat(
+    const { sheet } = await openBrainstorm(
       ready({
         entries: [
           recorded(proposal),
@@ -235,7 +235,7 @@ describe('the brainstorm chat', () => {
   });
 
   it('shows why a message was refused', async () => {
-    const { sheet, state } = await openChat();
+    const { sheet, state } = await openBrainstorm();
     state.brainstormFailure = new RequestError('Pi is still answering.', 409);
 
     await userEvent.type(within(sheet).getByRole('textbox', { name: 'Message' }), 'Again');
@@ -245,7 +245,7 @@ describe('the brainstorm chat', () => {
   });
 
   it('shows the answers, and why a turn failed', async () => {
-    const { sheet } = await openChat(
+    const { sheet } = await openBrainstorm(
       ready({
         entries: [
           said('Idea'),
@@ -260,7 +260,7 @@ describe('the brainstorm chat', () => {
   });
 
   it('says that it is not set up and takes no message', async () => {
-    const { sheet } = await openChat({
+    const { sheet } = await openBrainstorm({
       _tag: 'NotSetUp',
       reason: 'Set COMMS_BRAINSTORM_PROVIDER and COMMS_BRAINSTORM_MODEL.',
     });
@@ -275,7 +275,7 @@ describe('the brainstorm chat', () => {
   });
 
   it('starts a new chat only after a confirmation', async () => {
-    const { sheet, calls } = await openChat(ready({ entries: [said('Idea')] }));
+    const { sheet, calls } = await openBrainstorm(ready({ entries: [said('Idea')] }));
 
     await userEvent.click(await within(sheet).findByRole('button', { name: 'New chat' }));
     await userEvent.click(within(sheet).getByRole('button', { name: 'Keep this chat' }));
@@ -290,7 +290,7 @@ describe('the brainstorm chat', () => {
 
 describe('a proposal in the brainstorm chat', () => {
   it('creates the issue as the owner edited it', async () => {
-    const { sheet, calls } = await openChat(ready({ entries: [recorded(proposal)] }));
+    const { sheet, calls } = await openBrainstorm(ready({ entries: [recorded(proposal)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
     await userEvent.selectOptions(
@@ -317,7 +317,7 @@ describe('a proposal in the brainstorm chat', () => {
   });
 
   it('discards it, and shows why Gitea refused an issue', async () => {
-    const { sheet, calls, state } = await openChat(ready({ entries: [recorded(proposal)] }));
+    const { sheet, calls, state } = await openBrainstorm(ready({ entries: [recorded(proposal)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
     state.brainstormFailure = new RequestError('Gitea refused the token (403).', 503);
@@ -331,7 +331,7 @@ describe('a proposal in the brainstorm chat', () => {
   });
 
   it('links a created issue and offers no more actions', async () => {
-    const { sheet } = await openChat(
+    const { sheet } = await openBrainstorm(
       ready({
         entries: [
           recorded({
@@ -351,7 +351,7 @@ describe('a proposal in the brainstorm chat', () => {
 
 describe('an edit in the brainstorm chat', () => {
   it('applies the title and body as the owner edited them, next to the current version', async () => {
-    const { sheet, calls } = await openChat(ready({ entries: [recorded(edit)] }));
+    const { sheet, calls } = await openBrainstorm(ready({ entries: [recorded(edit)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
 
     await userEvent.click(within(card).getByRole('button', { name: /Current version/u }));
@@ -371,7 +371,7 @@ describe('an edit in the brainstorm chat', () => {
   });
 
   it('keeps the card open and says why when the issue changed', async () => {
-    const { sheet, calls, state } = await openChat(ready({ entries: [recorded(edit)] }));
+    const { sheet, calls, state } = await openBrainstorm(ready({ entries: [recorded(edit)] }));
     const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
 
     state.brainstormFailure = new RequestError('Issue #11 changed since Pi read it.', 409);
@@ -386,7 +386,7 @@ describe('an edit in the brainstorm chat', () => {
   });
 
   it('links an updated issue and offers no more actions', async () => {
-    const { sheet } = await openChat(
+    const { sheet } = await openBrainstorm(
       ready({
         entries: [recorded({ ...edit, state: { _tag: 'updated', url: 'http://gitea/i/11' } })],
       }),
@@ -406,7 +406,7 @@ describe('pictures in the brainstorm chat', () => {
   const picker = () => document.querySelector<HTMLInputElement>('input[type="file"]');
 
   it('attaches pictures and sends their ids with the message', async () => {
-    const { sheet, calls } = await openChat();
+    const { sheet, calls } = await openBrainstorm();
 
     await userEvent.upload(picker() as HTMLInputElement, [
       new File(['x'], 'door.png', { type: 'image/png' }),
@@ -420,7 +420,7 @@ describe('pictures in the brainstorm chat', () => {
   });
 
   it('says next to the composer that the model cannot see pictures', async () => {
-    const { sheet } = await openChat(ready({ seesPictures: false }));
+    const { sheet } = await openBrainstorm(ready({ seesPictures: false }));
 
     expect(within(sheet).queryByText("This model can't see pictures")).toBeNull();
     await userEvent.upload(picker() as HTMLInputElement, [
@@ -431,7 +431,7 @@ describe('pictures in the brainstorm chat', () => {
   });
 
   it('shows a message’s pictures by number, and says when the model cannot see them', async () => {
-    const { sheet } = await openChat(
+    const { sheet } = await openBrainstorm(
       ready({
         entries: [said('Look', [A, B])],
         pictures: [picture(A, 1), picture(B, 2)],
@@ -447,7 +447,7 @@ describe('pictures in the brainstorm chat', () => {
   });
 
   it('checks the pictures Pi named and sends the owner’s choice in number order', async () => {
-    const { sheet, calls } = await openChat(
+    const { sheet, calls } = await openBrainstorm(
       ready({
         entries: [recorded({ ...proposal, pictures: [B] })],
         pictures: [picture(A, 1), picture(B, 2)],
@@ -479,7 +479,7 @@ describe('pictures in the brainstorm chat', () => {
   });
 
   it('shows a removed picture that cannot be checked', async () => {
-    const { sheet } = await openChat(
+    const { sheet } = await openBrainstorm(
       ready({ entries: [recorded(proposal)], pictures: [picture(A, 1, false)] }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
@@ -493,7 +493,7 @@ describe('pictures in the brainstorm chat', () => {
 
   it('checks at most five pictures', async () => {
     const ids = ['a', 'b', 'c', 'd', 'e', 'f'].map((letter) => letter.repeat(26));
-    const { sheet } = await openChat(
+    const { sheet } = await openBrainstorm(
       ready({
         entries: [recorded({ ...proposal, pictures: ids.slice(0, 5) })],
         pictures: ids.map((id, index) => picture(id, index + 1)),
@@ -512,7 +512,7 @@ describe('pictures in the brainstorm chat', () => {
   });
 
   it('offers a retry and finishing without the pictures while they are not attached', async () => {
-    const { sheet, calls } = await openChat(
+    const { sheet, calls } = await openBrainstorm(
       ready({
         entries: [
           recorded({
@@ -548,7 +548,7 @@ describe('pictures in the brainstorm chat', () => {
   });
 
   it('shows the pictures that went along with a created issue', async () => {
-    const { sheet } = await openChat(
+    const { sheet } = await openBrainstorm(
       ready({
         entries: [
           recorded({
@@ -568,7 +568,7 @@ describe('pictures in the brainstorm chat', () => {
   });
 
   it('applies an edit with the chosen pictures', async () => {
-    const { sheet, calls } = await openChat(
+    const { sheet, calls } = await openBrainstorm(
       ready({ entries: [recorded({ ...edit, pictures: [A] })], pictures: [picture(A, 1)] }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
@@ -615,7 +615,7 @@ describe('voice messages in the brainstorm chat', () => {
   };
 
   it('offers Record voice only when the server transcribes (requirement 1)', async () => {
-    const { sheet } = await openChat(ready({ voice: false }));
+    const { sheet } = await openBrainstorm(ready({ voice: false }));
     await userEvent.click(within(sheet).getByRole('button', { name: 'Actions' }));
 
     expect(screen.getByRole('menuitem', { name: 'Attach image' })).toBeDefined();
@@ -623,7 +623,7 @@ describe('voice messages in the brainstorm chat', () => {
   });
 
   it('records, and adds the text to the draft without sending it (requirements 2 and 7)', async () => {
-    const { sheet, calls } = await openChat(ready({ voice: true }));
+    const { sheet, calls } = await openBrainstorm(ready({ voice: true }));
     const message = within(sheet).getByRole('textbox', { name: 'Message' });
     await userEvent.type(message, 'Idea:');
 
@@ -642,7 +642,7 @@ describe('voice messages in the brainstorm chat', () => {
   });
 
   it('throws a recording away on Cancel: nothing is transcribed or added (Gitea #85)', async () => {
-    const { sheet, calls } = await openChat(ready({ voice: true }));
+    const { sheet, calls } = await openBrainstorm(ready({ voice: true }));
     const message = within(sheet).getByRole('textbox', { name: 'Message' });
     await userEvent.type(message, 'Idea:');
 
@@ -656,7 +656,7 @@ describe('voice messages in the brainstorm chat', () => {
   });
 
   it('keeps a failed clip with its reason, Retry and Discard (requirement 11)', async () => {
-    const { sheet, state, calls } = await openChat(ready({ voice: true }));
+    const { sheet, state, calls } = await openBrainstorm(ready({ voice: true }));
     state.transcription = new RequestError('The speech service is not reachable.', 503);
 
     await record(sheet);
@@ -674,7 +674,7 @@ describe('voice messages in the brainstorm chat', () => {
   });
 
   it('drops a failed clip on Discard', async () => {
-    const { sheet, state } = await openChat(ready({ voice: true }));
+    const { sheet, state } = await openBrainstorm(ready({ voice: true }));
     state.transcription = new RequestError('Down.', 503);
 
     await record(sheet);
@@ -688,7 +688,7 @@ describe('voice messages in the brainstorm chat', () => {
   });
 
   it('records only one clip at a time, the chat out of reach meanwhile (requirement 5)', async () => {
-    const { sheet } = await openChat(ready({ voice: true }));
+    const { sheet } = await openBrainstorm(ready({ voice: true }));
 
     await choose(sheet, 'Record voice');
     await recorder();
@@ -697,7 +697,7 @@ describe('voice messages in the brainstorm chat', () => {
   });
 
   it('says when no speech was heard (requirement 8)', async () => {
-    const { sheet, state } = await openChat(ready({ voice: true }));
+    const { sheet, state } = await openBrainstorm(ready({ voice: true }));
     state.transcription = '';
 
     await record(sheet);
@@ -706,7 +706,7 @@ describe('voice messages in the brainstorm chat', () => {
   });
 
   it('shows the wait for the text in the recorder, which then closes (requirement 6, Gitea #85)', async () => {
-    const { sheet, state } = await openChat(ready({ voice: true }));
+    const { sheet, state } = await openBrainstorm(ready({ voice: true }));
     let release = () => undefined as void;
     state.transcriptionGate = new Promise((resolve) => (release = resolve));
 
@@ -719,8 +719,8 @@ describe('voice messages in the brainstorm chat', () => {
     expect((message as HTMLTextAreaElement).value).toBe('dark mode for pocket-home');
   });
 
-  it('keeps a transcript that arrives while a message is on its way (requirement 7)', async () => {
-    const { sheet, state, calls } = await openChat(ready({ voice: true }));
+  it('keeps a transcription that arrives while a message is on its way (requirement 7)', async () => {
+    const { sheet, state, calls } = await openBrainstorm(ready({ voice: true }));
     let transcribed = () => undefined as void;
     let sent = () => undefined as void;
     state.transcriptionGate = new Promise((resolve) => (transcribed = resolve));

@@ -8,7 +8,7 @@ import {
   watchStep,
   type Change,
 } from './notification.js';
-import type { TranscriptEntry } from './transcript.js';
+import type { ConversationEntry } from './conversation.js';
 
 const agent = (overrides: Partial<Agent> & Pick<Agent, 'paneId'>): Agent => ({
   name: undefined,
@@ -153,7 +153,7 @@ describe('stillHolds', () => {
 });
 
 describe('excerptOf', () => {
-  const entries: ReadonlyArray<TranscriptEntry> = [
+  const entries: ReadonlyArray<ConversationEntry> = [
     { type: 'assistant', id: 'a1', at: 1, text: 'First reply' },
     {
       type: 'tool',

@@ -9,8 +9,8 @@ describe('suggestBranch', () => {
     ['  Übersicht für Café-Gäste  ', 'feat/ubersicht-fur-cafe-gaste'],
     ['Fixture loader for tests', 'feat/fixture-loader-for-tests'],
     [
-      'Rewrite the whole transcript parser so it follows appended lines only',
-      'feat/rewrite-the-whole-transcript-parser-so',
+      'Rewrite the whole conversation parser so it follows appended lines only',
+      'feat/rewrite-the-whole-conversation-parser-so',
     ],
     ['x'.repeat(50), `feat/${'x'.repeat(40)}`],
     ['', 'feat/'],

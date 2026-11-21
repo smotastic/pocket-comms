@@ -53,7 +53,7 @@ export {
   TailscaleIdentity,
   TaskAgent,
   TaskCreated,
-  Transcript,
-  TranscriptEntry,
+  Conversation,
+  ConversationEntry,
   UploadedImage,
 } from './comms-api.js';

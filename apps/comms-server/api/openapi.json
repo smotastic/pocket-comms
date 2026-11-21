@@ -544,7 +544,7 @@
             "type": "array"
           },
           "call": {
-            "description": "The waiting question call: its transcript entry's id.",
+            "description": "The waiting question call: its conversation entry's id.",
             "examples": ["toolu_01ABC"],
             "type": "string"
           }
@@ -784,6 +784,239 @@
         },
         "required": ["type", "title", "status"],
         "type": "object"
+      },
+      "Conversation": {
+        "additionalProperties": false,
+        "description": "The latest entries of the agent’s session.",
+        "properties": {
+          "activity": {
+            "description": "What a working agent does now.",
+            "examples": ["Running pnpm test…"],
+            "type": "string"
+          },
+          "entries": {
+            "description": "Entries, oldest first.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/ConversationEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["entries", "activity"],
+        "type": "object"
+      },
+      "ConversationEntry": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was written, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["u-1"],
+                "type": "string"
+              },
+              "images": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "description": "The id the server gave an uploaded image.",
+                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                      "pattern": "^[a-z2-7]{26}$",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The images the prompt attached, by id, in order.",
+                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+              },
+              "text": {
+                "description": "The owner's prompt, without the paths of its attached images.",
+                "examples": ["Run the tests"],
+                "type": "string"
+              },
+              "type": {
+                "description": "The owner's prompt.",
+                "enum": ["user"],
+                "examples": ["user"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "text"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was written, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["u-1"],
+                "type": "string"
+              },
+              "replies": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The short replies the message clearly calls for, such as the choices it offers; left out when the expected answer is unclear.",
+                "examples": [["Approved", "No, revise"]]
+              },
+              "text": {
+                "description": "The reply as Markdown.",
+                "examples": ["Done."],
+                "type": "string"
+              },
+              "type": {
+                "description": "A reply of the agent.",
+                "enum": ["assistant"],
+                "examples": ["assistant"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "text"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Lines an edit added.",
+                "examples": [12]
+              },
+              "at": {
+                "description": "When the entry was written, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["u-1"],
+                "type": "string"
+              },
+              "outcome": {
+                "description": "How the call ended; `pending` while it runs.",
+                "enum": ["ok", "error", "pending"],
+                "examples": ["ok"],
+                "type": "string"
+              },
+              "questions": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "$ref": "#/components/schemas/Question"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The questions the call asked the owner, in order: `pending` while they wait, `ok` once answered, `error` when never answered.",
+                "examples": [
+                  [
+                    {
+                      "answer": "Keep Effect",
+                      "header": "Stack",
+                      "text": "Keep Effect?"
+                    }
+                  ]
+                ]
+              },
+              "removed": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Lines an edit removed.",
+                "examples": [3]
+              },
+              "subagent": {
+                "anyOf": [
+                  {
+                    "description": "A subagent's id, as Claude Code names it.",
+                    "examples": ["a0123456789abcdef"],
+                    "pattern": "^[a-z0-9]{1,64}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The subagent a delegation started, once known; it opens its conversation.",
+                "examples": ["a0123456789abcdef"]
+              },
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The file, command or name it worked on.",
+                "examples": ["pnpm test"]
+              },
+              "type": {
+                "description": "One tool call.",
+                "enum": ["tool"],
+                "examples": ["tool"],
+                "type": "string"
+              },
+              "verb": {
+                "description": "What the tool call did.",
+                "enum": [
+                  "Ran",
+                  "Edited",
+                  "Wrote",
+                  "Read",
+                  "Searched",
+                  "Fetched",
+                  "Delegated",
+                  "Used"
+                ],
+                "examples": ["Ran"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "verb", "outcome"],
+            "type": "object"
+          }
+        ],
+        "description": "One entry of the chat."
       },
       "CreateTaskRequest": {
         "additionalProperties": false,
@@ -1829,7 +2062,7 @@
             "description": "Entries, oldest first.",
             "examples": [[]],
             "items": {
-              "$ref": "#/components/schemas/TranscriptEntry"
+              "$ref": "#/components/schemas/ConversationEntry"
             },
             "type": "array"
           },
@@ -1937,239 +2170,6 @@
         },
         "required": ["workspace", "branch", "path"],
         "type": "object"
-      },
-      "Transcript": {
-        "additionalProperties": false,
-        "description": "The latest entries of the agent’s session.",
-        "properties": {
-          "activity": {
-            "description": "What a working agent does now.",
-            "examples": ["Running pnpm test…"],
-            "type": "string"
-          },
-          "entries": {
-            "description": "Entries, oldest first.",
-            "examples": [[]],
-            "items": {
-              "$ref": "#/components/schemas/TranscriptEntry"
-            },
-            "type": "array"
-          }
-        },
-        "required": ["entries", "activity"],
-        "type": "object"
-      },
-      "TranscriptEntry": {
-        "anyOf": [
-          {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "description": "When the entry was written, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["u-1"],
-                "type": "string"
-              },
-              "images": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "description": "The id the server gave an uploaded image.",
-                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
-                      "pattern": "^[a-z2-7]{26}$",
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The images the prompt attached, by id, in order.",
-                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
-              },
-              "text": {
-                "description": "The owner's prompt, without the paths of its attached images.",
-                "examples": ["Run the tests"],
-                "type": "string"
-              },
-              "type": {
-                "description": "The owner's prompt.",
-                "enum": ["user"],
-                "examples": ["user"],
-                "type": "string"
-              }
-            },
-            "required": ["type", "id", "at", "text"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "description": "When the entry was written, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["u-1"],
-                "type": "string"
-              },
-              "replies": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The short replies the message clearly calls for, such as the choices it offers; left out when the expected answer is unclear.",
-                "examples": [["Approved", "No, revise"]]
-              },
-              "text": {
-                "description": "The reply as Markdown.",
-                "examples": ["Done."],
-                "type": "string"
-              },
-              "type": {
-                "description": "A reply of the agent.",
-                "enum": ["assistant"],
-                "examples": ["assistant"],
-                "type": "string"
-              }
-            },
-            "required": ["type", "id", "at", "text"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "added": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Lines an edit added.",
-                "examples": [12]
-              },
-              "at": {
-                "description": "When the entry was written, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["u-1"],
-                "type": "string"
-              },
-              "outcome": {
-                "description": "How the call ended; `pending` while it runs.",
-                "enum": ["ok", "error", "pending"],
-                "examples": ["ok"],
-                "type": "string"
-              },
-              "questions": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "$ref": "#/components/schemas/Question"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The questions the call asked the owner, in order: `pending` while they wait, `ok` once answered, `error` when never answered.",
-                "examples": [
-                  [
-                    {
-                      "answer": "Keep Effect",
-                      "header": "Stack",
-                      "text": "Keep Effect?"
-                    }
-                  ]
-                ]
-              },
-              "removed": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Lines an edit removed.",
-                "examples": [3]
-              },
-              "subagent": {
-                "anyOf": [
-                  {
-                    "description": "A subagent's id, as Claude Code names it.",
-                    "examples": ["a0123456789abcdef"],
-                    "pattern": "^[a-z0-9]{1,64}$",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The subagent a delegation started, once known; it opens its conversation.",
-                "examples": ["a0123456789abcdef"]
-              },
-              "target": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The file, command or name it worked on.",
-                "examples": ["pnpm test"]
-              },
-              "type": {
-                "description": "One tool call.",
-                "enum": ["tool"],
-                "examples": ["tool"],
-                "type": "string"
-              },
-              "verb": {
-                "description": "What the tool call did.",
-                "enum": [
-                  "Ran",
-                  "Edited",
-                  "Wrote",
-                  "Read",
-                  "Searched",
-                  "Fetched",
-                  "Delegated",
-                  "Used"
-                ],
-                "examples": ["Ran"],
-                "type": "string"
-              }
-            },
-            "required": ["type", "id", "at", "verb", "outcome"],
-            "type": "object"
-          }
-        ],
-        "description": "One entry of the chat."
       },
       "TypeRequest": {
         "additionalProperties": false,
@@ -2718,6 +2718,82 @@
         },
         "security": [],
         "summary": "Close an agent",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/conversation": {
+      "get": {
+        "description": "The latest entries of a Claude or Pi agent's session. Other agents have none (404).",
+        "operationId": "agents.conversation",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            },
+            "description": "The latest entries of the agent’s session."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read the conversation",
         "tags": ["Agents"]
       }
     },
@@ -3542,82 +3618,6 @@
         },
         "security": [],
         "summary": "Type text",
-        "tags": ["Agents"]
-      }
-    },
-    "/api/v1/agents/{agent}/transcript": {
-      "get": {
-        "description": "The latest entries of a Claude or Pi agent's session. Other agents have none (404).",
-        "operationId": "agents.transcript",
-        "parameters": [
-          {
-            "description": "The agent's Herdr name, or its pane id when it has none.",
-            "example": "kirk-ingestor-mvp",
-            "in": "path",
-            "name": "agent",
-            "required": true,
-            "schema": {
-              "description": "The agent's Herdr name, or its pane id when it has none.",
-              "examples": ["kirk-ingestor-mvp"],
-              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Transcript"
-                }
-              }
-            },
-            "description": "The latest entries of the agent’s session."
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
-                }
-              }
-            },
-            "description": "The caller may not use this service."
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
-                }
-              }
-            },
-            "description": "The resource does not exist."
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationProblemEncoded"
-                }
-              }
-            },
-            "description": "The request is invalid. `errors` names every failed field."
-          },
-          "503": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
-                }
-              }
-            },
-            "description": "A system the service depends on cannot be reached; try again later."
-          }
-        },
-        "security": [],
-        "summary": "Read the conversation",
         "tags": ["Agents"]
       }
     },

@@ -19,7 +19,7 @@ import {
   ProposalParam,
   PushSubscription,
   PushUnsubscribeRequest,
-  TranscriptEntry,
+  ConversationEntry,
 } from './index.js';
 
 const document = () => OpenApi.fromApi(CommsApi);
@@ -58,6 +58,7 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}',
       '/api/v1/agents/{agent}/answer',
       '/api/v1/agents/{agent}/close',
+      '/api/v1/agents/{agent}/conversation',
       '/api/v1/agents/{agent}/events',
       '/api/v1/agents/{agent}/keys',
       '/api/v1/agents/{agent}/prompt',
@@ -66,7 +67,6 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}/subagents/{subagent}',
       '/api/v1/agents/{agent}/subagents/{subagent}/events',
       '/api/v1/agents/{agent}/text',
-      '/api/v1/agents/{agent}/transcript',
       '/api/v1/brainstorm',
       '/api/v1/brainstorm/events',
       '/api/v1/brainstorm/messages',
@@ -240,7 +240,7 @@ describe('push wire schemas', () => {
 });
 
 describe('wire schemas', () => {
-  it('round-trips a transcript entry of every kind', () => {
+  it('round-trips a conversation entry of every kind', () => {
     const entries = [
       { type: 'user', id: 'u1', at: 1, text: 'Hi' },
       { type: 'assistant', id: 'a1', at: 2, text: '**Hello**' },
@@ -272,7 +272,7 @@ describe('wire schemas', () => {
         outcome: 'ok',
       },
     ];
-    const codec = Schema.Array(TranscriptEntry);
+    const codec = Schema.Array(ConversationEntry);
     expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(entries))).toEqual(entries);
   });
 

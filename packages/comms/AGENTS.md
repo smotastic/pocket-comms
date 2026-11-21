@@ -144,7 +144,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   listens on `127.0.0.1` only. Do not add a route outside `commsServerLayer`.
 - Session file formats are undocumented. Parsers skip what they do not know; tests use the
   anonymised fixtures in `infrastructure/src/testing/fixtures`. Never commit a real session file.
-- Background work comes from Claude's session file only (`transcript/claude-background.ts`); Herdr's
+- Background work comes from Claude's session file only (`conversation/claude-background.ts`); Herdr's
   status stays as Herdr reports it, and the background work only keeps a done agent out of Needs
   you and holds its done push (spec 020). The overview and the push count it with the same
   `makeBackgroundOf`. A subagent id from a request must match `^[a-z0-9]{1,64}$` before it names a file, and

@@ -10,7 +10,7 @@ import type {
   OverviewStateDto,
   SubagentDto,
   SubagentEventDto,
-  TranscriptDto,
+  ConversationDto,
 } from '../dto/agent.dto.js';
 import type {
   AgentNotFoundError,
@@ -20,14 +20,14 @@ import type {
   ProjectGitError,
   QuestionNotWaitingError,
   SubagentNotFoundError,
-  TranscriptUnavailableError,
+  ConversationUnavailableError,
   WorktreeHasChangesError,
 } from '../errors.js';
 import { makeAgent } from '../use-cases/agent.use-case.js';
 import { makeClose } from '../use-cases/close.use-case.js';
 import { makeInput } from '../use-cases/input.use-case.js';
 import { makeOverview } from '../use-cases/overview.use-case.js';
-import { makeTranscript } from '../use-cases/transcript.use-case.js';
+import { makeConversation } from '../use-cases/conversation.use-case.js';
 
 // The one inbound port of the agents resource (ADR 0006). Each method is one use case, and the
 // `layer` joins the use cases of `use-cases/`. `ref` is an agent's name, or its pane id.
@@ -42,9 +42,9 @@ export class AgentsInbound extends Context.Service<
     readonly overviewChanges: Stream.Stream<OverviewStateDto>;
     readonly agent: (ref: string) => Effect.Effect<AgentDto, Lookup>;
     readonly markSeen: (ref: string) => Effect.Effect<void, Lookup>;
-    readonly transcript: (
+    readonly conversation: (
       ref: string,
-    ) => Effect.Effect<TranscriptDto, Lookup | TranscriptUnavailableError>;
+    ) => Effect.Effect<ConversationDto, Lookup | ConversationUnavailableError>;
     readonly agentEvents: (ref: string) => Effect.Effect<Stream.Stream<AgentEventDto>, Lookup>;
     /** A subagent of the agent's session, by id: what it is and its conversation. */
     readonly subagent: (
@@ -99,7 +99,7 @@ export class AgentsInbound extends Context.Service<
       return {
         ...(yield* makeOverview),
         ...(yield* makeAgent),
-        ...(yield* makeTranscript),
+        ...(yield* makeConversation),
         ...(yield* makeInput),
         ...(yield* makeClose),
       };

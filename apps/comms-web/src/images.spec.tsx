@@ -2,7 +2,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { fitWithin, keepsAsIs } from './attachments.js';
-import type { TranscriptView } from './comms-client.js';
+import type { ConversationView } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
@@ -21,11 +21,11 @@ const canUpload = async () => {
   return enabled;
 };
 
-const open = (transcript: TranscriptView = { entries: [], activity: 'Thinking…' }) => {
+const open = (conversation: ConversationView = { entries: [], activity: 'Thinking…' }) => {
   const agent = fakeAgent({ status: 'idle' });
   const fake = fakeClient({
     agents: new Map([[agent.ref, agent]]),
-    transcripts: new Map([[agent.ref, transcript]]),
+    conversations: new Map([[agent.ref, conversation]]),
   });
   return { ...fake, agent, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
 };

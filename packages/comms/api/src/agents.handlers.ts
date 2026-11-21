@@ -32,11 +32,11 @@ export const agentsHandlers = HttpApiBuilder.group(
       .handle('agent', ({ params }) =>
         agentsInbound.agent(params.agent).pipe(Effect.catchTags(lookup)),
       )
-      .handle('transcript', ({ params }) =>
-        agentsInbound.transcript(params.agent).pipe(
+      .handle('conversation', ({ params }) =>
+        agentsInbound.conversation(params.agent).pipe(
           Effect.catchTags({
             ...lookup,
-            TranscriptUnavailableError: problems.transcriptUnavailable,
+            ConversationUnavailableError: problems.conversationUnavailable,
           }),
         ),
       )

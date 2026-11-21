@@ -1,5 +1,5 @@
 import { agentRef, completionKey, type Agent } from './agent.js';
-import type { TranscriptEntry } from './transcript.js';
+import type { ConversationEntry } from './conversation.js';
 
 /** Why an agent waits for the owner: it asks something, or it finished a turn. */
 export type Attention = 'blocked' | 'done';
@@ -88,7 +88,7 @@ const cut = (text: string) => {
 /** The open question of a blocked agent, or the last message of a done one, on one line. */
 export const excerptOf = (
   attention: Attention,
-  entries: ReadonlyArray<TranscriptEntry>,
+  entries: ReadonlyArray<ConversationEntry>,
 ): string | undefined => {
   const latest = [...entries]
     .reverse()

@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest';
 import type { Agent } from './agent.js';
-import { agentRef, completionKey, transcriptFormatOf } from './agent.js';
+import { agentRef, completionKey, conversationFormatOf } from './agent.js';
 import { buildOverview } from './overview.js';
 import { OTHER_GROUP, type Workspace } from './workspace.js';
 
@@ -165,13 +165,13 @@ describe('buildOverview', () => {
   });
 });
 
-describe('transcriptFormatOf', () => {
+describe('conversationFormatOf', () => {
   it.each([
     ['claude', 'claude'],
     ['pi', 'pi'],
     ['codex', undefined],
     [undefined, undefined],
   ] as const)('reads the session of a %s agent as %s', (kind, format) => {
-    expect(transcriptFormatOf(agent({ paneId: 'w1:p1', kind }))).toBe(format);
+    expect(conversationFormatOf(agent({ paneId: 'w1:p1', kind }))).toBe(format);
   });
 });

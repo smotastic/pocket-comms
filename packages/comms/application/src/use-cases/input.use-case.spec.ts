@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { InvalidInputError, type Agent, type TranscriptEntry } from '@pocket-comms/comms-domain';
+import { InvalidInputError, type Agent, type ConversationEntry } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import { AgentNotFoundError, HerdrRejectedError } from '../errors.js';
@@ -284,7 +284,7 @@ describe('AgentsInbound.answer', () => {
       },
     ],
     outcome: 'pending',
-  } satisfies TranscriptEntry;
+  } satisfies ConversationEntry;
   const dialog = [
     '←  ☐ Color  ☐ Pets  ✔ Submit  →',
     'Pick a color?',
@@ -294,7 +294,7 @@ describe('AgentsInbound.answer', () => {
 
   const waiting = (
     agent: Partial<Agent> = {},
-    entries: Array<TranscriptEntry> = [asks],
+    entries: Array<ConversationEntry> = [asks],
     screen = dialog,
   ) =>
     Effect.gen(function* () {
@@ -302,7 +302,7 @@ describe('AgentsInbound.answer', () => {
       state.agents = [
         fakeAgent({ paneId: 'w1:p1', name: 'kirk', status: 'blocked', session: 's1', ...agent }),
       ];
-      state.transcripts.set('s1', { entries, modifiedAt: 1 });
+      state.conversations.set('s1', { entries, modifiedAt: 1 });
       state.screens.set('w1:p1', screen);
       return state;
     });
@@ -337,20 +337,21 @@ describe('AgentsInbound.answer', () => {
     }).pipe(Effect.provide(layer())),
   );
 
-  const refusals: ReadonlyArray<[string, Partial<Agent>, Array<TranscriptEntry>, string, string]> =
+  const refusals: ReadonlyArray<
+    [string, Partial<Agent>, Array<ConversationEntry>, string, string]
+  > = [
+    ['a Pi agent', { kind: 'pi' }, [asks], dialog, 'toolu-q'],
+    ['another call', {}, [asks], dialog, 'toolu-other'],
     [
-      ['a Pi agent', { kind: 'pi' }, [asks], dialog, 'toolu-q'],
-      ['another call', {}, [asks], dialog, 'toolu-other'],
-      [
-        'a call that is not the latest entry',
-        {},
-        [asks, { type: 'assistant', id: 'a1', at: 2, text: 'Thanks.' }],
-        dialog,
-        'toolu-q',
-      ],
-      ['an answered call', {}, [{ ...asks, outcome: 'ok' }], dialog, 'toolu-q'],
-      ['a screen without the question', {}, [asks], '❯ Try "fix the tests"', 'toolu-q'],
-    ];
+      'a call that is not the latest entry',
+      {},
+      [asks, { type: 'assistant', id: 'a1', at: 2, text: 'Thanks.' }],
+      dialog,
+      'toolu-q',
+    ],
+    ['an answered call', {}, [{ ...asks, outcome: 'ok' }], dialog, 'toolu-q'],
+    ['a screen without the question', {}, [asks], '❯ Try "fix the tests"', 'toolu-q'],
+  ];
 
   it.effect.each(refusals)('refuses %s and presses nothing', ([, agent, entries, screen, call]) =>
     Effect.gen(function* () {

@@ -8,7 +8,7 @@ export type {
   SubagentDto,
   SubagentEventDto,
   SubagentInfoDto,
-  TranscriptDto,
+  ConversationDto,
 } from './dto/agent.dto.js';
 export type {
   CloseIssueInput,
@@ -53,7 +53,7 @@ export {
   ImageNotFoundError,
   ImageNotSavedError,
   SubagentNotFoundError,
-  TranscriptUnavailableError,
+  ConversationUnavailableError,
   WorktreeHasChangesError,
 } from './errors.js';
 export { ActivityInbound } from './ports/activity.inbound.port.js';
@@ -100,8 +100,8 @@ export {
   type StatusMark,
 } from './ports/memory.outbound.port.js';
 export {
-  TranscriptOutbound,
-  type Transcript,
+  ConversationOutbound,
+  type Conversation,
   type SubagentMeta,
-  type TranscriptSource,
-} from './ports/transcript.outbound.port.js';
+  type ConversationSource,
+} from './ports/conversation.outbound.port.js';

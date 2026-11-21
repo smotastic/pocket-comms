@@ -1,14 +1,14 @@
 import { describe, expect, it } from '@effect/vitest';
-import { activityOf, type TranscriptEntry } from './transcript.js';
+import { activityOf, type ConversationEntry } from './conversation.js';
 
 const at = 1_793_391_381_245;
-const user: TranscriptEntry = { type: 'user', id: 'u1', at, text: 'Run the tests' };
-const reply: TranscriptEntry = { type: 'assistant', id: 'a1', at, text: 'On it.' };
+const user: ConversationEntry = { type: 'user', id: 'u1', at, text: 'Run the tests' };
+const reply: ConversationEntry = { type: 'assistant', id: 'a1', at, text: 'On it.' };
 const tool = (
-  verb: Extract<TranscriptEntry, { type: 'tool' }>['verb'],
+  verb: Extract<ConversationEntry, { type: 'tool' }>['verb'],
   outcome: 'ok' | 'error' | 'pending',
   target?: string,
-): TranscriptEntry => ({ type: 'tool', id: `t-${verb}`, at, verb, target, outcome });
+): ConversationEntry => ({ type: 'tool', id: `t-${verb}`, at, verb, target, outcome });
 
 describe('activityOf', () => {
   it('names a pending command as running', () => {
@@ -38,7 +38,7 @@ describe('activityOf', () => {
   });
 
   it('waits for the owner while a question has no answer', () => {
-    const question = (outcome: 'pending' | 'ok'): TranscriptEntry => ({
+    const question = (outcome: 'pending' | 'ok'): ConversationEntry => ({
       type: 'tool',
       id: 'q1',
       at,

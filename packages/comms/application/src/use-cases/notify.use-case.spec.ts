@@ -109,7 +109,7 @@ describe('PushInbound.watch', () => {
   it.effect('notifies a finished turn the owner did not look at, with its last message', () =>
     Effect.gen(function* () {
       const state = yield* watching([{ ...working, session: 's1' }]);
-      state.transcripts.set('s1', {
+      state.conversations.set('s1', {
         entries: [{ type: 'assistant', id: 'a1', at: 1, text: 'All tests pass.' }],
         modifiedAt: 1,
       });
@@ -262,7 +262,7 @@ describe('PushInbound.watch', () => {
   it.effect('names the open question of a blocked agent', () =>
     Effect.gen(function* () {
       const state = yield* watching([{ ...working, session: 's1' }]);
-      state.transcripts.set('s1', {
+      state.conversations.set('s1', {
         entries: [
           {
             type: 'tool',
@@ -300,7 +300,7 @@ describe('PushInbound.watch with background work (spec 020)', () => {
   const running = (background: ReadonlyArray<BackgroundItem>) =>
     Effect.gen(function* () {
       const state = yield* FakeState;
-      state.transcripts.set('s1', { entries: [], modifiedAt: 1, background: [...background] });
+      state.conversations.set('s1', { entries: [], modifiedAt: 1, background: [...background] });
     });
 
   it.effect('holds a finished turn while its background work runs', () =>

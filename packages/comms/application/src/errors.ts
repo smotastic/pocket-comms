@@ -30,7 +30,7 @@ export class WorktreeHasChangesError extends Data.TaggedError('WorktreeHasChange
 }> {}
 
 /** The agent has no session file the app can show as a chat. */
-export class TranscriptUnavailableError extends Data.TaggedError('TranscriptUnavailableError')<{
+export class ConversationUnavailableError extends Data.TaggedError('ConversationUnavailableError')<{
   readonly ref: string;
   readonly reason: string;
 }> {}

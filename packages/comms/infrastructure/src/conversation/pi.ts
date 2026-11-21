@@ -1,4 +1,4 @@
-import type { TranscriptEntry } from '@pocket-comms/comms-domain';
+import type { ConversationEntry } from '@pocket-comms/comms-domain';
 import { join } from 'node:path';
 import {
   diffCounts,
@@ -10,7 +10,7 @@ import {
   relativeTo,
   stringField,
   type ToolSummary,
-  type TranscriptParser,
+  type ConversationParser,
 } from './entries.js';
 
 // Pi writes one JSON object per line. Chat lines have `type: "message"` and a `message` with a
@@ -71,16 +71,16 @@ const editCounts = (message: Record<string, unknown>) => {
   return diff === undefined ? undefined : diffCounts(diff.split('\n'));
 };
 
-export const createPiParser = (cwd: string | undefined): TranscriptParser => {
+export const createPiParser = (cwd: string | undefined): ConversationParser => {
   const log = entryLog();
 
-  const push = (raw: string): ReadonlyArray<TranscriptEntry> => {
+  const push = (raw: string): ReadonlyArray<ConversationEntry> => {
     const line = parseLine(raw);
     const message = line?.['message'];
     if (line?.['type'] !== 'message' || !isRecord(message)) return [];
     const id = stringField(line, 'id') ?? '';
     const at = Date.parse(stringField(line, 'timestamp') ?? '');
-    const changed: Array<TranscriptEntry> = [];
+    const changed: Array<ConversationEntry> = [];
 
     switch (message['role']) {
       case 'user': {

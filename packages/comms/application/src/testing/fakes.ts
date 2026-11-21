@@ -9,7 +9,7 @@ import {
   type Notification,
   type Project,
   type PushSubscription,
-  type TranscriptEntry,
+  type ConversationEntry,
   type Workspace,
   type Worktree,
 } from '@pocket-comms/comms-domain';
@@ -35,7 +35,7 @@ import {
   ProjectGitError,
   PushStoreError,
   QuickRepliesStoreError,
-  TranscriptUnavailableError,
+  ConversationUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
 import {
@@ -58,10 +58,10 @@ import {
   PushSubscriptionsOutbound,
 } from '../ports/push.outbound.port.js';
 import {
-  TranscriptOutbound,
+  ConversationOutbound,
   type SubagentMeta,
-  type TranscriptSource,
-} from '../ports/transcript.outbound.port.js';
+  type ConversationSource,
+} from '../ports/conversation.outbound.port.js';
 
 /** One request the fake Herdr received, so a test can prove what was sent, and what was not. */
 export interface HerdrCall {
@@ -80,7 +80,7 @@ export interface HerdrCall {
 
 /**
  * The state behind the fakes of the outbound ports. A test changes it directly and publishes on
- * `herdrChanges` or `transcriptAppends` to drive the streams.
+ * `herdrChanges` or `conversationAppends` to drive the streams.
  */
 export class FakeState extends Context.Service<
   FakeState,
@@ -88,11 +88,11 @@ export class FakeState extends Context.Service<
     agents: Array<Agent>;
     workspaces: Array<Workspace>;
     readonly screens: Map<string, string>;
-    /** Session id to transcript. */
-    readonly transcripts: Map<
+    /** Session id to conversation. */
+    readonly conversations: Map<
       string,
       {
-        entries: Array<TranscriptEntry>;
+        entries: Array<ConversationEntry>;
         modifiedAt: number;
         background?: ReadonlyArray<BackgroundItem>;
       }
@@ -104,10 +104,10 @@ export class FakeState extends Context.Service<
     available: boolean;
     readonly calls: Array<HerdrCall>;
     readonly herdrChanges: PubSub.PubSub<void>;
-    readonly transcriptAppends: PubSub.PubSub<{
+    readonly conversationAppends: PubSub.PubSub<{
       /** The session, or a subagent's conversation by `subagentKey`. */
       readonly session: string;
-      readonly entries: ReadonlyArray<TranscriptEntry>;
+      readonly entries: ReadonlyArray<ConversationEntry>;
     }>;
     readonly seen: Set<string>;
     readonly seenChanges: PubSub.PubSub<void>;
@@ -277,46 +277,49 @@ const herdr = (state: FakeState['Service']) => {
   });
 };
 
-/** The key of a subagent's conversation in the fake's transcripts and its meta files. */
+/** The key of a subagent's conversation in the fake's conversations and its meta files. */
 export const subagentKey = (session: string, subagent: string) =>
   `${session}/subagents/${subagent}`;
 
-const keyOf = (source: TranscriptSource) =>
+const keyOf = (source: ConversationSource) =>
   source.subagent === undefined ? source.session : subagentKey(source.session, source.subagent);
 
-const transcripts = (state: FakeState['Service']) => {
-  const find = (source: TranscriptSource) =>
-    Option.fromNullishOr(state.transcripts.get(keyOf(source)));
-  return TranscriptOutbound.of({
+const conversations = (state: FakeState['Service']) => {
+  const find = (source: ConversationSource) =>
+    Option.fromNullishOr(state.conversations.get(keyOf(source)));
+  return ConversationOutbound.of({
     read: (source) =>
       Effect.suspend(() =>
         Option.match(find(source), {
           onNone: () =>
             Effect.fail(
-              new TranscriptUnavailableError({ ref: source.ref, reason: 'No session file.' }),
+              new ConversationUnavailableError({ ref: source.ref, reason: 'No session file.' }),
             ),
-          onSome: (transcript) =>
-            Effect.succeed({ entries: [...transcript.entries], modifiedAt: transcript.modifiedAt }),
+          onSome: (conversation) =>
+            Effect.succeed({
+              entries: [...conversation.entries],
+              modifiedAt: conversation.modifiedAt,
+            }),
         }),
       ),
     follow: (source) =>
       Stream.concat(
-        Stream.sync(() => state.transcripts.get(keyOf(source))?.entries ?? []),
-        Stream.fromPubSub(state.transcriptAppends).pipe(
+        Stream.sync(() => state.conversations.get(keyOf(source))?.entries ?? []),
+        Stream.fromPubSub(state.conversationAppends).pipe(
           Stream.filter((append) => append.session === keyOf(source)),
           Stream.map((append) => append.entries),
         ),
       ),
     modifiedAt: (source) =>
-      Effect.sync(() => Option.map(find(source), (transcript) => transcript.modifiedAt)),
+      Effect.sync(() => Option.map(find(source), (conversation) => conversation.modifiedAt)),
     background: (source) =>
       Effect.suspend(() =>
         Option.match(find(source), {
           onNone: () =>
             Effect.fail(
-              new TranscriptUnavailableError({ ref: source.ref, reason: 'No session file.' }),
+              new ConversationUnavailableError({ ref: source.ref, reason: 'No session file.' }),
             ),
-          onSome: (transcript) => Effect.succeed(transcript.background ?? []),
+          onSome: (conversation) => Effect.succeed(conversation.background ?? []),
         }),
       ),
     subagentMeta: (source) =>
@@ -559,15 +562,15 @@ export const fakeLayer = () => {
         agents: [],
         workspaces: [...fakeWorkspaces],
         screens: new Map(),
-        transcripts: new Map(),
+        conversations: new Map(),
         subagentMetas: new Map(),
         rejects: new Map(),
         available: true,
         calls: [],
         herdrChanges: yield* PubSub.unbounded<void>(),
-        transcriptAppends: yield* PubSub.unbounded<{
+        conversationAppends: yield* PubSub.unbounded<{
           readonly session: string;
-          readonly entries: ReadonlyArray<TranscriptEntry>;
+          readonly entries: ReadonlyArray<ConversationEntry>;
         }>(),
         seen: new Set(),
         seenChanges: yield* PubSub.unbounded<void>(),
@@ -615,7 +618,7 @@ export const fakeLayer = () => {
     Effect.gen(function* () {
       const fake = yield* FakeState;
       return Context.make(HerdrOutbound, herdr(fake)).pipe(
-        Context.add(TranscriptOutbound, transcripts(fake)),
+        Context.add(ConversationOutbound, conversations(fake)),
         Context.add(ProjectsOutbound, projects(fake)),
         Context.add(GiteaOutbound, gitea(fake)),
         Context.add(AgentRuntime, {

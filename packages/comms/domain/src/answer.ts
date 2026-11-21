@@ -2,7 +2,7 @@ import * as Result from 'effect/Result';
 import { promptExcerpt } from './activity.js';
 import { InvalidInputError } from './errors.js';
 import type { DialogKey } from './input.js';
-import type { Question } from './transcript.js';
+import type { Question } from './conversation.js';
 
 // Claude's question dialog, as of Claude Code v2.1.323: each question is a tab and the dialog
 // opens on the first. A single choice's digit chooses its option and moves on, unless its options

@@ -3,12 +3,12 @@ import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { TerminalScreen } from '@smotastic/pocket-design';
 import { axeViolations } from '@smotastic/pocket-design/testing';
-import { RequestError, type AgentView, type TranscriptView } from './comms-client.js';
+import { RequestError, type AgentView, type ConversationView } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
 
-const transcript: TranscriptView = {
+const conversation: ConversationView = {
   entries: [
     { type: 'user', id: 'u1', at: 1, text: 'Fix the failing test' },
     { type: 'assistant', id: 'a1', at: 2, text: 'I fixed **it**.' },
@@ -30,7 +30,7 @@ const transcript: TranscriptView = {
 const open = (agent = fakeAgent({ status: 'working' }), extra: { screen?: string } = {}) => {
   const fake = fakeClient({
     agents: new Map([[agent.ref, agent]]),
-    transcripts: new Map([[agent.ref, transcript]]),
+    conversations: new Map([[agent.ref, conversation]]),
     screens: new Map([[agent.ref, extra.screen ?? '\u001b[1mAllow command?\u001b[0m']]),
   });
   return { ...fake, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
@@ -134,7 +134,7 @@ describe('the conversation', () => {
     open(fakeAgent({ kind: 'codex', format: undefined }));
 
     expect(await screen.findByRole('region', { name: 'Screen of kirk' })).toBeDefined();
-    expect(screen.queryByRole('radio', { name: 'Chat' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Conversation' })).toBeNull();
   });
 
   it('sends a prompt with Enter and clears the composer', async () => {
@@ -330,7 +330,7 @@ describe('the conversation', () => {
     cleanup();
     const client = {
       ...fake.client,
-      transcript: () => Promise.reject(new RequestError('No session file for session s1.', 404)),
+      conversation: () => Promise.reject(new RequestError('No session file for session s1.', 404)),
     };
     renderApp({ client, path: '/agents/kirk' });
 
@@ -382,7 +382,7 @@ describe('typed answers and quick replies', () => {
     );
   });
 
-  it.each(['Chat', 'Screen'])(
+  it.each(['Conversation', 'Screen'])(
     'offers the keys, the quick replies and the dialog field in the %s view',
     async (view) => {
       open(fakeAgent({ status: 'blocked', needsYou: true }));
@@ -543,7 +543,7 @@ describe('typed answers and quick replies', () => {
 });
 
 describe("suggested replies and the owner's quick replies (spec 025)", () => {
-  const asks: TranscriptView = {
+  const asks: ConversationView = {
     entries: [
       { type: 'user', id: 'u1', at: 1, text: 'Plan the change' },
       {
@@ -559,12 +559,12 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
 
   const openAsking = (
     agent: AgentView = fakeAgent({ status: 'idle' }),
-    conversation: TranscriptView = asks,
+    conversation: ConversationView = asks,
     quickReplies?: ReadonlyArray<string>,
   ) => {
     const fake = fakeClient({
       agents: new Map([[agent.ref, agent]]),
-      transcripts: new Map([[agent.ref, conversation]]),
+      conversations: new Map([[agent.ref, conversation]]),
       ...(quickReplies === undefined ? {} : { quickReplies }),
     });
     return { ...fake, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
@@ -880,7 +880,7 @@ describe('background work in the conversation', () => {
     inBackground: true,
     subagent: 'a1',
   } as const;
-  const delegations: TranscriptView = {
+  const delegations: ConversationView = {
     entries: [
       {
         type: 'tool',
@@ -908,7 +908,7 @@ describe('background work in the conversation', () => {
   const openWith = (agent: AgentView) => {
     const fake = fakeClient({
       agents: new Map([[agent.ref, agent]]),
-      transcripts: new Map([[agent.ref, delegations]]),
+      conversations: new Map([[agent.ref, delegations]]),
     });
     return { ...fake, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
   };
@@ -962,7 +962,7 @@ describe('background work in the conversation', () => {
   it("opens a subagent's conversation from its delegation", async () => {
     const fake = fakeClient({
       agents: new Map([['kirk', fakeAgent({ status: 'done' })]]),
-      transcripts: new Map([['kirk', delegations]]),
+      conversations: new Map([['kirk', delegations]]),
       subagents: new Map([
         [
           'kirk/b2',
@@ -988,7 +988,7 @@ describe('background work in the conversation', () => {
   });
 
   it('notes a running subagent whose id is not known yet, without a link', async () => {
-    const pending: TranscriptView = {
+    const pending: ConversationView = {
       entries: [
         {
           type: 'tool',
@@ -1019,7 +1019,7 @@ describe('background work in the conversation', () => {
           }),
         ],
       ]),
-      transcripts: new Map([['kirk', pending]]),
+      conversations: new Map([['kirk', pending]]),
     });
     renderApp({ client: fake.client, path: '/agents/kirk' });
 
@@ -1033,7 +1033,7 @@ describe('voice messages in the agent chat', () => {
   const openWith = async (voice: boolean, agent = fakeAgent({ status: 'idle' })) => {
     const fake = fakeClient({
       agents: new Map([[agent.ref, agent]]),
-      transcripts: new Map([[agent.ref, transcript]]),
+      conversations: new Map([[agent.ref, conversation]]),
       speechAvailable: voice,
     });
     const rendered = renderApp({ client: fake.client, path: `/agents/${agent.ref}` });
@@ -1135,7 +1135,7 @@ describe('voice messages in the agent chat', () => {
     ).toBe('');
   });
 
-  it('keeps a transcript that arrives while a prompt is on its way', async () => {
+  it('keeps a transcription that arrives while a prompt is on its way', async () => {
     const { state, calls } = await openWith(true);
     let transcribed = () => undefined as void;
     let sent = () => undefined as void;
@@ -1155,7 +1155,7 @@ describe('voice messages in the agent chat', () => {
 });
 
 describe("answering an agent's question in the chat", () => {
-  const asks: TranscriptView['entries'][number] = {
+  const asks: ConversationView['entries'][number] = {
     type: 'tool',
     id: 'q1',
     at: 5,
@@ -1184,7 +1184,7 @@ describe("answering an agent's question in the chat", () => {
   const openAsking = (agent = fakeAgent({ status: 'blocked', needsYou: true })) => {
     const fake = fakeClient({
       agents: new Map([[agent.ref, agent]]),
-      transcripts: new Map([
+      conversations: new Map([
         [agent.ref, { entries: [asks], activity: 'Waiting for your answer…' }],
       ]),
       screens: new Map([[agent.ref, 'Can you undo an accepted item?']]),

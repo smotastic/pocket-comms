@@ -321,7 +321,7 @@ const Footer = ({
   const send = useMutation({
     mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
       client.sendBrainstorm(text, imageIds),
-    // Only the sent text goes: a transcript that arrived meanwhile stays.
+    // Only the sent text goes: a transcription that arrived meanwhile stays.
     onSuccess: (_, { text }) => {
       setDraft((current) => withoutSent(current, text));
       images.clear();

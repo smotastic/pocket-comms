@@ -2,7 +2,7 @@ import {
   activityOf,
   imagesInPrompt,
   suggestedReplies,
-  type TranscriptEntry,
+  type ConversationEntry,
 } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
@@ -12,12 +12,15 @@ import type {
   SubagentDto,
   SubagentEventDto,
   SubagentInfoDto,
-  TranscriptDto,
+  ConversationDto,
 } from '../dto/agent.dto.js';
-import { SubagentNotFoundError, TranscriptUnavailableError } from '../errors.js';
+import { SubagentNotFoundError, ConversationUnavailableError } from '../errors.js';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
 import { ImagesOutbound } from '../ports/images.outbound.port.js';
-import { TranscriptOutbound, type TranscriptSource } from '../ports/transcript.outbound.port.js';
+import {
+  ConversationOutbound,
+  type ConversationSource,
+} from '../ports/conversation.outbound.port.js';
 import { makeLoadAgents, sourceOf, type AgentView } from './agents.js';
 
 interface Lookup {
@@ -27,15 +30,15 @@ interface Lookup {
 
 const sameJson = <A>(a: A, b: A): boolean => JSON.stringify(a) === JSON.stringify(b);
 
-export const makeTranscript = Effect.gen(function* () {
+export const makeConversation = Effect.gen(function* () {
   const herdrOutbound = yield* HerdrOutbound;
-  const transcriptOutbound = yield* TranscriptOutbound;
+  const conversationOutbound = yield* ConversationOutbound;
   const { folder } = yield* ImagesOutbound;
   const { find } = yield* makeLoadAgents;
 
   // A prompt's attached images show as images, not as paths (spec 014, requirement 12), and an
   // assistant message carries the replies it calls for.
-  const shown = (entries: ReadonlyArray<TranscriptEntry>): ReadonlyArray<TranscriptEntry> =>
+  const shown = (entries: ReadonlyArray<ConversationEntry>): ReadonlyArray<ConversationEntry> =>
     entries.map((entry) => {
       if (entry.type === 'assistant') {
         const replies = suggestedReplies(entry.text);
@@ -50,7 +53,7 @@ export const makeTranscript = Effect.gen(function* () {
     Option.match(sourceOf(view.agent), {
       onNone: () =>
         Effect.fail(
-          new TranscriptUnavailableError({
+          new ConversationUnavailableError({
             ref: view.dto.ref,
             reason:
               view.dto.format === undefined
@@ -61,10 +64,10 @@ export const makeTranscript = Effect.gen(function* () {
       onSome: Effect.succeed,
     });
 
-  const transcript = Effect.fn('Transcript.transcript')(function* (ref: string) {
+  const conversation = Effect.fn('Conversation.conversation')(function* (ref: string) {
     const source = yield* sourceOrFail(yield* find(ref));
-    const entries = shown((yield* transcriptOutbound.read(source)).entries);
-    return { entries, activity: activityOf(entries) } satisfies TranscriptDto;
+    const entries = shown((yield* conversationOutbound.read(source)).entries);
+    return { entries, activity: activityOf(entries) } satisfies ConversationDto;
   });
 
   // The agent at once and after every change Herdr reports. A lookup while Herdr is unreachable
@@ -86,13 +89,13 @@ export const makeTranscript = Effect.gen(function* () {
     );
 
   const entriesOf = (
-    source: TranscriptSource,
+    source: ConversationSource,
   ): Stream.Stream<Extract<AgentEventDto, { type: 'entries' }>> => {
     // The activity names the latest step of the whole session, so the stream keeps the last
     // entry it saw.
-    let latest: TranscriptEntry | undefined;
+    let latest: ConversationEntry | undefined;
     let first = true;
-    return transcriptOutbound.follow(source).pipe(
+    return conversationOutbound.follow(source).pipe(
       Stream.map(shown),
       Stream.map((entries): Extract<AgentEventDto, { type: 'entries' }> => {
         latest = entries.at(-1) ?? latest;
@@ -105,7 +108,7 @@ export const makeTranscript = Effect.gen(function* () {
           activity: activityOf(latest === undefined ? [] : [latest]),
         };
       }),
-      Stream.catchTag('TranscriptUnavailableError', (error) =>
+      Stream.catchTag('ConversationUnavailableError', (error) =>
         Stream.fromEffect(
           Effect.logWarning('The session file cannot be followed', { reason: error.reason }),
         ).pipe(Stream.drain),
@@ -120,7 +123,7 @@ export const makeTranscript = Effect.gen(function* () {
    * changed. When the agent moves to another session, the stream follows the new one. The stream
    * ends when the agent is gone.
    */
-  const agentEvents = Effect.fn('Transcript.agentEvents')(function* (ref: string) {
+  const agentEvents = Effect.fn('Conversation.agentEvents')(function* (ref: string) {
     yield* find(ref);
     const views = viewsOf(ref);
 
@@ -147,11 +150,11 @@ export const makeTranscript = Effect.gen(function* () {
     const notFound = new SubagentNotFoundError({ ref: view.dto.ref, subagent: id });
     const session = sourceOf(view.agent).pipe(Option.filter((found) => found.format === 'claude'));
     if (Option.isNone(session)) return yield* notFound;
-    const source: TranscriptSource = { ...session.value, subagent: id };
-    const meta = Option.getOrUndefined(yield* transcriptOutbound.subagentMeta(source));
+    const source: ConversationSource = { ...session.value, subagent: id };
+    const meta = Option.getOrUndefined(yield* conversationOutbound.subagentMeta(source));
     const item = view.dto.background.find((running) => running.subagent === id);
     if (meta === undefined && item === undefined) {
-      if (Option.isNone(yield* transcriptOutbound.modifiedAt(source))) return yield* notFound;
+      if (Option.isNone(yield* conversationOutbound.modifiedAt(source))) return yield* notFound;
     }
     const info: SubagentInfoDto = {
       id,
@@ -163,12 +166,12 @@ export const makeTranscript = Effect.gen(function* () {
     return { source, info };
   });
 
-  const subagent = Effect.fn('Transcript.subagent')(function* (ref: string, id: string) {
+  const subagent = Effect.fn('Conversation.subagent')(function* (ref: string, id: string) {
     const { source, info } = yield* subagentOf(yield* find(ref), id);
-    const read = yield* transcriptOutbound
+    const read = yield* conversationOutbound
       .read(source)
       .pipe(
-        Effect.catchTag('TranscriptUnavailableError', () =>
+        Effect.catchTag('ConversationUnavailableError', () =>
           Effect.fail(new SubagentNotFoundError({ ref, subagent: id })),
         ),
       );
@@ -181,7 +184,7 @@ export const makeTranscript = Effect.gen(function* () {
    * its end, and its entries as for an agent. The stream ends when the parent agent is gone or
    * moves to another session, which the subagent does not belong to.
    */
-  const subagentEvents = Effect.fn('Transcript.subagentEvents')(function* (
+  const subagentEvents = Effect.fn('Conversation.subagentEvents')(function* (
     ref: string,
     id: string,
   ) {
@@ -203,5 +206,5 @@ export const makeTranscript = Effect.gen(function* () {
     return Stream.merge(infoUpdates, entriesOf(source), { haltStrategy: 'left' });
   });
 
-  return { transcript, agentEvents, subagent, subagentEvents };
+  return { conversation, agentEvents, subagent, subagentEvents };
 });

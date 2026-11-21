@@ -2,7 +2,7 @@ import {
   agentRef,
   needsYou,
   runningAt,
-  transcriptFormatOf,
+  conversationFormatOf,
   type Agent,
   type Workspace,
 } from '@pocket-comms/comms-domain';
@@ -13,13 +13,16 @@ import type { AgentDto } from '../dto/agent.dto.js';
 import { AgentNotFoundError } from '../errors.js';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
 import { SeenOutbound, StatusHistoryOutbound } from '../ports/memory.outbound.port.js';
-import { TranscriptOutbound, type TranscriptSource } from '../ports/transcript.outbound.port.js';
+import {
+  ConversationOutbound,
+  type ConversationSource,
+} from '../ports/conversation.outbound.port.js';
 
 // Shared by the use cases: reads Herdr once and turns each agent into what the app shows.
 
 /** The session file of an agent, when the app can render it as a chat. */
-export const sourceOf = (agent: Agent): Option.Option<TranscriptSource> => {
-  const format = transcriptFormatOf(agent);
+export const sourceOf = (agent: Agent): Option.Option<ConversationSource> => {
+  const format = conversationFormatOf(agent);
   if (format === undefined || agent.session === undefined) return Option.none();
   return Option.some({ ref: agentRef(agent), format, session: agent.session, cwd: agent.cwd });
 };
@@ -29,14 +32,14 @@ export const sourceOf = (agent: Agent): Option.Option<TranscriptSource> => {
  * that cannot be read shows none, as before the app knew about background work.
  */
 export const makeBackgroundOf = Effect.gen(function* () {
-  const transcriptOutbound = yield* TranscriptOutbound;
+  const conversationOutbound = yield* ConversationOutbound;
   return Effect.fnUntraced(function* (agent: Agent) {
     const items = yield* Option.match(sourceOf(agent), {
       onNone: () => Effect.succeed([]),
       onSome: (source) =>
-        transcriptOutbound
+        conversationOutbound
           .background(source)
-          .pipe(Effect.catchTag('TranscriptUnavailableError', () => Effect.succeed([]))),
+          .pipe(Effect.catchTag('ConversationUnavailableError', () => Effect.succeed([]))),
     });
     return runningAt(items, yield* Clock.currentTimeMillis);
   });
@@ -52,7 +55,7 @@ export interface AgentView {
 
 export const makeLoadAgents = Effect.gen(function* () {
   const herdrOutbound = yield* HerdrOutbound;
-  const transcriptOutbound = yield* TranscriptOutbound;
+  const conversationOutbound = yield* ConversationOutbound;
   const seenOutbound = yield* SeenOutbound;
   const statusHistoryOutbound = yield* StatusHistoryOutbound;
 
@@ -61,7 +64,7 @@ export const makeLoadAgents = Effect.gen(function* () {
   const changedAt = Effect.fnUntraced(function* (agent: Agent) {
     const modified = yield* Option.match(sourceOf(agent), {
       onNone: () => Effect.succeed(Option.none<number>()),
-      onSome: transcriptOutbound.modifiedAt,
+      onSome: conversationOutbound.modifiedAt,
     });
     const now = yield* Clock.currentTimeMillis;
     const mark = yield* statusHistoryOutbound.get(agent.paneId);
@@ -99,7 +102,7 @@ export const makeLoadAgents = Effect.gen(function* () {
               paneId: agent.paneId,
               name: agent.name,
               kind: agent.kind,
-              format: transcriptFormatOf(agent),
+              format: conversationFormatOf(agent),
               status: agent.status,
               title: agent.title,
               cwd: agent.cwd,

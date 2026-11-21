@@ -53,7 +53,7 @@ describe('AgentsInbound.overview', () => {
       const state = yield* FakeState;
       yield* TestClock.setTime(10_000);
       state.agents = [fakeAgent({ paneId: 'w1:p1', status: 'done', completion: 3, session: 's1' })];
-      state.transcripts.set('s1', {
+      state.conversations.set('s1', {
         entries: [],
         modifiedAt: 1_000,
         background: [
@@ -91,7 +91,7 @@ describe('AgentsInbound.overview', () => {
     Effect.gen(function* () {
       const state = yield* FakeState;
       state.agents = [fakeAgent({ paneId: 'w1:p1', status: 'done', completion: 3, session: 's1' })];
-      state.transcripts.set('s1', {
+      state.conversations.set('s1', {
         entries: [],
         modifiedAt: 1_000,
         background: [
@@ -155,12 +155,12 @@ describe('AgentsInbound.overview', () => {
       const state = yield* FakeState;
       yield* TestClock.setTime(10_000);
       state.agents = [fakeAgent({ paneId: 'w1:p1', session: 's1' })];
-      state.transcripts.set('s1', { entries: [], modifiedAt: 4_000 });
+      state.conversations.set('s1', { entries: [], modifiedAt: 4_000 });
 
       const first = yield* AgentsInbound.use((inbound) => inbound.overview);
       expect(first.groups[0]?.agents[0]?.changedAt).toBe(4_000);
 
-      state.transcripts.set('s1', { entries: [], modifiedAt: 12_000 });
+      state.conversations.set('s1', { entries: [], modifiedAt: 12_000 });
       const later = yield* AgentsInbound.use((inbound) => inbound.overview);
       expect(later.groups[0]?.agents[0]?.changedAt).toBe(12_000);
     }).pipe(Effect.provide(layer())),

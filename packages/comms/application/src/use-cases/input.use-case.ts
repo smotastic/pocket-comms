@@ -8,13 +8,13 @@ import {
   promptExcerpt,
   promptWithImages,
   showsQuestion,
-  transcriptFormatOf,
+  conversationFormatOf,
 } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import { QuestionNotWaitingError } from '../errors.js';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
-import { TranscriptOutbound } from '../ports/transcript.outbound.port.js';
+import { ConversationOutbound } from '../ports/conversation.outbound.port.js';
 import { makeRecordActivity } from './activity-log.js';
 import { makeLoadAgents, sourceOf } from './agents.js';
 import { makeImagePaths } from './image-paths.js';
@@ -24,7 +24,7 @@ import { makeImagePaths } from './image-paths.js';
 
 export const makeInput = Effect.gen(function* () {
   const herdrOutbound = yield* HerdrOutbound;
-  const transcriptOutbound = yield* TranscriptOutbound;
+  const conversationOutbound = yield* ConversationOutbound;
   const { find } = yield* makeLoadAgents;
   const { imagePaths } = yield* makeImagePaths;
   const { record } = yield* makeRecordActivity;
@@ -86,12 +86,12 @@ export const makeInput = Effect.gen(function* () {
     const notWaiting = (reason: string) =>
       Effect.fail(new QuestionNotWaitingError({ ref, reason }));
     const source = sourceOf(agent);
-    if (transcriptFormatOf(agent) !== 'claude' || Option.isNone(source)) {
+    if (conversationFormatOf(agent) !== 'claude' || Option.isNone(source)) {
       return yield* notWaiting('Only a Claude agent asks questions the app can answer.');
     }
-    const { entries } = yield* transcriptOutbound
+    const { entries } = yield* conversationOutbound
       .read(source.value)
-      .pipe(Effect.catchTag('TranscriptUnavailableError', (error) => notWaiting(error.reason)));
+      .pipe(Effect.catchTag('ConversationUnavailableError', (error) => notWaiting(error.reason)));
     const latest = entries.at(-1);
     if (
       latest?.type !== 'tool' ||

@@ -4,7 +4,7 @@ export const AgentStatus = Schema.Literals(['working', 'blocked', 'done', 'idle'
 export type AgentStatus = typeof AgentStatus.Type;
 
 /** The session file formats the app can render as a chat. */
-export type TranscriptFormat = 'claude' | 'pi';
+export type ConversationFormat = 'claude' | 'pi';
 
 /** A live agent in a Herdr pane, as Herdr reports it. */
 export interface Agent {
@@ -32,5 +32,5 @@ export const completionKey = (agent: Pick<Agent, 'paneId' | 'completion'>): stri
   `${agent.paneId}#${agent.completion ?? 0}`;
 
 /** The format of the agent's session file, or `undefined` when the app shows only its screen. */
-export const transcriptFormatOf = (agent: Agent): TranscriptFormat | undefined =>
+export const conversationFormatOf = (agent: Agent): ConversationFormat | undefined =>
   agent.kind === 'claude' || agent.kind === 'pi' ? agent.kind : undefined;

@@ -2,9 +2,9 @@ export {
   agentRef,
   AgentStatus,
   completionKey,
-  transcriptFormatOf,
+  conversationFormatOf,
   type Agent,
-  type TranscriptFormat,
+  type ConversationFormat,
 } from './agent.js';
 export { isAllowedLogin } from './access.js';
 export { runningAt, type BackgroundItem, type BackgroundKind } from './background.js';
@@ -49,8 +49,8 @@ export {
   type QuestionOption,
   type ToolOutcome,
   type ToolVerb,
-  type TranscriptEntry,
-} from './transcript.js';
+  type ConversationEntry,
+} from './conversation.js';
 export { OTHER_GROUP, type Workspace, type WorkspaceGroup } from './workspace.js';
 export {
   agentNameFor,

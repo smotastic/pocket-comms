@@ -34,10 +34,10 @@ export const problems = {
         detail: `${error.ref} has no subagent ${error.subagent}.`,
       }),
     ),
-  transcriptUnavailable: (error: { readonly reason: string }) =>
+  conversationUnavailable: (error: { readonly reason: string }) =>
     Effect.fail(
       notFoundProblem({
-        slug: 'transcript-unavailable',
+        slug: 'conversation-unavailable',
         title: 'The agent has no conversation to show',
         detail: error.reason,
       }),

@@ -3,7 +3,7 @@ import {
   excerptOf,
   notificationOf,
   stillHolds,
-  transcriptFormatOf,
+  conversationFormatOf,
   watchStep,
   type Agent,
   type Attention,
@@ -17,7 +17,7 @@ import * as Stream from 'effect/Stream';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
 import { SeenOutbound } from '../ports/memory.outbound.port.js';
 import { PushSenderOutbound, PushSubscriptionsOutbound } from '../ports/push.outbound.port.js';
-import { TranscriptOutbound } from '../ports/transcript.outbound.port.js';
+import { ConversationOutbound } from '../ports/conversation.outbound.port.js';
 import { makeBackgroundOf } from './agents.js';
 
 /** How long a change must hold before it notifies, so a passing blocked state stays quiet. */
@@ -29,18 +29,18 @@ const HOLD = '10 seconds';
 export const makeNotify = Effect.gen(function* () {
   const herdrOutbound = yield* HerdrOutbound;
   const seenOutbound = yield* SeenOutbound;
-  const transcriptOutbound = yield* TranscriptOutbound;
+  const conversationOutbound = yield* ConversationOutbound;
   const pushSubscriptionsOutbound = yield* PushSubscriptionsOutbound;
   const pushSenderOutbound = yield* PushSenderOutbound;
   const backgroundOf = yield* makeBackgroundOf;
 
   const excerpt = (agent: Agent, attention: Attention) => {
-    const format = transcriptFormatOf(agent);
+    const format = conversationFormatOf(agent);
     if (format === undefined || agent.session === undefined) return Effect.succeed(undefined);
-    return transcriptOutbound
+    return conversationOutbound
       .read({ ref: agentRef(agent), format, session: agent.session, cwd: agent.cwd })
       .pipe(
-        Effect.map((transcript) => excerptOf(attention, transcript.entries)),
+        Effect.map((conversation) => excerptOf(attention, conversation.entries)),
         Effect.orElseSucceed(() => undefined),
       );
   };

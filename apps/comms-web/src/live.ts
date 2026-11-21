@@ -7,7 +7,7 @@ import type {
   BrainstormEventView,
   CommsClient,
   SubagentView,
-  TranscriptView,
+  ConversationView,
 } from './comms-client.js';
 import {
   activityKey,
@@ -15,19 +15,19 @@ import {
   brainstormKey,
   overviewKey,
   subagentKey,
-  transcriptKey,
+  conversationKey,
 } from './comms-queries.js';
 
 type EntriesEvent = Extract<AgentEventView, { readonly type: 'entries' }>;
 
 /**
- * Applies an entries event to the transcript the cache holds: a reset replaces it, any other event
+ * Applies an entries event to the conversation the cache holds: a reset replaces it, any other event
  * updates the entries with the same id in place and appends the new ones.
  */
 export const mergeEntries = (
-  held: TranscriptView | undefined,
+  held: ConversationView | undefined,
   event: EntriesEvent,
-): TranscriptView => {
+): ConversationView => {
   if (event.reset || held === undefined) {
     return { entries: event.entries, activity: event.activity };
   }
@@ -87,7 +87,7 @@ export const useAgentLive = (client: CommsClient, ref: string) => {
           if (event.type === 'agent') {
             queryClient.setQueryData(agentKey(ref), event.agent);
           } else {
-            queryClient.setQueryData<TranscriptView>(transcriptKey(ref), (held) =>
+            queryClient.setQueryData<ConversationView>(conversationKey(ref), (held) =>
               mergeEntries(held, event),
             );
           }
