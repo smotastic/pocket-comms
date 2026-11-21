@@ -888,7 +888,7 @@ describe('the activity API', () => {
 });
 
 describe('the brainstorm API', () => {
-  const PICTURE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
+  const IMAGE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
 
   const brainstorm = (inbound: Partial<BrainstormInbound['Service']>) =>
     serve({}, undefined, {}, {}, inbound);
@@ -898,8 +898,8 @@ describe('the brainstorm API', () => {
       state: Effect.succeed({
         _tag: 'Ready',
         answering: false,
-        seesPictures: true,
-        pictures: [{ id: PICTURE, number: 1, available: true }],
+        seesImages: true,
+        images: [{ id: IMAGE, number: 1, available: true }],
         voice: true,
       }),
     });
@@ -910,8 +910,8 @@ describe('the brainstorm API', () => {
     expect(await response.json()).toEqual({
       _tag: 'Ready',
       answering: false,
-      seesPictures: true,
-      pictures: [{ id: PICTURE, number: 1, available: true }],
+      seesImages: true,
+      images: [{ id: IMAGE, number: 1, available: true }],
       voice: true,
     });
   });
@@ -949,9 +949,9 @@ describe('the brainstorm API', () => {
     });
 
     const sent = await call('/api/v1/brainstorm/messages', json({ text: 'Idea' }));
-    const pictured = await call(
+    const withImages = await call(
       '/api/v1/brainstorm/messages',
-      json({ text: '', imageIds: [PICTURE] }),
+      json({ text: '', imageIds: [IMAGE] }),
     );
     const decided = await call(
       '/api/v1/brainstorm/proposals/p-1/decision',
@@ -959,12 +959,12 @@ describe('the brainstorm API', () => {
     );
     const reset = await call('/api/v1/brainstorm/reset', { method: 'POST' });
 
-    expect([sent.status, pictured.status, decided.status, reset.status]).toEqual([
+    expect([sent.status, withImages.status, decided.status, reset.status]).toEqual([
       204, 204, 204, 204,
     ]);
     expect(asked).toEqual([
       ['send', 'Idea', undefined],
-      ['send', '', [PICTURE]],
+      ['send', '', [IMAGE]],
       [
         'decide',
         'p-1',

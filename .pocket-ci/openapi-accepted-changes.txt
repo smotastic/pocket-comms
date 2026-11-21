@@ -12,3 +12,6 @@ GET /api/v1/activity added `subschema #7` to the `events/items/` response proper
 GET /api/v1/agents/{agent}/transcript api path removed without deprecation
 GET /api/v1/agents/{agent}/subagents/{subagent} removed the required property `activity` from the response with the `200` status
 POST /api/v1/brainstorm/proposals/{proposal}/decision added the new required request property `anyOf[subschema #1]/issue`
+GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/pictures` from the response with the `200` status
+GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/seesPictures` from the response with the `200` status
+POST /api/v1/brainstorm/proposals/{proposal}/decision removed `subschema #1, subschema #3, subschema #4` from the request body `anyOf` list

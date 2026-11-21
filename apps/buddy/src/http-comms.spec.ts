@@ -191,8 +191,8 @@ describe('HttpComms', () => {
       let answer: unknown = {
         _tag: 'Ready',
         answering: true,
-        seesPictures: false,
-        pictures: [],
+        seesImages: false,
+        images: [],
         voice: true,
         entries: [],
       };

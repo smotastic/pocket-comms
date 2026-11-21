@@ -21,8 +21,8 @@ export interface CreatedIssue {
   readonly url: string;
 }
 
-/** A picture to attach to an issue, with the file name Gitea shows. */
-export interface IssuePicture {
+/** A image to attach to an issue, with the file name Gitea shows. */
+export interface IssueImage {
   readonly name: string;
   readonly kind: ImageKind;
   readonly bytes: Uint8Array;
@@ -30,7 +30,7 @@ export interface IssuePicture {
 
 /**
  * The app's Gitea server. It reads issues, closes them, creates them, marks them in progress,
- * changes their title and body and attaches pictures to them; no other method writes.
+ * changes their title and body and attaches images to them; no other method writes.
  */
 export class GiteaOutbound extends Context.Service<
   GiteaOutbound,
@@ -69,11 +69,11 @@ export class GiteaOutbound extends Context.Service<
       number: number,
       text: IssueText,
     ) => Effect.Effect<void, Failure | IssueNotFoundError>;
-    /** Uploads the picture as an attachment of the issue and answers its link in Gitea. */
+    /** Uploads the image as an attachment of the issue and answers its link in Gitea. */
     readonly attachImage: (
       repository: GiteaRepository,
       number: number,
-      picture: IssuePicture,
+      image: IssueImage,
     ) => Effect.Effect<string, Failure | IssueNotFoundError>;
   }
 >()('comms/application/GiteaOutbound') {}

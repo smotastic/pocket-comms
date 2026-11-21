@@ -162,13 +162,13 @@ describe('images in the conversation', () => {
     });
 
     const card = (await screen.findByText('Look')).parentElement as HTMLElement;
-    const pictures = within(card).getAllByRole('img');
+    const images = within(card).getAllByRole('img');
 
-    expect(pictures.map((picture) => picture.getAttribute('src'))).toEqual([
+    expect(images.map((image) => image.getAttribute('src'))).toEqual([
       '/api/v1/images/abc',
       '/api/v1/images/def',
     ]);
-    expect(pictures[0]?.closest('a')?.getAttribute('href')).toBe('/api/v1/images/abc');
+    expect(images[0]?.closest('a')?.getAttribute('href')).toBe('/api/v1/images/abc');
   });
 });
 

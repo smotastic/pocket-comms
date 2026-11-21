@@ -1,21 +1,21 @@
 import {
   baseChanged,
-  chatPictures,
+  brainstormImages,
   IMAGE_EXTENSIONS,
   IMAGE_MEDIA_TYPES,
   InvalidInputError,
-  missingPictures,
+  missingImages,
   parseImageIds,
   parseProposedIssue,
   parseIssueEdit,
-  parsePictureChoice,
+  parseImageChoice,
   parsePrompt,
-  picturesByNumber,
+  imagesByNumber,
   proposalOf,
   readOf,
   rememberRead,
-  withPictures,
-  type AttachedPicture,
+  withImages,
+  type AttachedImage,
   type BrainstormEntry,
   type EditProposal,
   type ProposedIssue,
@@ -72,7 +72,7 @@ import { makeIssueProject } from './issue-project.js';
 // The brainstorm chat (spec 013): one conversation with Pi, kept in the store after every change.
 // One turn runs at a time, in the background of the server, on the agent package's turn engine
 // (ADR 0014); the sheet follows it live through the package's chat feed (spec 026). The owner's
-// messages may attach pictures, which go to Gitea with an issue the owner approves (spec 023).
+// messages may attach images, which go to Gitea with an issue the owner approves (spec 023).
 
 /** What Pi is told it is for (requirement 9). */
 export const BRAINSTORM_INSTRUCTIONS = `You are Pi, the owner's brainstorm partner inside pocket-comms, an app on their phone. The owner writes or dictates ideas on the go, often in a few rough words. Help them think an idea through: ask a short question when it is unclear, suggest angles they may have missed, and keep answers brief, because they read on a phone.
@@ -83,7 +83,7 @@ When an idea is clear enough to keep, propose it as a Gitea issue in the project
 
 When an idea belongs to an issue that exists, read it with read_issue and propose an edit with propose_issue_edit instead of a new issue. Send the whole new title and body, and keep every part of the body the edit is not about.
 
-The owner may attach pictures to a message; each has a number, such as [Picture 2 attached]. When pictures belong to an issue, name their numbers in pictures when you propose it or an edit. The app attaches them to the issue and links them below the body, so do not link them yourself.
+The owner may attach images to a message; each has a number, such as [Image 2 attached]. When images belong to an issue, name their numbers in images when you propose it or an edit. The app attaches them to the issue and links them below the body, so do not link them yourself.
 
 You change nothing yourself: the owner decides on every proposal. Never claim an issue exists or was changed before the owner did it.`;
 
@@ -128,43 +128,43 @@ const mismatch = (proposal: ProposalEntry) =>
           proposal.kind === 'edit'
             ? `This proposal edits issue #${proposal.number}: apply it or discard it.`
             : proposal.state._tag === 'attaching'
-              ? `Issue #${proposal.state.number} exists: retry its pictures or finish without them.`
+              ? `Issue #${proposal.state.number} exists: retry its images or finish without them.`
               : 'This proposal is a new issue: create it or discard it.',
       },
     ],
   });
 
-/** The number of each picture of the chat, by its id. */
+/** The number of each image of the chat, by its id. */
 const numbersOf = (entries: ReadonlyArray<BrainstormEntry>) =>
-  new Map(chatPictures(entries).map((picture) => [picture.id, picture.number]));
+  new Map(brainstormImages(entries).map((image) => [image.id, image.number]));
 
 const listed = (numbers: ReadonlyArray<number>) => numbers.join(', ');
 
 /** What Pi is told about the owner's decision, as the input of its next turn. */
 const decisionNote = (decided: ProposalEntry, numbers: ReadonlyMap<string, number>): string => {
   const numberOf = (id: string) => numbers.get(id) ?? 0;
-  const attached = decided.attached.map((picture) => numberOf(picture.image));
-  const left = missingPictures(decided.pictures, decided.attached).map(numberOf);
-  const pictures =
-    (attached.length === 0 ? '' : `, with pictures ${listed(attached)}`) +
+  const attached = decided.attached.map((image) => numberOf(image.image));
+  const left = missingImages(decided.images, decided.attached).map(numberOf);
+  const images =
+    (attached.length === 0 ? '' : `, with images ${listed(attached)}`) +
     (left.length === 0
       ? ''
-      : `; ${left.length === 1 ? 'picture' : 'pictures'} ${listed(left)} ${left.length === 1 ? 'was' : 'were'} left out`);
+      : `; ${left.length === 1 ? 'image' : 'images'} ${listed(left)} ${left.length === 1 ? 'was' : 'were'} left out`);
   if (decided.kind === 'edit') {
     return decided.state._tag === 'updated'
-      ? `The owner updated the issue #${decided.number} in ${decided.project}: it is now "${decided.title}" with the body you proposed or the owner edited (${decided.state.url})${pictures}.`
+      ? `The owner updated the issue #${decided.number} in ${decided.project}: it is now "${decided.title}" with the body you proposed or the owner edited (${decided.state.url})${images}.`
       : `The owner discarded your edit of the issue #${decided.number} in ${decided.project}.`;
   }
   return decided.state._tag === 'created'
-    ? `The owner created the issue #${decided.state.number} in ${decided.project}: "${decided.title}" (${decided.state.url})${pictures}.`
+    ? `The owner created the issue #${decided.state.number} in ${decided.project}: "${decided.title}" (${decided.state.url})${images}.`
     : `The owner discarded the proposal "${decided.title}" for ${decided.project}.`;
 };
 
-/** What Pi reads about the pictures of a message, after its text. */
-const picturesNote = (numbers: ReadonlyArray<number>, seen: boolean) =>
+/** What Pi reads about the images of a message, after its text. */
+const imagesNote = (numbers: ReadonlyArray<number>, seen: boolean) =>
   numbers.length === 0
     ? ''
-    : `[${numbers.length === 1 ? 'Picture' : 'Pictures'} ${listed(numbers)} attached${seen ? '' : '; you cannot see pictures'}]`;
+    : `[${numbers.length === 1 ? 'Image' : 'Images'} ${listed(numbers)} attached${seen ? '' : '; you cannot see images'}]`;
 
 export const makeBrainstorm = Effect.gen(function* () {
   const runtime = yield* AgentRuntime;
@@ -200,19 +200,19 @@ export const makeBrainstorm = Effect.gen(function* () {
     if (Option.isSome(runtime.notSetUp)) {
       return Effect.succeed({ _tag: 'NotSetUp', reason: runtime.notSetUp.value });
     }
-    // A picture the clean-up removed can no longer go to Gitea (spec 023, requirement 10).
+    // A image the clean-up removed can no longer go to Gitea (spec 023, requirement 10).
     return Effect.map(
-      Effect.forEach(chatPictures(ownEntries(chat)), (picture) =>
-        Effect.map(imagesOutbound.path(picture.id), (path) => ({
-          ...picture,
+      Effect.forEach(brainstormImages(ownEntries(chat)), (image) =>
+        Effect.map(imagesOutbound.path(image.id), (path) => ({
+          ...image,
           available: Option.isSome(path),
         })),
       ),
-      (pictures) => ({
+      (images) => ({
         _tag: 'Ready',
         answering,
-        seesPictures: runtime.seesImages ?? false,
-        pictures,
+        seesImages: runtime.seesImages ?? false,
+        images,
         voice: transcriber.available,
       }),
     );
@@ -248,18 +248,18 @@ export const makeBrainstorm = Effect.gen(function* () {
 
   /** What the tools of a turn do in the chat `chatId`. */
   const hooksFor = (chatId: string) => ({
-    propose: (issue: ProposedIssue, pictures: ReadonlyArray<string>) =>
+    propose: (issue: ProposedIssue, images: ReadonlyArray<string>) =>
       proposeIn(chatId, (id, at) => ({
         type: 'proposal',
         kind: 'issue',
         id,
         at,
         ...issue,
-        pictures,
+        images,
         attached: [],
         state: { _tag: 'open' },
       })),
-    proposeEdit: ({ read, title, body, pictures }: ProposedEdit) =>
+    proposeEdit: ({ read, title, body, images }: ProposedEdit) =>
       proposeIn(chatId, (id, at) => ({
         type: 'proposal',
         kind: 'edit',
@@ -271,7 +271,7 @@ export const makeBrainstorm = Effect.gen(function* () {
         title,
         body,
         base: { title: read.title, body: read.body },
-        pictures,
+        images,
         attached: [],
         state: { _tag: 'open' },
       })),
@@ -283,8 +283,8 @@ export const makeBrainstorm = Effect.gen(function* () {
       ),
     readOf: (project: string, number: number) =>
       Effect.sync(() => (chat.id === chatId ? readOf(chat.reads, project, number) : undefined)),
-    pictures: (numbers: ReadonlyArray<number>) =>
-      Effect.sync(() => picturesByNumber(ownEntries(chat), numbers)),
+    images: (numbers: ReadonlyArray<number>) =>
+      Effect.sync(() => imagesByNumber(ownEntries(chat), numbers)),
   });
 
   const ensureSetUp = Option.match(runtime.notSetUp, {
@@ -370,13 +370,13 @@ export const makeBrainstorm = Effect.gen(function* () {
 
   const removed = (number: number) =>
     new InvalidInputError({
-      issues: [{ field: 'pictures', message: `Picture ${number} was removed from the app.` }],
+      issues: [{ field: 'images', message: `Image ${number} was removed from the app.` }],
     });
 
-  /** The owner's choice of chat pictures, in number order, each still kept by the app. */
-  const choosePictures = (ids: ReadonlyArray<string> = []) =>
+  /** The owner's choice of chat images, in number order, each still kept by the app. */
+  const chooseImages = (ids: ReadonlyArray<string> = []) =>
     Effect.gen(function* () {
-      const chosen = yield* Effect.fromResult(parsePictureChoice(ownEntries(chat), ids));
+      const chosen = yield* Effect.fromResult(parseImageChoice(ownEntries(chat), ids));
       const numbers = numbersOf(ownEntries(chat));
       for (const id of chosen) {
         if (Option.isNone(yield* imagesOutbound.path(id))) {
@@ -391,10 +391,10 @@ export const makeBrainstorm = Effect.gen(function* () {
     Effect.asVoid(feed.record(FEED, { kind: 'proposal', proposal }));
 
   /**
-   * Uploads the chosen pictures that are not attached yet to the issue, saving the proposal after
+   * Uploads the chosen images that are not attached yet to the issue, saving the proposal after
    * each, so a retry never uploads one twice; the proposal with them.
    */
-  const attachPictures = <P extends ProposalEntry>(
+  const attachImages = <P extends ProposalEntry>(
     proposal: P,
     repository: LinkedRepository,
     number: number,
@@ -402,12 +402,12 @@ export const makeBrainstorm = Effect.gen(function* () {
     Effect.gen(function* () {
       const numbers = numbersOf(ownEntries(chat));
       let current = proposal;
-      for (const id of missingPictures(current.pictures, current.attached)) {
-        const pictureNumber = numbers.get(id) ?? 0;
+      for (const id of missingImages(current.images, current.attached)) {
+        const imageNumber = numbers.get(id) ?? 0;
         const image = yield* imagesOutbound.read(id);
-        if (Option.isNone(image)) return yield* removed(pictureNumber);
+        if (Option.isNone(image)) return yield* removed(imageNumber);
         const url = yield* giteaOutbound.attachImage(repository, number, {
-          name: `picture-${pictureNumber}.${IMAGE_EXTENSIONS[image.value.kind]}`,
+          name: `image-${imageNumber}.${IMAGE_EXTENSIONS[image.value.kind]}`,
           kind: image.value.kind,
           bytes: image.value.bytes,
         });
@@ -417,27 +417,27 @@ export const makeBrainstorm = Effect.gen(function* () {
       return current;
     });
 
-  /** The body with a Pictures block of the attached pictures in `ids`, in number order. */
-  const bodyWithPictures = (
+  /** The body with an Images block of the attached images in `ids`, in number order. */
+  const bodyWithImages = (
     body: string,
-    attached: ReadonlyArray<AttachedPicture>,
+    attached: ReadonlyArray<AttachedImage>,
     ids: ReadonlyArray<string>,
   ) => {
     const numbers = numbersOf(ownEntries(chat));
-    return withPictures(
+    return withImages(
       body,
       attached
-        .filter((picture) => ids.includes(picture.image))
-        .map((picture) => ({ number: numbers.get(picture.image) ?? 0, url: picture.url }))
+        .filter((image) => ids.includes(image.image))
+        .map((image) => ({ number: numbers.get(image.image) ?? 0, url: image.url }))
         .sort((a, b) => a.number - b.number),
     );
   };
 
   /**
-   * Links the attached pictures below the issue's current body, which keeps whatever changed in
+   * Links the attached images below the issue's current body, which keeps whatever changed in
    * Gitea since the issue was created; the proposal as created.
    */
-  const linkPictures = (
+  const linkImages = (
     proposal: IssueProposal,
     repository: LinkedRepository,
     created: { readonly number: number; readonly url: string },
@@ -446,11 +446,11 @@ export const makeBrainstorm = Effect.gen(function* () {
       if (proposal.attached.length > 0) {
         const current = yield* giteaOutbound.issue(repository, created.number);
         // An earlier update may have reached Gitea although its answer was lost.
-        const linked = proposal.attached.every((picture) => current.body.includes(picture.url));
+        const linked = proposal.attached.every((image) => current.body.includes(image.url));
         if (!linked)
           yield* giteaOutbound.updateIssue(repository, created.number, {
             title: current.title,
-            body: bodyWithPictures(current.body, proposal.attached, proposal.pictures),
+            body: bodyWithImages(current.body, proposal.attached, proposal.images),
           });
       }
       return {
@@ -459,17 +459,17 @@ export const makeBrainstorm = Effect.gen(function* () {
       } satisfies IssueProposal;
     });
 
-  /** Uploads the missing pictures of a created issue, then links them; the proposal as created. */
-  const finishPictures = (proposal: IssueProposal, created: { number: number; url: string }) =>
+  /** Uploads the missing images of a created issue, then links them; the proposal as created. */
+  const finishImages = (proposal: IssueProposal, created: { number: number; url: string }) =>
     Effect.gen(function* () {
       const repository = yield* repositoryOf(proposal.project);
-      const attached = yield* attachPictures(proposal, repository, created.number);
-      return yield* linkPictures(attached, repository, created);
+      const attached = yield* attachImages(proposal, repository, created.number);
+      return yield* linkImages(attached, repository, created);
     });
 
   /**
-   * Creates the proposed issue as the owner edited it, then attaches the chosen pictures; the
-   * proposal as decided. Gitea attaches a picture only to an issue that exists, so the proposal
+   * Creates the proposed issue as the owner edited it, then attaches the chosen images; the
+   * proposal as decided. Gitea attaches a image only to an issue that exists, so the proposal
    * is `attaching` in between (spec 023, requirement 16).
    */
   const createIssue = (
@@ -480,7 +480,7 @@ export const makeBrainstorm = Effect.gen(function* () {
     Effect.gen(function* () {
       const proposed = parseProposedIssue(edited);
       if (Result.isFailure(proposed)) return yield* proposed.failure;
-      const pictures = yield* choosePictures(chosen);
+      const images = yield* chooseImages(chosen);
       const repository = yield* repositoryOf(proposed.success.project);
       const created = yield* giteaOutbound.createIssue(repository, {
         title: proposed.success.title,
@@ -489,8 +489,8 @@ export const makeBrainstorm = Effect.gen(function* () {
       yield* Effect.logInfo('Issue created').pipe(
         Effect.annotateLogs({ project: proposed.success.project, number: created.number }),
       );
-      const withIssue = { ...proposal, ...proposed.success, pictures } satisfies IssueProposal;
-      if (pictures.length === 0) {
+      const withIssue = { ...proposal, ...proposed.success, images } satisfies IssueProposal;
+      if (images.length === 0) {
         return {
           ...withIssue,
           state: { _tag: 'created', number: created.number, url: created.url },
@@ -501,12 +501,12 @@ export const makeBrainstorm = Effect.gen(function* () {
         state: { _tag: 'attaching', number: created.number, url: created.url },
       } as const;
       yield* saveProposal(attaching);
-      return yield* finishPictures(attaching, created);
+      return yield* finishImages(attaching, created);
     });
 
   /**
    * Applies the edit as the owner changed it, unless the issue's title or body changed since Pi
-   * read it, with the chosen pictures attached first; the proposal as decided. Gitea has no
+   * read it, with the chosen images attached first; the proposal as decided. Gitea has no
    * conditional update, so the check and the write are two requests.
    */
   const applyEdit = (
@@ -517,29 +517,29 @@ export const makeBrainstorm = Effect.gen(function* () {
     Effect.gen(function* () {
       const text = parseIssueEdit(edited);
       if (Result.isFailure(text)) return yield* text.failure;
-      const pictures = yield* choosePictures(chosen);
+      const images = yield* chooseImages(chosen);
       const repository = yield* repositoryOf(proposal.project);
       const current = yield* giteaOutbound.issue(repository, proposal.number);
       if (current.pull) return yield* new IssueNotFoundError({ number: proposal.number });
       if (baseChanged(proposal.base, current)) {
         return yield* new IssueChangedError({ number: proposal.number });
       }
-      const withPictures =
-        pictures.length === 0
-          ? { ...proposal, pictures }
-          : yield* attachPictures({ ...proposal, pictures }, repository, proposal.number);
+      const withImages =
+        images.length === 0
+          ? { ...proposal, images }
+          : yield* attachImages({ ...proposal, images }, repository, proposal.number);
       yield* giteaOutbound.updateIssue(repository, proposal.number, {
         title: text.success.title,
-        body: bodyWithPictures(text.success.body, withPictures.attached, pictures),
+        body: bodyWithImages(text.success.body, withImages.attached, images),
       });
       yield* Effect.logInfo('Issue updated').pipe(
         Effect.annotateLogs({ project: proposal.project, number: proposal.number }),
       );
       return {
-        ...withPictures,
+        ...withImages,
         ...text.success,
-        // Only the pictures of this decision went along; earlier tries may have attached others.
-        attached: withPictures.attached.filter((picture) => pictures.includes(picture.image)),
+        // Only the images of this decision went along; earlier tries may have attached others.
+        attached: withImages.attached.filter((image) => images.includes(image.image)),
         state: { _tag: 'updated', url: current.url },
       } satisfies EditProposal;
     });
@@ -549,21 +549,21 @@ export const makeBrainstorm = Effect.gen(function* () {
     if (proposal.kind === 'edit') {
       if (decision._tag === 'Discard') return Effect.succeed(discarded(proposal));
       return decision._tag === 'Apply'
-        ? applyEdit(proposal, decision, decision.pictures)
+        ? applyEdit(proposal, decision, decision.images)
         : Effect.fail(mismatch(proposal));
     }
     const { state } = proposal;
     if (state._tag === 'attaching') {
-      if (decision._tag === 'Create') return finishPictures(proposal, state);
+      if (decision._tag === 'Create') return finishImages(proposal, state);
       return decision._tag === 'FinishWithout'
         ? Effect.flatMap(repositoryOf(proposal.project), (repository) =>
-            linkPictures(proposal, repository, state),
+            linkImages(proposal, repository, state),
           )
         : Effect.fail(mismatch(proposal));
     }
     if (decision._tag === 'Discard') return Effect.succeed(discarded(proposal));
     return decision._tag === 'Create'
-      ? createIssue(proposal, decision.issue, decision.pictures)
+      ? createIssue(proposal, decision.issue, decision.images)
       : Effect.fail(mismatch(proposal));
   };
 
@@ -571,7 +571,7 @@ export const makeBrainstorm = Effect.gen(function* () {
 
   const events = (after: number): Stream.Stream<BrainstormEventDto> => feed.follow(FEED, after);
 
-  /** The kept pictures of these ids, in order; an id the store does not know is refused. */
+  /** The kept images of these ids, in order; an id the store does not know is refused. */
   const readImages = Effect.fnUntraced(function* (ids: ReadonlyArray<string>) {
     const parsed = yield* Effect.fromResult(parseImageIds(ids));
     const images: Array<StoredImage> = [];
@@ -592,13 +592,13 @@ export const makeBrainstorm = Effect.gen(function* () {
     imageIds: ReadonlyArray<string> = [],
   ) {
     yield* ensureSetUp;
-    // A message of pictures alone needs no text (spec 023, requirement 2).
+    // A message of images alone needs no text (spec 023, requirement 2).
     const parsed =
       imageIds.length > 0 && text.trim() === '' ? Result.succeed('') : parsePrompt(text);
     if (Result.isFailure(parsed)) return yield* parsed.failure;
     const images = yield* readImages(imageIds);
     yield* ensureIdle;
-    const first = chatPictures(ownEntries(chat)).length + 1;
+    const first = brainstormImages(ownEntries(chat)).length + 1;
     answering = true;
     yield* recordIn(chat.id, (at) => ({
       kind: 'said',
@@ -607,7 +607,7 @@ export const makeBrainstorm = Effect.gen(function* () {
       text: parsed.success,
       images: imageIds,
     }));
-    const note = picturesNote(
+    const note = imagesNote(
       imageIds.map((_, index) => first + index),
       runtime.seesImages ?? false,
     );

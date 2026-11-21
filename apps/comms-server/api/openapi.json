@@ -670,14 +670,14 @@
                 "examples": [false],
                 "type": "boolean"
               },
-              "pictures": {
-                "description": "The pictures of the chat, by number.",
+              "images": {
+                "description": "The images of the chat, by number.",
                 "examples": [[]],
                 "items": {
                   "additionalProperties": false,
                   "properties": {
                     "available": {
-                      "description": "The app still keeps the picture, so it can go to Gitea.",
+                      "description": "The app still keeps the image, so it can go to Gitea.",
                       "examples": [true],
                       "type": "boolean"
                     },
@@ -688,7 +688,7 @@
                       "type": "string"
                     },
                     "number": {
-                      "description": "The picture's number in the chat, from 1 in the order it was sent.",
+                      "description": "The image's number in the chat, from 1 in the order it was sent.",
                       "examples": [1],
                       "type": "integer"
                     }
@@ -698,8 +698,8 @@
                 },
                 "type": "array"
               },
-              "seesPictures": {
-                "description": "The model takes pictures; otherwise Pi only learns that pictures were attached.",
+              "seesImages": {
+                "description": "The model takes images; otherwise Pi only learns that images were attached.",
                 "examples": [true],
                 "type": "boolean"
               },
@@ -709,7 +709,7 @@
                 "type": "boolean"
               }
             },
-            "required": ["_tag", "answering", "seesPictures", "pictures", "voice"],
+            "required": ["_tag", "answering", "seesImages", "images", "voice"],
             "type": "object"
           },
           {
@@ -1611,13 +1611,10 @@
                 "examples": ["Create"],
                 "type": "string"
               },
-              "issue": {
-                "$ref": "#/components/schemas/ProposedIssue"
-              },
-              "pictures": {
+              "images": {
                 "anyOf": [
                   {
-                    "description": "Chat pictures by image id, at most five.",
+                    "description": "Chat images by image id, at most five.",
                     "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
                     "items": {
                       "description": "The id the server gave an uploaded image.",
@@ -1632,8 +1629,11 @@
                     "type": "null"
                   }
                 ],
-                "description": "The chat pictures to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing pictures instead.",
+                "description": "The chat images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.",
                 "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+              },
+              "issue": {
+                "$ref": "#/components/schemas/ProposedIssue"
               }
             },
             "required": ["_tag", "issue"],
@@ -1667,10 +1667,10 @@
                 "maxLength": 20000,
                 "type": "string"
               },
-              "pictures": {
+              "images": {
                 "anyOf": [
                   {
-                    "description": "Chat pictures by image id, at most five.",
+                    "description": "Chat images by image id, at most five.",
                     "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
                     "items": {
                       "description": "The id the server gave an uploaded image.",
@@ -1685,7 +1685,7 @@
                     "type": "null"
                   }
                 ],
-                "description": "The chat pictures to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing pictures instead.",
+                "description": "The chat images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.",
                 "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
               },
               "title": {
@@ -1702,7 +1702,7 @@
             "additionalProperties": false,
             "properties": {
               "_tag": {
-                "description": "Finish a created issue with the pictures attached so far and leave out the others.",
+                "description": "Finish a created issue with the images attached so far and leave out the others.",
                 "enum": ["FinishWithout"],
                 "examples": ["FinishWithout"],
                 "type": "string"

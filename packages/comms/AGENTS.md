@@ -132,9 +132,9 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   output. The brainstorm is answering before it records what starts a turn and idle before the turn's
   end is recorded, so the sheet reads the state again on those entries.
 - Brainstorm images (spec 023) are images of the image store, numbered across the brainstorm
-  (`chatPictures`). Pi names them by number; only the owner's choice on the card goes to Gitea,
+  (`brainstormImages`). Pi names them by number; only the owner's choice on the card goes to Gitea,
   and only on approval. Each upload is saved on the proposal (`attached`) before the next, so a
-  retry never uploads one twice and never creates a second issue; the `## Pictures` block is
+  retry never uploads one twice and never creates a second issue; the `## Images` block is
   appended to the body last. Pi gets the bytes only when the runtime `seesImages`. Pi may propose an edit only for an
   issue it read in this brainstorm, and never for one whose body was cut.
 - The brainstorm is optional: without its model settings the server starts and the brainstorm says

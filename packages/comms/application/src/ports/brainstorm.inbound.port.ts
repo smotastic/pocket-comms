@@ -34,7 +34,7 @@ export class BrainstormInbound extends Context.Service<
      */
     readonly events: (after: number) => Stream.Stream<BrainstormEventDto>;
     /**
-     * Adds the owner's message with the pictures it attaches, by image id, and starts Pi's
+     * Adds the owner's message with the images it attaches, by image id, and starts Pi's
      * answer, without waiting for it.
      */
     readonly send: (

@@ -137,8 +137,8 @@ export class FakeState extends Context.Service<
     giteaFailure: string | undefined;
     /** Why only marking an issue in progress fails, when it does. */
     giteaMarkFailure: string | undefined;
-    /** The names of the pictures the fake Gitea refuses to attach. */
-    readonly giteaRefusedPictures: Set<string>;
+    /** The names of the images the fake Gitea refuses to attach. */
+    readonly giteaRefusedImages: Set<string>;
     /** Every Gitea request, as `<method> <owner>/<name> [<number>]`. */
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
@@ -147,7 +147,7 @@ export class FakeState extends Context.Service<
     readDocWait: Effect.Effect<void> | undefined;
     /** Why the runtime is not set up, when it is not. */
     notSetUp: string | undefined;
-    /** The runtime's model takes pictures. */
+    /** The runtime's model takes images. */
     seesImages: boolean;
     /** The turns the scripted runtime plays, in order, and what it was given. */
     readonly script: Array<ReadonlyArray<ScriptStep>>;
@@ -521,20 +521,20 @@ const gitea = (state: FakeState['Service']) => {
         issues[index] = { ...found, title, body };
         return Effect.void;
       }),
-    attachImage: ({ owner, name }, number, picture) =>
+    attachImage: ({ owner, name }, number, image) =>
       request<string, IssueNotFoundError | GiteaUnavailableError>(
-        `attachImage ${owner}/${name} ${number} ${picture.name}`,
+        `attachImage ${owner}/${name} ${number} ${image.name}`,
         () => {
-          if (state.giteaRefusedPictures.has(picture.name)) {
+          if (state.giteaRefusedImages.has(image.name)) {
             return Effect.fail(
-              new GiteaUnavailableError({ reason: `Gitea refused ${picture.name} (422).` }),
+              new GiteaUnavailableError({ reason: `Gitea refused ${image.name} (422).` }),
             );
           }
           const found = state.issues
             .get(`${owner}/${name}`)
             ?.some((issue) => issue.number === number);
           return found === true
-            ? Effect.succeed(`http://gitea.test/attachments/${number}/${picture.name}`)
+            ? Effect.succeed(`http://gitea.test/attachments/${number}/${image.name}`)
             : Effect.fail(new IssueNotFoundError({ number }));
         },
       ),
@@ -588,7 +588,7 @@ export const fakeLayer = () => {
         giteaConfigured: true,
         giteaFailure: undefined,
         giteaMarkFailure: undefined,
-        giteaRefusedPictures: new Set(),
+        giteaRefusedImages: new Set(),
         giteaCalls: [],
         docs: new Map(),
         readDocWait: undefined,

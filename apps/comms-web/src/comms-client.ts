@@ -110,7 +110,7 @@ export interface CommsClient {
   /** The brainstorm chat (spec 013). */
   readonly brainstorm: () => Promise<BrainstormStateView>;
   /**
-   * Sends the owner's message with the attached pictures, by the ids `uploadImage` gave them;
+   * Sends the owner's message with the attached images, by the ids `uploadImage` gave them;
    * Pi's answer arrives on the brainstorm stream.
    */
   readonly sendBrainstorm: (text: string, imageIds?: ReadonlyArray<string>) => Promise<void>;

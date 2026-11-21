@@ -17,8 +17,8 @@ type Ready = Extract<BrainstormStateView, { _tag: 'Ready' }>;
 const ready = (overrides: Partial<Ready> & { readonly entries?: ReadonlyArray<Entry> } = {}) => ({
   _tag: 'Ready' as const,
   answering: false,
-  seesPictures: true,
-  pictures: [],
+  seesImages: true,
+  images: [],
   voice: false,
   entries: [],
   ...overrides,
@@ -45,7 +45,7 @@ const proposal = {
   project: 'pocket-home',
   title: 'Dark mode',
   body: 'A toggle.',
-  pictures: [],
+  images: [],
   attached: [],
   state: { _tag: 'open' },
 } as const;
@@ -61,7 +61,7 @@ const edit = {
   title: 'Orchestrator mode',
   body: 'Control agents from the chat.',
   base: { title: 'Orchestrator', body: 'An orchestrator agent.' },
-  pictures: [],
+  images: [],
   attached: [],
   state: { _tag: 'open' },
 } as const;
@@ -309,7 +309,7 @@ describe('a proposal in the brainstorm chat', () => {
           {
             _tag: 'Create',
             issue: { project: 'pocket-comms', title: 'Dark mode toggle', body: 'A toggle.' },
-            pictures: [],
+            images: [],
           },
         ],
       ]),
@@ -365,7 +365,7 @@ describe('an edit in the brainstorm chat', () => {
 
     await waitFor(() =>
       expect(calls.decisions).toEqual([
-        ['e1', { _tag: 'Apply', title: 'Orchestrator mode', body: 'Edited.', pictures: [] }],
+        ['e1', { _tag: 'Apply', title: 'Orchestrator mode', body: 'Edited.', images: [] }],
       ]),
     );
   });
@@ -399,13 +399,13 @@ describe('an edit in the brainstorm chat', () => {
   });
 });
 
-describe('pictures in the brainstorm chat', () => {
+describe('images in the brainstorm chat', () => {
   const A = 'a'.repeat(26);
   const B = 'b'.repeat(26);
-  const picture = (id: string, number: number, available = true) => ({ id, number, available });
+  const image = (id: string, number: number, available = true) => ({ id, number, available });
   const picker = () => document.querySelector<HTMLInputElement>('input[type="file"]');
 
-  it('attaches pictures and sends their ids with the message', async () => {
+  it('attaches images and sends their ids with the message', async () => {
     const { sheet, calls } = await openBrainstorm();
 
     await userEvent.upload(picker() as HTMLInputElement, [
@@ -419,47 +419,47 @@ describe('pictures in the brainstorm chat', () => {
     expect(calls.brainstormImageIds).toEqual([['image-1']]);
   });
 
-  it('says next to the composer that the model cannot see pictures', async () => {
-    const { sheet } = await openBrainstorm(ready({ seesPictures: false }));
+  it('says next to the composer that the model cannot see images', async () => {
+    const { sheet } = await openBrainstorm(ready({ seesImages: false }));
 
-    expect(within(sheet).queryByText("This model can't see pictures")).toBeNull();
+    expect(within(sheet).queryByText("This model can't see images")).toBeNull();
     await userEvent.upload(picker() as HTMLInputElement, [
       new File(['x'], 'door.png', { type: 'image/png' }),
     ]);
 
-    expect(await within(sheet).findByText("This model can't see pictures")).toBeDefined();
+    expect(await within(sheet).findByText("This model can't see images")).toBeDefined();
   });
 
-  it('shows a message’s pictures by number, and says when the model cannot see them', async () => {
+  it('shows a message’s images by number, and says when the model cannot see them', async () => {
     const { sheet } = await openBrainstorm(
       ready({
         entries: [said('Look', [A, B])],
-        pictures: [picture(A, 1), picture(B, 2)],
-        seesPictures: false,
+        images: [image(A, 1), image(B, 2)],
+        seesImages: false,
       }),
     );
 
-    expect((await within(sheet).findByRole('img', { name: 'Picture 2' })).getAttribute('src')).toBe(
+    expect((await within(sheet).findByRole('img', { name: 'Image 2' })).getAttribute('src')).toBe(
       `/api/v1/images/${B}`,
     );
-    expect(within(sheet).getByRole('img', { name: 'Picture 1' })).toBeDefined();
-    expect(within(sheet).getByText("This model can't see pictures")).toBeDefined();
+    expect(within(sheet).getByRole('img', { name: 'Image 1' })).toBeDefined();
+    expect(within(sheet).getByText("This model can't see images")).toBeDefined();
   });
 
-  it('checks the pictures Pi named and sends the owner’s choice in number order', async () => {
+  it('checks the images Pi named and sends the owner’s choice in number order', async () => {
     const { sheet, calls } = await openBrainstorm(
       ready({
-        entries: [recorded({ ...proposal, pictures: [B] })],
-        pictures: [picture(A, 1), picture(B, 2)],
+        entries: [recorded({ ...proposal, images: [B] })],
+        images: [image(A, 1), image(B, 2)],
       }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
-    expect(within(card).getByRole('checkbox', { name: 'Attach picture 2' })).toHaveProperty(
+    expect(within(card).getByRole('checkbox', { name: 'Attach image 2' })).toHaveProperty(
       'checked',
       true,
     );
-    const first = within(card).getByRole('checkbox', { name: 'Attach picture 1' });
+    const first = within(card).getByRole('checkbox', { name: 'Attach image 1' });
     expect(first).toHaveProperty('checked', false);
     await userEvent.click(first);
     await userEvent.click(within(card).getByRole('button', { name: 'Create issue' }));
@@ -471,64 +471,64 @@ describe('pictures in the brainstorm chat', () => {
           {
             _tag: 'Create',
             issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
-            pictures: [A, B],
+            images: [A, B],
           },
         ],
       ]),
     );
   });
 
-  it('shows a removed picture that cannot be checked', async () => {
+  it('shows a removed image that cannot be checked', async () => {
     const { sheet } = await openBrainstorm(
-      ready({ entries: [recorded(proposal)], pictures: [picture(A, 1, false)] }),
+      ready({ entries: [recorded(proposal)], images: [image(A, 1, false)] }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
-    expect(within(card).getByRole('checkbox', { name: 'Attach picture 1' })).toHaveProperty(
+    expect(within(card).getByRole('checkbox', { name: 'Attach image 1' })).toHaveProperty(
       'disabled',
       true,
     );
     expect(within(card).getByText('Removed')).toBeDefined();
   });
 
-  it('checks at most five pictures', async () => {
+  it('checks at most five images', async () => {
     const ids = ['a', 'b', 'c', 'd', 'e', 'f'].map((letter) => letter.repeat(26));
     const { sheet } = await openBrainstorm(
       ready({
-        entries: [recorded({ ...proposal, pictures: ids.slice(0, 5) })],
-        pictures: ids.map((id, index) => picture(id, index + 1)),
+        entries: [recorded({ ...proposal, images: ids.slice(0, 5) })],
+        images: ids.map((id, index) => image(id, index + 1)),
       }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
-    expect(within(card).getByRole('checkbox', { name: 'Attach picture 6' })).toHaveProperty(
+    expect(within(card).getByRole('checkbox', { name: 'Attach image 6' })).toHaveProperty(
       'disabled',
       true,
     );
-    expect(within(card).getByRole('checkbox', { name: 'Attach picture 5' })).toHaveProperty(
+    expect(within(card).getByRole('checkbox', { name: 'Attach image 5' })).toHaveProperty(
       'disabled',
       false,
     );
   });
 
-  it('offers a retry and finishing without the pictures while they are not attached', async () => {
+  it('offers a retry and finishing without the images while they are not attached', async () => {
     const { sheet, calls } = await openBrainstorm(
       ready({
         entries: [
           recorded({
             ...proposal,
-            pictures: [A, B],
+            images: [A, B],
             attached: [{ image: A, url: 'http://gitea/attachments/1' }],
             state: { _tag: 'attaching', number: 12, url: 'http://gitea/i/12' },
           }),
         ],
-        pictures: [picture(A, 1), picture(B, 2)],
+        images: [image(A, 1), image(B, 2)],
       }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
     expect(within(card).getByRole('link', { name: 'Issue #12 created' })).toBeDefined();
-    expect(within(card).getByText(/pictures are not attached yet/u)).toBeDefined();
+    expect(within(card).getByText(/images are not attached yet/u)).toBeDefined();
     await userEvent.click(within(card).getByRole('button', { name: 'Retry' }));
     await userEvent.click(within(card).getByRole('button', { name: 'Finish without them' }));
 
@@ -539,7 +539,7 @@ describe('pictures in the brainstorm chat', () => {
           {
             _tag: 'Create',
             issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
-            pictures: [A, B],
+            images: [A, B],
           },
         ],
         ['p1', { _tag: 'FinishWithout' }],
@@ -547,29 +547,29 @@ describe('pictures in the brainstorm chat', () => {
     );
   });
 
-  it('shows the pictures that went along with a created issue', async () => {
+  it('shows the images that went along with a created issue', async () => {
     const { sheet } = await openBrainstorm(
       ready({
         entries: [
           recorded({
             ...proposal,
-            pictures: [A],
+            images: [A],
             attached: [{ image: A, url: 'http://gitea/attachments/1' }],
             state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
           }),
         ],
-        pictures: [picture(A, 1)],
+        images: [image(A, 1)],
       }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
-    expect(within(card).getByRole('img', { name: 'Picture 1' })).toBeDefined();
+    expect(within(card).getByRole('img', { name: 'Image 1' })).toBeDefined();
     expect(within(card).queryByRole('checkbox')).toBeNull();
   });
 
-  it('applies an edit with the chosen pictures', async () => {
+  it('applies an edit with the chosen images', async () => {
     const { sheet, calls } = await openBrainstorm(
-      ready({ entries: [recorded({ ...edit, pictures: [A] })], pictures: [picture(A, 1)] }),
+      ready({ entries: [recorded({ ...edit, images: [A] })], images: [image(A, 1)] }),
     );
     const card = await within(sheet).findByRole('region', { name: 'Proposed edit of issue #11' });
 
@@ -583,7 +583,7 @@ describe('pictures in the brainstorm chat', () => {
             _tag: 'Apply',
             title: 'Orchestrator mode',
             body: 'Control agents from the chat.',
-            pictures: [A],
+            images: [A],
           },
         ],
       ]),

@@ -151,7 +151,7 @@ export const foldBrainstorm = (
 };
 
 // The entries after which the chat's state may have changed: Pi started or ended a turn, a
-// message brought pictures, or a proposal changed.
+// message brought images, or a proposal changed.
 const CHANGES_STATE: ReadonlySet<string> = new Set([
   'said',
   'proposal',

@@ -133,8 +133,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     brainstorm: {
       _tag: 'Ready',
       answering: false,
-      seesPictures: true,
-      pictures: [],
+      seesImages: true,
+      images: [],
       voice: false,
     },
     brainstormLog: [],
