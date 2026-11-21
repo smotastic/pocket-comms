@@ -89,7 +89,7 @@ export const SubagentConversation = ({
     <DockedPage label={`Subagent of ${parent}`} header={header} footer={null}>
       <Stack gap="md">
         <ConversationEntries conversation={subagent} failed={false} imageUrl={client.imageUrl} />
-        {subagent.running ? <Activity label={subagent.activity} /> : null}
+        {subagent.running ? <Activity label={subagent.currentStep} /> : null}
       </Stack>
     </DockedPage>
   );

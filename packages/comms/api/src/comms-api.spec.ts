@@ -429,7 +429,7 @@ describe('the agents API', () => {
       running: true,
       inBackground: true,
       entries: [],
-      activity: 'Thinking…',
+      currentStep: 'Thinking…',
     };
     const call = serve({
       subagent: (ref, id) =>
@@ -454,7 +454,7 @@ describe('the agents API', () => {
       type: 'entries',
       reset: true,
       entries: [],
-      activity: 'Thinking…',
+      currentStep: 'Thinking…',
     } as const;
     const call = serve({ subagentEvents: () => Effect.succeed(Stream.make(event)) });
 

@@ -21,7 +21,7 @@ const canUpload = async () => {
   return enabled;
 };
 
-const open = (conversation: ConversationView = { entries: [], activity: 'Thinking…' }) => {
+const open = (conversation: ConversationView = { entries: [], currentStep: 'Thinking…' }) => {
   const agent = fakeAgent({ status: 'idle' });
   const fake = fakeClient({
     agents: new Map([[agent.ref, agent]]),
@@ -158,7 +158,7 @@ describe('images in the conversation', () => {
   it("shows a sent prompt's images as thumbnails linking to the full size", async () => {
     open({
       entries: [{ type: 'user', id: 'u1', at: 1, text: 'Look', images: ['abc', 'def'] }],
-      activity: 'Thinking…',
+      currentStep: 'Thinking…',
     });
 
     const card = (await screen.findByText('Look')).parentElement as HTMLElement;

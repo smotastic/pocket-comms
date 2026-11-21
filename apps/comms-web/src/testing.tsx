@@ -191,7 +191,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
   const client: CommsClient = {
     overview: async () => state.overview,
     agent: async (ref) => find(ref),
-    conversation: async (ref) => state.conversations.get(ref) ?? { entries: [], activity: 'Thinking…' },
+    conversation: async (ref) =>
+      state.conversations.get(ref) ?? { entries: [], currentStep: 'Thinking…' },
     subagent: async (ref, id) => {
       const subagent = state.subagents.get(`${ref}/${id}`);
       if (subagent === undefined) throw new RequestError(`${ref} has no subagent ${id}.`, 404);

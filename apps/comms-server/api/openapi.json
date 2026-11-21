@@ -504,7 +504,7 @@
         "contentMediaType": "application/json",
         "description": "The event as JSON.",
         "examples": [
-          "{\"type\":\"entries\",\"reset\":true,\"entries\":[],\"activity\":\"Thinking…\"}"
+          "{\"type\":\"entries\",\"reset\":true,\"entries\":[],\"currentStep\":\"Thinking…\"}"
         ],
         "type": "string"
       },
@@ -789,7 +789,7 @@
         "additionalProperties": false,
         "description": "The latest entries of the agent’s session.",
         "properties": {
-          "activity": {
+          "currentStep": {
             "description": "What a working agent does now.",
             "examples": ["Running pnpm test…"],
             "type": "string"
@@ -803,7 +803,7 @@
             "type": "array"
           }
         },
-        "required": ["entries", "activity"],
+        "required": ["entries", "currentStep"],
         "type": "object"
       },
       "ConversationEntry": {
@@ -2036,11 +2036,6 @@
         "additionalProperties": false,
         "description": "A subagent of an agent, with the latest entries of its own conversation.",
         "properties": {
-          "activity": {
-            "description": "What a working agent does now.",
-            "examples": ["Running pnpm test…"],
-            "type": "string"
-          },
           "agentType": {
             "anyOf": [
               {
@@ -2052,6 +2047,11 @@
             ],
             "description": "The kind of subagent, when known.",
             "examples": ["general-purpose"]
+          },
+          "currentStep": {
+            "description": "What a working agent does now.",
+            "examples": ["Running pnpm test…"],
+            "type": "string"
           },
           "description": {
             "description": "What the parent asked it to do, in a few words.",
@@ -2083,14 +2083,14 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "description", "running", "inBackground", "entries", "activity"],
+        "required": ["id", "description", "running", "inBackground", "entries", "currentStep"],
         "type": "object"
       },
       "SubagentEventEncoded": {
         "contentMediaType": "application/json",
         "description": "The event as JSON.",
         "examples": [
-          "{\"type\":\"entries\",\"reset\":true,\"entries\":[],\"activity\":\"Thinking…\"}"
+          "{\"type\":\"entries\",\"reset\":true,\"entries\":[],\"currentStep\":\"Thinking…\"}"
         ],
         "type": "string"
       },

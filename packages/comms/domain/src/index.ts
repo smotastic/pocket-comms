@@ -44,7 +44,7 @@ export {
 export { pagedAwayAfter, whilePagedAway } from './paging.js';
 export { buildOverview, needsYou, type Overview, type OverviewGroup } from './overview.js';
 export {
-  activityOf,
+  currentStepOf,
   type Question,
   type QuestionOption,
   type ToolOutcome,

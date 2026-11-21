@@ -32,7 +32,10 @@ describe('AgentsInbound.conversation', () => {
 
       const conversation = yield* AgentsInbound.use((inbound) => inbound.conversation('kirk'));
 
-      expect(conversation).toEqual({ entries: [prompt, running], activity: 'Running pnpm test…' });
+      expect(conversation).toEqual({
+        entries: [prompt, running],
+        currentStep: 'Running pnpm test…',
+      });
     }).pipe(Effect.provide(layer())),
   );
 
@@ -115,7 +118,7 @@ describe('AgentsInbound.agentEvents', () => {
 
       expect(yield* firstTwo(events)).toEqual([
         { type: 'agent', agent: expect.objectContaining({ ref: 'kirk', status: 'idle' }) },
-        { type: 'entries', reset: true, entries: [prompt], activity: 'Thinking…' },
+        { type: 'entries', reset: true, entries: [prompt], currentStep: 'Thinking…' },
       ]);
       yield* settle;
       yield* PubSub.publish(state.conversationAppends, { session: 's1', entries: [running] });
@@ -123,7 +126,7 @@ describe('AgentsInbound.agentEvents', () => {
         type: 'entries',
         reset: false,
         entries: [running],
-        activity: 'Running pnpm test…',
+        currentStep: 'Running pnpm test…',
       });
       state.agents = [
         fakeAgent({ paneId: 'w1:p1', name: 'kirk', session: 's1', status: 'working' }),
@@ -155,7 +158,7 @@ describe('AgentsInbound.agentEvents', () => {
         type: 'entries',
         reset: true,
         entries: [running],
-        activity: 'Running pnpm test…',
+        currentStep: 'Running pnpm test…',
       });
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );

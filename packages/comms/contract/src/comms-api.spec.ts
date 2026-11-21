@@ -297,7 +297,7 @@ describe('wire schemas', () => {
         type: 'entries',
         reset: true,
         entries: [],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     ).toMatchObject({ type: 'entries', reset: true });
   });

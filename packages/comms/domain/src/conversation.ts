@@ -90,7 +90,7 @@ const PRESENT: Record<ToolVerb, string> = {
  * What a working agent is doing, from its latest entry: the step it runs, the owner's answer it
  * waits for, or "Thinking…" while it writes a reply or decides on the next step.
  */
-export const activityOf = (entries: ReadonlyArray<ConversationEntry>): string => {
+export const currentStepOf = (entries: ReadonlyArray<ConversationEntry>): string => {
   const latest = entries.at(-1);
   if (latest?.type !== 'tool' || latest.outcome !== 'pending') return 'Thinking…';
   if (latest.questions !== undefined) return 'Waiting for your answer…';

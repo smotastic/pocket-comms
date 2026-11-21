@@ -29,14 +29,14 @@ export const mergeEntries = (
   event: EntriesEvent,
 ): ConversationView => {
   if (event.reset || held === undefined) {
-    return { entries: event.entries, activity: event.activity };
+    return { entries: event.entries, currentStep: event.currentStep };
   }
   const changed = new Map(event.entries.map((entry) => [entry.id, entry]));
   const kept = held.entries.map((entry) => changed.get(entry.id) ?? entry);
   const known = new Set(held.entries.map((entry) => entry.id));
   return {
     entries: [...kept, ...event.entries.filter((entry) => !known.has(entry.id))],
-    activity: event.activity,
+    currentStep: event.currentStep,
   };
 };
 

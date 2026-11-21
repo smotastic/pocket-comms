@@ -152,7 +152,10 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const hasConversation = agent?.format !== undefined;
   const [chosen, setChosen] = useState<View>('conversation');
   const view: View = hasConversation ? chosen : 'screen';
-  const conversation = useQuery({ ...conversationQuery(client, agentRef), enabled: hasConversation });
+  const conversation = useQuery({
+    ...conversationQuery(client, agentRef),
+    enabled: hasConversation,
+  });
   // A dialog waits while the agent is blocked, or while a Claude agent's latest entry is a question
   // waiting for its answer: Herdr reports such an agent as done.
   const pendingEntry = conversation.data?.entries.at(-1);
@@ -516,7 +519,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
               {...(answering === undefined ? {} : { answering })}
             />
             {agent.status === 'working' ? (
-              <Activity label={conversation.data?.activity ?? 'Thinking…'} />
+              <Activity label={conversation.data?.currentStep ?? 'Thinking…'} />
             ) : null}
             {/* Once answers are sent, a dialog still up shows again, so the owner sees what is left. */}
             {dialogWaits && (answering === undefined || answering.sent) ? (

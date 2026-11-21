@@ -24,7 +24,7 @@ const conversation: ConversationView = {
     },
     { type: 'tool', id: 't2', at: 4, verb: 'Ran', target: 'pnpm test', outcome: 'pending' },
   ],
-  activity: 'Running pnpm test…',
+  currentStep: 'Running pnpm test…',
 };
 
 const open = (agent = fakeAgent({ status: 'working' }), extra: { screen?: string } = {}) => {
@@ -74,7 +74,7 @@ describe('the conversation', () => {
         type: 'entries',
         reset: false,
         entries: [{ type: 'assistant', id: 'a2', at: 5, text: 'All green now.' }],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     );
 
@@ -102,7 +102,7 @@ describe('the conversation', () => {
             outcome: 'ok',
           },
         ],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     );
 
@@ -554,7 +554,7 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
         replies: ['Approved', 'No, revise'],
       },
     ],
-    activity: 'Thinking…',
+    currentStep: 'Thinking…',
   };
 
   const openAsking = (
@@ -599,7 +599,7 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
           { type: 'user', id: 'u2', at: 3, text: 'Approved' },
           { type: 'assistant', id: 'a2', at: 4, text: '1. A\n2. B', replies: ['A', 'B'] },
         ],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     );
 
@@ -902,7 +902,7 @@ describe('background work in the conversation', () => {
       },
       { type: 'tool', id: 'toolu-x', at: 3, verb: 'Delegated', target: 'Unknown', outcome: 'ok' },
     ],
-    activity: 'Thinking…',
+    currentStep: 'Thinking…',
   };
 
   const openWith = (agent: AgentView) => {
@@ -973,7 +973,7 @@ describe('background work in the conversation', () => {
             running: false,
             inBackground: false,
             entries: [{ type: 'user', id: 'su1', at: 1, text: 'Where is the config?' }],
-            activity: 'Thinking…',
+            currentStep: 'Thinking…',
           },
         ],
       ]),
@@ -999,7 +999,7 @@ describe('background work in the conversation', () => {
           outcome: 'pending',
         },
       ],
-      activity: 'Delegating Look…',
+      currentStep: 'Delegating Look…',
     };
     const fake = fakeClient({
       agents: new Map([
@@ -1185,7 +1185,7 @@ describe("answering an agent's question in the chat", () => {
     const fake = fakeClient({
       agents: new Map([[agent.ref, agent]]),
       conversations: new Map([
-        [agent.ref, { entries: [asks], activity: 'Waiting for your answer…' }],
+        [agent.ref, { entries: [asks], currentStep: 'Waiting for your answer…' }],
       ]),
       screens: new Map([[agent.ref, 'Can you undo an accepted item?']]),
     });
@@ -1271,7 +1271,7 @@ describe("answering an agent's question in the chat", () => {
         type: 'entries',
         reset: false,
         entries: [{ type: 'assistant', id: 'a9', at: 9, text: 'One more thing.' }],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     );
 

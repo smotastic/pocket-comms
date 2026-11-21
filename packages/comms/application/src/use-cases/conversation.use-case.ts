@@ -1,5 +1,5 @@
 import {
-  activityOf,
+  currentStepOf,
   imagesInPrompt,
   suggestedReplies,
   type ConversationEntry,
@@ -67,7 +67,7 @@ export const makeConversation = Effect.gen(function* () {
   const conversation = Effect.fn('Conversation.conversation')(function* (ref: string) {
     const source = yield* sourceOrFail(yield* find(ref));
     const entries = shown((yield* conversationOutbound.read(source)).entries);
-    return { entries, activity: activityOf(entries) } satisfies ConversationDto;
+    return { entries, currentStep: currentStepOf(entries) } satisfies ConversationDto;
   });
 
   // The agent at once and after every change Herdr reports. A lookup while Herdr is unreachable
@@ -91,7 +91,7 @@ export const makeConversation = Effect.gen(function* () {
   const entriesOf = (
     source: ConversationSource,
   ): Stream.Stream<Extract<AgentEventDto, { type: 'entries' }>> => {
-    // The activity names the latest step of the whole session, so the stream keeps the last
+    // The current step names the latest step of the whole session, so the stream keeps the last
     // entry it saw.
     let latest: ConversationEntry | undefined;
     let first = true;
@@ -105,7 +105,7 @@ export const makeConversation = Effect.gen(function* () {
           type: 'entries',
           reset,
           entries,
-          activity: activityOf(latest === undefined ? [] : [latest]),
+          currentStep: currentStepOf(latest === undefined ? [] : [latest]),
         };
       }),
       Stream.catchTag('ConversationUnavailableError', (error) =>
@@ -176,7 +176,7 @@ export const makeConversation = Effect.gen(function* () {
         ),
       );
     const entries = shown(read.entries);
-    return { ...info, entries, activity: activityOf(entries) } satisfies SubagentDto;
+    return { ...info, entries, currentStep: currentStepOf(entries) } satisfies SubagentDto;
   });
 
   /**

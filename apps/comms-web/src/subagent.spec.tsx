@@ -16,7 +16,7 @@ const review: SubagentView = {
     { type: 'user', id: 'su1', at: 1, text: 'Review the images branch' },
     { type: 'assistant', id: 'sa1', at: 2, text: 'Looks **good**.' },
   ],
-  activity: 'Thinking…',
+  currentStep: 'Thinking…',
 };
 
 const open = (path = '/agents/kirk/subagents/a1') => {
@@ -77,7 +77,7 @@ describe("a subagent's conversation", () => {
         type: 'entries',
         reset: false,
         entries: [{ type: 'assistant', id: 'sa2', at: 3, text: 'One more thing.' }],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     );
 

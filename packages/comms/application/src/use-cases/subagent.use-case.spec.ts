@@ -60,7 +60,7 @@ describe('AgentsInbound.subagent', () => {
         running: true,
         inBackground: true,
         entries: [prompt],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       });
     }).pipe(Effect.provide(layer())),
   );
@@ -141,7 +141,7 @@ describe('AgentsInbound.subagentEvents', () => {
 
       expect(yield* firstTwo(events)).toEqual([
         { type: 'subagent', subagent: expect.objectContaining({ id: 'a1', running: true }) },
-        { type: 'entries', reset: true, entries: [prompt], activity: 'Thinking…' },
+        { type: 'entries', reset: true, entries: [prompt], currentStep: 'Thinking…' },
       ]);
       yield* settle;
       yield* PubSub.publish(state.conversationAppends, {
@@ -152,7 +152,7 @@ describe('AgentsInbound.subagentEvents', () => {
         type: 'entries',
         reset: false,
         entries: [reading],
-        activity: 'Reading src/a.ts…',
+        currentStep: 'Reading src/a.ts…',
       });
 
       state.conversations.set('s1', { entries: [], modifiedAt: at, background: [] });

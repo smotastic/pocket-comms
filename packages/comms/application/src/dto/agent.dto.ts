@@ -43,7 +43,7 @@ export interface OverviewDto {
 export interface ConversationDto {
   readonly entries: ReadonlyArray<ConversationEntry>;
   /** What a working agent does now, such as "Running pnpm test…". */
-  readonly activity: string;
+  readonly currentStep: string;
 }
 
 /** One update of an open conversation. */
@@ -54,7 +54,7 @@ export type AgentEventDto =
       /** The entries replace what the reader holds: the first event of a session. */
       readonly reset: boolean;
       readonly entries: ReadonlyArray<ConversationEntry>;
-      readonly activity: string;
+      readonly currentStep: string;
     };
 
 /** A subagent of an agent, as its conversation's top bar shows it. */
@@ -71,7 +71,7 @@ export interface SubagentInfoDto {
 
 export interface SubagentDto extends SubagentInfoDto {
   readonly entries: ReadonlyArray<ConversationEntry>;
-  readonly activity: string;
+  readonly currentStep: string;
 }
 
 /** One update of an open subagent conversation. */

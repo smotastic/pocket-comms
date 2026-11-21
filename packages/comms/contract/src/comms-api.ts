@@ -295,17 +295,15 @@ const Entries = Schema.Array(ConversationEntry).annotate({
   description: 'Entries, oldest first.',
   examples: [[]],
 });
-const CurrentActivity = Schema.String.annotate({
+const CurrentStep = Schema.String.annotate({
   description: 'What a working agent does now.',
   examples: ['Running pnpm test…'],
 });
 
-export const Conversation = Schema.Struct({ entries: Entries, activity: CurrentActivity }).annotate(
-  {
-    identifier: 'Conversation',
-    description: 'The latest entries of the agent’s session.',
-  },
-);
+export const Conversation = Schema.Struct({ entries: Entries, currentStep: CurrentStep }).annotate({
+  identifier: 'Conversation',
+  description: 'The latest entries of the agent’s session.',
+});
 
 export const AgentEvent = Schema.Union([
   Schema.Struct({
@@ -322,7 +320,7 @@ export const AgentEvent = Schema.Union([
       examples: [true],
     }),
     entries: Entries,
-    activity: CurrentActivity,
+    currentStep: CurrentStep,
   }),
 ]).annotate({ identifier: 'AgentEvent', description: 'One update of an open conversation.' });
 
@@ -351,7 +349,7 @@ export const SubagentInfo = Schema.Struct(SubagentFields).annotate({
 export const Subagent = Schema.Struct({
   ...SubagentFields,
   entries: Entries,
-  activity: CurrentActivity,
+  currentStep: CurrentStep,
 }).annotate({
   identifier: 'Subagent',
   description: 'A subagent of an agent, with the latest entries of its own conversation.',
@@ -375,7 +373,7 @@ export const SubagentEvent = Schema.Union([
       examples: [true],
     }),
     entries: Entries,
-    activity: CurrentActivity,
+    currentStep: CurrentStep,
   }),
 ]).annotate({
   identifier: 'SubagentEvent',
@@ -1206,7 +1204,7 @@ const group = HttpApiGroup.make('agents')
       success: eventStream(
         'agent',
         AgentEvent,
-        '{"type":"entries","reset":true,"entries":[],"activity":"Thinking…"}',
+        '{"type":"entries","reset":true,"entries":[],"currentStep":"Thinking…"}',
       ),
       error: problems,
     }).annotateMerge(
@@ -1232,7 +1230,7 @@ const group = HttpApiGroup.make('agents')
       success: eventStream(
         'subagent',
         SubagentEvent,
-        '{"type":"entries","reset":true,"entries":[],"activity":"Thinking…"}',
+        '{"type":"entries","reset":true,"entries":[],"currentStep":"Thinking…"}',
       ),
       error: problems,
     }).annotateMerge(
