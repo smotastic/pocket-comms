@@ -1074,23 +1074,23 @@ describe('voice messages in the conversation', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Stop' }));
 
     await waitFor(() => expect(message().value).toBe('Please dark mode for pocket-home'));
-    expect(calls.clips).toHaveLength(1);
+    expect(calls.voiceMessages).toHaveLength(1);
     expect(calls.prompts).toEqual([]);
   });
 
-  it('throws a recording away on Cancel (Gitea #85)', async () => {
+  it('throws a voice message away on Cancel (Gitea #85)', async () => {
     const { calls } = await openWith(true);
     await userEvent.type(message(), 'Please');
 
     await record();
     await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
 
-    await waitFor(() => expect(screen.queryByText('Recording')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Listening')).toBeNull());
     expect(message().value).toBe('Please');
-    expect(calls.clips).toEqual([]);
+    expect(calls.voiceMessages).toEqual([]);
   });
 
-  it('keeps a failed clip with its reason, Retry and Discard', async () => {
+  it('keeps a failed voice message with its reason, Retry and Discard', async () => {
     const { state } = await openWith(true);
     state.transcription = new RequestError('The speech service is not reachable.', 503);
 
@@ -1122,7 +1122,7 @@ describe('voice messages in the conversation', () => {
     );
     await screen.findByRole('textbox', { name: 'Type into the dialog' });
     await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
-    await waitFor(() => expect(fake.calls.clips).toHaveLength(1));
+    await waitFor(() => expect(fake.calls.voiceMessages).toHaveLength(1));
     act(() => fake.emitAgent('kirk', { type: 'agent', agent: fakeAgent({ status: 'idle' }) }));
 
     await waitFor(() => expect(message().value).toBe('dark mode for pocket-home'));

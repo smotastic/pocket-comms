@@ -599,7 +599,7 @@ describe('voice messages in the brainstorm', () => {
   };
 
   /** The recorder, a sheet of its own over the brainstorm (Gitea #85). */
-  const recorder = () => screen.findByRole('dialog', { name: 'Recording' });
+  const recorder = () => screen.findByRole('dialog', { name: 'Listening' });
 
   const record = async (sheet: HTMLElement) => {
     await choose(sheet, 'Record voice');
@@ -629,7 +629,7 @@ describe('voice messages in the brainstorm', () => {
 
     await choose(sheet, 'Record voice');
     const dialog = await recorder();
-    expect(within(dialog).getByText('Recording')).toBeDefined();
+    expect(within(dialog).getByText('Listening')).toBeDefined();
     expect(within(dialog).getByText('0:00')).toBeDefined();
     expect(within(dialog).getByText('of 2:00')).toBeDefined();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Stop' }));
@@ -637,11 +637,11 @@ describe('voice messages in the brainstorm', () => {
     await waitFor(() =>
       expect((message as HTMLTextAreaElement).value).toBe('Idea: dark mode for pocket-home'),
     );
-    expect(calls.clips).toHaveLength(1);
+    expect(calls.voiceMessages).toHaveLength(1);
     expect(calls.brainstormMessages).toEqual([]);
   });
 
-  it('throws a recording away on Cancel: nothing is transcribed or added (Gitea #85)', async () => {
+  it('throws a voice message away on Cancel: nothing is transcribed or added (Gitea #85)', async () => {
     const { sheet, calls } = await openBrainstorm(ready({ voice: true }));
     const message = within(sheet).getByRole('textbox', { name: 'Message' });
     await userEvent.type(message, 'Idea:');
@@ -649,13 +649,13 @@ describe('voice messages in the brainstorm', () => {
     await choose(sheet, 'Record voice');
     await userEvent.click(within(await recorder()).getByRole('button', { name: 'Cancel' }));
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Recording' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Listening' })).toBeNull());
     expect((message as HTMLTextAreaElement).value).toBe('Idea:');
-    expect(calls.clips).toEqual([]);
+    expect(calls.voiceMessages).toEqual([]);
     expect(within(sheet).queryByRole('alert')).toBeNull();
   });
 
-  it('keeps a failed clip with its reason, Retry and Discard (requirement 11)', async () => {
+  it('keeps a failed voice message with its reason, Retry and Discard (requirement 11)', async () => {
     const { sheet, state, calls } = await openBrainstorm(ready({ voice: true }));
     state.transcription = new RequestError('The speech service is not reachable.', 503);
 
@@ -669,11 +669,11 @@ describe('voice messages in the brainstorm', () => {
         (within(sheet).getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement).value,
       ).toBe('second try'),
     );
-    expect(calls.clips[1]).toBe(calls.clips[0]);
+    expect(calls.voiceMessages[1]).toBe(calls.voiceMessages[0]);
     expect(within(sheet).queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 
-  it('drops a failed clip on Discard', async () => {
+  it('drops a failed voice message on Discard', async () => {
     const { sheet, state } = await openBrainstorm(ready({ voice: true }));
     state.transcription = new RequestError('Down.', 503);
 
@@ -687,7 +687,7 @@ describe('voice messages in the brainstorm', () => {
     ).not.toBe('true');
   });
 
-  it('records only one clip at a time, the brainstorm out of reach meanwhile (requirement 5)', async () => {
+  it('records only one voice message at a time, the brainstorm out of reach meanwhile (requirement 5)', async () => {
     const { sheet } = await openBrainstorm(ready({ voice: true }));
 
     await choose(sheet, 'Record voice');
@@ -714,7 +714,7 @@ describe('voice messages in the brainstorm', () => {
     expect(within(await recorder()).getByText('Transcribing 0:00…')).toBeDefined();
     release();
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Recording' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Listening' })).toBeNull());
     const message = within(sheet).getByRole('textbox', { name: 'Message' });
     expect((message as HTMLTextAreaElement).value).toBe('dark mode for pocket-home');
   });

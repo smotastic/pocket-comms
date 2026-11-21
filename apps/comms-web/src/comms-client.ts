@@ -77,10 +77,10 @@ export interface CommsClient {
   readonly uploadImage: (image: Blob) => Promise<string>;
   /** Where an uploaded image is served. */
   readonly imageUrl: (id: string) => string;
-  /** Whether the server transcribes voice clips, for every composer. */
+  /** Whether the server transcribes voice messages, for every composer. */
   readonly speech: () => Promise<boolean>;
-  /** Turns a recorded voice clip into text, possibly empty. */
-  readonly transcribe: (clip: Blob) => Promise<string>;
+  /** Turns a recorded voice message into text, possibly empty. */
+  readonly transcribe: (voiceMessage: Blob) => Promise<string>;
   /** Types the text into the agent's waiting dialog; it never presses Enter. */
   readonly type: (ref: string, text: string) => Promise<void>;
   readonly keys: (ref: string, keys: ReadonlyArray<Key>) => Promise<void>;
@@ -301,8 +301,8 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     },
     imageUrl: (id) => `${baseUrl}/api/v1/images/${encodeURIComponent(id)}`,
     speech: () => run((api) => api.speech.state()).then((state) => state.available),
-    transcribe: async (clip) => {
-      const bytes = new Uint8Array(await clip.arrayBuffer());
+    transcribe: async (voiceMessage) => {
+      const bytes = new Uint8Array(await voiceMessage.arrayBuffer());
       return run((api) => api.speech.transcribe({ payload: bytes })).then((result) => result.text);
     },
     type: (ref, text) =>

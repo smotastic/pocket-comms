@@ -1406,7 +1406,7 @@ describe('the speech API', () => {
   const speech = (inbound: Partial<SpeechInbound['Service']>) =>
     serve({}, undefined, {}, {}, {}, {}, {}, {}, {}, inbound);
 
-  const clip = (bytes: Uint8Array) => ({
+  const voiceMessage = (bytes: Uint8Array) => ({
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
     body: new Uint8Array(bytes),
@@ -1421,14 +1421,14 @@ describe('the speech API', () => {
       },
     });
 
-    const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
+    const response = await call('/api/v1/speech/transcriptions', voiceMessage(WEBM));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ text: 'Idea: dark mode for pocket-home' });
     expect(Array.from(received ?? [])).toEqual(Array.from(WEBM));
   });
 
-  it('answers a validation problem for a clip the use case refuses', async () => {
+  it('answers a validation problem for a voice message the use case refuses', async () => {
     const call = speech({
       transcribe: () =>
         Effect.fail(
@@ -1440,7 +1440,7 @@ describe('the speech API', () => {
 
     const response = await call(
       '/api/v1/speech/transcriptions',
-      clip(new TextEncoder().encode('text')),
+      voiceMessage(new TextEncoder().encode('text')),
     );
 
     expect(response.status).toBe(422);
@@ -1452,7 +1452,7 @@ describe('the speech API', () => {
   it('answers 503 when the server has no speech service', async () => {
     const call = speech({ transcribe: () => Effect.fail(new TranscriberNotSetUp()) });
 
-    const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
+    const response = await call('/api/v1/speech/transcriptions', voiceMessage(WEBM));
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({
@@ -1468,7 +1468,7 @@ describe('the speech API', () => {
         ),
     });
 
-    const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
+    const response = await call('/api/v1/speech/transcriptions', voiceMessage(WEBM));
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({
@@ -1495,7 +1495,10 @@ describe('the speech API', () => {
   it('refuses a request without the allowed login', async () => {
     const call = speech({ transcribe: () => Effect.succeed({ text: 'no' }) });
 
-    const response = await call('/api/v1/speech/transcriptions', { ...clip(WEBM), login: null });
+    const response = await call('/api/v1/speech/transcriptions', {
+      ...voiceMessage(WEBM),
+      login: null,
+    });
 
     expect(response.status).toBe(403);
   });

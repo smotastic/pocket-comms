@@ -30,10 +30,10 @@ export type OpenProposal =
 
 /** Everything the screen shows, kept by the core. */
 export interface BuddyState {
-  /** When the recording under way started; none while not recording. */
+  /** When the voice message under way started; none while not recording. */
   readonly recordingSince: number | undefined;
   readonly link: Link;
-  /** How many clips wait in the outbox. */
+  /** How many voice messages wait in the outbox. */
   readonly waiting: number;
   /** The words of the last message that reached the brainstorm. */
   readonly sent: string | undefined;
@@ -41,7 +41,7 @@ export interface BuddyState {
   readonly answer: { readonly messages: ReadonlyArray<string>; readonly streaming: string };
   /** The open proposals, the newest last. */
   readonly proposals: ReadonlyArray<OpenProposal>;
-  /** The last thing worth telling the owner, such as why a recording failed. */
+  /** The last thing worth telling the owner, such as why a voice message failed. */
   readonly notice: string | undefined;
 }
 
@@ -105,7 +105,7 @@ export const render = (state: BuddyState, now: number): ScreenView => {
     status: [
       state.recordingSince === undefined
         ? linkLine(state.link)
-        : `Recording ${formatLength(now - state.recordingSince)}`,
+        : `Listening ${formatLength(now - state.recordingSince)}`,
       state.waiting > 0 ? `${state.waiting} waiting` : undefined,
       state.notice,
     ]

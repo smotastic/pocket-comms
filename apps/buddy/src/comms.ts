@@ -20,7 +20,7 @@ export class Busy extends Data.TaggedError('Busy') {}
 /** The brainstorm or the transcription is not set up on the server. */
 export class NotSetUp extends Data.TaggedError('NotSetUp')<{ readonly reason: string }> {}
 
-/** comms refused the request itself, such as a clip that is not audio; trying again is no use. */
+/** comms refused the request itself, such as a voice message that is not audio; trying again is no use. */
 export class Refused extends Data.TaggedError('Refused')<{ readonly reason: string }> {}
 
 /** Any other failure, such as the speech service being down; worth trying again. */
@@ -32,7 +32,7 @@ export type CommsError = Unreachable | Busy | NotSetUp | Refused | Failed;
 export class Comms extends Context.Service<
   Comms,
   {
-    readonly transcribe: (clip: Uint8Array) => Effect.Effect<string, CommsError>;
+    readonly transcribe: (voiceMessage: Uint8Array) => Effect.Effect<string, CommsError>;
     readonly send: (text: string) => Effect.Effect<void, CommsError>;
     /** Whether Pi is answering right now. */
     readonly answering: Effect.Effect<boolean, CommsError>;

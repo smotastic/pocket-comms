@@ -13,7 +13,7 @@ const WEBM = Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4]);
 const transcribe = (bytes: Uint8Array) => SpeechInbound.use((inbound) => inbound.transcribe(bytes));
 
 describe('SpeechInbound.transcribe', () => {
-  it.effect('passes the clip with its format on and answers the text, trimmed', () =>
+  it.effect('passes the voice message with its format on and answers the text, trimmed', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
       state.speech.text = '  Idea: dark mode for pocket-home \n';

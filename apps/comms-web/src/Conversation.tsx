@@ -189,9 +189,9 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const latestId = useRef<string>(undefined);
   const images = useAttachments(client);
   const speech = useQuery(speechQuery(client));
-  // A clip belongs to the message, also while a dialog's composer shows.
+  // A voice message belongs to the message, also while a dialog's composer shows.
   const voice = useVoiceClip(
-    (clip) => client.transcribe(clip),
+    (voiceMessage) => client.transcribe(voiceMessage),
     (text) => setDraft((current) => appendText(current, text)),
   );
   // A successful send from a field clears it, and the images; a failed one keeps both. A quick

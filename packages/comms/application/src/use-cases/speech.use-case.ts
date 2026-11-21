@@ -3,7 +3,7 @@ import { makeTranscription } from '@smotastic/pocket-agent';
 import * as Effect from 'effect/Effect';
 import type { SpeechDto } from '../dto/speech.dto.js';
 
-// Voice messages on the agent package's transcription: a clip is checked by its content and its
+// Voice messages on the agent package's transcription: a voice message is checked by its content and its
 // words come back; the server keeps none of it.
 
 export const makeSpeech = Effect.gen(function* () {

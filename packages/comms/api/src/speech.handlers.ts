@@ -11,7 +11,7 @@ export const speechHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const speechInbound = yield* SpeechInbound;
 
-    // The body is the clip itself; the use case checks what is in it.
+    // The body is the voice message itself; the use case checks what is in it.
     return handlers
       .handle('state', () =>
         speechInbound.available.pipe(Effect.map((available) => ({ available }))),

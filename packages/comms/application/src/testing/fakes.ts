@@ -181,7 +181,7 @@ export class FakeState extends Context.Service<
     quickReplies: ReadonlyArray<string> | undefined;
     /** Why the quick replies store fails, when it does. */
     quickRepliesFailure: string | undefined;
-    /** The speech service: whether it is set up, what it hears, why it fails and its clips. */
+    /** The speech service: whether it is set up, what it hears, why it fails and the voice messages it got (`clips`, as the agent package names them). */
     readonly speech: {
       available: boolean;
       text: string;

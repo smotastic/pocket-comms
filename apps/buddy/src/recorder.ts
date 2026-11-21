@@ -7,13 +7,13 @@ export class RecorderError extends Data.TaggedError('RecorderError')<{
   readonly reason: string;
 }> {}
 
-/** A recording in progress; `stop` ends it and answers the clip as WAV bytes. */
-export interface Recording {
+/** A voice message in progress; `stop` ends it and answers the voice message as WAV bytes. */
+export interface Capture {
   readonly stop: Effect.Effect<Uint8Array, RecorderError>;
 }
 
 /** The buddy's microphone. */
 export class Recorder extends Context.Service<
   Recorder,
-  { readonly start: Effect.Effect<Recording, RecorderError> }
+  { readonly start: Effect.Effect<Capture, RecorderError> }
 >()('buddy/Recorder') {}

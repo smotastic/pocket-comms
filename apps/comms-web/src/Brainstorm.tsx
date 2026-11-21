@@ -314,7 +314,7 @@ const Footer = ({
   const [draft, setDraft] = useState('');
   const images = useAttachments(client);
   const voice = useVoiceClip(
-    (clip) => client.transcribe(clip),
+    (voiceMessage) => client.transcribe(voiceMessage),
     (text) => setDraft((current) => appendText(current, text)),
   );
   // A successful send clears the text and the images; a failed one keeps both.

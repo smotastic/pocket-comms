@@ -65,8 +65,10 @@ export const layer = (baseUrl: string) =>
         request.pipe(Effect.mapError(toCommsError));
 
       return {
-        transcribe: (clip) =>
-          call(api.speech.transcribe({ payload: clip })).pipe(Effect.map((result) => result.text)),
+        transcribe: (voiceMessage) =>
+          call(api.speech.transcribe({ payload: voiceMessage })).pipe(
+            Effect.map((result) => result.text),
+          ),
         send: (message) => call(api.brainstorm.send({ payload: { text: message } })),
         answering: call(api.brainstorm.state()).pipe(
           Effect.flatMap((state) =>

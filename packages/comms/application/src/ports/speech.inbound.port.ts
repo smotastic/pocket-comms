@@ -6,7 +6,7 @@ import * as Layer from 'effect/Layer';
 import type { SpeechDto } from '../dto/speech.dto.js';
 import { makeSpeech } from '../use-cases/speech.use-case.js';
 
-// The inbound port of voice messages: a clip in, its words out.
+// The inbound port of voice messages: a voice message in, its words out.
 
 export class SpeechInbound extends Context.Service<
   SpeechInbound,

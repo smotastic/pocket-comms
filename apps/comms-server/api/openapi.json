@@ -4874,7 +4874,7 @@
     },
     "/api/v1/speech/transcriptions": {
       "post": {
-        "description": "Checks the clip by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the clip is kept.",
+        "description": "Checks the voice message by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the voice message is kept.",
         "operationId": "speech.transcribe",
         "parameters": [],
         "requestBody": {

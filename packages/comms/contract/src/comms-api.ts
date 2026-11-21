@@ -1761,7 +1761,7 @@ const speech = HttpApiGroup.make('speech')
       OpenApi.annotations({
         summary: 'Transcribe a voice message',
         description:
-          'Checks the clip by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the clip is kept.',
+          'Checks the voice message by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the voice message is kept.',
       }),
     ),
   )

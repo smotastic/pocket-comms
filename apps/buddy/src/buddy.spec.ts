@@ -43,24 +43,24 @@ describe('the buddy', () => {
 });
 
 describe('recording', () => {
-  it.effect('records while the button is held and keeps the clip in the outbox', () =>
+  it.effect('records while the button is held and keeps the voice message in the outbox', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         fake.comms.answering = true;
         yield* press(fake, 'Press');
         expect(fake.recorder.recording).toBe(true);
         yield* wait(12_000);
-        expect(lastView(fake)?.status).toBe('Recording 0:12');
+        expect(lastView(fake)?.status).toBe('Listening 0:12');
 
         yield* press(fake, 'Release');
 
         expect(fake.recorder.recording).toBe(false);
-        expect(fake.outbox.map((clip) => [...clip.bytes])).toEqual([[1]]);
+        expect(fake.outbox.map((voiceMessage) => [...voiceMessage.bytes])).toEqual([[1]]);
       }),
     ),
   );
 
-  it.effect('drops a clip shorter than half a second as a slip of the button', () =>
+  it.effect('drops a voice message shorter than half a second as a slip of the button', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         yield* press(fake, 'Press');
@@ -73,7 +73,7 @@ describe('recording', () => {
     ),
   );
 
-  it.effect('ends a recording by itself after two minutes', () =>
+  it.effect('ends a voice message by itself after two minutes', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         fake.comms.answering = true;
@@ -105,7 +105,7 @@ describe('recording', () => {
     ),
   );
 
-  it.effect('keeps a recording that is under way when the owner quits', () =>
+  it.effect('keeps a voice message that is under way when the owner quits', () =>
     Effect.gen(function* () {
       const { fake, layer } = yield* makeFakes;
       fake.comms.answering = true;
@@ -123,25 +123,27 @@ describe('recording', () => {
   );
 });
 
-/** Records one clip of a second. */
+/** Records one voice message of a second. */
 const say = (fake: Fake) =>
   press(fake, 'Press').pipe(Effect.andThen(wait(1_000)), Effect.andThen(press(fake, 'Release')));
 
 describe('stopping', () => {
-  it.effect('keeps a recording under way when the program is interrupted, such as by SIGTERM', () =>
-    Effect.gen(function* () {
-      const { fake, layer } = yield* makeFakes;
-      fake.comms.answering = true;
-      const running = yield* buddy.pipe(Effect.provide(layer), Effect.forkChild);
-      yield* settle;
-      yield* press(fake, 'Press');
-      yield* wait(2_000);
+  it.effect(
+    'keeps a voice message under way when the program is interrupted, such as by SIGTERM',
+    () =>
+      Effect.gen(function* () {
+        const { fake, layer } = yield* makeFakes;
+        fake.comms.answering = true;
+        const running = yield* buddy.pipe(Effect.provide(layer), Effect.forkChild);
+        yield* settle;
+        yield* press(fake, 'Press');
+        yield* wait(2_000);
 
-      yield* Fiber.interrupt(running);
+        yield* Fiber.interrupt(running);
 
-      expect(fake.recorder.recording).toBe(false);
-      expect(fake.outbox).toHaveLength(1);
-    }),
+        expect(fake.recorder.recording).toBe(false);
+        expect(fake.outbox).toHaveLength(1);
+      }),
   );
 });
 
@@ -180,7 +182,7 @@ describe('the laptop’s toggle', () => {
   const toggle = (fake: Fake) =>
     Queue.offer(fake.intents, { _tag: 'Toggle' }).pipe(Effect.andThen(settle));
 
-  it.effect('starts a recording, and ends it on the next toggle', () =>
+  it.effect('starts a voice message, and ends it on the next toggle', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         fake.comms.answering = true;
@@ -195,7 +197,7 @@ describe('the laptop’s toggle', () => {
     ),
   );
 
-  it.effect('starts a new recording right after one ended at the limit', () =>
+  it.effect('starts a new voice message right after one ended at the limit', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         fake.comms.answering = true;
@@ -227,7 +229,7 @@ describe('the laptop’s toggle', () => {
 });
 
 describe('sending', () => {
-  it.effect('has a clip transcribed, sends its words and takes it out of the outbox', () =>
+  it.effect('has a voice message transcribed, sends its words and takes it out of the outbox', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         yield* say(fake);
@@ -239,7 +241,7 @@ describe('sending', () => {
     ),
   );
 
-  it.effect('sends the clips left from before a restart, oldest first', () =>
+  it.effect('sends the voice messages left from before a restart, oldest first', () =>
     withBuddy(
       (fake) =>
         Effect.sync(() => {
@@ -254,11 +256,11 @@ describe('sending', () => {
     ),
   );
 
-  it.effect('counts the waiting clips one change at a time', () =>
+  it.effect('counts the waiting voice messages one change at a time', () =>
     withBuddy(
       (fake) =>
         Effect.gen(function* () {
-          // A clip ends while the sender still counts the outbox.
+          // A voice message ends while the sender still counts the outbox.
           yield* press(fake, 'Press');
           yield* wait(600);
           yield* press(fake, 'Release');
@@ -291,45 +293,49 @@ describe('sending', () => {
     ),
   );
 
-  it.effect('keeps the clips while comms cannot be reached, waiting longer each time', () =>
-    withBuddy((fake) =>
-      Effect.gen(function* () {
-        fake.comms.transcribeFailures.push(
-          new Unreachable({ reason: 'No connection.' }),
-          new Unreachable({ reason: 'No connection.' }),
-        );
-        yield* say(fake);
-        expect(lastView(fake)?.status).toBe('Offline · 1 waiting');
+  it.effect(
+    'keeps the voice messages while comms cannot be reached, waiting longer each time',
+    () =>
+      withBuddy((fake) =>
+        Effect.gen(function* () {
+          fake.comms.transcribeFailures.push(
+            new Unreachable({ reason: 'No connection.' }),
+            new Unreachable({ reason: 'No connection.' }),
+          );
+          yield* say(fake);
+          expect(lastView(fake)?.status).toBe('Offline · 1 waiting');
 
-        yield* wait(2_000);
-        expect(fake.comms.sent).toEqual([]);
-        yield* wait(3_999);
-        expect(fake.comms.sent).toEqual([]);
-        yield* wait(1);
+          yield* wait(2_000);
+          expect(fake.comms.sent).toEqual([]);
+          yield* wait(3_999);
+          expect(fake.comms.sent).toEqual([]);
+          yield* wait(1);
 
-        expect(fake.comms.sent).toEqual(['idea 1']);
-        expect(lastView(fake)?.status).toBe('Ready');
-      }),
-    ),
+          expect(fake.comms.sent).toEqual(['idea 1']);
+          expect(lastView(fake)?.status).toBe('Ready');
+        }),
+      ),
   );
 
-  it.effect('keeps two clips recorded offline and sends both in order when comms is back', () =>
-    withBuddy((fake) =>
-      Effect.gen(function* () {
-        const offline = () => new Unreachable({ reason: 'No connection.' });
-        fake.comms.transcribeFailures.push(offline(), offline(), offline());
-        yield* say(fake);
-        yield* say(fake);
+  it.effect(
+    'keeps two voice messages recorded offline and sends both in order when comms is back',
+    () =>
+      withBuddy((fake) =>
+        Effect.gen(function* () {
+          const offline = () => new Unreachable({ reason: 'No connection.' });
+          fake.comms.transcribeFailures.push(offline(), offline(), offline());
+          yield* say(fake);
+          yield* say(fake);
 
-        expect(lastView(fake)?.status).toBe('Offline · 2 waiting');
-        expect(fake.comms.sent).toEqual([]);
+          expect(lastView(fake)?.status).toBe('Offline · 2 waiting');
+          expect(fake.comms.sent).toEqual([]);
 
-        yield* wait(60_000);
+          yield* wait(60_000);
 
-        expect(fake.comms.sent).toEqual(['idea 1', 'idea 2']);
-        expect(lastView(fake)?.status).toBe('Ready');
-      }),
-    ),
+          expect(fake.comms.sent).toEqual(['idea 1', 'idea 2']);
+          expect(lastView(fake)?.status).toBe('Ready');
+        }),
+      ),
   );
 
   it.effect('waits at most a minute between tries', () =>
@@ -352,7 +358,7 @@ describe('sending', () => {
   it.effect('does not count a wait for Pi as a failure', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
-        // The send waits for Pi, then the second clip finds comms gone once.
+        // The send waits for Pi, then the second voice message finds comms gone once.
         fake.comms.sendFailures.push(new Busy());
         yield* say(fake);
         yield* wait(2_000);
@@ -379,10 +385,10 @@ describe('sending', () => {
     ),
   );
 
-  it.effect('drops a clip without words and says so', () =>
+  it.effect('drops a voice message without words and says so', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
-        fake.comms.transcript = () => '';
+        fake.comms.transcription = () => '';
         yield* say(fake);
 
         expect(fake.comms.sent).toEqual([]);
@@ -392,7 +398,7 @@ describe('sending', () => {
     ),
   );
 
-  it.effect('drops a clip comms refuses and says why', () =>
+  it.effect('drops a voice message comms refuses and says why', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         fake.comms.transcribeFailures.push(
@@ -406,7 +412,7 @@ describe('sending', () => {
     ),
   );
 
-  it.effect('drops the clip comms refused to send, not the one after it', () =>
+  it.effect('drops the voice message comms refused to send, not the one after it', () =>
     withBuddy(
       (fake) =>
         Effect.sync(() => {
@@ -419,16 +425,16 @@ describe('sending', () => {
           { id: 'b', bytes: Uint8Array.from([8]) },
         );
         fake.comms.sendFailures.push(new Refused({ reason: 'The message is too long.' }));
-        // The refused clip leaves the outbox while it is sent, such as by hand.
+        // The refused voice message leaves the outbox while it is sent, such as by hand.
         fake.comms.onSend = () => {
-          fake.outbox = fake.outbox.filter((clip) => clip.id !== 'a');
+          fake.outbox = fake.outbox.filter((voiceMessage) => voiceMessage.id !== 'a');
           fake.comms.onSend = () => undefined;
         };
       },
     ),
   );
 
-  it.effect('keeps the clips while the brainstorm or transcription is not set up', () =>
+  it.effect('keeps the voice messages while the brainstorm or transcription is not set up', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         fake.comms.transcribeFailures.push(
@@ -446,7 +452,7 @@ describe('sending', () => {
     ),
   );
 
-  it.effect('keeps a clip after any other failure and tries again', () =>
+  it.effect('keeps a voice message after any other failure and tries again', () =>
     withBuddy((fake) =>
       Effect.gen(function* () {
         fake.comms.transcribeFailures.push(

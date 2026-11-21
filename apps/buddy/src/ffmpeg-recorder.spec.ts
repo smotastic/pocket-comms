@@ -22,12 +22,12 @@ const node = (script: string, stopMillis?: number) =>
 describe('a recorder process', () => {
   it.live('answers what it wrote when it ends on q', () =>
     Effect.gen(function* () {
-      const recording = yield* node(
+      const capture = yield* node(
         "process.stdout.write('RIFF0000WAVE');" +
           "process.stdin.on('data', (d) => { if (String(d).includes('q')) process.exit(0); });",
       ).start;
 
-      const bytes = yield* recording.stop;
+      const bytes = yield* capture.stop;
 
       expect(Buffer.from(bytes).subarray(0, 4).toString()).toBe('RIFF');
       expect(new DataView(bytes.buffer).getUint32(4, true)).toBe(4);
@@ -36,13 +36,13 @@ describe('a recorder process', () => {
 
   it.live('kills a process that does not end in time and keeps what it wrote', () =>
     Effect.gen(function* () {
-      const recording = yield* node(
+      const capture = yield* node(
         "process.stdout.write('RIFF0000WAVE'); process.stdin.resume(); setInterval(() => {}, 1000);",
         // Long enough for node to start and write on a busy machine.
         2_000,
       ).start;
 
-      const bytes = yield* recording.stop;
+      const bytes = yield* capture.stop;
 
       expect(bytes.length).toBe(12);
     }),
@@ -50,11 +50,11 @@ describe('a recorder process', () => {
 
   it.live('says why when the process wrote nothing', () =>
     Effect.gen(function* () {
-      const recording = yield* node("process.stderr.write('Permission denied'); process.exit(1);")
+      const capture = yield* node("process.stderr.write('Permission denied'); process.exit(1);")
         .start;
       yield* Effect.sleep(200);
 
-      const error = yield* recording.stop.pipe(Effect.flip);
+      const error = yield* capture.stop.pipe(Effect.flip);
 
       expect(error.reason).toBe('The microphone did not record: Permission denied');
     }),

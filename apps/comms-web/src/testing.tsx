@@ -72,9 +72,9 @@ export interface FakeState {
   answerFailure?: RequestError;
   /** A failure for the next image upload. */
   uploadFailure?: string;
-  /** Whether the server transcribes voice clips. */
+  /** Whether the server transcribes voice messages. */
   speechAvailable: boolean;
-  /** What the next voice clip is transcribed to, or a failure. */
+  /** What the next voice message is transcribed to, or a failure. */
   transcription: string | RequestError;
   /** Holds a transcription on its way until it resolves, such as to see the wait. */
   transcriptionGate?: Promise<void>;
@@ -149,8 +149,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     uploads: [] as Array<Blob>,
     /** How often the app asked whether the server transcribes. */
     speechAsked: 0,
-    /** The voice clips sent for transcription. */
-    clips: [] as Array<Blob>,
+    /** The voice messages sent for transcription. */
+    voiceMessages: [] as Array<Blob>,
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
     typed: [] as Array<[string, string]>,
     answers: [] as Array<[string, string, ReadonlyArray<ReadonlyArray<number>>]>,
@@ -217,8 +217,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       calls.speechAsked += 1;
       return state.speechAvailable;
     },
-    transcribe: async (clip) => {
-      calls.clips.push(clip);
+    transcribe: async (voiceMessage) => {
+      calls.voiceMessages.push(voiceMessage);
       await state.transcriptionGate;
       if (state.transcription instanceof RequestError) throw state.transcription;
       return state.transcription;

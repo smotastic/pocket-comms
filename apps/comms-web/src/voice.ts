@@ -2,17 +2,17 @@ import type { AlertTone, VoiceClipLabels, VoiceNotice } from '@smotastic/pocket-
 
 // The words of a composer's voice message; the design kit records, the server transcribes.
 
-/** What the clip's row says in each state. */
+/** What the voice message's row says in each state. */
 export const voiceLabels: VoiceClipLabels = {
   starting: 'Starting the microphone…',
-  recording: 'Recording',
+  recording: 'Listening',
   stop: 'Stop',
   cancel: 'Cancel',
   hearing: 'Hearing you',
   silence: 'No sound',
   transcribing: (length) => `Transcribing ${length}…`,
   failed: (length, reason) =>
-    `Voice clip ${length} not transcribed: ${reason ?? 'The clip was not transcribed.'}`,
+    `Voice message ${length} not transcribed: ${reason ?? 'The voice message was not transcribed.'}`,
   retry: 'Retry',
   discard: 'Discard',
   limit: (max) => `of ${max}`,
@@ -24,7 +24,7 @@ const NOTICES: Record<VoiceNotice, { readonly text: string; readonly tone: Alert
     tone: 'danger',
   },
   cannotRecord: { text: 'No microphone can record here.', tone: 'danger' },
-  recordingFailed: { text: 'The recording failed.', tone: 'danger' },
+  recordingFailed: { text: 'The voice message could not be recorded.', tone: 'danger' },
   noSpeech: { text: 'No speech was heard.', tone: 'info' },
 };
 

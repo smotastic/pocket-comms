@@ -73,7 +73,7 @@ const withComms = <A, E>(url: string, body: (comms: Comms['Service']) => Effect.
 const WAV = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45]);
 
 describe('HttpComms', () => {
-  it.live('sends the clip as raw bytes and answers its words', () =>
+  it.live('sends the voice message as raw bytes and answers its words', () =>
     Effect.gen(function* () {
       const { url, seen } = yield* serve((_, response) =>
         json(response, 200, { text: 'dark mode' }),
@@ -124,7 +124,7 @@ describe('HttpComms', () => {
     }),
   );
 
-  it.live('tells that comms refused the clip itself, with its reason', () =>
+  it.live('tells that comms refused the voice message itself, with its reason', () =>
     Effect.gen(function* () {
       const { url } = yield* serve((_, response) =>
         problem(response, 422, 'invalid-request', {

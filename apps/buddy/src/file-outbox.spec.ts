@@ -19,20 +19,20 @@ const withOutbox = <A, E>(body: (outbox: Outbox['Service']) => Effect.Effect<A, 
   Outbox.use(body).pipe(Effect.provide(FileOutbox.layer(folder)));
 
 describe('FileOutbox', () => {
-  it.live('keeps clips in the order they were put and answers the oldest', () =>
+  it.live('keeps voice messages in the order they were put and answers the oldest', () =>
     withOutbox((outbox) =>
       Effect.gen(function* () {
         const first = yield* outbox.put(Uint8Array.from([1]));
         yield* outbox.put(Uint8Array.from([2]));
 
         const oldest = yield* outbox.oldest;
-        expect(Option.map(oldest, (clip) => [clip.id, [...clip.bytes]])).toEqual(
-          Option.some([first.id, [1]]),
-        );
+        expect(
+          Option.map(oldest, (voiceMessage) => [voiceMessage.id, [...voiceMessage.bytes]]),
+        ).toEqual(Option.some([first.id, [1]]));
         expect(yield* outbox.size).toBe(2);
 
         yield* outbox.remove(first.id);
-        expect(Option.map(yield* outbox.oldest, (clip) => [...clip.bytes])).toEqual(
+        expect(Option.map(yield* outbox.oldest, (voiceMessage) => [...voiceMessage.bytes])).toEqual(
           Option.some([2]),
         );
         expect(yield* outbox.size).toBe(1);
@@ -49,17 +49,19 @@ describe('FileOutbox', () => {
     ),
   );
 
-  it.live('keeps its clips across a restart', () =>
+  it.live('keeps its voice messages across a restart', () =>
     Effect.gen(function* () {
       yield* withOutbox((outbox) => outbox.put(Uint8Array.from([7])));
 
       const after = yield* withOutbox((outbox) => outbox.oldest);
 
-      expect(Option.map(after, (clip) => [...clip.bytes])).toEqual(Option.some([7]));
+      expect(Option.map(after, (voiceMessage) => [...voiceMessage.bytes])).toEqual(
+        Option.some([7]),
+      );
     }),
   );
 
-  it.live('throws away a clip that was never written to the end when it starts', () =>
+  it.live('throws away a voice message that was never written to the end when it starts', () =>
     Effect.gen(function* () {
       yield* Effect.promise(() => writeFile(join(folder, '000000000000001-000000.wav.part'), 'x'));
 
@@ -68,7 +70,7 @@ describe('FileOutbox', () => {
     }),
   );
 
-  it.live('writes each clip as a .wav file in its folder', () =>
+  it.live('writes each voice message as a .wav file in its folder', () =>
     Effect.gen(function* () {
       yield* withOutbox((outbox) => outbox.put(Uint8Array.from([1])));
 
