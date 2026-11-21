@@ -437,7 +437,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           ) : null}
           {dialogWaits ? (
             <Composer
-              label="Type into the dialog"
+              label="Answer the agent question"
               value={dialogText}
               onChange={setDialogText}
               onSend={(text) => typeText({ text, fromField: true })}

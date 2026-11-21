@@ -286,7 +286,7 @@ describe('the conversation', () => {
     await openControls();
     expect(await screen.findByRole('group', { name: 'Keys' })).toBeDefined();
     expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
-    expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Answer the agent question' })).toBeDefined();
   });
 
   it('offers no keys before it knows the agent', async () => {
@@ -350,7 +350,7 @@ describe('typed answers and quick replies', () => {
 
   it('keeps the keys collapsed under Controls and the quick replies in the menu, beside the dialog field', async () => {
     open(fakeAgent({ status: 'blocked', needsYou: true }));
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
 
     const controls = screen.getByRole('button', { name: /^Controls/ });
     expect(controls.getAttribute('aria-expanded')).toBe('false');
@@ -386,7 +386,7 @@ describe('typed answers and quick replies', () => {
     'offers the keys, the quick replies and the dialog field in the %s view',
     async (view) => {
       open(fakeAgent({ status: 'blocked', needsYou: true }));
-      await screen.findByRole('textbox', { name: 'Type into the dialog' });
+      await screen.findByRole('textbox', { name: 'Answer the agent question' });
       await userEvent.click(screen.getByRole('radio', { name: view }));
       await openControls();
 
@@ -406,7 +406,7 @@ describe('typed answers and quick replies', () => {
   it('types the answer into the dialog without a prompt or a key, and clears the field', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
     await userEvent.click(await screen.findByRole('radio', { name: 'Screen' }));
-    const box = screen.getByRole('textbox', { name: 'Type into the dialog' });
+    const box = screen.getByRole('textbox', { name: 'Answer the agent question' });
 
     await userEvent.type(box, 'Use SQLite instead{Enter}');
 
@@ -419,7 +419,7 @@ describe('typed answers and quick replies', () => {
   it('keeps the answer and says why when typing fails', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
     fake.state.typeFailure = 'Herdr refused the text';
-    const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    const box = await screen.findByRole('textbox', { name: 'Answer the agent question' });
 
     await userEvent.type(box, 'Use SQLite{Enter}');
 
@@ -429,7 +429,7 @@ describe('typed answers and quick replies', () => {
 
   it('types a quick reply into the waiting dialog', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
     await openQuickReplies();
 
     await userEvent.click(await chip('Commit and open a PR'));
@@ -483,7 +483,7 @@ describe('typed answers and quick replies', () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
     let release: () => void = () => undefined;
     fake.state.typeGate = new Promise((resolve) => (release = resolve));
-    const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    const box = await screen.findByRole('textbox', { name: 'Answer the agent question' });
     await openControls();
 
     await userEvent.type(box, 'Use SQLite{Enter}');
@@ -514,7 +514,7 @@ describe('typed answers and quick replies', () => {
       }),
     );
     fake.state.typeFailure = 'Herdr refused the text';
-    const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    const box = await screen.findByRole('textbox', { name: 'Answer the agent question' });
     await userEvent.type(box, 'Use SQLite{Enter}');
     await screen.findByRole('alert');
 
@@ -527,7 +527,7 @@ describe('typed answers and quick replies', () => {
 
   it('has no accessibility violations while a dialog waits', async () => {
     open(fakeAgent({ status: 'blocked', needsYou: true }));
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
 
     expect(await axeViolations(document.body)).toEqual([]);
   });
@@ -1104,7 +1104,7 @@ describe('voice messages in the conversation', () => {
 
   it('offers no Record voice in the dialog’s composer', async () => {
     await openWith(true, fakeAgent({ status: 'blocked' }));
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
 
     expect(await menu()).toEqual(['Quick replies']);
   });
@@ -1120,7 +1120,7 @@ describe('voice messages in the conversation', () => {
         agent: fakeAgent({ status: 'blocked', needsYou: true }),
       }),
     );
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
     await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
     await waitFor(() => expect(fake.calls.voiceMessages).toHaveLength(1));
     act(() => fake.emitAgent('kirk', { type: 'agent', agent: fakeAgent({ status: 'idle' }) }));
@@ -1129,7 +1129,7 @@ describe('voice messages in the conversation', () => {
     expect(
       (
         screen.queryByRole('textbox', {
-          name: 'Type into the dialog',
+          name: 'Answer the agent question',
         }) as HTMLTextAreaElement | null
       )?.value ?? '',
     ).toBe('');
@@ -1210,7 +1210,7 @@ describe("answering an agent's question in the conversation", () => {
     );
     expect(screen.queryByRole('region', { name: 'Claude needs your answer' })).toBeNull();
     expect(screen.getByRole('button', { name: /^Controls/ })).toBeDefined();
-    expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Answer the agent question' })).toBeDefined();
   });
 
   it('sends the chosen options once every question has one, and shows them as sent', async () => {
@@ -1320,7 +1320,7 @@ describe("answering an agent's question in the conversation", () => {
 
     expect(await screen.findByRole('radio', { name: 'No undo' })).toBeDefined();
     expect(screen.getByRole('button', { name: /^Controls/ })).toBeDefined();
-    expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Answer the agent question' })).toBeDefined();
     expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
   });
 
