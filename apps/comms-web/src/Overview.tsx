@@ -132,6 +132,7 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
       />
       <Page
         kind="home"
+        landmark="constellation"
         header={
           <Stack gap="2xs">
             <Heading level={1}>Agents</Heading>
