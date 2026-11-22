@@ -75,6 +75,13 @@ describe('the overview', () => {
     expect(await screen.findByText('4 running · 2 need you')).toBeDefined();
   });
 
+  it("draws Constellation, Pocket Comms' landmark, under the header", async () => {
+    renderApp({ client: fakeClient({ overview }).client });
+
+    await screen.findByRole('heading', { level: 1, name: 'Agents' });
+    expect(document.querySelector('[data-landmark="constellation"]')).not.toBeNull();
+  });
+
   it('marks a row whose agent has background work running', async () => {
     const waiting = fakeAgent({
       status: 'done',
