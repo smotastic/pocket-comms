@@ -1,5 +1,5 @@
 import type { AgentView } from './comms-client.js';
-import type { ToolEntry, ToolLink } from './Chat.js';
+import type { ToolEntry, ToolLink } from './ConversationEntries.js';
 import { since } from './since.js';
 
 type BackgroundItem = AgentView['background'][number];

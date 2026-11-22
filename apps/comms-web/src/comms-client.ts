@@ -9,7 +9,7 @@ import {
   CommsApi,
   type CreateTaskRequest,
   type Issue,
-  type IssueDraft,
+  type ProposedIssue,
   type IssueList,
   type IssueTaskCreated,
   type KEYS,
@@ -20,7 +20,7 @@ import {
   type Subagent,
   SubagentEvent,
   type TaskCreated,
-  type Transcript,
+  type Conversation,
 } from '@pocket-comms/comms-contract';
 import * as Cause from 'effect/Cause';
 import * as Effect from 'effect/Effect';
@@ -35,7 +35,7 @@ export type ActivityView = typeof Activity.Type;
 export type ActivityEventView = ActivityView['events'][number];
 export type OverviewView = typeof Overview.Type;
 export type OverviewStateView = typeof OverviewState.Type;
-export type TranscriptView = typeof Transcript.Type;
+export type ConversationView = typeof Conversation.Type;
 export type AgentEventView = typeof AgentEvent.Type;
 export type SubagentView = typeof Subagent.Type;
 export type SubagentEventView = typeof SubagentEvent.Type;
@@ -49,9 +49,9 @@ export type IssueView = typeof Issue.Type;
 export type IssueTaskCreatedView = typeof IssueTaskCreated.Type;
 export type BrainstormStateView = typeof BrainstormState.Type;
 export type BrainstormEventView = typeof BrainstormEvent.Type;
-/** One of the brainstorm chat's own entries, among the agent package's shared ones. */
+/** One of the brainstorm's own entries, among the agent package's shared ones. */
 export type BrainstormEntryView = typeof BrainstormEntry.Type;
-export type IssueDraftView = typeof IssueDraft.Type;
+export type ProposedIssueView = typeof ProposedIssue.Type;
 export type ProposalDecision = typeof ProposalDecisionRequest.Type;
 
 /** Stops a live subscription. */
@@ -67,7 +67,7 @@ export type OnLive = (live: boolean) => void;
 export interface CommsClient {
   readonly overview: () => Promise<OverviewView>;
   readonly agent: (ref: string) => Promise<AgentView>;
-  readonly transcript: (ref: string) => Promise<TranscriptView>;
+  readonly conversation: (ref: string) => Promise<ConversationView>;
   /** A subagent of the agent's session, with its own conversation. */
   readonly subagent: (ref: string, id: string) => Promise<SubagentView>;
   readonly screen: (ref: string) => Promise<string>;
@@ -77,10 +77,10 @@ export interface CommsClient {
   readonly uploadImage: (image: Blob) => Promise<string>;
   /** Where an uploaded image is served. */
   readonly imageUrl: (id: string) => string;
-  /** Whether the server transcribes voice clips, for every composer. */
+  /** Whether the server transcribes voice messages, for every composer. */
   readonly speech: () => Promise<boolean>;
-  /** Turns a recorded voice clip into text, possibly empty. */
-  readonly transcribe: (clip: Blob) => Promise<string>;
+  /** Turns a recorded voice message into text, possibly empty. */
+  readonly transcribe: (voiceMessage: Blob) => Promise<string>;
   /** Types the text into the agent's waiting dialog; it never presses Enter. */
   readonly type: (ref: string, text: string) => Promise<void>;
   readonly keys: (ref: string, keys: ReadonlyArray<Key>) => Promise<void>;
@@ -107,15 +107,15 @@ export interface CommsClient {
     additionalInformation?: string,
   ) => Promise<IssueTaskCreatedView>;
   readonly closeIssue: (project: string, number: number) => Promise<void>;
-  /** The brainstorm chat (spec 013). */
+  /** The brainstorm (spec 013). */
   readonly brainstorm: () => Promise<BrainstormStateView>;
   /**
-   * Sends the owner's message with the attached pictures, by the ids `uploadImage` gave them;
+   * Sends the owner's message with the attached images, by the ids `uploadImage` gave them;
    * Pi's answer arrives on the brainstorm stream.
    */
   readonly sendBrainstorm: (text: string, imageIds?: ReadonlyArray<string>) => Promise<void>;
   readonly decideProposal: (id: string, decision: ProposalDecision) => Promise<void>;
-  /** Starts an empty brainstorm chat. */
+  /** Starts an empty brainstorm. */
   readonly resetBrainstorm: () => Promise<void>;
   /** The server's public key, which a device subscribes to push with. */
   readonly pushKey: () => Promise<string>;
@@ -126,7 +126,7 @@ export interface CommsClient {
   /** Saves the list in place of the old one and answers it as saved. */
   readonly saveQuickReplies: (replies: ReadonlyArray<string>) => Promise<ReadonlyArray<string>>;
   /**
-   * Follows the brainstorm chat after the entry `after()` answers, the last one the reader has;
+   * Follows the brainstorm after the entry `after()` answers, the last one the reader has;
    * after a lost connection it follows again from the reader's new last one (spec 026).
    */
   readonly followBrainstorm: (
@@ -284,7 +284,7 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
   return {
     overview: () => run((api) => api.agents.overview()),
     agent: (ref) => run((api) => api.agents.agent(agent(ref))),
-    transcript: (ref) => run((api) => api.agents.transcript(agent(ref))),
+    conversation: (ref) => run((api) => api.agents.conversation(agent(ref))),
     subagent: (ref, id) =>
       run((api) => api.agents.subagent({ params: { agent: ref, subagent: id } })),
     screen: (ref) => run((api) => api.agents.screen(agent(ref))).then((screen) => screen.text),
@@ -301,8 +301,8 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     },
     imageUrl: (id) => `${baseUrl}/api/v1/images/${encodeURIComponent(id)}`,
     speech: () => run((api) => api.speech.state()).then((state) => state.available),
-    transcribe: async (clip) => {
-      const bytes = new Uint8Array(await clip.arrayBuffer());
+    transcribe: async (voiceMessage) => {
+      const bytes = new Uint8Array(await voiceMessage.arrayBuffer());
       return run((api) => api.speech.transcribe({ payload: bytes })).then((result) => result.text);
     },
     type: (ref, text) =>

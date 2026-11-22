@@ -33,19 +33,19 @@ import { brainstormQuery, projectsQuery } from './comms-queries.js';
 import { IssueEditCard } from './IssueEditCard.js';
 import { useBrainstormLive, type BrainstormView } from './live.js';
 import { ProposalCard } from './ProposalCard.js';
-import { PictureThumb, type ChatPicture } from './ProposalPictures.js';
+import { BrainstormImageThumb, type BrainstormImage } from './ProposalImages.js';
 import { voiceLabels, voiceNotice } from './voice.js';
 
-// The brainstorm chat: one ongoing chat with Pi, opened from the top bars. Pi proposes new issues
+// The brainstorm: one ongoing brainstorm with Pi, opened from the top bars. Pi proposes new issues
 // and edits of existing ones, and the owner decides on each. The owner's messages may attach
-// pictures, which go to Gitea with the proposals the owner chooses them for (spec 023). Pi's reply
+// images, which go to Gitea with the proposals the owner chooses them for (spec 023). Pi's reply
 // streams in, and each tool it runs shows as a row (spec 026).
 
 type Ready = Extract<BrainstormStateView, { readonly _tag: 'Ready' }>;
 type ProposalView = Extract<BrainstormEntryView, { readonly kind: 'proposal' }>['proposal'];
 
-/** What the chat says when Pi only learns that pictures were attached. */
-const BLIND = "This model can't see pictures";
+/** What the brainstorm says when Pi only learns that images were attached. */
+const BLIND = "This model can't see images";
 
 const PI = 'Pi';
 
@@ -108,13 +108,13 @@ export const shownItems = (view: BrainstormView): ReadonlyArray<Shown> => {
 const Proposal = ({
   proposal,
   projects,
-  pictures,
+  images,
   busy,
   decide,
 }: {
   readonly proposal: ProposalView;
   readonly projects: ReadonlyArray<string>;
-  readonly pictures: ReadonlyArray<ChatPicture>;
+  readonly images: ReadonlyArray<BrainstormImage>;
   readonly busy: boolean;
   readonly decide: ReturnType<typeof useDecide>;
 }) => {
@@ -129,15 +129,15 @@ const Proposal = ({
         body={proposal.body}
         base={proposal.base}
         state={proposal.state}
-        pictures={pictures}
-        chosen={proposal.pictures}
+        images={images}
+        chosen={proposal.images}
         attached={proposal.attached}
         busy={busy || decide.isPending}
         {...(failed === null ? {} : { error: failed.message })}
         onApply={(edit, chosen) =>
           decide.mutate({
             id: proposal.id,
-            decision: { _tag: 'Apply', ...edit, pictures: chosen },
+            decision: { _tag: 'Apply', ...edit, images: chosen },
           })
         }
         onDiscard={() => decide.mutate({ id: proposal.id, decision: { _tag: 'Discard' } })}
@@ -151,13 +151,13 @@ const Proposal = ({
       body={proposal.body}
       state={proposal.state}
       projects={projects}
-      pictures={pictures}
-      chosen={proposal.pictures}
+      images={images}
+      chosen={proposal.images}
       attached={proposal.attached}
       busy={busy || decide.isPending}
       {...(failed === null ? {} : { error: failed.message })}
-      onCreate={(draft, chosen) =>
-        decide.mutate({ id: proposal.id, decision: { _tag: 'Create', draft, pictures: chosen } })
+      onCreate={(issue, chosen) =>
+        decide.mutate({ id: proposal.id, decision: { _tag: 'Create', issue, images: chosen } })
       }
       onDiscard={() => decide.mutate({ id: proposal.id, decision: { _tag: 'Discard' } })}
       onFinishWithout={() =>
@@ -189,9 +189,9 @@ const Thread = ({
   const projects = useQuery(projectsQuery(client));
   const decide = useDecide(client);
   const names = (projects.data ?? []).map((project) => project.name);
-  const pictures = state.pictures.map((picture) => ({
-    ...picture,
-    src: client.imageUrl(picture.id),
+  const images = state.images.map((image) => ({
+    ...image,
+    src: client.imageUrl(image.id),
   }));
   const busy = busyOf(state, view);
   const shown = shownItems(view);
@@ -212,7 +212,7 @@ const Thread = ({
       {shown.map((item) => {
         switch (item.kind) {
           case 'said': {
-            const attached = pictures.filter((picture) => item.entry.images.includes(picture.id));
+            const attached = images.filter((image) => item.entry.images.includes(image.id));
             return (
               <UserMessage
                 key={item.sequence}
@@ -224,11 +224,11 @@ const Thread = ({
                       attachments: (
                         <Stack gap="xs">
                           <Inline gap="xs">
-                            {attached.map((picture) => (
-                              <PictureThumb key={picture.id} picture={picture} />
+                            {attached.map((image) => (
+                              <BrainstormImageThumb key={image.id} image={image} />
                             ))}
                           </Inline>
-                          {state.seesPictures ? null : (
+                          {state.seesImages ? null : (
                             <Text tone="muted" size="sm">
                               {BLIND}
                             </Text>
@@ -263,7 +263,7 @@ const Thread = ({
                 key={item.sequence}
                 proposal={item.proposal}
                 projects={names}
-                pictures={pictures}
+                images={images}
                 busy={busy}
                 decide={decide}
               />
@@ -274,7 +274,7 @@ const Thread = ({
   );
 };
 
-/** Asks before a New chat, below the header, since the conversation is gone for good. */
+/** Asks before a New brainstorm, below the header, since the conversation is gone for good. */
 const ConfirmReset = ({
   client,
   onDone,
@@ -286,22 +286,22 @@ const ConfirmReset = ({
   return (
     <Stack gap="sm">
       <Text>
-        Start a new chat? This conversation is gone for good; issues created from it stay.
+        Start a new brainstorm? This conversation is gone for good; issues created from it stay.
       </Text>
       {reset.error === null ? null : <Alert>{reset.error.message}</Alert>}
       <Inline gap="sm">
         <Button variant="danger" disabled={reset.isPending} onClick={() => reset.mutate()}>
-          Start a new chat
+          Start a new brainstorm
         </Button>
         <Button variant="secondary" onClick={onDone}>
-          Keep this chat
+          Keep this brainstorm
         </Button>
       </Inline>
     </Stack>
   );
 };
 
-/** The composer: it takes no message while Pi answers or while the chat is not set up. */
+/** The composer: it takes no message while Pi answers or while the brainstorm is not set up. */
 const Footer = ({
   client,
   state,
@@ -314,14 +314,14 @@ const Footer = ({
   const [draft, setDraft] = useState('');
   const images = useAttachments(client);
   const voice = useVoiceClip(
-    (clip) => client.transcribe(clip),
+    (voiceMessage) => client.transcribe(voiceMessage),
     (text) => setDraft((current) => appendText(current, text)),
   );
-  // A successful send clears the text and the pictures; a failed one keeps both.
+  // A successful send clears the text and the images; a failed one keeps both.
   const send = useMutation({
     mutationFn: ({ text, imageIds }: { text: string; imageIds: ReadonlyArray<string> }) =>
       client.sendBrainstorm(text, imageIds),
-    // Only the sent text goes: a transcript that arrived meanwhile stays.
+    // Only the sent text goes: a transcription that arrived meanwhile stays.
     onSuccess: (_, { text }) => {
       setDraft((current) => withoutSent(current, text));
       images.clear();
@@ -337,7 +337,7 @@ const Footer = ({
       {voice.notice === undefined ? null : (
         <Alert tone={voiceNotice(voice.notice).tone}>{voiceNotice(voice.notice).text}</Alert>
       )}
-      {ready && !state.seesPictures && images.attachments.length > 0 ? (
+      {ready && !state.seesImages && images.attachments.length > 0 ? (
         <Text tone="muted" size="sm">
           {BLIND}
         </Text>
@@ -409,7 +409,7 @@ const Footer = ({
 
 const OpenBrainstorm = createContext<() => void>(() => undefined);
 
-/** Opens the brainstorm chat over the current screen. */
+/** Opens the brainstorm over the current screen. */
 export const useOpenBrainstorm = () => useContext(OpenBrainstorm);
 
 /** The Brainstorm action for a screen's top bar. */
@@ -418,7 +418,7 @@ export const BrainstormAction = () => (
 );
 
 /**
- * Holds the one chat sheet for every screen below it. Closing the sheet unmounts nothing there,
+ * Holds the one brainstorm sheet for every screen below it. Closing the sheet unmounts nothing there,
  * so the screen stays as it was.
  */
 export const Brainstorm = ({
@@ -430,9 +430,9 @@ export const Brainstorm = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
-  const chat = useQuery({ ...brainstormQuery(client), enabled: open });
+  const stateQuery = useQuery({ ...brainstormQuery(client), enabled: open });
   const { view } = useBrainstormLive(client, open);
-  const state = chat.data;
+  const state = stateQuery.data;
   const close = () => {
     setOpen(false);
     setConfirmingReset(false);
@@ -452,15 +452,15 @@ export const Brainstorm = ({
             title="Brainstorm"
             subtitle="Ideas with Pi"
             {...(state?._tag === 'Ready'
-              ? { newSession: { label: 'New chat', onClick: () => setConfirmingReset(true) } }
+              ? { newSession: { label: 'New brainstorm', onClick: () => setConfirmingReset(true) } }
               : {})}
             close={{ label: 'Close', onClick: close }}
           />
         }
         notices={
-          confirmingReset || chat.error !== null ? (
+          confirmingReset || stateQuery.error !== null ? (
             <Stack gap="sm">
-              {chat.error === null ? null : <Alert>{chat.error.message}</Alert>}
+              {stateQuery.error === null ? null : <Alert>{stateQuery.error.message}</Alert>}
               {confirmingReset ? (
                 <ConfirmReset client={client} onDone={() => setConfirmingReset(false)} />
               ) : null}
@@ -471,7 +471,7 @@ export const Brainstorm = ({
       >
         {state?._tag === 'NotSetUp' ? (
           <Stack gap="sm">
-            <Text>The brainstorm chat is not set up.</Text>
+            <Text>The brainstorm is not set up.</Text>
             <Text tone="muted">{state.reason}</Text>
           </Stack>
         ) : null}

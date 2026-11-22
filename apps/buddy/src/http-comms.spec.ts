@@ -73,7 +73,7 @@ const withComms = <A, E>(url: string, body: (comms: Comms['Service']) => Effect.
 const WAV = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45]);
 
 describe('HttpComms', () => {
-  it.live('sends the clip as raw bytes and answers its words', () =>
+  it.live('sends the voice message as raw bytes and answers its words', () =>
     Effect.gen(function* () {
       const { url, seen } = yield* serve((_, response) =>
         json(response, 200, { text: 'dark mode' }),
@@ -124,7 +124,7 @@ describe('HttpComms', () => {
     }),
   );
 
-  it.live('tells that comms refused the clip itself, with its reason', () =>
+  it.live('tells that comms refused the voice message itself, with its reason', () =>
     Effect.gen(function* () {
       const { url } = yield* serve((_, response) =>
         problem(response, 422, 'invalid-request', {
@@ -186,13 +186,13 @@ describe('HttpComms', () => {
     }),
   );
 
-  it.live('says whether Pi is answering, and when the chat is not set up', () =>
+  it.live('says whether Pi is answering, and when the brainstorm is not set up', () =>
     Effect.gen(function* () {
       let answer: unknown = {
         _tag: 'Ready',
         answering: true,
-        seesPictures: false,
-        pictures: [],
+        seesImages: false,
+        images: [],
         voice: true,
         entries: [],
       };
@@ -205,7 +205,7 @@ describe('HttpComms', () => {
     }),
   );
 
-  it.live('follows the chat’s events after a number, whatever chunks they come in', () =>
+  it.live('follows the brainstorm’s events after a number, whatever chunks they come in', () =>
     Effect.gen(function* () {
       const events =
         'event: brainstorm\ndata: {"kind":"entry","sequence":4,"entry":{"kind":"said","id":"u1","at":1,"text":"dark mode","images":[]}}\n\n' +
@@ -238,7 +238,7 @@ describe('HttpComms', () => {
     Effect.gen(function* () {
       const { url } = yield* serve((_, response) =>
         problem(response, 404, 'proposal-not-found', {
-          detail: 'The brainstorm chat has no proposal p1.',
+          detail: 'The brainstorm has no proposal p1.',
         }),
       );
 
@@ -248,7 +248,7 @@ describe('HttpComms', () => {
 
       expect(error).toMatchObject({
         _tag: 'Refused',
-        reason: 'The brainstorm chat has no proposal p1.',
+        reason: 'The brainstorm has no proposal p1.',
       });
     }),
   );
@@ -263,14 +263,14 @@ describe('HttpComms', () => {
       yield* withComms(url, (comms) =>
         comms.decide('p1', {
           _tag: 'Create',
-          draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+          issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
         }),
       );
 
       expect(seen[0]?.url).toBe('/api/v1/brainstorm/proposals/p1/decision');
       expect(JSON.parse(seen[0]?.body.toString() ?? '')).toEqual({
         _tag: 'Create',
-        draft: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+        issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
       });
     }),
   );

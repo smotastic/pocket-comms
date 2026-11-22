@@ -504,7 +504,7 @@
         "contentMediaType": "application/json",
         "description": "The event as JSON.",
         "examples": [
-          "{\"type\":\"entries\",\"reset\":true,\"entries\":[],\"activity\":\"Thinking…\"}"
+          "{\"type\":\"entries\",\"reset\":true,\"entries\":[],\"currentStep\":\"Thinking…\"}"
         ],
         "type": "string"
       },
@@ -544,7 +544,7 @@
             "type": "array"
           },
           "call": {
-            "description": "The waiting question call: its transcript entry's id.",
+            "description": "The waiting question call: its conversation entry's id.",
             "examples": ["toolu_01ABC"],
             "type": "string"
           }
@@ -660,24 +660,24 @@
             "additionalProperties": false,
             "properties": {
               "_tag": {
-                "description": "The chat works.",
+                "description": "The brainstorm works.",
                 "enum": ["Ready"],
                 "examples": ["Ready"],
                 "type": "string"
               },
               "answering": {
-                "description": "Pi is answering; the chat takes no message or decision until it is done.",
+                "description": "Pi is answering; the brainstorm takes no message or decision until it is done.",
                 "examples": [false],
                 "type": "boolean"
               },
-              "pictures": {
-                "description": "The pictures of the chat, by number.",
+              "images": {
+                "description": "The images of the brainstorm, by number.",
                 "examples": [[]],
                 "items": {
                   "additionalProperties": false,
                   "properties": {
                     "available": {
-                      "description": "The app still keeps the picture, so it can go to Gitea.",
+                      "description": "The app still keeps the image, so it can go to Gitea.",
                       "examples": [true],
                       "type": "boolean"
                     },
@@ -688,7 +688,7 @@
                       "type": "string"
                     },
                     "number": {
-                      "description": "The picture's number in the chat, from 1 in the order it was sent.",
+                      "description": "The image's number in the brainstorm, from 1 in the order it was sent.",
                       "examples": [1],
                       "type": "integer"
                     }
@@ -698,8 +698,8 @@
                 },
                 "type": "array"
               },
-              "seesPictures": {
-                "description": "The model takes pictures; otherwise Pi only learns that pictures were attached.",
+              "seesImages": {
+                "description": "The model takes images; otherwise Pi only learns that images were attached.",
                 "examples": [true],
                 "type": "boolean"
               },
@@ -709,14 +709,14 @@
                 "type": "boolean"
               }
             },
-            "required": ["_tag", "answering", "seesPictures", "pictures", "voice"],
+            "required": ["_tag", "answering", "seesImages", "images", "voice"],
             "type": "object"
           },
           {
             "additionalProperties": false,
             "properties": {
               "_tag": {
-                "description": "The server has no model for the chat.",
+                "description": "The server has no model for the brainstorm.",
                 "enum": ["NotSetUp"],
                 "examples": ["NotSetUp"],
                 "type": "string"
@@ -731,7 +731,7 @@
             "type": "object"
           }
         ],
-        "description": "The brainstorm chat, or why it is not set up."
+        "description": "The brainstorm, or why it is not set up."
       },
       "CloseRequest": {
         "additionalProperties": false,
@@ -784,6 +784,239 @@
         },
         "required": ["type", "title", "status"],
         "type": "object"
+      },
+      "Conversation": {
+        "additionalProperties": false,
+        "description": "The latest entries of the agent’s session.",
+        "properties": {
+          "currentStep": {
+            "description": "What a working agent does now.",
+            "examples": ["Running pnpm test…"],
+            "type": "string"
+          },
+          "entries": {
+            "description": "Entries, oldest first.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/ConversationEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["entries", "currentStep"],
+        "type": "object"
+      },
+      "ConversationEntry": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was written, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["u-1"],
+                "type": "string"
+              },
+              "images": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "description": "The id the server gave an uploaded image.",
+                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
+                      "pattern": "^[a-z2-7]{26}$",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The images the prompt attached, by id, in order.",
+                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+              },
+              "text": {
+                "description": "The owner's prompt, without the paths of its attached images.",
+                "examples": ["Run the tests"],
+                "type": "string"
+              },
+              "type": {
+                "description": "The owner's prompt.",
+                "enum": ["user"],
+                "examples": ["user"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "text"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "description": "When the entry was written, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["u-1"],
+                "type": "string"
+              },
+              "replies": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The short replies the message clearly calls for, such as the choices it offers; left out when the expected answer is unclear.",
+                "examples": [["Approved", "No, revise"]]
+              },
+              "text": {
+                "description": "The reply as Markdown.",
+                "examples": ["Done."],
+                "type": "string"
+              },
+              "type": {
+                "description": "A reply of the agent.",
+                "enum": ["assistant"],
+                "examples": ["assistant"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "text"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Lines an edit added.",
+                "examples": [12]
+              },
+              "at": {
+                "description": "When the entry was written, in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              "id": {
+                "description": "The id of the entry.",
+                "examples": ["u-1"],
+                "type": "string"
+              },
+              "outcome": {
+                "description": "How the call ended; `pending` while it runs.",
+                "enum": ["ok", "error", "pending"],
+                "examples": ["ok"],
+                "type": "string"
+              },
+              "questions": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "$ref": "#/components/schemas/Question"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The questions the call asked the owner, in order: `pending` while they wait, `ok` once answered, `error` when never answered.",
+                "examples": [
+                  [
+                    {
+                      "answer": "Keep Effect",
+                      "header": "Stack",
+                      "text": "Keep Effect?"
+                    }
+                  ]
+                ]
+              },
+              "removed": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Lines an edit removed.",
+                "examples": [3]
+              },
+              "subagent": {
+                "anyOf": [
+                  {
+                    "description": "A subagent's id, as Claude Code names it.",
+                    "examples": ["a0123456789abcdef"],
+                    "pattern": "^[a-z0-9]{1,64}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The subagent a delegation started, once known; it opens its conversation.",
+                "examples": ["a0123456789abcdef"]
+              },
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The file, command or name it worked on.",
+                "examples": ["pnpm test"]
+              },
+              "type": {
+                "description": "One tool call.",
+                "enum": ["tool"],
+                "examples": ["tool"],
+                "type": "string"
+              },
+              "verb": {
+                "description": "What the tool call did.",
+                "enum": [
+                  "Ran",
+                  "Edited",
+                  "Wrote",
+                  "Read",
+                  "Searched",
+                  "Fetched",
+                  "Delegated",
+                  "Used"
+                ],
+                "examples": ["Ran"],
+                "type": "string"
+              }
+            },
+            "required": ["type", "id", "at", "verb", "outcome"],
+            "type": "object"
+          }
+        ],
+        "description": "One entry of the conversation."
       },
       "CreateTaskRequest": {
         "additionalProperties": false,
@@ -1009,40 +1242,6 @@
           }
         },
         "required": ["ref", "status"],
-        "type": "object"
-      },
-      "IssueDraft": {
-        "additionalProperties": false,
-        "description": "An issue as the owner edited it: exactly what is created.",
-        "examples": [
-          {
-            "body": "A toggle in settings.",
-            "project": "pocket-home",
-            "title": "Dark mode toggle"
-          }
-        ],
-        "properties": {
-          "body": {
-            "description": "The issue's body in Markdown.",
-            "examples": ["A toggle in the settings that switches the app to dark colours."],
-            "maxLength": 20000,
-            "type": "string"
-          },
-          "project": {
-            "description": "The project the issue is for, by name.",
-            "examples": ["pocket-home"],
-            "maxLength": 100,
-            "minLength": 1,
-            "type": "string"
-          },
-          "title": {
-            "description": "The issue's title; it must not be blank.",
-            "examples": ["Dark mode toggle"],
-            "maxLength": 255,
-            "type": "string"
-          }
-        },
-        "required": ["project", "title", "body"],
         "type": "object"
       },
       "IssueList": {
@@ -1284,7 +1483,7 @@
             "type": "array"
           },
           "needsYou": {
-            "description": "Blocked agents, then unseen done agents.",
+            "description": "Blocked agents, then done agents whose result the owner has not seen.",
             "examples": [[]],
             "items": {
               "$ref": "#/components/schemas/Agent"
@@ -1412,13 +1611,10 @@
                 "examples": ["Create"],
                 "type": "string"
               },
-              "draft": {
-                "$ref": "#/components/schemas/IssueDraft"
-              },
-              "pictures": {
+              "images": {
                 "anyOf": [
                   {
-                    "description": "Chat pictures by image id, at most five.",
+                    "description": "Brainstorm images by image id, at most five.",
                     "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
                     "items": {
                       "description": "The id the server gave an uploaded image.",
@@ -1433,11 +1629,14 @@
                     "type": "null"
                   }
                 ],
-                "description": "The chat pictures to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing pictures instead.",
+                "description": "The brainstorm images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.",
                 "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+              },
+              "issue": {
+                "$ref": "#/components/schemas/ProposedIssue"
               }
             },
-            "required": ["_tag", "draft"],
+            "required": ["_tag", "issue"],
             "type": "object"
           },
           {
@@ -1464,14 +1663,14 @@
               },
               "body": {
                 "description": "The issue's whole new body in Markdown.",
-                "examples": ["Control the agents from the brainstorm chat."],
+                "examples": ["Control the agents from the brainstorm."],
                 "maxLength": 20000,
                 "type": "string"
               },
-              "pictures": {
+              "images": {
                 "anyOf": [
                   {
-                    "description": "Chat pictures by image id, at most five.",
+                    "description": "Brainstorm images by image id, at most five.",
                     "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]],
                     "items": {
                       "description": "The id the server gave an uploaded image.",
@@ -1486,12 +1685,12 @@
                     "type": "null"
                   }
                 ],
-                "description": "The chat pictures to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing pictures instead.",
+                "description": "The brainstorm images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.",
                 "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
               },
               "title": {
                 "description": "The issue's whole new title; it must not be blank.",
-                "examples": ["Orchestrator mode from the brainstorm chat"],
+                "examples": ["Orchestrator mode from the brainstorm"],
                 "maxLength": 255,
                 "type": "string"
               }
@@ -1503,7 +1702,7 @@
             "additionalProperties": false,
             "properties": {
               "_tag": {
-                "description": "Finish a created issue with the pictures attached so far and leave out the others.",
+                "description": "Finish a created issue with the images attached so far and leave out the others.",
                 "enum": ["FinishWithout"],
                 "examples": ["FinishWithout"],
                 "type": "string"
@@ -1514,6 +1713,40 @@
           }
         ],
         "description": "The owner's decision on a proposal."
+      },
+      "ProposedIssue": {
+        "additionalProperties": false,
+        "description": "An issue as the owner edited it: exactly what is created.",
+        "examples": [
+          {
+            "body": "A toggle in settings.",
+            "project": "pocket-home",
+            "title": "Dark mode toggle"
+          }
+        ],
+        "properties": {
+          "body": {
+            "description": "The issue's body in Markdown.",
+            "examples": ["A toggle in the settings that switches the app to dark colours."],
+            "maxLength": 20000,
+            "type": "string"
+          },
+          "project": {
+            "description": "The project the issue is for, by name.",
+            "examples": ["pocket-home"],
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "description": "The issue's title; it must not be blank.",
+            "examples": ["Dark mode toggle"],
+            "maxLength": 255,
+            "type": "string"
+          }
+        },
+        "required": ["project", "title", "body"],
+        "type": "object"
       },
       "PushKey": {
         "additionalProperties": false,
@@ -1803,11 +2036,6 @@
         "additionalProperties": false,
         "description": "A subagent of an agent, with the latest entries of its own conversation.",
         "properties": {
-          "activity": {
-            "description": "What a working agent does now.",
-            "examples": ["Running pnpm test…"],
-            "type": "string"
-          },
           "agentType": {
             "anyOf": [
               {
@@ -1820,6 +2048,11 @@
             "description": "The kind of subagent, when known.",
             "examples": ["general-purpose"]
           },
+          "currentStep": {
+            "description": "What a working agent does now.",
+            "examples": ["Running pnpm test…"],
+            "type": "string"
+          },
           "description": {
             "description": "What the parent asked it to do, in a few words.",
             "examples": ["Review the diff"],
@@ -1829,7 +2062,7 @@
             "description": "Entries, oldest first.",
             "examples": [[]],
             "items": {
-              "$ref": "#/components/schemas/TranscriptEntry"
+              "$ref": "#/components/schemas/ConversationEntry"
             },
             "type": "array"
           },
@@ -1850,14 +2083,14 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "description", "running", "inBackground", "entries", "activity"],
+        "required": ["id", "description", "running", "inBackground", "entries", "currentStep"],
         "type": "object"
       },
       "SubagentEventEncoded": {
         "contentMediaType": "application/json",
         "description": "The event as JSON.",
         "examples": [
-          "{\"type\":\"entries\",\"reset\":true,\"entries\":[],\"activity\":\"Thinking…\"}"
+          "{\"type\":\"entries\",\"reset\":true,\"entries\":[],\"currentStep\":\"Thinking…\"}"
         ],
         "type": "string"
       },
@@ -1937,239 +2170,6 @@
         },
         "required": ["workspace", "branch", "path"],
         "type": "object"
-      },
-      "Transcript": {
-        "additionalProperties": false,
-        "description": "The latest entries of the agent’s session.",
-        "properties": {
-          "activity": {
-            "description": "What a working agent does now.",
-            "examples": ["Running pnpm test…"],
-            "type": "string"
-          },
-          "entries": {
-            "description": "Entries, oldest first.",
-            "examples": [[]],
-            "items": {
-              "$ref": "#/components/schemas/TranscriptEntry"
-            },
-            "type": "array"
-          }
-        },
-        "required": ["entries", "activity"],
-        "type": "object"
-      },
-      "TranscriptEntry": {
-        "anyOf": [
-          {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "description": "When the entry was written, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["u-1"],
-                "type": "string"
-              },
-              "images": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "description": "The id the server gave an uploaded image.",
-                      "examples": ["k5w3x7q2m4n6p3r2s4t6v5x2z4"],
-                      "pattern": "^[a-z2-7]{26}$",
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The images the prompt attached, by id, in order.",
-                "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
-              },
-              "text": {
-                "description": "The owner's prompt, without the paths of its attached images.",
-                "examples": ["Run the tests"],
-                "type": "string"
-              },
-              "type": {
-                "description": "The owner's prompt.",
-                "enum": ["user"],
-                "examples": ["user"],
-                "type": "string"
-              }
-            },
-            "required": ["type", "id", "at", "text"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "description": "When the entry was written, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["u-1"],
-                "type": "string"
-              },
-              "replies": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The short replies the message clearly calls for, such as the choices it offers; left out when the expected answer is unclear.",
-                "examples": [["Approved", "No, revise"]]
-              },
-              "text": {
-                "description": "The reply as Markdown.",
-                "examples": ["Done."],
-                "type": "string"
-              },
-              "type": {
-                "description": "A reply of the agent.",
-                "enum": ["assistant"],
-                "examples": ["assistant"],
-                "type": "string"
-              }
-            },
-            "required": ["type", "id", "at", "text"],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "added": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Lines an edit added.",
-                "examples": [12]
-              },
-              "at": {
-                "description": "When the entry was written, in epoch milliseconds.",
-                "examples": [1793391381245],
-                "type": "integer"
-              },
-              "id": {
-                "description": "The id of the entry.",
-                "examples": ["u-1"],
-                "type": "string"
-              },
-              "outcome": {
-                "description": "How the call ended; `pending` while it runs.",
-                "enum": ["ok", "error", "pending"],
-                "examples": ["ok"],
-                "type": "string"
-              },
-              "questions": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "$ref": "#/components/schemas/Question"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The questions the call asked the owner, in order: `pending` while they wait, `ok` once answered, `error` when never answered.",
-                "examples": [
-                  [
-                    {
-                      "answer": "Keep Effect",
-                      "header": "Stack",
-                      "text": "Keep Effect?"
-                    }
-                  ]
-                ]
-              },
-              "removed": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Lines an edit removed.",
-                "examples": [3]
-              },
-              "subagent": {
-                "anyOf": [
-                  {
-                    "description": "A subagent's id, as Claude Code names it.",
-                    "examples": ["a0123456789abcdef"],
-                    "pattern": "^[a-z0-9]{1,64}$",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The subagent a delegation started, once known; it opens its conversation.",
-                "examples": ["a0123456789abcdef"]
-              },
-              "target": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "The file, command or name it worked on.",
-                "examples": ["pnpm test"]
-              },
-              "type": {
-                "description": "One tool call.",
-                "enum": ["tool"],
-                "examples": ["tool"],
-                "type": "string"
-              },
-              "verb": {
-                "description": "What the tool call did.",
-                "enum": [
-                  "Ran",
-                  "Edited",
-                  "Wrote",
-                  "Read",
-                  "Searched",
-                  "Fetched",
-                  "Delegated",
-                  "Used"
-                ],
-                "examples": ["Ran"],
-                "type": "string"
-              }
-            },
-            "required": ["type", "id", "at", "verb", "outcome"],
-            "type": "object"
-          }
-        ],
-        "description": "One entry of the chat."
       },
       "TypeRequest": {
         "additionalProperties": false,
@@ -2718,6 +2718,82 @@
         },
         "security": [],
         "summary": "Close an agent",
+        "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/conversation": {
+      "get": {
+        "description": "The latest entries of a Claude or Pi agent's session. Other agents have none (404).",
+        "operationId": "agents.conversation",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            },
+            "description": "The latest entries of the agent’s session."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read the conversation",
         "tags": ["Agents"]
       }
     },
@@ -3545,85 +3621,9 @@
         "tags": ["Agents"]
       }
     },
-    "/api/v1/agents/{agent}/transcript": {
-      "get": {
-        "description": "The latest entries of a Claude or Pi agent's session. Other agents have none (404).",
-        "operationId": "agents.transcript",
-        "parameters": [
-          {
-            "description": "The agent's Herdr name, or its pane id when it has none.",
-            "example": "kirk-ingestor-mvp",
-            "in": "path",
-            "name": "agent",
-            "required": true,
-            "schema": {
-              "description": "The agent's Herdr name, or its pane id when it has none.",
-              "examples": ["kirk-ingestor-mvp"],
-              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Transcript"
-                }
-              }
-            },
-            "description": "The latest entries of the agent’s session."
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
-                }
-              }
-            },
-            "description": "The caller may not use this service."
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
-                }
-              }
-            },
-            "description": "The resource does not exist."
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationProblemEncoded"
-                }
-              }
-            },
-            "description": "The request is invalid. `errors` names every failed field."
-          },
-          "503": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
-                }
-              }
-            },
-            "description": "A system the service depends on cannot be reached; try again later."
-          }
-        },
-        "security": [],
-        "summary": "Read the conversation",
-        "tags": ["Agents"]
-      }
-    },
     "/api/v1/brainstorm": {
       "get": {
-        "description": "The one brainstorm chat with Pi, or why it is not set up.",
+        "description": "The one brainstorm with Pi, or why it is not set up.",
         "operationId": "brainstorm.state",
         "parameters": [],
         "responses": {
@@ -3635,7 +3635,7 @@
                 }
               }
             },
-            "description": "The brainstorm chat, or why it is not set up."
+            "description": "The brainstorm, or why it is not set up."
           },
           "403": {
             "content": {
@@ -3659,7 +3659,7 @@
           }
         },
         "security": [],
-        "summary": "Read the brainstorm chat",
+        "summary": "Read the brainstorm",
         "tags": ["Brainstorm"]
       }
     },
@@ -3788,7 +3788,7 @@
           }
         },
         "security": [],
-        "summary": "Follow the brainstorm chat",
+        "summary": "Follow the brainstorm",
         "tags": ["Brainstorm"]
       }
     },
@@ -3938,7 +3938,7 @@
     },
     "/api/v1/brainstorm/reset": {
       "post": {
-        "description": "Stops a running answer and replaces the chat with an empty one.",
+        "description": "Stops a running answer and replaces the brainstorm with an empty one.",
         "operationId": "brainstorm.reset",
         "parameters": [],
         "responses": {
@@ -3967,7 +3967,7 @@
           }
         },
         "security": [],
-        "summary": "Start a new chat",
+        "summary": "Start a new brainstorm",
         "tags": ["Brainstorm"]
       }
     },
@@ -4874,7 +4874,7 @@
     },
     "/api/v1/speech/transcriptions": {
       "post": {
-        "description": "Checks the clip by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the clip is kept.",
+        "description": "Checks the voice message by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the voice message is kept.",
         "operationId": "speech.transcribe",
         "parameters": [],
         "requestBody": {

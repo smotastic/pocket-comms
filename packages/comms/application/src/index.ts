@@ -8,7 +8,7 @@ export type {
   SubagentDto,
   SubagentEventDto,
   SubagentInfoDto,
-  TranscriptDto,
+  ConversationDto,
 } from './dto/agent.dto.js';
 export type {
   CloseIssueInput,
@@ -53,7 +53,7 @@ export {
   ImageNotFoundError,
   ImageNotSavedError,
   SubagentNotFoundError,
-  TranscriptUnavailableError,
+  ConversationUnavailableError,
   WorktreeHasChangesError,
 } from './errors.js';
 export { ActivityInbound } from './ports/activity.inbound.port.js';
@@ -62,7 +62,7 @@ export { AgentsInbound } from './ports/agents.inbound.port.js';
 export { BrainstormInbound } from './ports/brainstorm.inbound.port.js';
 export {
   BrainstormStoreOutbound,
-  type StoredChat,
+  type StoredBrainstorm,
 } from './ports/brainstorm-store.outbound.port.js';
 export {
   HerdrOutbound,
@@ -76,7 +76,7 @@ export {
 export {
   GiteaOutbound,
   type CreatedIssue,
-  type IssuePicture,
+  type IssueImage,
   type LinkedRepository,
 } from './ports/gitea.outbound.port.js';
 export { ImagesInbound } from './ports/images.inbound.port.js';
@@ -100,8 +100,8 @@ export {
   type StatusMark,
 } from './ports/memory.outbound.port.js';
 export {
-  TranscriptOutbound,
-  type Transcript,
+  ConversationOutbound,
+  type Conversation,
   type SubagentMeta,
-  type TranscriptSource,
-} from './ports/transcript.outbound.port.js';
+  type ConversationSource,
+} from './ports/conversation.outbound.port.js';

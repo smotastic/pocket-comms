@@ -5,7 +5,7 @@ import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
 
 // The laptop's keyboard as the button. A terminal never says when a key is let go, so the space
-// bar toggles a recording; `y` creates a proposal, `n` discards it, Ctrl+C quits.
+// bar toggles a voice message; `y` creates a proposal, `n` discards it, Ctrl+C quits.
 
 const CTRL_C = '\u0003';
 

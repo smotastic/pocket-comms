@@ -7,31 +7,31 @@ import * as Ref from 'effect/Ref';
 import * as Semaphore from 'effect/Semaphore';
 import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
-import { applyEvent } from './chat.js';
+import { applyEvent } from './brainstorm.js';
 import { Comms, type CommsError, type Decision } from './comms.js';
-import { Outbox, OutboxError, type Clip } from './outbox.js';
-import { Recorder, type Recording } from './recorder.js';
+import { Outbox, OutboxError, type VoiceMessage } from './outbox.js';
+import { Recorder, type Capture } from './recorder.js';
 import { Screen } from './screen.js';
 import { initialState, render, type BuddyState, type Link } from './view.js';
 
-// The buddy's program over its ports: it records what the owner says, sends it to the brainstorm
-// chat, follows Pi's answer and keeps the screen current. It ends when the owner quits.
+// The buddy's program over its ports: it records what the owner says, sends it to the
+// brainstorm, follows Pi's answer and keeps the screen current. It ends when the owner quits.
 
-/** A recording ends by itself after two minutes. */
-export const MAX_RECORDING_MILLIS = 120_000;
-/** A shorter clip is a slip of the button, not something said. */
-export const MIN_CLIP_MILLIS = 500;
+/** A voice message ends by itself after two minutes. */
+export const MAX_VOICE_MESSAGE_MILLIS = 120_000;
+/** A shorter voice message is a slip of the button, not something said. */
+export const MIN_VOICE_MESSAGE_MILLIS = 500;
 
 /** The first wait after a failed try; each further one doubles, up to a minute. */
 export const FIRST_RETRY_MILLIS = 2_000;
 export const LAST_RETRY_MILLIS = 60_000;
 /** How long the next message waits before asking again whether Pi is done. */
 export const PI_WAIT_MILLIS = 2_000;
-/** The outbox is looked at this often even without a new clip, such as one put in by hand. */
+/** The outbox is looked at this often even without a new voice message, such as one put in by hand. */
 const OUTBOX_POLL_MILLIS = 5_000;
 
-/** What the recording part reacts to: the owner, or the limit of one recording. */
-type Event = Intent | { readonly _tag: 'Limit'; readonly recording: number };
+/** What the voice message part reacts to: the owner, or the limit of one voice message. */
+type Event = Intent | { readonly _tag: 'Limit'; readonly voiceMessage: number };
 
 export const buddy = Effect.scoped(
   Effect.gen(function* () {
@@ -55,7 +55,7 @@ export const buddy = Effect.scoped(
     );
     yield* Queue.offer(dirty, undefined);
 
-    // The running time of a recording moves on the screen every second.
+    // The running time of a voice message moves on the screen every second.
     const ticking = Effect.forever(
       Effect.sleep(1000).pipe(
         Effect.andThen(Ref.get(state)),
@@ -65,7 +65,7 @@ export const buddy = Effect.scoped(
       ),
     );
 
-    // A new clip wakes the sender at once.
+    // A new voice message wakes the sender at once.
     const wake = yield* Queue.sliding<void>(1);
     // A change of the outbox and the count on the screen happen as one, so an older count never
     // overwrites a newer one.
@@ -83,12 +83,12 @@ export const buddy = Effect.scoped(
       );
     const countWaiting = withCount(Effect.void);
 
-    // ── Recording ──────────────────────────────────────────────────────────────────────────
+    // ── Capture ──────────────────────────────────────────────────────────────────────────
     const limits = yield* Queue.unbounded<Event>();
     let current:
-      | { readonly recording: Recording; readonly startedAt: number; readonly number: number }
+      | { readonly capture: Capture; readonly startedAt: number; readonly number: number }
       | undefined;
-    let recordings = 0;
+    let voiceMessages = 0;
 
     const start = Effect.gen(function* () {
       if (current !== undefined) return;
@@ -98,12 +98,12 @@ export const buddy = Effect.scoped(
         return;
       }
       const startedAt = yield* Clock.currentTimeMillis;
-      const number = ++recordings;
-      current = { recording: started.success, startedAt, number };
+      const number = ++voiceMessages;
+      current = { capture: started.success, startedAt, number };
       yield* update((s) => ({ ...s, recordingSince: startedAt, notice: undefined }));
       yield* Effect.forkScoped(
-        Effect.sleep(MAX_RECORDING_MILLIS).pipe(
-          Effect.andThen(Queue.offer(limits, { _tag: 'Limit', recording: number })),
+        Effect.sleep(MAX_VOICE_MESSAGE_MILLIS).pipe(
+          Effect.andThen(Queue.offer(limits, { _tag: 'Limit', voiceMessage: number })),
         ),
       );
     });
@@ -112,26 +112,29 @@ export const buddy = Effect.scoped(
       const ending = current;
       if (ending === undefined) return;
       current = undefined;
-      const bytes = yield* ending.recording.stop.pipe(Effect.result);
+      const bytes = yield* ending.capture.stop.pipe(Effect.result);
       const length = (yield* Clock.currentTimeMillis) - ending.startedAt;
       if (bytes._tag === 'Failure') {
         yield* update((s) => ({ ...s, recordingSince: undefined, notice: bytes.failure.reason }));
         return;
       }
       yield* update((s) => ({ ...s, recordingSince: undefined }));
-      if (length < MIN_CLIP_MILLIS) return;
+      if (length < MIN_VOICE_MESSAGE_MILLIS) return;
       const saved = yield* withCount(outbox.put(bytes.success)).pipe(Effect.result);
       if (saved._tag === 'Failure') {
-        yield* update((s) => ({ ...s, notice: `The clip was not saved: ${saved.failure.reason}` }));
+        yield* update((s) => ({
+          ...s,
+          notice: `The voice message was not saved: ${saved.failure.reason}`,
+        }));
         return;
       }
       yield* Queue.offer(wake, undefined);
     });
 
-    // A recording under way when the program ends, by quitting or by a signal, is kept.
+    // A voice message under way when the program ends, by quitting or by a signal, is kept.
     yield* Effect.addFinalizer(() => stop);
 
-    // ── Following the chat ─────────────────────────────────────────────────────────────────
+    // ── Following the brainstorm ─────────────────────────────────────────────────────────────────
     // The proposals the buddy decided itself, so it can tell how they ended.
     const decidedHere = new Set<string>();
     const following = Effect.gen(function* () {
@@ -183,11 +186,11 @@ export const buddy = Effect.scoped(
         case 'Toggle':
           return Effect.suspend(() => (current === undefined ? start : stop));
         case 'Limit':
-          return current?.number === event.recording ? stop : Effect.void;
+          return current?.number === event.voiceMessage ? stop : Effect.void;
         case 'Create':
           return decide(({ project, title, body }) => ({
             _tag: 'Create',
-            draft: { project, title, body },
+            issue: { project, title, body },
           }));
         case 'Discard':
           return decide(() => ({ _tag: 'Discard' }));
@@ -197,32 +200,32 @@ export const buddy = Effect.scoped(
     };
 
     // ── Sending ────────────────────────────────────────────────────────────────────────────
-    // Words already transcribed, by clip, so a send that has to wait does not transcribe again.
-    const transcripts = new Map<string, string>();
+    // Words already transcribed, by voice message, so a send that has to wait does not transcribe again.
+    const transcriptions = new Map<string, string>();
     const setLink = (link: Link) => update((s) => ({ ...s, link }));
 
-    /** The clip a failed try was about, so the failure applies to it alone. */
+    /** The voice message a failed try was about, so the failure applies to it alone. */
     class TryFailed {
       constructor(
         readonly error: CommsError,
-        readonly clip: string,
+        readonly voiceMessage: string,
       ) {}
     }
 
-    /** Sends the oldest clip; answers whether there was one. */
+    /** Sends the oldest voice message; answers whether there was one. */
     const sendOldest = Effect.gen(function* () {
       const oldest = yield* outbox.oldest;
       if (Option.isNone(oldest)) return false;
-      const clip = oldest.value;
-      yield* sendClip(clip).pipe(
+      const voiceMessage = oldest.value;
+      yield* sendVoiceMessage(voiceMessage).pipe(
         Effect.mapError((error) =>
-          error instanceof OutboxError ? error : new TryFailed(error, clip.id),
+          error instanceof OutboxError ? error : new TryFailed(error, voiceMessage.id),
         ),
       );
       return true;
     });
 
-    const sendClip = (clip: Clip) =>
+    const sendVoiceMessage = (voiceMessage: VoiceMessage) =>
       Effect.gen(function* () {
         if (yield* comms.answering) {
           yield* setLink({ _tag: 'PiAnswering' });
@@ -230,36 +233,39 @@ export const buddy = Effect.scoped(
           return;
         }
         yield* setLink({ _tag: 'Sending' });
-        const text = transcripts.get(clip.id) ?? (yield* comms.transcribe(clip.bytes));
-        transcripts.set(clip.id, text);
+        const text =
+          transcriptions.get(voiceMessage.id) ?? (yield* comms.transcribe(voiceMessage.bytes));
+        transcriptions.set(voiceMessage.id, text);
         if (text === '') {
-          yield* forget(clip.id);
+          yield* forget(voiceMessage.id);
           yield* update((s) => ({ ...s, link: { _tag: 'Idle' }, notice: 'No speech was heard.' }));
           return;
         }
         yield* comms.send(text);
-        yield* forget(clip.id);
+        yield* forget(voiceMessage.id);
         yield* update((s) => ({ ...s, link: { _tag: 'Idle' }, sent: text, notice: undefined }));
       });
 
     const forget = (id: string) =>
-      withCount(outbox.remove(id)).pipe(Effect.andThen(Effect.sync(() => transcripts.delete(id))));
+      withCount(outbox.remove(id)).pipe(
+        Effect.andThen(Effect.sync(() => transcriptions.delete(id))),
+      );
 
     /** A wait after a failed try: Pi's turn, or a backoff that grows with each failure. */
     type Pause = 'none' | 'pi' | 'backoff';
 
-    /** What a failed try means for the clip, and how to wait before the next. */
+    /** What a failed try means for the voice message, and how to wait before the next. */
     const afterFailure = (failure: TryFailed | OutboxError): Effect.Effect<Pause> => {
       if (failure instanceof OutboxError) {
         return setLink({ _tag: 'Failed', reason: failure.reason }).pipe(Effect.as('backoff'));
       }
-      const { error, clip } = failure;
+      const { error, voiceMessage } = failure;
       switch (error._tag) {
         case 'Busy':
           return setLink({ _tag: 'PiAnswering' }).pipe(Effect.as('pi'));
         case 'Refused':
           return Effect.gen(function* () {
-            yield* forget(clip).pipe(Effect.ignore);
+            yield* forget(voiceMessage).pipe(Effect.ignore);
             yield* update((s) => ({ ...s, link: { _tag: 'Idle' }, notice: error.reason }));
             return 'none' as const;
           });

@@ -8,7 +8,7 @@ import {
   watchStep,
   type Change,
 } from './notification.js';
-import type { TranscriptEntry } from './transcript.js';
+import type { ConversationEntry } from './conversation.js';
 
 const agent = (overrides: Partial<Agent> & Pick<Agent, 'paneId'>): Agent => ({
   name: undefined,
@@ -43,7 +43,7 @@ describe('watchStep', () => {
   it('reports an agent that becomes blocked', () => {
     expect(
       changesBetween([agent({ paneId: 'p1' })], [agent({ paneId: 'p1', status: 'blocked' })]),
-    ).toEqual([{ paneId: 'p1', attention: 'blocked' }]);
+    ).toEqual([{ paneId: 'p1', reason: 'blocked' }]);
   });
 
   it('reports nothing for an agent that stays blocked', () => {
@@ -57,7 +57,7 @@ describe('watchStep', () => {
 
   it('reports a new agent that appears blocked', () => {
     expect(changesBetween([], [agent({ paneId: 'p1', status: 'blocked' })])).toEqual([
-      { paneId: 'p1', attention: 'blocked' },
+      { paneId: 'p1', reason: 'blocked' },
     ]);
   });
 
@@ -67,7 +67,7 @@ describe('watchStep', () => {
     const again = watchStep(working.reading, [agent({ paneId: 'p1', status: 'blocked' })]);
 
     expect(working.changes).toEqual([]);
-    expect(again.changes).toEqual([{ paneId: 'p1', attention: 'blocked' }]);
+    expect(again.changes).toEqual([{ paneId: 'p1', reason: 'blocked' }]);
   });
 
   it('reports an agent that finishes a turn, with its completion', () => {
@@ -76,7 +76,7 @@ describe('watchStep', () => {
         [agent({ paneId: 'p1', completion: 1 })],
         [agent({ paneId: 'p1', status: 'done', completion: 2 })],
       ),
-    ).toEqual([{ paneId: 'p1', attention: 'done', completion: 2 }]);
+    ).toEqual([{ paneId: 'p1', reason: 'done', completion: 2 }]);
   });
 
   it('reports a done agent with a new completion, also when it was done before', () => {
@@ -85,7 +85,7 @@ describe('watchStep', () => {
         [agent({ paneId: 'p1', status: 'done', completion: 1 })],
         [agent({ paneId: 'p1', status: 'done', completion: 2 })],
       ),
-    ).toEqual([{ paneId: 'p1', attention: 'done', completion: 2 }]);
+    ).toEqual([{ paneId: 'p1', reason: 'done', completion: 2 }]);
   });
 
   it('reports nothing for an agent that stays done with the same completion, or turns idle', () => {
@@ -117,13 +117,13 @@ describe('watchStep', () => {
     const gone = watchStep(first.reading, []);
     const back = watchStep(gone.reading, [agent({ paneId: 'p1', status: 'blocked' })]);
 
-    expect(back.changes).toEqual([{ paneId: 'p1', attention: 'blocked' }]);
+    expect(back.changes).toEqual([{ paneId: 'p1', reason: 'blocked' }]);
   });
 });
 
 describe('stillHolds', () => {
-  const blocked: Change = { paneId: 'p1', attention: 'blocked' };
-  const done: Change = { paneId: 'p1', attention: 'done', completion: 2 };
+  const blocked: Change = { paneId: 'p1', reason: 'blocked' };
+  const done: Change = { paneId: 'p1', reason: 'done', completion: 2 };
 
   it('holds for an agent that is still blocked', () => {
     expect(stillHolds(blocked, [agent({ paneId: 'p1', status: 'blocked' })], none)).toBe(true);
@@ -153,7 +153,7 @@ describe('stillHolds', () => {
 });
 
 describe('excerptOf', () => {
-  const entries: ReadonlyArray<TranscriptEntry> = [
+  const entries: ReadonlyArray<ConversationEntry> = [
     { type: 'assistant', id: 'a1', at: 1, text: 'First reply' },
     {
       type: 'tool',
@@ -210,7 +210,7 @@ describe('notificationOf', () => {
     expect(
       notificationOf({
         agent: agent({ paneId: 'w1:p1', name: 'kirk/one' }),
-        attention: 'blocked',
+        reason: 'blocked',
         project: 'app',
         excerpt: 'Which stack?',
       }),
@@ -226,7 +226,7 @@ describe('notificationOf', () => {
     expect(
       notificationOf({
         agent: agent({ paneId: 'w1:p1' }),
-        attention: 'done',
+        reason: 'done',
         project: 'app',
         excerpt: undefined,
       }),
@@ -237,7 +237,7 @@ describe('notificationOf', () => {
     expect(
       notificationOf({
         agent: agent({ paneId: 'w1:p1' }),
-        attention: 'done',
+        reason: 'done',
         project: undefined,
         excerpt: undefined,
       }).body,
@@ -247,7 +247,7 @@ describe('notificationOf', () => {
   it('cuts a long excerpt short', () => {
     const { body } = notificationOf({
       agent: agent({ paneId: 'w1:p1' }),
-      attention: 'blocked',
+      reason: 'blocked',
       project: undefined,
       excerpt: 'x'.repeat(500),
     });
@@ -259,7 +259,7 @@ describe('notificationOf', () => {
   const bodyOf = (excerpt: string) =>
     notificationOf({
       agent: agent({ paneId: 'w1:p1' }),
-      attention: 'blocked',
+      reason: 'blocked',
       project: undefined,
       excerpt,
     }).body;

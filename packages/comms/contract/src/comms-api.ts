@@ -131,7 +131,9 @@ const Agents = Schema.Array(Agent).annotate({
 });
 
 export const Overview = Schema.Struct({
-  needsYou: Agents.annotate({ description: 'Blocked agents, then unseen done agents.' }),
+  needsYou: Agents.annotate({
+    description: 'Blocked agents, then done agents whose result the owner has not seen.',
+  }),
   groups: Schema.Array(
     Schema.Struct({
       key: Schema.String.annotate({
@@ -186,7 +188,7 @@ const imageIds = optional(Schema.Array(ImageId).check(Schema.isMaxLength(5)), {
 const id = Schema.String.annotate({ description: 'The id of the entry.', examples: ['u-1'] });
 const at = Millis.annotate({ description: 'When the entry was written, in epoch milliseconds.' });
 
-export const TranscriptEntry = Schema.Union([
+export const ConversationEntry = Schema.Union([
   Schema.Struct({
     type: Schema.tag('user').annotate({ description: "The owner's prompt.", examples: ['user'] }),
     id,
@@ -289,19 +291,19 @@ export const TranscriptEntry = Schema.Union([
       examples: ['ok'],
     }),
   }),
-]).annotate({ identifier: 'TranscriptEntry', description: 'One entry of the chat.' });
+]).annotate({ identifier: 'ConversationEntry', description: 'One entry of the conversation.' });
 
-const Entries = Schema.Array(TranscriptEntry).annotate({
+const Entries = Schema.Array(ConversationEntry).annotate({
   description: 'Entries, oldest first.',
   examples: [[]],
 });
-const CurrentActivity = Schema.String.annotate({
+const CurrentStep = Schema.String.annotate({
   description: 'What a working agent does now.',
   examples: ['Running pnpm test…'],
 });
 
-export const Transcript = Schema.Struct({ entries: Entries, activity: CurrentActivity }).annotate({
-  identifier: 'Transcript',
+export const Conversation = Schema.Struct({ entries: Entries, currentStep: CurrentStep }).annotate({
+  identifier: 'Conversation',
   description: 'The latest entries of the agent’s session.',
 });
 
@@ -320,7 +322,7 @@ export const AgentEvent = Schema.Union([
       examples: [true],
     }),
     entries: Entries,
-    activity: CurrentActivity,
+    currentStep: CurrentStep,
   }),
 ]).annotate({ identifier: 'AgentEvent', description: 'One update of an open conversation.' });
 
@@ -349,7 +351,7 @@ export const SubagentInfo = Schema.Struct(SubagentFields).annotate({
 export const Subagent = Schema.Struct({
   ...SubagentFields,
   entries: Entries,
-  activity: CurrentActivity,
+  currentStep: CurrentStep,
 }).annotate({
   identifier: 'Subagent',
   description: 'A subagent of an agent, with the latest entries of its own conversation.',
@@ -373,7 +375,7 @@ export const SubagentEvent = Schema.Union([
       examples: [true],
     }),
     entries: Entries,
-    activity: CurrentActivity,
+    currentStep: CurrentStep,
   }),
 ]).annotate({
   identifier: 'SubagentEvent',
@@ -429,7 +431,7 @@ export const TypeRequest = Schema.Struct({
 
 export const AnswerRequest = Schema.Struct({
   call: Schema.String.annotate({
-    description: "The waiting question call: its transcript entry's id.",
+    description: "The waiting question call: its conversation entry's id.",
     examples: ['toolu_01ABC'],
   }),
   answers: Schema.Array(
@@ -787,7 +789,7 @@ export const IssueTaskCreated = Schema.Struct({
   description: 'The new worktree and its agent, and whether the issue was marked in progress.',
 });
 
-// ── The brainstorm chat (spec 013) ─────────────────────────────────────────────────────────
+// ── The brainstorm (spec 013) ─────────────────────────────────────────────────────────
 
 export const ProposalParam = Schema.String.check(
   Schema.isPattern(/^[A-Za-z0-9-]{1,64}$/u),
@@ -804,7 +806,7 @@ const entryAt = Millis.annotate({
   description: 'When the entry was added, in epoch milliseconds.',
 });
 
-const DraftFields = {
+const ProposedIssueFields = {
   project: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(100)).annotate({
     description: 'The project the issue is for, by name.',
     examples: ['pocket-home'],
@@ -822,48 +824,48 @@ const DraftFields = {
 const EditFields = {
   title: Schema.String.check(Schema.isMaxLength(255)).annotate({
     description: "The issue's whole new title; it must not be blank.",
-    examples: ['Orchestrator mode from the brainstorm chat'],
+    examples: ['Orchestrator mode from the brainstorm'],
   }),
   body: Schema.String.check(Schema.isMaxLength(20_000)).annotate({
     description: "The issue's whole new body in Markdown.",
-    examples: ['Control the agents from the brainstorm chat.'],
+    examples: ['Control the agents from the brainstorm.'],
   }),
 };
 
-const pictureIds = Schema.Array(ImageId)
+const brainstormImageIds = Schema.Array(ImageId)
   .check(Schema.isMaxLength(5))
   .annotate({
-    description: 'Chat pictures by image id, at most five.',
+    description: 'Brainstorm images by image id, at most five.',
     examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
   });
 
-const PictureFields = {
-  pictures: pictureIds.annotate({
+const ImageFields = {
+  images: brainstormImageIds.annotate({
     description:
-      'The chat pictures that go with the proposal: the ones Pi named while it is open, the owner’s choice once decided.',
+      'The brainstorm images that go with the proposal: the ones Pi named while it is open, the owner’s choice once decided.',
   }),
   attached: Schema.Array(
     Schema.Struct({
       image: ImageId,
       url: Schema.String.annotate({
-        description: "The picture's attachment in Gitea.",
+        description: "The image's attachment in Gitea.",
         examples: ['http://localhost:3000/attachments/1c7f5b2e-3d4a-4f9b-8e6c-0a2b4c6d8e0f'],
       }),
     }),
   ).annotate({
-    description: 'The chosen pictures that are already attachments of the issue in Gitea.',
+    description: 'The chosen images that are already attachments of the issue in Gitea.',
     examples: [[]],
   }),
 };
 
-const choice = optional(pictureIds, {
+const choice = optional(brainstormImageIds, {
   description:
-    'The chat pictures to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing pictures instead.',
+    'The brainstorm images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.',
   examples: [['k5w3x7q2m4n6p3r2s4t6v5x2z4']],
 });
 
-export const IssueDraft = Schema.Struct(DraftFields).annotate({
-  identifier: 'IssueDraft',
+export const ProposedIssue = Schema.Struct(ProposedIssueFields).annotate({
+  identifier: 'ProposedIssue',
   description: 'An issue as the owner edited it: exactly what is created.',
   examples: [{ project: 'pocket-home', title: 'Dark mode toggle', body: 'A toggle in settings.' }],
 });
@@ -895,7 +897,7 @@ export const ProposalState = Schema.Union([
   Schema.Struct({
     _tag: Schema.tag('attaching').annotate({
       description:
-        'The owner created the issue, and its pictures are not all attached yet: retry them or finish without them.',
+        'The owner created the issue, and its images are not all attached yet: retry them or finish without them.',
       examples: ['attaching'],
     }),
     number: Schema.Int.annotate({ description: "The new issue's number.", examples: [12] }),
@@ -952,8 +954,8 @@ export const BrainstormProposal = Schema.Union([
     }),
     id: entryId,
     at: entryAt,
-    ...DraftFields,
-    ...PictureFields,
+    ...ProposedIssueFields,
+    ...ImageFields,
     state: ProposalState,
   }),
   Schema.Struct({
@@ -967,7 +969,7 @@ export const BrainstormProposal = Schema.Union([
     }),
     id: entryId,
     at: entryAt,
-    project: DraftFields.project,
+    project: ProposedIssueFields.project,
     number: Schema.Int.annotate({ description: "The issue's number.", examples: [11] }),
     url: Schema.String.annotate({
       description: "The issue's page in Gitea.",
@@ -988,14 +990,14 @@ export const BrainstormProposal = Schema.Union([
         "The issue's title and body as Pi read them; the edit applies only while they are unchanged.",
       examples: [{ title: 'Orchestrator mode', body: 'An orchestrator agent.' }],
     }),
-    ...PictureFields,
+    ...ImageFields,
     state: EditState,
   }),
 ]).annotate({ identifier: 'BrainstormProposal', description: 'A proposal of Pi, as it stands.' });
 
 /**
- * The brainstorm chat's own entries (spec 026), among the agent package's shared ones: what the
- * owner wrote, a record of a proposal, and the start of a new chat.
+ * The brainstorm's own entries (spec 026), among the agent package's shared ones: what the
+ * owner wrote, a record of a proposal, and the start of a new brainstorm.
  */
 export const BrainstormEntry = Schema.Union([
   Schema.Struct({
@@ -1007,7 +1009,7 @@ export const BrainstormEntry = Schema.Union([
       examples: ['Idea: dark mode for pocket-home'],
     }),
     images: Schema.Array(ImageId).annotate({
-      description: 'The pictures the message attached, by image id, in order.',
+      description: 'The images the message attached, by image id, in order.',
       examples: [[]],
     }),
   }),
@@ -1020,44 +1022,43 @@ export const BrainstormEntry = Schema.Union([
     proposal: BrainstormProposal,
   }),
   Schema.Struct({
-    kind: Schema.tag('chatStarted').annotate({
-      description: 'A new chat starts here; drop everything before it.',
-      examples: ['chatStarted'],
+    kind: Schema.tag('brainstormStarted').annotate({
+      description: 'A new brainstorm starts here; drop everything before it.',
+      examples: ['brainstormStarted'],
     }),
   }),
 ]).annotate({
   identifier: 'BrainstormEntry',
-  description: "One of the brainstorm chat's own entries.",
+  description: "One of the brainstorm's own entries.",
 });
 
 export const BrainstormState = Schema.Union([
   Schema.Struct({
     _tag: Schema.tag('Ready').annotate({
-      description: 'The chat works.',
+      description: 'The brainstorm works.',
       examples: ['Ready'],
     }),
     answering: Schema.Boolean.annotate({
-      description: 'Pi is answering; the chat takes no message or decision until it is done.',
+      description: 'Pi is answering; the brainstorm takes no message or decision until it is done.',
       examples: [false],
     }),
-    seesPictures: Schema.Boolean.annotate({
-      description:
-        'The model takes pictures; otherwise Pi only learns that pictures were attached.',
+    seesImages: Schema.Boolean.annotate({
+      description: 'The model takes images; otherwise Pi only learns that images were attached.',
       examples: [true],
     }),
-    pictures: Schema.Array(
+    images: Schema.Array(
       Schema.Struct({
         id: ImageId,
         number: Schema.Int.annotate({
-          description: "The picture's number in the chat, from 1 in the order it was sent.",
+          description: "The image's number in the brainstorm, from 1 in the order it was sent.",
           examples: [1],
         }),
         available: Schema.Boolean.annotate({
-          description: 'The app still keeps the picture, so it can go to Gitea.',
+          description: 'The app still keeps the image, so it can go to Gitea.',
           examples: [true],
         }),
       }),
-    ).annotate({ description: 'The pictures of the chat, by number.', examples: [[]] }),
+    ).annotate({ description: 'The images of the brainstorm, by number.', examples: [[]] }),
     voice: Schema.Boolean.annotate({
       description: 'The server can transcribe voice messages, so the composer offers recording.',
       examples: [true],
@@ -1065,7 +1066,7 @@ export const BrainstormState = Schema.Union([
   }),
   Schema.Struct({
     _tag: Schema.tag('NotSetUp').annotate({
-      description: 'The server has no model for the chat.',
+      description: 'The server has no model for the brainstorm.',
       examples: ['NotSetUp'],
     }),
     reason: Schema.String.annotate({
@@ -1075,13 +1076,13 @@ export const BrainstormState = Schema.Union([
   }),
 ]).annotate({
   identifier: 'BrainstormState',
-  description: 'The brainstorm chat, or why it is not set up.',
+  description: 'The brainstorm, or why it is not set up.',
 });
 
-/** One event of the brainstorm chat's stream: a numbered entry, text Pi writes, or its draft. */
+/** One event of the brainstorm's stream: a numbered entry, text Pi writes, or its draft. */
 export const BrainstormEvent = chatStreamEvent(BrainstormEntry).annotate({
   identifier: 'BrainstormEvent',
-  description: 'One event of the brainstorm chat.',
+  description: 'One event of the brainstorm.',
 });
 
 export const BrainstormMessageRequest = Schema.Struct({
@@ -1101,8 +1102,8 @@ export const ProposalDecisionRequest = Schema.Union([
       description: 'Create the issue as shown.',
       examples: ['Create'],
     }),
-    draft: IssueDraft,
-    pictures: choice,
+    issue: ProposedIssue,
+    images: choice,
   }),
   Schema.Struct({
     _tag: Schema.tag('Discard').annotate({
@@ -1116,12 +1117,12 @@ export const ProposalDecisionRequest = Schema.Union([
       examples: ['Apply'],
     }),
     ...EditFields,
-    pictures: choice,
+    images: choice,
   }),
   Schema.Struct({
     _tag: Schema.tag('FinishWithout').annotate({
       description:
-        'Finish a created issue with the pictures attached so far and leave out the others.',
+        'Finish a created issue with the images attached so far and leave out the others.',
       examples: ['FinishWithout'],
     }),
   }),
@@ -1188,9 +1189,9 @@ const group = HttpApiGroup.make('agents')
     }).annotateMerge(
       OpenApi.annotations({ summary: 'Get an agent', description: 'Returns one live agent.' }),
     ),
-    HttpApiEndpoint.get('transcript', '/agents/:agent/transcript', {
+    HttpApiEndpoint.get('conversation', '/agents/:agent/conversation', {
       params: agent,
-      success: Transcript,
+      success: Conversation,
       error: problems,
     }).annotateMerge(
       OpenApi.annotations({
@@ -1204,7 +1205,7 @@ const group = HttpApiGroup.make('agents')
       success: eventStream(
         'agent',
         AgentEvent,
-        '{"type":"entries","reset":true,"entries":[],"activity":"Thinking…"}',
+        '{"type":"entries","reset":true,"entries":[],"currentStep":"Thinking…"}',
       ),
       error: problems,
     }).annotateMerge(
@@ -1230,7 +1231,7 @@ const group = HttpApiGroup.make('agents')
       success: eventStream(
         'subagent',
         SubagentEvent,
-        '{"type":"entries","reset":true,"entries":[],"activity":"Thinking…"}',
+        '{"type":"entries","reset":true,"entries":[],"currentStep":"Thinking…"}',
       ),
       error: problems,
     }).annotateMerge(
@@ -1422,8 +1423,8 @@ const brainstorm = HttpApiGroup.make('brainstorm')
       success: BrainstormState,
     }).annotateMerge(
       OpenApi.annotations({
-        summary: 'Read the brainstorm chat',
-        description: 'The one brainstorm chat with Pi, or why it is not set up.',
+        summary: 'Read the brainstorm',
+        description: 'The one brainstorm with Pi, or why it is not set up.',
       }),
     ),
     HttpApiEndpoint.get('events', '/brainstorm/events', {
@@ -1443,7 +1444,7 @@ const brainstorm = HttpApiGroup.make('brainstorm')
       error: Problems.Validation,
     }).annotateMerge(
       OpenApi.annotations({
-        summary: 'Follow the brainstorm chat',
+        summary: 'Follow the brainstorm',
         description:
           'Server-sent events: the entries after `after`, the reply Pi has written so far, then new entries and the text Pi writes, each once. Read the state again when an entry says a turn began or ended.',
       }),
@@ -1480,8 +1481,8 @@ const brainstorm = HttpApiGroup.make('brainstorm')
       success: HttpApiSchema.NoContent,
     }).annotateMerge(
       OpenApi.annotations({
-        summary: 'Start a new chat',
-        description: 'Stops a running answer and replaces the chat with an empty one.',
+        summary: 'Start a new brainstorm',
+        description: 'Stops a running answer and replaces the brainstorm with an empty one.',
       }),
     ),
   )
@@ -1760,7 +1761,7 @@ const speech = HttpApiGroup.make('speech')
       OpenApi.annotations({
         summary: 'Transcribe a voice message',
         description:
-          'Checks the clip by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the clip is kept.',
+          'Checks the voice message by its content (MP4, WebM, Ogg, WAV or MP3), has the speech service transcribe it in the language it detects, and answers the words. Nothing of the voice message is kept.',
       }),
     ),
   )

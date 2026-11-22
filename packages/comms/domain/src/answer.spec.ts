@@ -2,7 +2,7 @@ import { describe, expect, it } from '@effect/vitest';
 import * as Result from 'effect/Result';
 import { answerExcerpt, answerKeys, showsQuestion } from './answer.js';
 import { InvalidInputError } from './errors.js';
-import type { Question } from './transcript.js';
+import type { Question } from './conversation.js';
 
 const single = (text: string, ...labels: ReadonlyArray<string>): Question => ({
   text,

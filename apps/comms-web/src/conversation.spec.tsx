@@ -3,12 +3,12 @@ import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { TerminalScreen } from '@smotastic/pocket-design';
 import { axeViolations } from '@smotastic/pocket-design/testing';
-import { RequestError, type AgentView, type TranscriptView } from './comms-client.js';
+import { RequestError, type AgentView, type ConversationView } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
 
-const transcript: TranscriptView = {
+const conversation: ConversationView = {
   entries: [
     { type: 'user', id: 'u1', at: 1, text: 'Fix the failing test' },
     { type: 'assistant', id: 'a1', at: 2, text: 'I fixed **it**.' },
@@ -24,13 +24,13 @@ const transcript: TranscriptView = {
     },
     { type: 'tool', id: 't2', at: 4, verb: 'Ran', target: 'pnpm test', outcome: 'pending' },
   ],
-  activity: 'Running pnpm test…',
+  currentStep: 'Running pnpm test…',
 };
 
 const open = (agent = fakeAgent({ status: 'working' }), extra: { screen?: string } = {}) => {
   const fake = fakeClient({
     agents: new Map([[agent.ref, agent]]),
-    transcripts: new Map([[agent.ref, transcript]]),
+    conversations: new Map([[agent.ref, conversation]]),
     screens: new Map([[agent.ref, extra.screen ?? '\u001b[1mAllow command?\u001b[0m']]),
   });
   return { ...fake, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
@@ -74,7 +74,7 @@ describe('the conversation', () => {
         type: 'entries',
         reset: false,
         entries: [{ type: 'assistant', id: 'a2', at: 5, text: 'All green now.' }],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     );
 
@@ -102,7 +102,7 @@ describe('the conversation', () => {
             outcome: 'ok',
           },
         ],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     );
 
@@ -134,7 +134,7 @@ describe('the conversation', () => {
     open(fakeAgent({ kind: 'codex', format: undefined }));
 
     expect(await screen.findByRole('region', { name: 'Screen of kirk' })).toBeDefined();
-    expect(screen.queryByRole('radio', { name: 'Chat' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Conversation' })).toBeNull();
   });
 
   it('sends a prompt with Enter and clears the composer', async () => {
@@ -286,7 +286,7 @@ describe('the conversation', () => {
     await openControls();
     expect(await screen.findByRole('group', { name: 'Keys' })).toBeDefined();
     expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
-    expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Answer the agent question' })).toBeDefined();
   });
 
   it('offers no keys before it knows the agent', async () => {
@@ -330,7 +330,7 @@ describe('the conversation', () => {
     cleanup();
     const client = {
       ...fake.client,
-      transcript: () => Promise.reject(new RequestError('No session file for session s1.', 404)),
+      conversation: () => Promise.reject(new RequestError('No session file for session s1.', 404)),
     };
     renderApp({ client, path: '/agents/kirk' });
 
@@ -350,7 +350,7 @@ describe('typed answers and quick replies', () => {
 
   it('keeps the keys collapsed under Controls and the quick replies in the menu, beside the dialog field', async () => {
     open(fakeAgent({ status: 'blocked', needsYou: true }));
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
 
     const controls = screen.getByRole('button', { name: /^Controls/ });
     expect(controls.getAttribute('aria-expanded')).toBe('false');
@@ -382,11 +382,11 @@ describe('typed answers and quick replies', () => {
     );
   });
 
-  it.each(['Chat', 'Screen'])(
+  it.each(['Conversation', 'Screen'])(
     'offers the keys, the quick replies and the dialog field in the %s view',
     async (view) => {
       open(fakeAgent({ status: 'blocked', needsYou: true }));
-      await screen.findByRole('textbox', { name: 'Type into the dialog' });
+      await screen.findByRole('textbox', { name: 'Answer the agent question' });
       await userEvent.click(screen.getByRole('radio', { name: view }));
       await openControls();
 
@@ -406,7 +406,7 @@ describe('typed answers and quick replies', () => {
   it('types the answer into the dialog without a prompt or a key, and clears the field', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
     await userEvent.click(await screen.findByRole('radio', { name: 'Screen' }));
-    const box = screen.getByRole('textbox', { name: 'Type into the dialog' });
+    const box = screen.getByRole('textbox', { name: 'Answer the agent question' });
 
     await userEvent.type(box, 'Use SQLite instead{Enter}');
 
@@ -419,7 +419,7 @@ describe('typed answers and quick replies', () => {
   it('keeps the answer and says why when typing fails', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
     fake.state.typeFailure = 'Herdr refused the text';
-    const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    const box = await screen.findByRole('textbox', { name: 'Answer the agent question' });
 
     await userEvent.type(box, 'Use SQLite{Enter}');
 
@@ -429,7 +429,7 @@ describe('typed answers and quick replies', () => {
 
   it('types a quick reply into the waiting dialog', async () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
     await openQuickReplies();
 
     await userEvent.click(await chip('Commit and open a PR'));
@@ -483,7 +483,7 @@ describe('typed answers and quick replies', () => {
     const fake = open(fakeAgent({ status: 'blocked', needsYou: true }));
     let release: () => void = () => undefined;
     fake.state.typeGate = new Promise((resolve) => (release = resolve));
-    const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    const box = await screen.findByRole('textbox', { name: 'Answer the agent question' });
     await openControls();
 
     await userEvent.type(box, 'Use SQLite{Enter}');
@@ -514,7 +514,7 @@ describe('typed answers and quick replies', () => {
       }),
     );
     fake.state.typeFailure = 'Herdr refused the text';
-    const box = await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    const box = await screen.findByRole('textbox', { name: 'Answer the agent question' });
     await userEvent.type(box, 'Use SQLite{Enter}');
     await screen.findByRole('alert');
 
@@ -527,7 +527,7 @@ describe('typed answers and quick replies', () => {
 
   it('has no accessibility violations while a dialog waits', async () => {
     open(fakeAgent({ status: 'blocked', needsYou: true }));
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
 
     expect(await axeViolations(document.body)).toEqual([]);
   });
@@ -543,7 +543,7 @@ describe('typed answers and quick replies', () => {
 });
 
 describe("suggested replies and the owner's quick replies (spec 025)", () => {
-  const asks: TranscriptView = {
+  const asks: ConversationView = {
     entries: [
       { type: 'user', id: 'u1', at: 1, text: 'Plan the change' },
       {
@@ -554,17 +554,17 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
         replies: ['Approved', 'No, revise'],
       },
     ],
-    activity: 'Thinking…',
+    currentStep: 'Thinking…',
   };
 
   const openAsking = (
     agent: AgentView = fakeAgent({ status: 'idle' }),
-    conversation: TranscriptView = asks,
+    conversation: ConversationView = asks,
     quickReplies?: ReadonlyArray<string>,
   ) => {
     const fake = fakeClient({
       agents: new Map([[agent.ref, agent]]),
-      transcripts: new Map([[agent.ref, conversation]]),
+      conversations: new Map([[agent.ref, conversation]]),
       ...(quickReplies === undefined ? {} : { quickReplies }),
     });
     return { ...fake, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
@@ -599,7 +599,7 @@ describe("suggested replies and the owner's quick replies (spec 025)", () => {
           { type: 'user', id: 'u2', at: 3, text: 'Approved' },
           { type: 'assistant', id: 'a2', at: 4, text: '1. A\n2. B', replies: ['A', 'B'] },
         ],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     );
 
@@ -798,7 +798,7 @@ describe('closing an agent', () => {
 });
 
 describe('the More menu', () => {
-  it('holds the brainstorm chat and leaves the top bar to the agent', async () => {
+  it('holds the brainstorm and leaves the top bar to the agent', async () => {
     open(fakeAgent({ workspace: 'feature', worktree: 'feature' }));
     const banner = await screen.findByRole('banner');
     await screen.findByText('Fix the failing test');
@@ -844,7 +844,7 @@ describe('the More menu', () => {
   });
 });
 
-describe('the brainstorm chat over a conversation', () => {
+describe('the brainstorm over a conversation', () => {
   it('leaves the draft in the composer', async () => {
     open();
     const box = await screen.findByRole('textbox', { name: 'Message' });
@@ -880,7 +880,7 @@ describe('background work in the conversation', () => {
     inBackground: true,
     subagent: 'a1',
   } as const;
-  const delegations: TranscriptView = {
+  const delegations: ConversationView = {
     entries: [
       {
         type: 'tool',
@@ -902,13 +902,13 @@ describe('background work in the conversation', () => {
       },
       { type: 'tool', id: 'toolu-x', at: 3, verb: 'Delegated', target: 'Unknown', outcome: 'ok' },
     ],
-    activity: 'Thinking…',
+    currentStep: 'Thinking…',
   };
 
   const openWith = (agent: AgentView) => {
     const fake = fakeClient({
       agents: new Map([[agent.ref, agent]]),
-      transcripts: new Map([[agent.ref, delegations]]),
+      conversations: new Map([[agent.ref, delegations]]),
     });
     return { ...fake, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
   };
@@ -962,7 +962,7 @@ describe('background work in the conversation', () => {
   it("opens a subagent's conversation from its delegation", async () => {
     const fake = fakeClient({
       agents: new Map([['kirk', fakeAgent({ status: 'done' })]]),
-      transcripts: new Map([['kirk', delegations]]),
+      conversations: new Map([['kirk', delegations]]),
       subagents: new Map([
         [
           'kirk/b2',
@@ -973,7 +973,7 @@ describe('background work in the conversation', () => {
             running: false,
             inBackground: false,
             entries: [{ type: 'user', id: 'su1', at: 1, text: 'Where is the config?' }],
-            activity: 'Thinking…',
+            currentStep: 'Thinking…',
           },
         ],
       ]),
@@ -988,7 +988,7 @@ describe('background work in the conversation', () => {
   });
 
   it('notes a running subagent whose id is not known yet, without a link', async () => {
-    const pending: TranscriptView = {
+    const pending: ConversationView = {
       entries: [
         {
           type: 'tool',
@@ -999,7 +999,7 @@ describe('background work in the conversation', () => {
           outcome: 'pending',
         },
       ],
-      activity: 'Delegating Look…',
+      currentStep: 'Delegating Look…',
     };
     const fake = fakeClient({
       agents: new Map([
@@ -1019,7 +1019,7 @@ describe('background work in the conversation', () => {
           }),
         ],
       ]),
-      transcripts: new Map([['kirk', pending]]),
+      conversations: new Map([['kirk', pending]]),
     });
     renderApp({ client: fake.client, path: '/agents/kirk' });
 
@@ -1028,12 +1028,12 @@ describe('background work in the conversation', () => {
   });
 });
 
-describe('voice messages in the agent chat', () => {
+describe('voice messages in the conversation', () => {
   /** Opens the chat once the app knows whether the server transcribes. */
   const openWith = async (voice: boolean, agent = fakeAgent({ status: 'idle' })) => {
     const fake = fakeClient({
       agents: new Map([[agent.ref, agent]]),
-      transcripts: new Map([[agent.ref, transcript]]),
+      conversations: new Map([[agent.ref, conversation]]),
       speechAvailable: voice,
     });
     const rendered = renderApp({ client: fake.client, path: `/agents/${agent.ref}` });
@@ -1074,23 +1074,23 @@ describe('voice messages in the agent chat', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Stop' }));
 
     await waitFor(() => expect(message().value).toBe('Please dark mode for pocket-home'));
-    expect(calls.clips).toHaveLength(1);
+    expect(calls.voiceMessages).toHaveLength(1);
     expect(calls.prompts).toEqual([]);
   });
 
-  it('throws a recording away on Cancel (Gitea #85)', async () => {
+  it('throws a voice message away on Cancel (Gitea #85)', async () => {
     const { calls } = await openWith(true);
     await userEvent.type(message(), 'Please');
 
     await record();
     await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
 
-    await waitFor(() => expect(screen.queryByText('Recording')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Listening')).toBeNull());
     expect(message().value).toBe('Please');
-    expect(calls.clips).toEqual([]);
+    expect(calls.voiceMessages).toEqual([]);
   });
 
-  it('keeps a failed clip with its reason, Retry and Discard', async () => {
+  it('keeps a failed voice message with its reason, Retry and Discard', async () => {
     const { state } = await openWith(true);
     state.transcription = new RequestError('The speech service is not reachable.', 503);
 
@@ -1104,7 +1104,7 @@ describe('voice messages in the agent chat', () => {
 
   it('offers no Record voice in the dialog’s composer', async () => {
     await openWith(true, fakeAgent({ status: 'blocked' }));
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
 
     expect(await menu()).toEqual(['Quick replies']);
   });
@@ -1120,22 +1120,22 @@ describe('voice messages in the agent chat', () => {
         agent: fakeAgent({ status: 'blocked', needsYou: true }),
       }),
     );
-    await screen.findByRole('textbox', { name: 'Type into the dialog' });
+    await screen.findByRole('textbox', { name: 'Answer the agent question' });
     await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
-    await waitFor(() => expect(fake.calls.clips).toHaveLength(1));
+    await waitFor(() => expect(fake.calls.voiceMessages).toHaveLength(1));
     act(() => fake.emitAgent('kirk', { type: 'agent', agent: fakeAgent({ status: 'idle' }) }));
 
     await waitFor(() => expect(message().value).toBe('dark mode for pocket-home'));
     expect(
       (
         screen.queryByRole('textbox', {
-          name: 'Type into the dialog',
+          name: 'Answer the agent question',
         }) as HTMLTextAreaElement | null
       )?.value ?? '',
     ).toBe('');
   });
 
-  it('keeps a transcript that arrives while a prompt is on its way', async () => {
+  it('keeps a transcription that arrives while a prompt is on its way', async () => {
     const { state, calls } = await openWith(true);
     let transcribed = () => undefined as void;
     let sent = () => undefined as void;
@@ -1154,8 +1154,8 @@ describe('voice messages in the agent chat', () => {
   });
 });
 
-describe("answering an agent's question in the chat", () => {
-  const asks: TranscriptView['entries'][number] = {
+describe("answering an agent's question in the conversation", () => {
+  const asks: ConversationView['entries'][number] = {
     type: 'tool',
     id: 'q1',
     at: 5,
@@ -1184,8 +1184,8 @@ describe("answering an agent's question in the chat", () => {
   const openAsking = (agent = fakeAgent({ status: 'blocked', needsYou: true })) => {
     const fake = fakeClient({
       agents: new Map([[agent.ref, agent]]),
-      transcripts: new Map([
-        [agent.ref, { entries: [asks], activity: 'Waiting for your answer…' }],
+      conversations: new Map([
+        [agent.ref, { entries: [asks], currentStep: 'Waiting for your answer…' }],
       ]),
       screens: new Map([[agent.ref, 'Can you undo an accepted item?']]),
     });
@@ -1210,7 +1210,7 @@ describe("answering an agent's question in the chat", () => {
     );
     expect(screen.queryByRole('region', { name: 'Claude needs your answer' })).toBeNull();
     expect(screen.getByRole('button', { name: /^Controls/ })).toBeDefined();
-    expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Answer the agent question' })).toBeDefined();
   });
 
   it('sends the chosen options once every question has one, and shows them as sent', async () => {
@@ -1271,7 +1271,7 @@ describe("answering an agent's question in the chat", () => {
         type: 'entries',
         reset: false,
         entries: [{ type: 'assistant', id: 'a9', at: 9, text: 'One more thing.' }],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     );
 
@@ -1320,7 +1320,7 @@ describe("answering an agent's question in the chat", () => {
 
     expect(await screen.findByRole('radio', { name: 'No undo' })).toBeDefined();
     expect(screen.getByRole('button', { name: /^Controls/ })).toBeDefined();
-    expect(screen.getByRole('textbox', { name: 'Type into the dialog' })).toBeDefined();
+    expect(screen.getByRole('textbox', { name: 'Answer the agent question' })).toBeDefined();
     expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
   });
 

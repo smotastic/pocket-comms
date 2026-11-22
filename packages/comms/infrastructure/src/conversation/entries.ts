@@ -2,19 +2,19 @@ import type {
   BackgroundItem,
   ToolOutcome,
   ToolVerb,
-  TranscriptEntry,
+  ConversationEntry,
 } from '@pocket-comms/comms-domain';
 
 /** Reads one session file line by line and keeps the chat entries it found so far. */
-export interface TranscriptParser {
+export interface ConversationParser {
   /** Reads one line and returns the entries it added or changed; a line it cannot read adds none. */
-  readonly push: (line: string) => ReadonlyArray<TranscriptEntry>;
-  readonly entries: () => ReadonlyArray<TranscriptEntry>;
+  readonly push: (line: string) => ReadonlyArray<ConversationEntry>;
+  readonly entries: () => ReadonlyArray<ConversationEntry>;
   /** The background work started in the lines read so far that has not ended yet. */
   readonly background: () => ReadonlyArray<BackgroundItem>;
 }
 
-export type ToolEntry = Extract<TranscriptEntry, { type: 'tool' }>;
+export type ToolEntry = Extract<ConversationEntry, { type: 'tool' }>;
 
 export interface ToolSummary {
   readonly verb: ToolVerb;
@@ -70,19 +70,19 @@ export const parseLine = (line: string): Record<string, unknown> | undefined => 
  * later result can set their outcome.
  */
 export const entryLog = () => {
-  const entries: Array<TranscriptEntry> = [];
+  const entries: Array<ConversationEntry> = [];
   const tools = new Map<string, number>();
   return {
-    entries: (): ReadonlyArray<TranscriptEntry> => entries,
-    add: (entry: TranscriptEntry): TranscriptEntry => {
+    entries: (): ReadonlyArray<ConversationEntry> => entries,
+    add: (entry: ConversationEntry): ConversationEntry => {
       if (entry.type === 'tool') tools.set(entry.id, entries.length);
       entries.push(entry);
       return entry;
     },
     /** The latest entry, which a later line may still complete. */
-    last: (): TranscriptEntry | undefined => entries[entries.length - 1],
+    last: (): ConversationEntry | undefined => entries[entries.length - 1],
     /** Puts `entry` in place of the latest entry, which has the same id. */
-    replaceLast: (entry: TranscriptEntry): TranscriptEntry => {
+    replaceLast: (entry: ConversationEntry): ConversationEntry => {
       entries[entries.length - 1] = entry;
       return entry;
     },
@@ -96,7 +96,7 @@ export const entryLog = () => {
       outcome: ToolOutcome,
       details?: Pick<ToolEntry, 'added' | 'removed' | 'subagent'>,
       answerOf: (question: string) => string | undefined = () => undefined,
-    ): TranscriptEntry | undefined => {
+    ): ConversationEntry | undefined => {
       const index = tools.get(id);
       const entry = index === undefined ? undefined : entries[index];
       if (index === undefined || entry?.type !== 'tool') return undefined;

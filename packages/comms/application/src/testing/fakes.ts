@@ -9,7 +9,7 @@ import {
   type Notification,
   type Project,
   type PushSubscription,
-  type TranscriptEntry,
+  type ConversationEntry,
   type Workspace,
   type Worktree,
 } from '@pocket-comms/comms-domain';
@@ -35,12 +35,12 @@ import {
   ProjectGitError,
   PushStoreError,
   QuickRepliesStoreError,
-  TranscriptUnavailableError,
+  ConversationUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
 import {
   BrainstormStoreOutbound,
-  type StoredChat,
+  type StoredBrainstorm,
 } from '../ports/brainstorm-store.outbound.port.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
@@ -58,10 +58,10 @@ import {
   PushSubscriptionsOutbound,
 } from '../ports/push.outbound.port.js';
 import {
-  TranscriptOutbound,
+  ConversationOutbound,
   type SubagentMeta,
-  type TranscriptSource,
-} from '../ports/transcript.outbound.port.js';
+  type ConversationSource,
+} from '../ports/conversation.outbound.port.js';
 
 /** One request the fake Herdr received, so a test can prove what was sent, and what was not. */
 export interface HerdrCall {
@@ -80,7 +80,7 @@ export interface HerdrCall {
 
 /**
  * The state behind the fakes of the outbound ports. A test changes it directly and publishes on
- * `herdrChanges` or `transcriptAppends` to drive the streams.
+ * `herdrChanges` or `conversationAppends` to drive the streams.
  */
 export class FakeState extends Context.Service<
   FakeState,
@@ -88,11 +88,11 @@ export class FakeState extends Context.Service<
     agents: Array<Agent>;
     workspaces: Array<Workspace>;
     readonly screens: Map<string, string>;
-    /** Session id to transcript. */
-    readonly transcripts: Map<
+    /** Session id to conversation. */
+    readonly conversations: Map<
       string,
       {
-        entries: Array<TranscriptEntry>;
+        entries: Array<ConversationEntry>;
         modifiedAt: number;
         background?: ReadonlyArray<BackgroundItem>;
       }
@@ -104,10 +104,10 @@ export class FakeState extends Context.Service<
     available: boolean;
     readonly calls: Array<HerdrCall>;
     readonly herdrChanges: PubSub.PubSub<void>;
-    readonly transcriptAppends: PubSub.PubSub<{
+    readonly conversationAppends: PubSub.PubSub<{
       /** The session, or a subagent's conversation by `subagentKey`. */
       readonly session: string;
-      readonly entries: ReadonlyArray<TranscriptEntry>;
+      readonly entries: ReadonlyArray<ConversationEntry>;
     }>;
     readonly seen: Set<string>;
     readonly seenChanges: PubSub.PubSub<void>;
@@ -137,8 +137,8 @@ export class FakeState extends Context.Service<
     giteaFailure: string | undefined;
     /** Why only marking an issue in progress fails, when it does. */
     giteaMarkFailure: string | undefined;
-    /** The names of the pictures the fake Gitea refuses to attach. */
-    readonly giteaRefusedPictures: Set<string>;
+    /** The names of the images the fake Gitea refuses to attach. */
+    readonly giteaRefusedImages: Set<string>;
     /** Every Gitea request, as `<method> <owner>/<name> [<number>]`. */
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
@@ -147,16 +147,16 @@ export class FakeState extends Context.Service<
     readDocWait: Effect.Effect<void> | undefined;
     /** Why the runtime is not set up, when it is not. */
     notSetUp: string | undefined;
-    /** The runtime's model takes pictures. */
+    /** The runtime's model takes images. */
     seesImages: boolean;
     /** The turns the scripted runtime plays, in order, and what it was given. */
     readonly script: Array<ReadonlyArray<ScriptStep>>;
     readonly turns: Array<TurnInput>;
-    /** The stored brainstorm chat, and how often it was saved. */
-    storedChat: StoredChat | undefined;
+    /** The stored brainstorm, and how often it was saved. */
+    storedBrainstorm: StoredBrainstorm | undefined;
     saves: number;
-    /** Which saves of the chat die, as a broken disk would make them. */
-    saveDies: ((chat: StoredChat) => boolean) | undefined;
+    /** Which saves of the brainstorm die, as a broken disk would make them. */
+    saveDies: ((brainstorm: StoredBrainstorm) => boolean) | undefined;
     /** The kept images by id, with when each was saved in epoch milliseconds. */
     readonly images: Map<string, StoredImage & { readonly savedAt: number }>;
     /** The kept activity events, oldest first. */
@@ -181,7 +181,7 @@ export class FakeState extends Context.Service<
     quickReplies: ReadonlyArray<string> | undefined;
     /** Why the quick replies store fails, when it does. */
     quickRepliesFailure: string | undefined;
-    /** The speech service: whether it is set up, what it hears, why it fails and its clips. */
+    /** The speech service: whether it is set up, what it hears, why it fails and the voice messages it got (`clips`, as the agent package names them). */
     readonly speech: {
       available: boolean;
       text: string;
@@ -277,46 +277,49 @@ const herdr = (state: FakeState['Service']) => {
   });
 };
 
-/** The key of a subagent's conversation in the fake's transcripts and its meta files. */
+/** The key of a subagent's conversation in the fake's conversations and its meta files. */
 export const subagentKey = (session: string, subagent: string) =>
   `${session}/subagents/${subagent}`;
 
-const keyOf = (source: TranscriptSource) =>
+const keyOf = (source: ConversationSource) =>
   source.subagent === undefined ? source.session : subagentKey(source.session, source.subagent);
 
-const transcripts = (state: FakeState['Service']) => {
-  const find = (source: TranscriptSource) =>
-    Option.fromNullishOr(state.transcripts.get(keyOf(source)));
-  return TranscriptOutbound.of({
+const conversations = (state: FakeState['Service']) => {
+  const find = (source: ConversationSource) =>
+    Option.fromNullishOr(state.conversations.get(keyOf(source)));
+  return ConversationOutbound.of({
     read: (source) =>
       Effect.suspend(() =>
         Option.match(find(source), {
           onNone: () =>
             Effect.fail(
-              new TranscriptUnavailableError({ ref: source.ref, reason: 'No session file.' }),
+              new ConversationUnavailableError({ ref: source.ref, reason: 'No session file.' }),
             ),
-          onSome: (transcript) =>
-            Effect.succeed({ entries: [...transcript.entries], modifiedAt: transcript.modifiedAt }),
+          onSome: (conversation) =>
+            Effect.succeed({
+              entries: [...conversation.entries],
+              modifiedAt: conversation.modifiedAt,
+            }),
         }),
       ),
     follow: (source) =>
       Stream.concat(
-        Stream.sync(() => state.transcripts.get(keyOf(source))?.entries ?? []),
-        Stream.fromPubSub(state.transcriptAppends).pipe(
+        Stream.sync(() => state.conversations.get(keyOf(source))?.entries ?? []),
+        Stream.fromPubSub(state.conversationAppends).pipe(
           Stream.filter((append) => append.session === keyOf(source)),
           Stream.map((append) => append.entries),
         ),
       ),
     modifiedAt: (source) =>
-      Effect.sync(() => Option.map(find(source), (transcript) => transcript.modifiedAt)),
+      Effect.sync(() => Option.map(find(source), (conversation) => conversation.modifiedAt)),
     background: (source) =>
       Effect.suspend(() =>
         Option.match(find(source), {
           onNone: () =>
             Effect.fail(
-              new TranscriptUnavailableError({ ref: source.ref, reason: 'No session file.' }),
+              new ConversationUnavailableError({ ref: source.ref, reason: 'No session file.' }),
             ),
-          onSome: (transcript) => Effect.succeed(transcript.background ?? []),
+          onSome: (conversation) => Effect.succeed(conversation.background ?? []),
         }),
       ),
     subagentMeta: (source) =>
@@ -518,20 +521,20 @@ const gitea = (state: FakeState['Service']) => {
         issues[index] = { ...found, title, body };
         return Effect.void;
       }),
-    attachImage: ({ owner, name }, number, picture) =>
+    attachImage: ({ owner, name }, number, image) =>
       request<string, IssueNotFoundError | GiteaUnavailableError>(
-        `attachImage ${owner}/${name} ${number} ${picture.name}`,
+        `attachImage ${owner}/${name} ${number} ${image.name}`,
         () => {
-          if (state.giteaRefusedPictures.has(picture.name)) {
+          if (state.giteaRefusedImages.has(image.name)) {
             return Effect.fail(
-              new GiteaUnavailableError({ reason: `Gitea refused ${picture.name} (422).` }),
+              new GiteaUnavailableError({ reason: `Gitea refused ${image.name} (422).` }),
             );
           }
           const found = state.issues
             .get(`${owner}/${name}`)
             ?.some((issue) => issue.number === number);
           return found === true
-            ? Effect.succeed(`http://gitea.test/attachments/${number}/${picture.name}`)
+            ? Effect.succeed(`http://gitea.test/attachments/${number}/${image.name}`)
             : Effect.fail(new IssueNotFoundError({ number }));
         },
       ),
@@ -559,15 +562,15 @@ export const fakeLayer = () => {
         agents: [],
         workspaces: [...fakeWorkspaces],
         screens: new Map(),
-        transcripts: new Map(),
+        conversations: new Map(),
         subagentMetas: new Map(),
         rejects: new Map(),
         available: true,
         calls: [],
         herdrChanges: yield* PubSub.unbounded<void>(),
-        transcriptAppends: yield* PubSub.unbounded<{
+        conversationAppends: yield* PubSub.unbounded<{
           readonly session: string;
-          readonly entries: ReadonlyArray<TranscriptEntry>;
+          readonly entries: ReadonlyArray<ConversationEntry>;
         }>(),
         seen: new Set(),
         seenChanges: yield* PubSub.unbounded<void>(),
@@ -585,7 +588,7 @@ export const fakeLayer = () => {
         giteaConfigured: true,
         giteaFailure: undefined,
         giteaMarkFailure: undefined,
-        giteaRefusedPictures: new Set(),
+        giteaRefusedImages: new Set(),
         giteaCalls: [],
         docs: new Map(),
         readDocWait: undefined,
@@ -593,7 +596,7 @@ export const fakeLayer = () => {
         seesImages: true,
         script: [],
         turns: [],
-        storedChat: undefined,
+        storedBrainstorm: undefined,
         saves: 0,
         saveDies: undefined,
         images: new Map(),
@@ -615,7 +618,7 @@ export const fakeLayer = () => {
     Effect.gen(function* () {
       const fake = yield* FakeState;
       return Context.make(HerdrOutbound, herdr(fake)).pipe(
-        Context.add(TranscriptOutbound, transcripts(fake)),
+        Context.add(ConversationOutbound, conversations(fake)),
         Context.add(ProjectsOutbound, projects(fake)),
         Context.add(GiteaOutbound, gitea(fake)),
         Context.add(AgentRuntime, {
@@ -628,12 +631,12 @@ export const fakeLayer = () => {
           runTurn: (turn) => scriptedTurn({ turns: fake.script, received: fake.turns }, turn),
         }),
         Context.add(BrainstormStoreOutbound, {
-          load: Effect.sync(() => Option.fromNullishOr(fake.storedChat)),
-          save: (chat) =>
-            fake.saveDies?.(chat) === true
+          load: Effect.sync(() => Option.fromNullishOr(fake.storedBrainstorm)),
+          save: (brainstorm) =>
+            fake.saveDies?.(brainstorm) === true
               ? Effect.die('The disk is full.')
               : Effect.sync(() => {
-                  fake.storedChat = chat;
+                  fake.storedBrainstorm = brainstorm;
                   fake.saves += 1;
                 }),
         }),

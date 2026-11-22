@@ -3,7 +3,7 @@ import {
   GiteaOutbound,
   GiteaUnavailableError,
   IssueNotFoundError,
-  type IssuePicture,
+  type IssueImage,
 } from '@pocket-comms/comms-application';
 import {
   IN_PROGRESS_LABEL,
@@ -25,7 +25,7 @@ import * as Schema from 'effect/Schema';
 // Gitea's REST API (`/api/v1`). It reads with `GET`, and writes only the `PATCH` that closes an
 // issue (spec 010), the `POST` that creates one (spec 013), the `POST`s that create the
 // in-progress label and add it to an issue (spec 015), the `PATCH` of an issue's title and body
-// (spec 022) and the multipart `POST` that attaches a picture to an issue (spec 023). It never
+// (spec 022) and the multipart `POST` that attaches a image to an issue (spec 023). It never
 // replaces or removes labels or attachments. The
 // token travels in the `Authorization` header and nowhere else; no reason, log line or span
 // carries it (spec 006, requirement 2).
@@ -39,7 +39,7 @@ export interface HttpOptions {
   readonly hosts: ReadonlyArray<string>;
   /** How long one request may take. Default 10 seconds. */
   readonly timeout?: Duration.Input;
-  /** How long one picture upload may take. Default 60 seconds. */
+  /** How long one image upload may take. Default 60 seconds. */
   readonly uploadTimeout?: Duration.Input;
 }
 
@@ -307,7 +307,7 @@ export const layerHttp = ({
     );
 
   // Gitea's reason, such as a type it does not allow, is shown to the owner (spec 023).
-  const pictureRefused = (name: string) => (response: Response) =>
+  const imageRefused = (name: string) => (response: Response) =>
     Effect.promise(() => response.json().catch(() => undefined)).pipe(
       Effect.map((answer) =>
         Option.match(decodeMessage(answer), {
@@ -318,19 +318,19 @@ export const layerHttp = ({
     );
 
   // An attachment only adds a file to the issue; its title, body and labels stay as they are.
-  const attachImage = (repository: GiteaRepository, number: number, picture: IssuePicture) =>
+  const attachImage = (repository: GiteaRepository, number: number, image: IssueImage) =>
     Effect.gen(function* () {
       const form = new FormData();
       form.append(
         'attachment',
-        new Blob([picture.bytes.slice()], { type: MEDIA_TYPES[picture.kind] }),
-        picture.name,
+        new Blob([image.bytes.slice()], { type: MEDIA_TYPES[image.kind] }),
+        image.name,
       );
       const answer = yield* send(
         'POST',
         `${repositoryPath(repository)}/issues/${number}/assets`,
         form,
-        pictureRefused(picture.name),
+        imageRefused(image.name),
         uploadTimeout,
       );
       if (answer === undefined) return yield* new IssueNotFoundError({ number });

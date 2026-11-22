@@ -230,7 +230,7 @@ describe('the overview', () => {
   it('shows that the live connection is up', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
-    expect(await screen.findByText('Mac mini · live')).toBeDefined();
+    expect(await screen.findByText('Home server · live')).toBeDefined();
   });
 });
 

@@ -23,7 +23,7 @@ export {
   ImageUpload,
   ImplementIssueRequest,
   Issue,
-  IssueDraft,
+  ProposedIssue,
   IssueList,
   IssueTaskCreated,
   IssueNumberParam,
@@ -53,7 +53,7 @@ export {
   TailscaleIdentity,
   TaskAgent,
   TaskCreated,
-  Transcript,
-  TranscriptEntry,
+  Conversation,
+  ConversationEntry,
   UploadedImage,
 } from './comms-api.js';

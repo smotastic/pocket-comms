@@ -1,14 +1,18 @@
-import type { BackgroundItem, TranscriptEntry, TranscriptFormat } from '@pocket-comms/comms-domain';
+import type {
+  BackgroundItem,
+  ConversationEntry,
+  ConversationFormat,
+} from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
 import type * as Stream from 'effect/Stream';
-import type { TranscriptUnavailableError } from '../errors.js';
+import type { ConversationUnavailableError } from '../errors.js';
 
 /** Where an agent's session file is: its format, its session id and the agent's directory. */
-export interface TranscriptSource {
+export interface ConversationSource {
   readonly ref: string;
-  readonly format: TranscriptFormat;
+  readonly format: ConversationFormat;
   readonly session: string;
   readonly cwd: string | undefined;
   /** A subagent of the session, by id: its own conversation instead of the session's. */
@@ -22,38 +26,40 @@ export interface SubagentMeta {
   readonly inBackground: boolean;
 }
 
-export interface Transcript {
+export interface Conversation {
   /** The latest entries, oldest first. */
-  readonly entries: ReadonlyArray<TranscriptEntry>;
+  readonly entries: ReadonlyArray<ConversationEntry>;
   /** When the session file last changed, in epoch milliseconds. */
   readonly modifiedAt: number;
 }
 
 /** The session files of Claude and Pi agents. */
-export class TranscriptOutbound extends Context.Service<
-  TranscriptOutbound,
+export class ConversationOutbound extends Context.Service<
+  ConversationOutbound,
   {
     readonly read: (
-      source: TranscriptSource,
-    ) => Effect.Effect<Transcript, TranscriptUnavailableError>;
+      source: ConversationSource,
+    ) => Effect.Effect<Conversation, ConversationUnavailableError>;
     /**
      * Emits the latest entries at once, then the entries that are new or changed, such as a tool
      * call whose outcome arrived. A changed entry keeps its id. A read that fails is retried at
      * the next check, so a passing error never ends the stream.
      */
     readonly follow: (
-      source: TranscriptSource,
-    ) => Stream.Stream<ReadonlyArray<TranscriptEntry>, TranscriptUnavailableError>;
+      source: ConversationSource,
+    ) => Stream.Stream<ReadonlyArray<ConversationEntry>, ConversationUnavailableError>;
     /** When the session file last changed, or none when there is no such file. */
-    readonly modifiedAt: (source: TranscriptSource) => Effect.Effect<Option.Option<number>>;
+    readonly modifiedAt: (source: ConversationSource) => Effect.Effect<Option.Option<number>>;
     /**
      * The background work of the whole session that has not ended, expired monitors included.
      * Each subagent names its id once the session or its own files know it.
      */
     readonly background: (
-      source: TranscriptSource,
-    ) => Effect.Effect<ReadonlyArray<BackgroundItem>, TranscriptUnavailableError>;
+      source: ConversationSource,
+    ) => Effect.Effect<ReadonlyArray<BackgroundItem>, ConversationUnavailableError>;
     /** What Claude records about the subagent `source` names, or none without such a record. */
-    readonly subagentMeta: (source: TranscriptSource) => Effect.Effect<Option.Option<SubagentMeta>>;
+    readonly subagentMeta: (
+      source: ConversationSource,
+    ) => Effect.Effect<Option.Option<SubagentMeta>>;
   }
->()('comms/application/TranscriptOutbound') {}
+>()('comms/application/ConversationOutbound') {}

@@ -39,7 +39,7 @@ export const ToolLine = ({ verb, target, added, removed, outcome, hint, href }: 
     added !== undefined && added > 0 ? <span key="added">+{added}</span> : null,
     removed !== undefined && removed > 0 ? <span key="removed">−{removed}</span> : null,
     outcome === 'ok' || outcome === 'error' ? (
-      // The mark is a picture with a name, so a screen reader says the outcome in words.
+      // The mark is a image with a name, so a screen reader says the outcome in words.
       <span key="outcome" role="img" aria-label={MARKS[outcome].name}>
         {MARKS[outcome].mark}
       </span>

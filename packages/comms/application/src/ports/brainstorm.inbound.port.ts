@@ -29,12 +29,12 @@ export class BrainstormInbound extends Context.Service<
   {
     readonly state: Effect.Effect<BrainstormStateDto>;
     /**
-     * The chat's entries after `after`, the reply Pi has written so far, then what follows: every
-     * entry once, and no text twice. A New chat starts with `chatStarted`.
+     * The brainstorm's entries after `after`, the reply Pi has written so far, then what follows: every
+     * entry once, and no text twice. A New brainstorm starts with `brainstormStarted`.
      */
     readonly events: (after: number) => Stream.Stream<BrainstormEventDto>;
     /**
-     * Adds the owner's message with the pictures it attaches, by image id, and starts Pi's
+     * Adds the owner's message with the images it attaches, by image id, and starts Pi's
      * answer, without waiting for it.
      */
     readonly send: (
@@ -61,7 +61,7 @@ export class BrainstormInbound extends Context.Service<
       | IssueNotFoundError
       | IssueChangedError
     >;
-    /** Stops a running answer and starts an empty chat. */
+    /** Stops a running answer and starts an empty brainstorm. */
     readonly reset: () => Effect.Effect<void>;
   }
 >()('comms/application/BrainstormInbound') {

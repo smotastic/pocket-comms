@@ -34,10 +34,10 @@ export const problems = {
         detail: `${error.ref} has no subagent ${error.subagent}.`,
       }),
     ),
-  transcriptUnavailable: (error: { readonly reason: string }) =>
+  conversationUnavailable: (error: { readonly reason: string }) =>
     Effect.fail(
       notFoundProblem({
-        slug: 'transcript-unavailable',
+        slug: 'conversation-unavailable',
         title: 'The agent has no conversation to show',
         detail: error.reason,
       }),
@@ -166,7 +166,7 @@ export const problems = {
     Effect.fail(
       conflictProblem({
         slug: 'brainstorm-not-set-up',
-        title: 'The brainstorm chat is not set up',
+        title: 'The brainstorm is not set up',
         detail: error.reason,
       }),
     ),
@@ -183,7 +183,7 @@ export const problems = {
       notFoundProblem({
         slug: 'proposal-not-found',
         title: 'Proposal not found',
-        detail: `The brainstorm chat has no proposal ${error.id}.`,
+        detail: `The brainstorm has no proposal ${error.id}.`,
       }),
     ),
   proposalDecided: (error: { readonly id: string }) =>

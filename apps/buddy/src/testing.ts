@@ -5,7 +5,7 @@ import * as Queue from 'effect/Queue';
 import * as Stream from 'effect/Stream';
 import { Button, type Intent } from './button.js';
 import { Comms, type BrainstormEventView, type CommsError, type Decision } from './comms.js';
-import { Outbox, OutboxError, type Clip } from './outbox.js';
+import { Outbox, OutboxError, type VoiceMessage } from './outbox.js';
 import { Recorder, RecorderError } from './recorder.js';
 import { Screen, type ScreenView } from './screen.js';
 
@@ -22,8 +22,8 @@ export const makeFakes = Effect.gen(function* () {
     stream,
     views: [] as Array<ScreenView>,
     recorder: { recording: false, started: 0, failure: undefined as string | undefined },
-    outbox: [] as Array<Clip>,
-    nextClip: 0,
+    outbox: [] as Array<VoiceMessage>,
+    nextVoiceMessage: 0,
     /** The outbox cannot be read while this is set, such as a disk gone. */
     outboxFailure: undefined as string | undefined,
     /** A defect of the event stream, as a bug in an adapter would raise. */
@@ -34,8 +34,8 @@ export const makeFakes = Effect.gen(function* () {
     outboxOverlap: 0,
     comms: {
       answering: false,
-      /** What a clip is transcribed to. */
-      transcript: (clip: Uint8Array): string => `idea ${clip[0] ?? 0}`,
+      /** What a voice message is transcribed to. */
+      transcription: (voiceMessage: Uint8Array): string => `idea ${voiceMessage[0] ?? 0}`,
       /** Failures for the next calls, in order, before they succeed. */
       transcribeFailures: [] as Array<CommsError>,
       sendFailures: [] as Array<CommsError>,
@@ -90,9 +90,9 @@ export const makeFakes = Effect.gen(function* () {
       put: (bytes) =>
         tracked(
           Effect.sync(() => {
-            const clip = { id: `clip-${fake.nextClip++}`, bytes };
-            fake.outbox.push(clip);
-            return clip;
+            const voiceMessage = { id: `voice-message-${fake.nextVoiceMessage++}`, bytes };
+            fake.outbox.push(voiceMessage);
+            return voiceMessage;
           }),
         ),
       oldest: Effect.suspend(() =>
@@ -103,7 +103,7 @@ export const makeFakes = Effect.gen(function* () {
       remove: (id) =>
         tracked(
           Effect.sync(() => {
-            fake.outbox = fake.outbox.filter((clip) => clip.id !== id);
+            fake.outbox = fake.outbox.filter((voiceMessage) => voiceMessage.id !== id);
           }),
         ),
       size: tracked(
@@ -113,12 +113,12 @@ export const makeFakes = Effect.gen(function* () {
       ),
     }),
     Layer.succeed(Comms, {
-      transcribe: (clip) =>
+      transcribe: (voiceMessage) =>
         failNext(fake.comms.transcribeFailures).pipe(
           Effect.andThen(
             Effect.sync(() => {
-              fake.comms.transcribed.push(clip);
-              return fake.comms.transcript(clip);
+              fake.comms.transcribed.push(voiceMessage);
+              return fake.comms.transcription(voiceMessage);
             }),
           ),
         ),

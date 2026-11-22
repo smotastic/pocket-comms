@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TranscriptView } from './comms-client.js';
+import type { ConversationView } from './comms-client.js';
 import { mergeEntries } from './live.js';
 
 const user = { type: 'user', id: 'u1', at: 1, text: 'Run the tests' } as const;
@@ -15,12 +15,17 @@ const done = { ...pending, outcome: 'ok' } as const;
 const reply = { type: 'assistant', id: 'a1', at: 3, text: 'Green.' } as const;
 
 describe('mergeEntries', () => {
-  const held: TranscriptView = { entries: [user, pending], activity: 'Running pnpm test…' };
+  const held: ConversationView = { entries: [user, pending], currentStep: 'Running pnpm test…' };
 
   it('replaces what it holds on a reset', () => {
     expect(
-      mergeEntries(held, { type: 'entries', reset: true, entries: [reply], activity: 'Thinking…' }),
-    ).toEqual({ entries: [reply], activity: 'Thinking…' });
+      mergeEntries(held, {
+        type: 'entries',
+        reset: true,
+        entries: [reply],
+        currentStep: 'Thinking…',
+      }),
+    ).toEqual({ entries: [reply], currentStep: 'Thinking…' });
   });
 
   it('updates a changed entry in place and appends a new one', () => {
@@ -29,9 +34,9 @@ describe('mergeEntries', () => {
         type: 'entries',
         reset: false,
         entries: [done, reply],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
-    ).toEqual({ entries: [user, done, reply], activity: 'Thinking…' });
+    ).toEqual({ entries: [user, done, reply], currentStep: 'Thinking…' });
   });
 
   it('starts from nothing when it holds nothing', () => {
@@ -40,8 +45,8 @@ describe('mergeEntries', () => {
         type: 'entries',
         reset: false,
         entries: [user],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
-    ).toEqual({ entries: [user], activity: 'Thinking…' });
+    ).toEqual({ entries: [user], currentStep: 'Thinking…' });
   });
 });

@@ -24,15 +24,15 @@ describe('render', () => {
     ).toBe('One. Two. Thr');
   });
 
-  it('counts the waiting clips and adds the last notice', () => {
+  it('counts the waiting voice messages and adds the last notice', () => {
     expect(
       render({ ...initialState, link: { _tag: 'Offline' }, waiting: 2, notice: 'Hm.' }, 0).status,
     ).toBe('Offline · 2 waiting · Hm.');
   });
 
-  it('shows the time of a recording', () => {
+  it('shows the time of a voice message', () => {
     expect(render({ ...initialState, recordingSince: 1_000 }, 73_500).status).toBe(
-      'Recording 1:12',
+      'Listening 1:12',
     );
   });
 });

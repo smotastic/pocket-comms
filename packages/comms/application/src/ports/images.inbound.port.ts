@@ -8,7 +8,7 @@ import { makeImages } from '../use-cases/images.use-case.js';
 import type { StoredImage } from './images.outbound.port.js';
 
 // The inbound port of the images resource (spec 014): uploads that a prompt or a task attaches
-// later, and the images the chat shows again.
+// later, and the images the brainstorm shows again.
 
 export class ImagesInbound extends Context.Service<
   ImagesInbound,

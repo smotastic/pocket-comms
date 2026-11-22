@@ -1,7 +1,7 @@
 import { ImageThumb } from '@smotastic/pocket-design';
 import type { Attachment } from './attachments.js';
 
-/** What a thumbnail shows when its picture is gone. */
+/** What a thumbnail shows when its image is gone. */
 export const MISSING = 'Removed';
 
 /** What happens to an attached image, in words; none once it is ready. */

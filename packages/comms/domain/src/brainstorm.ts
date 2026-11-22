@@ -2,16 +2,16 @@ import type { FieldIssue } from '@pocket-comms/backend-shared';
 import * as Result from 'effect/Result';
 import { InvalidInputError } from './errors.js';
 
-// The rules of the brainstorm chat: what the conversation holds, the issue or the edit
-// a proposal drafts and how it is decided, the pictures that go with it, the issues Pi read, and
+// The rules of the brainstorm: what the conversation holds, the issue or the edit
+// a proposal proposes and how it is decided, the images that go with it, the issues Pi read, and
 // the project files Pi may read.
 
 /** Gitea's limit of an issue title. */
 export const MAX_ISSUE_TITLE = 255;
 export const MAX_ISSUE_BODY = 20_000;
 
-/** The issue a proposal drafts: the project by its name, the title and the Markdown body. */
-export interface IssueDraft {
+/** The issue a proposal proposes: the project by its name, the title and the Markdown body. */
+export interface ProposedIssue {
   readonly project: string;
   readonly title: string;
   readonly body: string;
@@ -25,7 +25,7 @@ export interface IssueText {
 
 /**
  * A proposal is open until the owner creates its issue or discards it, once. It is `attaching`
- * while the issue exists but its pictures are not all attached (spec 023).
+ * while the issue exists but its images are not all attached (spec 023).
  */
 export type ProposalState =
   | { readonly _tag: 'open' }
@@ -33,19 +33,19 @@ export type ProposalState =
   | { readonly _tag: 'discarded' }
   | { readonly _tag: 'attaching'; readonly number: number; readonly url: string };
 
-/** A chat picture that is an attachment of the issue in Gitea, and its link there. */
-export interface AttachedPicture {
+/** A brainstorm image that is an attachment of the issue in Gitea, and its link there. */
+export interface AttachedImage {
   readonly image: string;
   readonly url: string;
 }
 
 /**
- * The chat pictures that go with a proposal, by image id: the ones Pi named, then the owner's
+ * The brainstorm images that go with a proposal, by image id: the ones Pi named, then the owner's
  * choice. `attached` are those already in Gitea, so a retry never uploads one twice.
  */
-interface WithPictures {
-  readonly pictures: ReadonlyArray<string>;
-  readonly attached: ReadonlyArray<AttachedPicture>;
+interface WithImages {
+  readonly images: ReadonlyArray<string>;
+  readonly attached: ReadonlyArray<AttachedImage>;
 }
 
 /** An edit is open until the owner applies or discards it, once. */
@@ -55,7 +55,7 @@ export type EditState =
   | { readonly _tag: 'discarded' };
 
 /** A new issue Pi proposes. */
-export interface IssueProposal extends IssueDraft, WithPictures {
+export interface IssueProposal extends ProposedIssue, WithImages {
   readonly type: 'proposal';
   readonly kind: 'issue';
   readonly id: string;
@@ -67,7 +67,7 @@ export interface IssueProposal extends IssueDraft, WithPictures {
  * A new title and body Pi proposes for an existing issue. `base` is the issue as Pi read it, so
  * applying the edit can tell when someone changed the issue since.
  */
-export interface EditProposal extends IssueText, WithPictures {
+export interface EditProposal extends IssueText, WithImages {
   readonly type: 'proposal';
   readonly kind: 'edit';
   readonly id: string;
@@ -83,11 +83,11 @@ export interface EditProposal extends IssueText, WithPictures {
 export type ProposalEntry = IssueProposal | EditProposal;
 
 /**
- * The chat's own entries (spec 026); Pi's replies, its tools and the ends of its turns are the
+ * The brainstorm's own entries (spec 026); Pi's replies, its tools and the ends of its turns are the
  * agent package's shared entries around them. `at` is in epoch milliseconds.
  */
 export type BrainstormEntry =
-  /** What the owner wrote; `images` are the ids of the pictures it attached, in order. */
+  /** What the owner wrote; `images` are the ids of the images it attached, in order. */
   | {
       readonly kind: 'said';
       readonly id: string;
@@ -100,8 +100,8 @@ export type BrainstormEntry =
    * an id counts, and shows in the place of its first.
    */
   | { readonly kind: 'proposal'; readonly proposal: ProposalEntry }
-  /** A new chat starts here; the chat before it is gone. */
-  | { readonly kind: 'chatStarted' };
+  /** A new brainstorm starts here; the brainstorm before it is gone. */
+  | { readonly kind: 'brainstormStarted' };
 
 const textIssues = (title: string, body: string): Array<FieldIssue> => {
   const issues: Array<FieldIssue> = [];
@@ -121,13 +121,13 @@ const textIssues = (title: string, body: string): Array<FieldIssue> => {
   return issues;
 };
 
-/** The draft, trimmed; a blank project or title, or a field over its limit, is refused. */
-export const parseIssueDraft = (
-  draft: IssueDraft,
-): Result.Result<IssueDraft, InvalidInputError> => {
-  const project = draft.project.trim();
-  const title = draft.title.trim();
-  const body = draft.body.trim();
+/** The proposed issue, trimmed; a blank project or title, or a field over its limit, is refused. */
+export const parseProposedIssue = (
+  issue: ProposedIssue,
+): Result.Result<ProposedIssue, InvalidInputError> => {
+  const project = issue.project.trim();
+  const title = issue.title.trim();
+  const body = issue.body.trim();
   const issues: Array<FieldIssue> = [
     ...(project === '' ? [{ field: 'project', message: 'Choose a project.' }] : []),
     ...textIssues(title, body),
@@ -158,69 +158,72 @@ export const proposalOf = (
     .flatMap((entry) => (entry.kind === 'proposal' && entry.proposal.id === id ? [entry] : []))
     .at(-1)?.proposal;
 
-/** At most this many pictures go with one proposal. */
-export const MAX_PROPOSAL_PICTURES = 5;
+/** At most this many images go with one proposal. */
+export const MAX_PROPOSAL_IMAGES = 5;
 
-/** A picture of the chat and its number, counted from 1 in the order it was sent. */
-export interface ChatPicture {
+/** A image of the brainstorm and its number, counted from 1 in the order it was sent. */
+export interface BrainstormImage {
   readonly id: string;
   readonly number: number;
 }
 
-export const chatPictures = (entries: ReadonlyArray<BrainstormEntry>): ReadonlyArray<ChatPicture> =>
+export const brainstormImages = (
+  entries: ReadonlyArray<BrainstormEntry>,
+): ReadonlyArray<BrainstormImage> =>
   entries
     .flatMap((entry) => (entry.kind === 'said' ? entry.images : []))
     .map((id, index) => ({ id, number: index + 1 }));
 
-const invalidPictures = (message: string) =>
-  Result.fail(new InvalidInputError({ issues: [{ field: 'pictures', message }] }));
+const invalidImages = (message: string) =>
+  Result.fail(new InvalidInputError({ issues: [{ field: 'images', message }] }));
 
-/** The chosen pictures in number order; more than allowed, a repeat or an unknown one is refused. */
-const choosePictures = <K extends 'id' | 'number'>(
+/** The chosen images in number order; more than allowed, a repeat or an unknown one is refused. */
+const chooseImages = <K extends 'id' | 'number'>(
   entries: ReadonlyArray<BrainstormEntry>,
   key: K,
-  chosen: ReadonlyArray<ChatPicture[K]>,
-  name: (value: ChatPicture[K]) => string,
+  chosen: ReadonlyArray<BrainstormImage[K]>,
+  name: (value: BrainstormImage[K]) => string,
 ): Result.Result<ReadonlyArray<string>, InvalidInputError> => {
-  if (chosen.length > MAX_PROPOSAL_PICTURES) {
-    return invalidPictures(`Choose at most ${MAX_PROPOSAL_PICTURES} pictures.`);
+  if (chosen.length > MAX_PROPOSAL_IMAGES) {
+    return invalidImages(`Choose at most ${MAX_PROPOSAL_IMAGES} images.`);
   }
-  if (new Set(chosen).size !== chosen.length) return invalidPictures('A picture is chosen twice.');
-  const pictures = chatPictures(entries);
-  const unknown = chosen.find((value) => !pictures.some((picture) => picture[key] === value));
-  if (unknown !== undefined) return invalidPictures(`${name(unknown)} is no picture of this chat.`);
+  if (new Set(chosen).size !== chosen.length) return invalidImages('A image is chosen twice.');
+  const images = brainstormImages(entries);
+  const unknown = chosen.find((value) => !images.some((image) => image[key] === value));
+  if (unknown !== undefined)
+    return invalidImages(`${name(unknown)} is no image of this brainstorm.`);
   return Result.succeed(
-    pictures.filter((picture) => chosen.includes(picture[key])).map((picture) => picture.id),
+    images.filter((image) => chosen.includes(image[key])).map((image) => image.id),
   );
 };
 
-/** The ids of the pictures Pi names by their numbers. */
-export const picturesByNumber = (
+/** The ids of the images Pi names by their numbers. */
+export const imagesByNumber = (
   entries: ReadonlyArray<BrainstormEntry>,
   numbers: ReadonlyArray<number>,
-) => choosePictures(entries, 'number', numbers, (number) => `Picture ${number}`);
+) => chooseImages(entries, 'number', numbers, (number) => `Image ${number}`);
 
-/** The owner's choice of pictures by id, checked against the chat. */
-export const parsePictureChoice = (
+/** The owner's choice of images by id, checked against the brainstorm. */
+export const parseImageChoice = (
   entries: ReadonlyArray<BrainstormEntry>,
   ids: ReadonlyArray<string>,
-) => choosePictures(entries, 'id', ids, (id) => id);
+) => chooseImages(entries, 'id', ids, (id) => id);
 
-/** The chosen pictures that are not attached yet. */
-export const missingPictures = (
+/** The chosen images that are not attached yet. */
+export const missingImages = (
   chosen: ReadonlyArray<string>,
-  attached: ReadonlyArray<AttachedPicture>,
+  attached: ReadonlyArray<AttachedImage>,
 ): ReadonlyArray<string> => chosen.filter((id) => !attached.some((done) => done.image === id));
 
-/** The body with a Pictures block that links each attached picture, in the given order. */
-export const withPictures = (
+/** The body with an Images block that links each attached image, in the given order. */
+export const withImages = (
   body: string,
-  pictures: ReadonlyArray<{ readonly number: number; readonly url: string }>,
+  images: ReadonlyArray<{ readonly number: number; readonly url: string }>,
 ): string => {
-  if (pictures.length === 0) return body;
+  if (images.length === 0) return body;
   const block = [
-    '## Pictures',
-    pictures.map((picture) => `![Picture ${picture.number}](${picture.url})`).join('\n'),
+    '## Images',
+    images.map((image) => `![Image ${image.number}](${image.url})`).join('\n'),
   ].join('\n\n');
   return body === '' ? block : `${body}\n\n${block}`;
 };

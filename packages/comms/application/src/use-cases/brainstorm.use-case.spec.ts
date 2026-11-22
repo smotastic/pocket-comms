@@ -28,7 +28,7 @@ import { BRAINSTORM_INSTRUCTIONS, makeBrainstorm } from './brainstorm.use-case.j
 type Brainstorm = Effect.Success<typeof makeBrainstorm>;
 
 const ready = (state: BrainstormStateDto) => {
-  if (state._tag !== 'Ready') throw new Error(`The chat is ${state._tag}.`);
+  if (state._tag !== 'Ready') throw new Error(`The brainstorm is ${state._tag}.`);
   return state;
 };
 
@@ -42,7 +42,7 @@ const idle = (brainstorm: Brainstorm) =>
     throw new Error('The turn did not end.');
   });
 
-/** What a sheet that follows the chat from its start holds once the stream is quiet. */
+/** What a sheet that follows the brainstorm from its start holds once the stream is quiet. */
 const follow = (brainstorm: Brainstorm, after = 0) =>
   Effect.gen(function* () {
     const events = yield* collect(brainstorm.events(after));
@@ -59,7 +59,7 @@ type Shown =
   | ProposalEntry;
 
 /**
- * The chat as the sheet shows it, without the tools: the owner's messages, Pi's replies and
+ * The brainstorm as the sheet shows it, without the tools: the owner's messages, Pi's replies and
  * failures, and each proposal as its latest record in the place of its first.
  */
 const entries = (brainstorm: Brainstorm) =>
@@ -70,7 +70,7 @@ const entries = (brainstorm: Brainstorm) =>
       if (item.kind === 'turnFailed') shown.push({ kind: 'turnFailed', reason: item.reason });
       if (item.kind !== 'app') continue;
       const entry = item.entry;
-      if (entry.kind === 'chatStarted') shown = [];
+      if (entry.kind === 'brainstormStarted') shown = [];
       if (entry.kind === 'said') shown.push(entry);
       if (entry.kind === 'proposal') {
         const at = shown.findIndex((one) => 'type' in one && one.id === entry.proposal.id);
@@ -81,7 +81,7 @@ const entries = (brainstorm: Brainstorm) =>
     return shown;
   });
 
-/** The tool rows of the chat: each tool's name, its summary and its state. */
+/** The tool rows of the brainstorm: each tool's name, its summary and its state. */
 const tools = (brainstorm: Brainstorm) =>
   Effect.map(follow(brainstorm), (view) =>
     view.items.flatMap((item) =>
@@ -102,7 +102,7 @@ const proposalIn = (all: ReadonlyArray<Shown>) =>
 
 const turnInputs = (state: FakeState['Service']) => state.turns.map((turn) => turn.input);
 
-// Runs a test with a fresh chat built after `arrange`, in a scope that ends its turns.
+// Runs a test with a fresh brainstorm built after `arrange`, in a scope that ends its turns.
 const run = (
   test: (
     brainstorm: Brainstorm,
@@ -127,8 +127,8 @@ const proposeEdit = (input: { project: string; number: number; title: string; bo
   input,
 });
 
-describe('the brainstorm chat', () => {
-  it.effect('adds the message, streams Pi’s answer and saves the chat', () =>
+describe('the brainstorm', () => {
+  it.effect('adds the message, streams Pi’s answer and saves the brainstorm', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.script.push([{ text: 'Nice idea. Which project?' }]);
@@ -153,14 +153,16 @@ describe('the brainstorm chat', () => {
           'propose_issue',
           'propose_issue_edit',
         ]);
-        expect(state.storedChat?.log.map((stored) => [stored.sequence, stored.entry.kind])).toEqual(
-          [
-            [1, 'said'],
-            [2, 'agentMessage'],
-            [3, 'turnEnded'],
-          ],
+        expect(
+          state.storedBrainstorm?.log.map((stored) => [stored.sequence, stored.entry.kind]),
+        ).toEqual([
+          [1, 'said'],
+          [2, 'agentMessage'],
+          [3, 'turnEnded'],
+        ]);
+        expect(state.storedBrainstorm?.runtime).toEqual(
+          Option.some({ adapter: 'scripted', state: 1 }),
         );
-        expect(state.storedChat?.runtime).toEqual(Option.some({ adapter: 'scripted', state: 1 }));
       }),
     ),
   );
@@ -251,7 +253,7 @@ describe('the brainstorm chat', () => {
     ),
   );
 
-  it.effect('starts with the stored chat after a restart', () =>
+  it.effect('starts with the stored brainstorm after a restart', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
@@ -264,7 +266,7 @@ describe('the brainstorm chat', () => {
           expect(state.turns[0]?.state).toEqual(Option.some({ adapter: 'scripted', state: 4 }));
         }),
       (state) => {
-        state.storedChat = {
+        state.storedBrainstorm = {
           id: 'chat-1',
           log: [
             { sequence: 1, entry: { kind: 'said', id: 'u1', at: 1, text: 'Kept', images: [] } },
@@ -276,7 +278,7 @@ describe('the brainstorm chat', () => {
     ),
   );
 
-  it.effect('starts an empty chat on reset and stops a running answer', () =>
+  it.effect('starts an empty brainstorm on reset and stops a running answer', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.script.push([{ until: Effect.never }]);
@@ -288,20 +290,22 @@ describe('the brainstorm chat', () => {
         expect(yield* brainstorm.state).toEqual({
           _tag: 'Ready',
           answering: false,
-          seesPictures: true,
-          pictures: [],
+          seesImages: true,
+          images: [],
           voice: true,
         });
         expect(yield* entries(brainstorm)).toEqual([]);
-        // The new chat goes on from the stopped turn's numbers, so a sheet that follows sees it.
-        expect(state.storedChat?.log).toEqual([{ sequence: 3, entry: { kind: 'chatStarted' } }]);
-        expect(state.storedChat?.reads).toEqual([]);
-        expect(state.storedChat?.runtime).toEqual(Option.none());
+        // The new brainstorm goes on from the stopped turn's numbers, so a sheet that follows sees it.
+        expect(state.storedBrainstorm?.log).toEqual([
+          { sequence: 3, entry: { kind: 'brainstormStarted' } },
+        ]);
+        expect(state.storedBrainstorm?.reads).toEqual([]);
+        expect(state.storedBrainstorm?.runtime).toEqual(Option.none());
       }),
     ),
   );
 
-  it.effect('keeps a late write of a stopped turn out of the new chat', () =>
+  it.effect('keeps a late write of a stopped turn out of the new brainstorm', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.script.push([{ until: Effect.never }]);
@@ -355,13 +359,13 @@ describe('the brainstorm chat', () => {
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.script.push([{ text: 'Hello.' }]);
-        state.saveDies = (chat) => Option.isSome(chat.runtime);
+        state.saveDies = (stored) => Option.isSome(stored.runtime);
         yield* brainstorm.send('Hi');
         yield* idle(brainstorm);
 
         expect((yield* entries(brainstorm)).map(strip).at(-1)).toEqual({
           kind: 'turnFailed',
-          reason: 'The chat could not be saved after this answer.',
+          reason: 'The brainstorm could not be saved after this answer.',
         });
         state.saveDies = undefined;
         yield* brainstorm.send('Again');
@@ -431,7 +435,7 @@ describe('the brainstorm chat', () => {
     ),
   );
 
-  it.effect('settles a running tool as stopped when the owner starts a new chat', () =>
+  it.effect('settles a running tool as stopped when the owner starts a new brainstorm', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         state.readDocWait = Effect.never;
@@ -455,7 +459,7 @@ describe('the brainstorm chat', () => {
         expect(view.items.at(-1)).toEqual({
           kind: 'app',
           sequence: view.after,
-          entry: { kind: 'chatStarted' },
+          entry: { kind: 'brainstormStarted' },
         });
         expect(view.working).toBe(false);
       }),
@@ -578,7 +582,7 @@ describe('the brainstorm tools', () => {
               project: 'app',
               title: 'Dark mode',
               body: 'A toggle.',
-              pictures: [],
+              images: [],
               attached: [],
               state: { _tag: 'open' },
             },
@@ -650,7 +654,7 @@ describe('the brainstorm tools', () => {
             },
           ]);
           expect(outcomes.slice(2).map((outcome) => outcome.isError)).toEqual([true, true, true]);
-          expect(state.storedChat?.reads.map((read) => read.number)).toEqual([3, 5]);
+          expect(state.storedBrainstorm?.reads.map((read) => read.number)).toEqual([3, 5]);
         }),
       arrange,
     ),
@@ -682,39 +686,41 @@ describe('the brainstorm tools', () => {
     ),
   );
 
-  it.effect('propose an edit only for an issue read in this chat, with what was read as base', () =>
-    run(
-      (brainstorm, state) =>
-        Effect.gen(function* () {
-          state.script.push([
-            readIssue('app', 3),
-            proposeEdit({ project: 'app', number: 3, title: ' Login v2 ', body: 'New body.' }),
-            { text: 'Never said.' },
-          ]);
-          yield* brainstorm.send('Update login');
-          yield* idle(brainstorm);
+  it.effect(
+    'propose an edit only for an issue read in this brainstorm, with what was read as base',
+    () =>
+      run(
+        (brainstorm, state) =>
+          Effect.gen(function* () {
+            state.script.push([
+              readIssue('app', 3),
+              proposeEdit({ project: 'app', number: 3, title: ' Login v2 ', body: 'New body.' }),
+              { text: 'Never said.' },
+            ]);
+            yield* brainstorm.send('Update login');
+            yield* idle(brainstorm);
 
-          expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
-            type: 'proposal',
-            kind: 'edit',
-            project: 'app',
-            number: 3,
-            url: 'http://gitea.test/owner/app/issues/3',
-            title: 'Login v2',
-            body: 'New body.',
-            base: { title: 'Login', body: 'Users sign in.' },
-            state: { _tag: 'open' },
-          });
-          expect(state.giteaCalls.filter((call) => call.startsWith('updateIssue'))).toEqual([]);
+            expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
+              type: 'proposal',
+              kind: 'edit',
+              project: 'app',
+              number: 3,
+              url: 'http://gitea.test/owner/app/issues/3',
+              title: 'Login v2',
+              body: 'New body.',
+              base: { title: 'Login', body: 'Users sign in.' },
+              state: { _tag: 'open' },
+            });
+            expect(state.giteaCalls.filter((call) => call.startsWith('updateIssue'))).toEqual([]);
 
-          const [unread, blank] = yield* outputsOf(state, [
-            proposeEdit({ project: 'app', number: 5, title: 'X', body: '' }),
-            proposeEdit({ project: 'app', number: 3, title: ' ', body: '' }),
-          ]);
-          expect([unread?.isError, blank?.isError]).toEqual([true, true]);
-        }),
-      arrange,
-    ),
+            const [unread, blank] = yield* outputsOf(state, [
+              proposeEdit({ project: 'app', number: 5, title: 'X', body: '' }),
+              proposeEdit({ project: 'app', number: 3, title: ' ', body: '' }),
+            ]);
+            expect([unread?.isError, blank?.isError]).toEqual([true, true]);
+          }),
+        arrange,
+      ),
   );
 });
 
@@ -740,7 +746,7 @@ describe('a decision on a proposal', () => {
 
         yield* brainstorm.decide(proposal.id, {
           _tag: 'Create',
-          draft: { project: 'app', title: ' Dark mode toggle ', body: 'Edited.' },
+          issue: { project: 'app', title: ' Dark mode toggle ', body: 'Edited.' },
         });
         yield* idle(brainstorm);
 
@@ -785,7 +791,7 @@ describe('a decision on a proposal', () => {
           yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'X', body: '' },
+              issue: { project: 'app', title: 'X', body: '' },
             })
             .pipe(Effect.flip),
         ).toEqual(new ProposalDecidedError({ id: proposal.id }));
@@ -821,7 +827,7 @@ describe('a decision on a proposal', () => {
           yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'notes', title: 'Dark mode', body: '' },
+              issue: { project: 'notes', title: 'Dark mode', body: '' },
             })
             .pipe(Effect.flip),
         ).toEqual(new NoGiteaRemoteError({ project: 'notes' }));
@@ -831,7 +837,7 @@ describe('a decision on a proposal', () => {
           yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'Dark mode', body: '' },
+              issue: { project: 'app', title: 'Dark mode', body: '' },
             })
             .pipe(Effect.flip),
         ).toEqual(new GiteaUnavailableError({ reason: 'Gitea answered 403.' }));
@@ -847,7 +853,7 @@ describe('a decision on a proposal', () => {
       Effect.gen(function* () {
         const proposal = yield* proposed(brainstorm, state);
         const error = yield* brainstorm
-          .decide(proposal.id, { _tag: 'Create', draft: { project: 'app', title: '', body: '' } })
+          .decide(proposal.id, { _tag: 'Create', issue: { project: 'app', title: '', body: '' } })
           .pipe(Effect.flip);
         expect(error._tag).toBe('InvalidInputError');
         expect(created(state)).toEqual([]);
@@ -872,7 +878,7 @@ describe('a decision on an edit', () => {
           project: 'app',
           number: 11,
           title: 'Orchestrator',
-          body: '## Idea\n\nRun agents from the chat.',
+          body: '## Idea\n\nRun agents from the brainstorm.',
         }),
       ]);
       yield* brainstorm.send('Update #11');
@@ -915,7 +921,7 @@ describe('a decision on an edit', () => {
             state: { _tag: 'updated', url: 'http://gitea.test/owner/app/issues/11' },
           });
           expect(turnInputs(state)[1]).toContain('The owner updated the issue #11 in app');
-          expect(state.storedChat?.reads).toEqual([
+          expect(state.storedBrainstorm?.reads).toEqual([
             {
               project: 'app',
               number: 11,
@@ -997,7 +1003,7 @@ describe('a decision on an edit', () => {
           const error = yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'X', body: '' },
+              issue: { project: 'app', title: 'X', body: '' },
             })
             .pipe(Effect.flip);
           expect(error._tag).toBe('InvalidInputError');
@@ -1062,18 +1068,18 @@ describe('a decision on an edit', () => {
     ),
   );
 
-  it.effect('forgets the reads on New chat, also a read that ends after it', () =>
+  it.effect('forgets the reads on New brainstorm, also a read that ends after it', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
           yield* proposed(brainstorm, state);
           yield* brainstorm.reset();
-          expect(state.storedChat?.reads).toEqual([]);
+          expect(state.storedBrainstorm?.reads).toEqual([]);
 
           // Pi's tools run outside the turn and may finish after it was stopped.
           const read = state.turns[0]?.tools.find((tool) => tool.name === 'read_issue');
           yield* read?.run({ project: 'app', number: 11 }) ?? Effect.void;
-          expect(state.storedChat?.reads).toEqual([]);
+          expect(state.storedBrainstorm?.reads).toEqual([]);
 
           state.script.push([
             proposeEdit({ project: 'app', number: 11, title: 'Orchestrator', body: 'Late.' }),
@@ -1087,14 +1093,14 @@ describe('a decision on an edit', () => {
   );
 });
 
-describe('pictures in the brainstorm chat', () => {
-  const PICTURE_A = `image${'a'.repeat(20)}a`;
-  const PICTURE_B = `image${'a'.repeat(20)}b`;
-  const PICTURE_C = `image${'a'.repeat(20)}c`;
+describe('images in the brainstorm', () => {
+  const IMAGE_A = `image${'a'.repeat(20)}a`;
+  const IMAGE_B = `image${'a'.repeat(20)}b`;
+  const IMAGE_C = `image${'a'.repeat(20)}c`;
 
-  // Three uploaded pictures and an issue #11 of `app` that Pi can read.
+  // Three uploaded images and an issue #11 of `app` that Pi can read.
   const arrange = (state: FakeState['Service']) => {
-    for (const [index, id] of [PICTURE_A, PICTURE_B, PICTURE_C].entries()) {
+    for (const [index, id] of [IMAGE_A, IMAGE_B, IMAGE_C].entries()) {
       state.images.set(id, {
         kind: index === 0 ? 'png' : 'jpeg',
         bytes: new Uint8Array([index]),
@@ -1106,18 +1112,18 @@ describe('pictures in the brainstorm chat', () => {
     ]);
   };
 
-  const withPictures = (input: Record<string, string>, pictures: ReadonlyArray<number>) => ({
+  const withImages = (input: Record<string, string>, images: ReadonlyArray<number>) => ({
     tool: 'propose_issue',
-    input: { ...input, pictures },
+    input: { ...input, images },
   });
 
-  /** Pi gets two pictures and proposes an issue with picture 2. */
+  /** Pi gets two images and proposes an issue with image 2. */
   const proposed = (brainstorm: Brainstorm, state: FakeState['Service']) =>
     Effect.gen(function* () {
       state.script.push([
-        withPictures({ project: 'app', title: 'Blue door', body: 'Paint it.' }, [2]),
+        withImages({ project: 'app', title: 'Blue door', body: 'Paint it.' }, [2]),
       ]);
-      yield* brainstorm.send('Like these?', [PICTURE_A, PICTURE_B]);
+      yield* brainstorm.send('Like these?', [IMAGE_A, IMAGE_B]);
       yield* idle(brainstorm);
       const proposal = proposalIn(yield* entries(brainstorm));
       if (proposal === undefined) throw new Error('Pi proposed nothing.');
@@ -1127,33 +1133,33 @@ describe('pictures in the brainstorm chat', () => {
   const gitea = (state: FakeState['Service']) =>
     state.giteaCalls.filter((call) => !call.startsWith('openIssues'));
 
-  it.effect('sends the pictures to a model that sees them, numbered across the chat', () =>
+  it.effect('sends the images to a model that sees them, numbered across the brainstorm', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
-          yield* brainstorm.send('Like this?', [PICTURE_A]);
+          yield* brainstorm.send('Like this?', [IMAGE_A]);
           yield* idle(brainstorm);
-          yield* brainstorm.send('', [PICTURE_B, PICTURE_C]);
+          yield* brainstorm.send('', [IMAGE_B, IMAGE_C]);
           yield* idle(brainstorm);
 
           const shown = yield* brainstorm.state;
           expect(
             (yield* entries(brainstorm)).filter((entry) => entry.kind === 'said').map(strip),
           ).toEqual([
-            { kind: 'said', text: 'Like this?', images: [PICTURE_A] },
-            { kind: 'said', text: '', images: [PICTURE_B, PICTURE_C] },
+            { kind: 'said', text: 'Like this?', images: [IMAGE_A] },
+            { kind: 'said', text: '', images: [IMAGE_B, IMAGE_C] },
           ]);
           expect(ready(shown)).toMatchObject({
-            seesPictures: true,
-            pictures: [
-              { id: PICTURE_A, number: 1, available: true },
-              { id: PICTURE_B, number: 2, available: true },
-              { id: PICTURE_C, number: 3, available: true },
+            seesImages: true,
+            images: [
+              { id: IMAGE_A, number: 1, available: true },
+              { id: IMAGE_B, number: 2, available: true },
+              { id: IMAGE_C, number: 3, available: true },
             ],
           });
           expect(turnInputs(state)).toEqual([
-            'Like this?\n\n[Picture 1 attached]',
-            '[Pictures 2, 3 attached]',
+            'Like this?\n\n[Image 1 attached]',
+            '[Images 2, 3 attached]',
           ]);
           expect(state.turns[0]?.images).toEqual([
             { mimeType: 'image/png', bytes: new Uint8Array([0]) },
@@ -1176,18 +1182,18 @@ describe('pictures in the brainstorm chat', () => {
     ),
   );
 
-  it.effect('tells Pi it cannot see the pictures when the model takes none', () =>
+  it.effect('tells Pi it cannot see the images when the model takes none', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
-          yield* brainstorm.send('Like this?', [PICTURE_A]);
+          yield* brainstorm.send('Like this?', [IMAGE_A]);
           yield* idle(brainstorm);
 
           expect(turnInputs(state)).toEqual([
-            'Like this?\n\n[Picture 1 attached; you cannot see pictures]',
+            'Like this?\n\n[Image 1 attached; you cannot see images]',
           ]);
           expect(state.turns[0]?.images).toEqual([]);
-          expect(ready(yield* brainstorm.state).seesPictures).toBe(false);
+          expect(ready(yield* brainstorm.state).seesImages).toBe(false);
         }),
       (state) => {
         arrange(state);
@@ -1196,49 +1202,47 @@ describe('pictures in the brainstorm chat', () => {
     ),
   );
 
-  it.effect(
-    'refuses a message with an unknown picture or more than five, and changes nothing',
-    () =>
-      run(
-        (brainstorm, state) =>
-          Effect.gen(function* () {
-            const unknown = yield* Effect.flip(brainstorm.send('Hi', [`image${'z'.repeat(21)}`]));
-            const many = yield* Effect.flip(brainstorm.send('Hi', Array(6).fill(PICTURE_A)));
-
-            expect(unknown._tag).toBe('InvalidInputError');
-            expect(many._tag).toBe('InvalidInputError');
-            expect(yield* entries(brainstorm)).toEqual([]);
-            expect(state.turns).toEqual([]);
-          }),
-        arrange,
-      ),
-  );
-
-  it.effect('shows a removed picture as not available', () =>
+  it.effect('refuses a message with an unknown image or more than five, and changes nothing', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
-          yield* brainstorm.send('Look', [PICTURE_A]);
-          yield* idle(brainstorm);
-          state.images.delete(PICTURE_A);
+          const unknown = yield* Effect.flip(brainstorm.send('Hi', [`image${'z'.repeat(21)}`]));
+          const many = yield* Effect.flip(brainstorm.send('Hi', Array(6).fill(IMAGE_A)));
 
-          expect(ready(yield* brainstorm.state).pictures).toEqual([
-            { id: PICTURE_A, number: 1, available: false },
+          expect(unknown._tag).toBe('InvalidInputError');
+          expect(many._tag).toBe('InvalidInputError');
+          expect(yield* entries(brainstorm)).toEqual([]);
+          expect(state.turns).toEqual([]);
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('shows a removed image as not available', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          yield* brainstorm.send('Look', [IMAGE_A]);
+          yield* idle(brainstorm);
+          state.images.delete(IMAGE_A);
+
+          expect(ready(yield* brainstorm.state).images).toEqual([
+            { id: IMAGE_A, number: 1, available: false },
           ]);
         }),
       arrange,
     ),
   );
 
-  it.effect('keeps the pictures Pi names on its proposal, and refuses a wrong number', () =>
+  it.effect('keeps the images Pi names on its proposal, and refuses a wrong number', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
           const proposal = yield* proposed(brainstorm, state);
-          expect(proposal).toMatchObject({ pictures: [PICTURE_B], attached: [] });
+          expect(proposal).toMatchObject({ images: [IMAGE_B], attached: [] });
 
           state.script.push([
-            withPictures({ project: 'app', title: 'Other', body: 'x' }, [7]),
+            withImages({ project: 'app', title: 'Other', body: 'x' }, [7]),
             { text: 'Sorry.' },
           ]);
           yield* brainstorm.send('Another');
@@ -1249,7 +1253,7 @@ describe('pictures in the brainstorm chat', () => {
     ),
   );
 
-  it.effect('creates the issue, attaches the chosen pictures and appends them to its body', () =>
+  it.effect('creates the issue, attaches the chosen images and appends them to its body', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
@@ -1257,38 +1261,38 @@ describe('pictures in the brainstorm chat', () => {
 
           yield* brainstorm.decide(proposal.id, {
             _tag: 'Create',
-            draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
-            pictures: [PICTURE_B, PICTURE_A],
+            issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+            images: [IMAGE_B, IMAGE_A],
           });
           yield* idle(brainstorm);
 
           expect(gitea(state)).toEqual([
             'createIssue owner/app {"title":"Blue door","body":"Paint it."}',
-            'attachImage owner/app 12 picture-1.png',
-            'attachImage owner/app 12 picture-2.jpg',
+            'attachImage owner/app 12 image-1.png',
+            'attachImage owner/app 12 image-2.jpg',
             'issue owner/app 12',
             `updateIssue owner/app 12 ${JSON.stringify({
               title: 'Blue door',
-              body: 'Paint it.\n\n## Pictures\n\n![Picture 1](http://gitea.test/attachments/12/picture-1.png)\n![Picture 2](http://gitea.test/attachments/12/picture-2.jpg)',
+              body: 'Paint it.\n\n## Images\n\n![Image 1](http://gitea.test/attachments/12/image-1.png)\n![Image 2](http://gitea.test/attachments/12/image-2.jpg)',
             })}`,
           ]);
           expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
-            pictures: [PICTURE_A, PICTURE_B],
+            images: [IMAGE_A, IMAGE_B],
             attached: [
-              { image: PICTURE_A, url: 'http://gitea.test/attachments/12/picture-1.png' },
-              { image: PICTURE_B, url: 'http://gitea.test/attachments/12/picture-2.jpg' },
+              { image: IMAGE_A, url: 'http://gitea.test/attachments/12/image-1.png' },
+              { image: IMAGE_B, url: 'http://gitea.test/attachments/12/image-2.jpg' },
             ],
             state: { _tag: 'created', number: 12 },
           });
           expect(turnInputs(state)[1]).toBe(
-            'The owner created the issue #12 in app: "Blue door" (http://gitea.test/owner/app/issues/12), with pictures 1, 2.',
+            'The owner created the issue #12 in app: "Blue door" (http://gitea.test/owner/app/issues/12), with images 1, 2.',
           );
         }),
       arrange,
     ),
   );
 
-  it.effect('creates the issue with one request when no picture is chosen', () =>
+  it.effect('creates the issue with one request when no image is chosen', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
@@ -1296,8 +1300,8 @@ describe('pictures in the brainstorm chat', () => {
 
           yield* brainstorm.decide(proposal.id, {
             _tag: 'Create',
-            draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
-            pictures: [],
+            issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+            images: [],
           });
 
           expect(gitea(state)).toEqual([
@@ -1308,67 +1312,65 @@ describe('pictures in the brainstorm chat', () => {
     ),
   );
 
-  it.effect(
-    'keeps a created issue and the attached pictures when an upload fails, and retries',
-    () =>
-      run(
-        (brainstorm, state) =>
-          Effect.gen(function* () {
-            const proposal = yield* proposed(brainstorm, state);
-            state.giteaRefusedPictures.add('picture-2.jpg');
-            const create = {
-              _tag: 'Create',
-              draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
-              pictures: [PICTURE_A, PICTURE_B],
-            } as const;
-
-            const failed = yield* Effect.flip(brainstorm.decide(proposal.id, create));
-            expect(failed).toEqual(
-              new GiteaUnavailableError({ reason: 'Gitea refused picture-2.jpg (422).' }),
-            );
-            expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
-              state: {
-                _tag: 'attaching',
-                number: 12,
-                url: 'http://gitea.test/owner/app/issues/12',
-              },
-              attached: [{ image: PICTURE_A }],
-            });
-            expect(state.turns).toHaveLength(1);
-            expect(
-              state.storedChat?.log.filter((stored) => stored.entry.kind === 'proposal').at(-1)
-                ?.entry,
-            ).toMatchObject({ proposal: { state: { _tag: 'attaching' } } });
-
-            state.giteaRefusedPictures.clear();
-            state.giteaCalls.length = 0;
-            yield* brainstorm.decide(proposal.id, create);
-            yield* idle(brainstorm);
-
-            expect(gitea(state)).toEqual([
-              'attachImage owner/app 12 picture-2.jpg',
-              'issue owner/app 12',
-              expect.stringContaining('updateIssue owner/app 12'),
-            ]);
-            expect(proposalIn(yield* entries(brainstorm))?.state).toMatchObject({
-              _tag: 'created',
-            });
-          }),
-        arrange,
-      ),
-  );
-
-  it.effect('finishes without the pictures that are not attached and tells Pi', () =>
+  it.effect('keeps a created issue and the attached images when an upload fails, and retries', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
           const proposal = yield* proposed(brainstorm, state);
-          state.giteaRefusedPictures.add('picture-2.jpg');
+          state.giteaRefusedImages.add('image-2.jpg');
+          const create = {
+            _tag: 'Create',
+            issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+            images: [IMAGE_A, IMAGE_B],
+          } as const;
+
+          const failed = yield* Effect.flip(brainstorm.decide(proposal.id, create));
+          expect(failed).toEqual(
+            new GiteaUnavailableError({ reason: 'Gitea refused image-2.jpg (422).' }),
+          );
+          expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
+            state: {
+              _tag: 'attaching',
+              number: 12,
+              url: 'http://gitea.test/owner/app/issues/12',
+            },
+            attached: [{ image: IMAGE_A }],
+          });
+          expect(state.turns).toHaveLength(1);
+          expect(
+            state.storedBrainstorm?.log.filter((stored) => stored.entry.kind === 'proposal').at(-1)
+              ?.entry,
+          ).toMatchObject({ proposal: { state: { _tag: 'attaching' } } });
+
+          state.giteaRefusedImages.clear();
+          state.giteaCalls.length = 0;
+          yield* brainstorm.decide(proposal.id, create);
+          yield* idle(brainstorm);
+
+          expect(gitea(state)).toEqual([
+            'attachImage owner/app 12 image-2.jpg',
+            'issue owner/app 12',
+            expect.stringContaining('updateIssue owner/app 12'),
+          ]);
+          expect(proposalIn(yield* entries(brainstorm))?.state).toMatchObject({
+            _tag: 'created',
+          });
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('finishes without the images that are not attached and tells Pi', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          state.giteaRefusedImages.add('image-2.jpg');
           yield* Effect.flip(
             brainstorm.decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
-              pictures: [PICTURE_A, PICTURE_B],
+              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              images: [IMAGE_A, IMAGE_B],
             }),
           );
           state.giteaCalls.length = 0;
@@ -1380,32 +1382,32 @@ describe('pictures in the brainstorm chat', () => {
             'issue owner/app 12',
             `updateIssue owner/app 12 ${JSON.stringify({
               title: 'Blue door',
-              body: 'Paint it.\n\n## Pictures\n\n![Picture 1](http://gitea.test/attachments/12/picture-1.png)',
+              body: 'Paint it.\n\n## Images\n\n![Image 1](http://gitea.test/attachments/12/image-1.png)',
             })}`,
           ]);
           expect(proposalIn(yield* entries(brainstorm))?.state).toMatchObject({ _tag: 'created' });
-          expect(turnInputs(state)[1]).toContain('with pictures 1; picture 2 was left out');
+          expect(turnInputs(state)[1]).toContain('with images 1; image 2 was left out');
         }),
       arrange,
     ),
   );
 
-  it.effect('appends no second Pictures block when the body already links them', () =>
+  it.effect('appends no second Images block when the body already links them', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
           const proposal = yield* proposed(brainstorm, state);
-          state.giteaRefusedPictures.add('picture-2.jpg');
+          state.giteaRefusedImages.add('image-2.jpg');
           yield* Effect.flip(
             brainstorm.decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
-              pictures: [PICTURE_A, PICTURE_B],
+              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              images: [IMAGE_A, IMAGE_B],
             }),
           );
           // An earlier update reached Gitea, but its answer was lost.
           const linked =
-            'Paint it.\n\n## Pictures\n\n![Picture 1](http://gitea.test/attachments/12/picture-1.png)';
+            'Paint it.\n\n## Images\n\n![Image 1](http://gitea.test/attachments/12/image-1.png)';
           state.issues.set(
             'owner/app',
             (state.issues.get('owner/app') ?? []).map((issue) =>
@@ -1433,12 +1435,12 @@ describe('pictures in the brainstorm chat', () => {
           );
           expect(early._tag).toBe('InvalidInputError');
 
-          state.giteaRefusedPictures.add('picture-2.jpg');
+          state.giteaRefusedImages.add('image-2.jpg');
           yield* Effect.flip(
             brainstorm.decide(proposal.id, {
               _tag: 'Create',
-              draft: { project: 'app', title: 'Blue door', body: 'Paint it.' },
-              pictures: [PICTURE_B],
+              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              images: [IMAGE_B],
             }),
           );
           const discard = yield* Effect.flip(brainstorm.decide(proposal.id, { _tag: 'Discard' }));
@@ -1448,19 +1450,19 @@ describe('pictures in the brainstorm chat', () => {
     ),
   );
 
-  it.effect('refuses a removed or unknown picture before any Gitea request', () =>
+  it.effect('refuses a removed or unknown image before any Gitea request', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
           const proposal = yield* proposed(brainstorm, state);
-          state.images.delete(PICTURE_B);
-          const draft = { project: 'app', title: 'Blue door', body: 'Paint it.' };
+          state.images.delete(IMAGE_B);
+          const issue = { project: 'app', title: 'Blue door', body: 'Paint it.' };
 
           const removed = yield* Effect.flip(
-            brainstorm.decide(proposal.id, { _tag: 'Create', draft, pictures: [PICTURE_B] }),
+            brainstorm.decide(proposal.id, { _tag: 'Create', issue, images: [IMAGE_B] }),
           );
           const unknown = yield* Effect.flip(
-            brainstorm.decide(proposal.id, { _tag: 'Create', draft, pictures: [PICTURE_C] }),
+            brainstorm.decide(proposal.id, { _tag: 'Create', issue, images: [IMAGE_C] }),
           );
 
           expect(removed._tag).toBe('InvalidInputError');
@@ -1496,11 +1498,11 @@ describe('pictures in the brainstorm chat', () => {
               number: 11,
               title: 'Orchestrator',
               body: 'Run agents.',
-              pictures: [1],
+              images: [1],
             },
           },
         ]);
-        yield* brainstorm.send('Add this to #11', [PICTURE_A]);
+        yield* brainstorm.send('Add this to #11', [IMAGE_A]);
         yield* idle(brainstorm);
         const proposal = proposalIn(yield* entries(brainstorm));
         if (proposal === undefined) throw new Error('Pi proposed nothing.');
@@ -1508,33 +1510,33 @@ describe('pictures in the brainstorm chat', () => {
         return proposal;
       });
 
-    it.effect('checks the base, attaches the pictures and appends them to the shown body', () =>
+    it.effect('checks the base, attaches the images and appends them to the shown body', () =>
       run(
         (brainstorm, state) =>
           Effect.gen(function* () {
             const proposal = yield* edited(brainstorm, state);
-            expect(proposal).toMatchObject({ pictures: [PICTURE_A] });
+            expect(proposal).toMatchObject({ images: [IMAGE_A] });
 
             yield* brainstorm.decide(proposal.id, {
               _tag: 'Apply',
               title: 'Orchestrator',
-              body: 'Run agents from the chat.',
-              pictures: [PICTURE_A],
+              body: 'Run agents from the brainstorm.',
+              images: [IMAGE_A],
             });
             yield* idle(brainstorm);
 
             expect(gitea(state)).toEqual([
               'issue owner/app 11',
-              'attachImage owner/app 11 picture-1.png',
+              'attachImage owner/app 11 image-1.png',
               `updateIssue owner/app 11 ${JSON.stringify({
                 title: 'Orchestrator',
-                body: 'Run agents from the chat.\n\n## Pictures\n\n![Picture 1](http://gitea.test/attachments/11/picture-1.png)',
+                body: 'Run agents from the brainstorm.\n\n## Images\n\n![Image 1](http://gitea.test/attachments/11/image-1.png)',
               })}`,
             ]);
             expect(proposalIn(yield* entries(brainstorm))?.state).toMatchObject({
               _tag: 'updated',
             });
-            expect(turnInputs(state)[1]).toContain('with pictures 1');
+            expect(turnInputs(state)[1]).toContain('with images 1');
           }),
         arrange,
       ),
@@ -1554,7 +1556,7 @@ describe('pictures in the brainstorm chat', () => {
                 _tag: 'Apply',
                 title: 'Orchestrator',
                 body: 'x',
-                pictures: [PICTURE_A],
+                images: [IMAGE_A],
               }),
             );
 
@@ -1570,30 +1572,30 @@ describe('pictures in the brainstorm chat', () => {
         (brainstorm, state) =>
           Effect.gen(function* () {
             const proposal = yield* edited(brainstorm, state);
-            yield* brainstorm.send('And this', [PICTURE_B]);
+            yield* brainstorm.send('And this', [IMAGE_B]);
             yield* idle(brainstorm);
-            state.giteaRefusedPictures.add('picture-2.jpg');
+            state.giteaRefusedImages.add('image-2.jpg');
             state.giteaCalls.length = 0;
             const apply = {
               _tag: 'Apply',
               title: 'Orchestrator',
               body: 'Run agents.',
-              pictures: [PICTURE_A, PICTURE_B],
+              images: [IMAGE_A, IMAGE_B],
             } as const;
 
             yield* Effect.flip(brainstorm.decide(proposal.id, apply));
             expect(gitea(state).filter((call) => call.startsWith('updateIssue'))).toEqual([]);
             expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
               state: { _tag: 'open' },
-              attached: [{ image: PICTURE_A }],
+              attached: [{ image: IMAGE_A }],
             });
 
-            state.giteaRefusedPictures.clear();
+            state.giteaRefusedImages.clear();
             state.giteaCalls.length = 0;
             yield* brainstorm.decide(proposal.id, apply);
 
             expect(gitea(state).filter((call) => call.startsWith('attachImage'))).toEqual([
-              'attachImage owner/app 11 picture-2.jpg',
+              'attachImage owner/app 11 image-2.jpg',
             ]);
           }),
         arrange,

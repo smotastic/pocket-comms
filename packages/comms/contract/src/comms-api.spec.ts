@@ -19,7 +19,7 @@ import {
   ProposalParam,
   PushSubscription,
   PushUnsubscribeRequest,
-  TranscriptEntry,
+  ConversationEntry,
 } from './index.js';
 
 const document = () => OpenApi.fromApi(CommsApi);
@@ -33,7 +33,7 @@ const operationsOf = (paths: ReadonlyArray<[string, unknown]>) =>
 
 const operations = () => operationsOf(Object.entries(document().paths));
 
-// The brainstorm chat (spec 013), the images (spec 014), the activity timeline (spec 017), the
+// The brainstorm (spec 013), the images (spec 014), the activity timeline (spec 017), the
 // push subscriptions (spec 018) and speech live in the server and need no Herdr.
 const herdrOperations = () =>
   operationsOf(
@@ -50,7 +50,7 @@ const herdrOperations = () =>
   );
 
 describe('CommsApi', () => {
-  it('serves the agents, the tasks, the issues, the brainstorm chat, the images, the activity and speech under /api/v1', () => {
+  it('serves the agents, the tasks, the issues, the brainstorm, the images, the activity and speech under /api/v1', () => {
     expect(Object.keys(document().paths).sort()).toEqual([
       '/api/v1/activity',
       '/api/v1/activity/events',
@@ -58,6 +58,7 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}',
       '/api/v1/agents/{agent}/answer',
       '/api/v1/agents/{agent}/close',
+      '/api/v1/agents/{agent}/conversation',
       '/api/v1/agents/{agent}/events',
       '/api/v1/agents/{agent}/keys',
       '/api/v1/agents/{agent}/prompt',
@@ -66,7 +67,6 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}/subagents/{subagent}',
       '/api/v1/agents/{agent}/subagents/{subagent}/events',
       '/api/v1/agents/{agent}/text',
-      '/api/v1/agents/{agent}/transcript',
       '/api/v1/brainstorm',
       '/api/v1/brainstorm/events',
       '/api/v1/brainstorm/messages',
@@ -240,7 +240,7 @@ describe('push wire schemas', () => {
 });
 
 describe('wire schemas', () => {
-  it('round-trips a transcript entry of every kind', () => {
+  it('round-trips a conversation entry of every kind', () => {
     const entries = [
       { type: 'user', id: 'u1', at: 1, text: 'Hi' },
       { type: 'assistant', id: 'a1', at: 2, text: '**Hello**' },
@@ -272,7 +272,7 @@ describe('wire schemas', () => {
         outcome: 'ok',
       },
     ];
-    const codec = Schema.Array(TranscriptEntry);
+    const codec = Schema.Array(ConversationEntry);
     expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(entries))).toEqual(entries);
   });
 
@@ -297,16 +297,16 @@ describe('wire schemas', () => {
         type: 'entries',
         reset: true,
         entries: [],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       }),
     ).toMatchObject({ type: 'entries', reset: true });
   });
 });
 
-const PICTURE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
+const IMAGE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
 
 describe('brainstorm wire schemas', () => {
-  it('round-trips an event of every kind, the chat’s own entries among the shared ones', () => {
+  it('round-trips an event of every kind, the brainstorm’s own entries among the shared ones', () => {
     const issue = {
       type: 'proposal',
       kind: 'issue',
@@ -315,8 +315,8 @@ describe('brainstorm wire schemas', () => {
       project: 'pocket-home',
       title: 'Dark mode',
       body: 'A toggle.',
-      pictures: [PICTURE],
-      attached: [{ image: PICTURE, url: 'http://gitea/attachments/u-1' }],
+      images: [IMAGE],
+      attached: [{ image: IMAGE, url: 'http://gitea/attachments/u-1' }],
       state: { _tag: 'created', number: 12, url: 'http://gitea/i/12' },
     };
     const edit = {
@@ -330,12 +330,12 @@ describe('brainstorm wire schemas', () => {
       title: 'Orchestrator',
       body: 'New.',
       base: { title: 'Orchestrator', body: 'Old.' },
-      pictures: [],
+      images: [],
       attached: [],
       state: { _tag: 'updated', url: 'http://gitea/i/11' },
     };
     const entries = [
-      { kind: 'said', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] },
+      { kind: 'said', id: 'u1', at: 1, text: 'Idea', images: [IMAGE] },
       { kind: 'agentMessage', text: '**Nice**' },
       { kind: 'toolStarted', callId: 'c1', tool: 'read_issue', target: 'pocket-comms #11' },
       { kind: 'toolFinished', callId: 'c1', isError: false },
@@ -348,7 +348,7 @@ describe('brainstorm wire schemas', () => {
       { kind: 'turnFailed', reason: 'The model cannot be reached.' },
       { kind: 'turnEnded' },
       { kind: 'turnStopped' },
-      { kind: 'chatStarted' },
+      { kind: 'brainstormStarted' },
     ];
     const events = [
       ...entries.map((entry, index) => ({ kind: 'entry', sequence: index + 1, entry })),
@@ -359,19 +359,19 @@ describe('brainstorm wire schemas', () => {
     expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(events))).toEqual(events);
   });
 
-  it('takes a message of text, of pictures, or both', () => {
+  it('takes a message of text, of images, or both', () => {
     const decode = Schema.decodeUnknownSync(BrainstormMessageRequest);
     expect(decode({ text: 'Idea' })).toEqual({ text: 'Idea' });
-    expect(decode({ text: '', imageIds: [PICTURE] })).toEqual({ text: '', imageIds: [PICTURE] });
-    expect(() => decode({ text: 'x', imageIds: Array(6).fill(PICTURE) })).toThrow();
+    expect(decode({ text: '', imageIds: [IMAGE] })).toEqual({ text: '', imageIds: [IMAGE] });
+    expect(() => decode({ text: 'x', imageIds: Array(6).fill(IMAGE) })).toThrow();
   });
 
-  it('shows the chat pictures, whether the model sees them and whether voice works', () => {
+  it('shows the brainstorm images, whether the model sees them and whether voice works', () => {
     const state = {
       _tag: 'Ready',
       answering: false,
-      seesPictures: false,
-      pictures: [{ id: PICTURE, number: 1, available: true }],
+      seesImages: false,
+      images: [{ id: IMAGE, number: 1, available: true }],
       voice: true,
     };
     expect(Schema.decodeUnknownSync(BrainstormState)(state)).toEqual(state);
@@ -389,7 +389,7 @@ describe('brainstorm wire schemas', () => {
     expect(['..', 'a/b', ''].map(proposal)).toEqual([false, false, false]);
   });
 
-  it('takes a decision to create with a draft, to apply an edit, or to discard', () => {
+  it('takes a decision to create an issue proposal, to apply an edit, or to discard', () => {
     const decode = Schema.decodeUnknownSync(ProposalDecisionRequest);
     expect(decode({ _tag: 'Discard' })).toEqual({ _tag: 'Discard' });
     expect(decode({ _tag: 'Apply', title: 'T', body: 'B' })).toEqual({
@@ -398,20 +398,20 @@ describe('brainstorm wire schemas', () => {
       body: 'B',
     });
     expect(decode({ _tag: 'FinishWithout' })).toEqual({ _tag: 'FinishWithout' });
-    expect(decode({ _tag: 'Apply', title: 'T', body: 'B', pictures: [PICTURE] })).toMatchObject({
-      pictures: [PICTURE],
+    expect(decode({ _tag: 'Apply', title: 'T', body: 'B', images: [IMAGE] })).toMatchObject({
+      images: [IMAGE],
     });
     expect(
-      decode({ _tag: 'Create', draft: { project: 'a', title: 'T', body: '' }, pictures: [] }),
-    ).toMatchObject({ pictures: [] });
+      decode({ _tag: 'Create', issue: { project: 'a', title: 'T', body: '' }, images: [] }),
+    ).toMatchObject({ images: [] });
     expect(() =>
-      decode({ _tag: 'Apply', title: 'T', body: 'B', pictures: Array(6).fill(PICTURE) }),
+      decode({ _tag: 'Apply', title: 'T', body: 'B', images: Array(6).fill(IMAGE) }),
     ).toThrow();
-    expect(() => decode({ _tag: 'Apply', title: 'T', body: 'B', pictures: ['../x'] })).toThrow();
+    expect(() => decode({ _tag: 'Apply', title: 'T', body: 'B', images: ['../x'] })).toThrow();
     expect(() => decode({ _tag: 'Create' })).toThrow();
     expect(() => decode({ _tag: 'Apply', title: 'x'.repeat(256), body: '' })).toThrow();
     expect(() =>
-      decode({ _tag: 'Create', draft: { project: 'a', title: 'x'.repeat(256), body: '' } }),
+      decode({ _tag: 'Create', issue: { project: 'a', title: 'x'.repeat(256), body: '' } }),
     ).toThrow();
   });
 });

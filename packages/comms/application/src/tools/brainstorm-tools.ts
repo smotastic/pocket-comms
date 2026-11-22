@@ -2,12 +2,12 @@ import {
   cutDoc,
   cutIssueBody,
   orderIssues,
-  parseIssueDraft,
+  parseProposedIssue,
   parseIssueEdit,
   isProjectDoc,
   PROJECT_DOCS,
   type InvalidInputError,
-  type IssueDraft,
+  type ProposedIssue,
   type IssueRead,
   type IssueText,
 } from '@pocket-comms/comms-domain';
@@ -20,9 +20,9 @@ import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { makeIssueProject } from '../use-cases/issue-project.js';
 
-// The tools of the brainstorm chat. Four read; none takes a path, and a project is only ever a
-// name the projects port lists. Two propose, a new issue or an edit of one, with the chat
-// pictures that go along, and end the turn: only the owner's decision writes.
+// The tools of the brainstorm. Four read; none takes a path, and a project is only ever a
+// name the projects port lists. Two propose, a new issue or an edit of one, with the brainstorm
+// images that go along, and end the turn: only the owner's decision writes.
 
 const ProjectName = Schema.String.annotate({
   description: 'The name of a project, as list_projects names it.',
@@ -32,10 +32,10 @@ const IssueNumber = Schema.Int.check(Schema.isGreaterThan(0)).annotate({
   description: "The issue's number in the project's Gitea repository.",
 });
 
-const Pictures = Schema.optional(
+const Images = Schema.optional(
   Schema.Array(Schema.Int).annotate({
     description:
-      'The numbers of the chat pictures that belong to the issue, at most five. The owner may change the choice.',
+      'The numbers of the brainstorm images that belong to the issue, at most five. The owner may change the choice.',
   }),
 );
 
@@ -45,24 +45,24 @@ const refusal = (error: InvalidInputError) =>
   refuse(error.issues.map((issue) => issue.message).join(' '));
 
 /** An edit Pi proposes, with the issue as Pi last read it. */
-export interface EditDraft extends IssueText {
+export interface ProposedEdit extends IssueText {
   readonly read: IssueRead;
-  /** The chat pictures that go along, by image id. */
-  readonly pictures: ReadonlyArray<string>;
+  /** The brainstorm images that go along, by image id. */
+  readonly images: ReadonlyArray<string>;
 }
 
-/** What the tools of one turn do in the chat they run for. */
-export interface ChatHooks {
-  /** Shows a new issue proposal, with these chat pictures by id, and answers its id. */
-  readonly propose: (draft: IssueDraft, pictures: ReadonlyArray<string>) => Effect.Effect<string>;
+/** What the tools of one turn do in the brainstorm they run for. */
+export interface BrainstormHooks {
+  /** Shows a new issue proposal, with these brainstorm images by id, and answers its id. */
+  readonly propose: (issue: ProposedIssue, images: ReadonlyArray<string>) => Effect.Effect<string>;
   /** Shows an edit proposal to the owner and answers its id. */
-  readonly proposeEdit: (edit: EditDraft) => Effect.Effect<string>;
+  readonly proposeEdit: (edit: ProposedEdit) => Effect.Effect<string>;
   /** Keeps this read as the last read of its issue. */
   readonly remember: (read: IssueRead) => Effect.Effect<void>;
-  /** The last read of a project's issue in this chat, if Pi read it. */
+  /** The last read of a project's issue in this brainstorm, if Pi read it. */
   readonly readOf: (project: string, number: number) => Effect.Effect<IssueRead | undefined>;
-  /** The ids of the chat pictures with these numbers; a number of no picture is refused. */
-  readonly pictures: (
+  /** The ids of the brainstorm images with these numbers; a number of no image is refused. */
+  readonly images: (
     numbers: ReadonlyArray<number>,
   ) => Effect.Effect<Result.Result<ReadonlyArray<string>, InvalidInputError>>;
 }
@@ -80,7 +80,7 @@ const decodeShown = Schema.decodeUnknownOption(
 );
 
 /**
- * What a tool's row in the chat shows of its call (spec 026): the project, the issue or the file
+ * What a tool's row in the brainstorm shows of its call (spec 026): the project, the issue or the file
  * it works on, never the rest of its input, such as a proposed body.
  */
 export const describeBrainstormCall = (
@@ -127,8 +127,8 @@ export const makeBrainstormTools = Effect.gen(function* () {
       refuse(`Gitea cannot be reached: ${error.reason}`),
   };
 
-  /** The tools of one turn, which act on the chat through `chat`. */
-  return (chat: ChatHooks): ReadonlyArray<AgentTool> => [
+  /** The tools of one turn, which act on the brainstorm through `hooks`. */
+  return (hooks: BrainstormHooks): ReadonlyArray<AgentTool> => [
     defineTool({
       name: 'list_projects',
       description:
@@ -198,7 +198,7 @@ export const makeBrainstormTools = Effect.gen(function* () {
           );
           if (issue.pull) return yield* refuse(`#${number} of ${project} is a pull request.`);
           const { body, cut } = cutIssueBody(issue.body);
-          yield* chat.remember({
+          yield* hooks.remember({
             project,
             number,
             url: issue.url,
@@ -232,21 +232,21 @@ export const makeBrainstormTools = Effect.gen(function* () {
         body: Schema.String.annotate({
           description: 'The issue body in Markdown: the idea, why, and a rough shape.',
         }),
-        pictures: Pictures,
+        images: Images,
       }),
-      run: ({ pictures: numbers = [], ...input }) =>
+      run: ({ images: numbers = [], ...input }) =>
         Effect.gen(function* () {
-          const draft = parseIssueDraft(input);
-          if (Result.isFailure(draft)) return yield* refusal(draft.failure);
-          const pictures = yield* chat.pictures(numbers);
-          if (Result.isFailure(pictures)) return yield* refusal(pictures.failure);
-          const { repository } = yield* findProject(draft.success.project);
+          const proposed = parseProposedIssue(input);
+          if (Result.isFailure(proposed)) return yield* refusal(proposed.failure);
+          const images = yield* hooks.images(numbers);
+          if (Result.isFailure(images)) return yield* refusal(images.failure);
+          const { repository } = yield* findProject(proposed.success.project);
           if (Option.isNone(repository)) {
             return yield* refuse(
-              `${draft.success.project} has no repository on Gitea, so no issue can be filed there.`,
+              `${proposed.success.project} has no repository on Gitea, so no issue can be filed there.`,
             );
           }
-          yield* chat.propose(draft.success, pictures.success);
+          yield* hooks.propose(proposed.success, images.success);
           return {
             output: 'The owner sees the proposal now. Wait for their decision.',
             pause: true,
@@ -256,17 +256,17 @@ export const makeBrainstormTools = Effect.gen(function* () {
     defineTool({
       name: 'propose_issue_edit',
       description:
-        'Proposes a new title and body for an existing issue you read with read_issue in this chat. Send the whole new body, and keep every part of it the edit is not about. The owner sees the edit next to the current version, may change it, and applies or discards it; you learn their decision in the next message. This ends your turn. Nothing changes without the owner.',
+        'Proposes a new title and body for an existing issue you read with read_issue in this brainstorm. Send the whole new body, and keep every part of it the edit is not about. The owner sees the edit next to the current version, may change it, and applies or discards it; you learn their decision in the next message. This ends your turn. Nothing changes without the owner.',
       parameters: Schema.Struct({
         project: ProjectName,
         number: IssueNumber,
         title: Schema.String.annotate({ description: "The issue's whole new title." }),
         body: Schema.String.annotate({ description: "The issue's whole new body in Markdown." }),
-        pictures: Pictures,
+        images: Images,
       }),
-      run: ({ project, number, pictures: numbers = [], ...text }) =>
+      run: ({ project, number, images: numbers = [], ...text }) =>
         Effect.gen(function* () {
-          const read = yield* chat.readOf(project, number);
+          const read = yield* hooks.readOf(project, number);
           if (read === undefined) {
             return yield* refuse(
               `Read the issue #${number} of ${project} with read_issue first, then propose the edit.`,
@@ -279,9 +279,9 @@ export const makeBrainstormTools = Effect.gen(function* () {
           }
           const edit = parseIssueEdit(text);
           if (Result.isFailure(edit)) return yield* refusal(edit.failure);
-          const pictures = yield* chat.pictures(numbers);
-          if (Result.isFailure(pictures)) return yield* refusal(pictures.failure);
-          yield* chat.proposeEdit({ ...edit.success, read, pictures: pictures.success });
+          const images = yield* hooks.images(numbers);
+          if (Result.isFailure(images)) return yield* refusal(images.failure);
+          yield* hooks.proposeEdit({ ...edit.success, read, images: images.success });
           return {
             output: 'The owner sees the edit now. Wait for their decision.',
             pause: true,

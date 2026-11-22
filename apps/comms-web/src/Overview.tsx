@@ -99,7 +99,7 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
     <>
       <AppBar
         title="pocket-comms"
-        subtitle={<LiveIndicator live={live} label={live ? 'Mac mini · live' : 'Connecting…'} />}
+        subtitle={<LiveIndicator live={live} label={live ? 'Home server · live' : 'Connecting…'} />}
         end={
           <>
             <BrainstormAction />

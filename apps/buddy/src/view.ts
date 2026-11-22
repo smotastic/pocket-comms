@@ -12,7 +12,7 @@ export type Link =
 /** At most this much of Pi's answer shows; the rest is in comms. */
 export const ANSWER_LENGTH = 280;
 
-/** A proposal still open in the chat, as the buddy shows it. */
+/** A proposal still open in the brainstorm, as the buddy shows it. */
 export type OpenProposal =
   | {
       readonly kind: 'issue';
@@ -30,18 +30,18 @@ export type OpenProposal =
 
 /** Everything the screen shows, kept by the core. */
 export interface BuddyState {
-  /** When the recording under way started; none while not recording. */
+  /** When the voice message under way started; none while not recording. */
   readonly recordingSince: number | undefined;
   readonly link: Link;
-  /** How many clips wait in the outbox. */
+  /** How many voice messages wait in the outbox. */
   readonly waiting: number;
-  /** The words of the last message that reached the chat. */
+  /** The words of the last message that reached the brainstorm. */
   readonly sent: string | undefined;
   /** Pi's answer to it: the messages Pi finished, and the one being written. */
   readonly answer: { readonly messages: ReadonlyArray<string>; readonly streaming: string };
   /** The open proposals, the newest last. */
   readonly proposals: ReadonlyArray<OpenProposal>;
-  /** The last thing worth telling the owner, such as why a recording failed. */
+  /** The last thing worth telling the owner, such as why a voice message failed. */
   readonly notice: string | undefined;
 }
 
@@ -105,7 +105,7 @@ export const render = (state: BuddyState, now: number): ScreenView => {
     status: [
       state.recordingSince === undefined
         ? linkLine(state.link)
-        : `Recording ${formatLength(now - state.recordingSince)}`,
+        : `Listening ${formatLength(now - state.recordingSince)}`,
       state.waiting > 0 ? `${state.waiting} waiting` : undefined,
       state.notice,
     ]

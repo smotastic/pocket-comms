@@ -1,15 +1,15 @@
 import { agentRef, completionKey, type Agent } from './agent.js';
-import type { TranscriptEntry } from './transcript.js';
+import type { ConversationEntry } from './conversation.js';
 
 /** Why an agent waits for the owner: it asks something, or it finished a turn. */
-export type Attention = 'blocked' | 'done';
+export type NeedsYouReason = 'blocked' | 'done';
 
 /** An agent that has just started to wait for the owner; a done one names its completion. */
 export type Change =
-  | { readonly paneId: string; readonly attention: 'blocked' }
+  | { readonly paneId: string; readonly reason: 'blocked' }
   | {
       readonly paneId: string;
-      readonly attention: 'done';
+      readonly reason: 'done';
       readonly completion: number | undefined;
     };
 
@@ -24,7 +24,7 @@ const changeOf = (
   agent: Agent,
 ): Change | undefined => {
   if (agent.status === 'blocked' && before?.status !== 'blocked') {
-    return { paneId: agent.paneId, attention: 'blocked' };
+    return { paneId: agent.paneId, reason: 'blocked' };
   }
   // A finished turn has a new completion, or follows a working agent when Herdr has no counter.
   // A done agent that was idle with the same completion was only flipped back: no new turn.
@@ -33,7 +33,7 @@ const changeOf = (
     before.completion !== agent.completion ||
     (before.status !== 'done' && before.status !== 'idle');
   if (agent.status === 'done' && newTurn) {
-    return { paneId: agent.paneId, attention: 'done', completion: agent.completion };
+    return { paneId: agent.paneId, reason: 'done', completion: agent.completion };
   }
   return undefined;
 };
@@ -67,7 +67,7 @@ export const stillHolds = (
 ): boolean => {
   const agent = agents.find((candidate) => candidate.paneId === change.paneId);
   if (agent === undefined) return false;
-  if (change.attention === 'blocked') return agent.status === 'blocked';
+  if (change.reason === 'blocked') return agent.status === 'blocked';
   return (
     agent.status === 'done' &&
     agent.completion === change.completion &&
@@ -87,13 +87,13 @@ const cut = (text: string) => {
 
 /** The open question of a blocked agent, or the last message of a done one, on one line. */
 export const excerptOf = (
-  attention: Attention,
-  entries: ReadonlyArray<TranscriptEntry>,
+  reason: NeedsYouReason,
+  entries: ReadonlyArray<ConversationEntry>,
 ): string | undefined => {
   const latest = [...entries]
     .reverse()
     .find((entry) =>
-      attention === 'blocked'
+      reason === 'blocked'
         ? entry.type === 'tool' && entry.outcome === 'pending' && entry.questions !== undefined
         : entry.type === 'assistant',
     );
@@ -112,18 +112,18 @@ export interface Notification {
 
 export const notificationOf = ({
   agent,
-  attention,
+  reason,
   project,
   excerpt,
 }: {
   readonly agent: Agent;
-  readonly attention: Attention;
+  readonly reason: NeedsYouReason;
   readonly project: string | undefined;
   readonly excerpt: string | undefined;
 }): Notification => {
   const ref = agentRef(agent);
   return {
-    title: attention === 'blocked' ? `${ref} needs you` : `${ref} is done`,
+    title: reason === 'blocked' ? `${ref} needs you` : `${ref} is done`,
     body: cut([project, excerpt].filter((part) => part !== undefined).join('\n')),
     tag: agent.paneId,
     url: `/agents/${encodeURIComponent(ref)}?from=push`,

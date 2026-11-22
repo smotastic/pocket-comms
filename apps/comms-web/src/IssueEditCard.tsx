@@ -12,7 +12,7 @@ import {
   TextArea,
 } from '@smotastic/pocket-design';
 import { useState } from 'react';
-import { AttachedPictures, PictureChoice, type ChatPicture } from './ProposalPictures.js';
+import { ProposalAttachedImages, ImageChoice, type BrainstormImage } from './ProposalImages.js';
 
 /** An issue's title and Markdown body. */
 export type IssueText = {
@@ -33,16 +33,16 @@ export type IssueEditCardProps = IssueText & {
     | { readonly _tag: 'open' }
     | { readonly _tag: 'updated'; readonly url: string }
     | { readonly _tag: 'discarded' };
-  /** The pictures of the chat the owner may choose from. */
-  readonly pictures?: ReadonlyArray<ChatPicture>;
-  /** The chosen pictures by id: the ones Pi named while open, the owner's choice afterwards. */
+  /** The images of the brainstorm the owner may choose from. */
+  readonly images?: ReadonlyArray<BrainstormImage>;
+  /** The chosen images by id: the ones Pi named while open, the owner's choice afterwards. */
   readonly chosen?: ReadonlyArray<string>;
-  /** The chosen pictures that are attached to the issue in Gitea. */
+  /** The chosen images that are attached to the issue in Gitea. */
   readonly attached?: ReadonlyArray<{ readonly image: string }>;
-  /** Called with the title and body as the owner edited them, and the chosen pictures. */
-  readonly onApply: (edit: IssueText, pictures: ReadonlyArray<string>) => void;
+  /** Called with the title and body as the owner edited them, and the chosen images. */
+  readonly onApply: (edit: IssueText, images: ReadonlyArray<string>) => void;
   readonly onDiscard: () => void;
-  /** The decision is on its way, or the chat takes none now: the actions are off. */
+  /** The decision is on its way, or the brainstorm takes none now: the actions are off. */
   readonly busy?: boolean;
   /** Why the last decision failed; the card stays open. */
   readonly error?: string;
@@ -65,7 +65,7 @@ export const IssueEditCard = ({
   body,
   base,
   state,
-  pictures = [],
+  images = [],
   chosen = [],
   attached = [],
   onApply,
@@ -74,9 +74,9 @@ export const IssueEditCard = ({
   error,
 }: IssueEditCardProps) => {
   const [edit, setEdit] = useState<IssueText>({ title, body });
-  // A picture the app no longer keeps cannot go along (spec 023, requirement 10).
+  // A image the app no longer keeps cannot go along (spec 023, requirement 10).
   const [choice, setChoice] = useState<ReadonlyArray<string>>(() =>
-    chosen.filter((id) => pictures.some((picture) => picture.id === id && picture.available)),
+    chosen.filter((id) => images.some((image) => image.id === id && image.available)),
   );
   const [comparing, setComparing] = useState(false);
   const label = `Proposed edit of issue #${number}`;
@@ -99,7 +99,7 @@ export const IssueEditCard = ({
               )}
             </Inline>
             <Text>{title}</Text>
-            <AttachedPictures pictures={pictures} attached={attached} />
+            <ProposalAttachedImages images={images} attached={attached} />
           </Stack>
         </Card>
       </section>
@@ -141,7 +141,7 @@ export const IssueEditCard = ({
               </Stack>
             ) : null}
           </Disclosure>
-          <PictureChoice pictures={pictures} chosen={choice} onChange={setChoice} disabled={busy} />
+          <ImageChoice images={images} chosen={choice} onChange={setChoice} disabled={busy} />
           {error === undefined ? null : <Alert>{error}</Alert>}
           <Inline gap="sm" justify="end">
             <Button variant="secondary" disabled={busy} onClick={onDiscard}>

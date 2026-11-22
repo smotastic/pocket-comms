@@ -1,7 +1,7 @@
 {
   "name": "pocket-comms",
   "short_name": "Comms",
-  "description": "Read and drive the Herdr coding agents on the Mac mini.",
+  "description": "Read and drive the Herdr coding agents on the home server.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

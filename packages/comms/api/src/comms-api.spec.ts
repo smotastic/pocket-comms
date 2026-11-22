@@ -429,7 +429,7 @@ describe('the agents API', () => {
       running: true,
       inBackground: true,
       entries: [],
-      activity: 'Thinking…',
+      currentStep: 'Thinking…',
     };
     const call = serve({
       subagent: (ref, id) =>
@@ -454,7 +454,7 @@ describe('the agents API', () => {
       type: 'entries',
       reset: true,
       entries: [],
-      activity: 'Thinking…',
+      currentStep: 'Thinking…',
     } as const;
     const call = serve({ subagentEvents: () => Effect.succeed(Stream.make(event)) });
 
@@ -888,18 +888,18 @@ describe('the activity API', () => {
 });
 
 describe('the brainstorm API', () => {
-  const PICTURE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
+  const IMAGE = 'k5w3x7q2m4n6p3r2s4t6v5x2z4';
 
   const brainstorm = (inbound: Partial<BrainstormInbound['Service']>) =>
     serve({}, undefined, {}, {}, inbound);
 
-  it('reads the chat', async () => {
+  it('reads the brainstorm', async () => {
     const call = brainstorm({
       state: Effect.succeed({
         _tag: 'Ready',
         answering: false,
-        seesPictures: true,
-        pictures: [{ id: PICTURE, number: 1, available: true }],
+        seesImages: true,
+        images: [{ id: IMAGE, number: 1, available: true }],
         voice: true,
       }),
     });
@@ -910,13 +910,13 @@ describe('the brainstorm API', () => {
     expect(await response.json()).toEqual({
       _tag: 'Ready',
       answering: false,
-      seesPictures: true,
-      pictures: [{ id: PICTURE, number: 1, available: true }],
+      seesImages: true,
+      images: [{ id: IMAGE, number: 1, available: true }],
       voice: true,
     });
   });
 
-  it('follows the chat after a number as server-sent events', async () => {
+  it('follows the brainstorm after a number as server-sent events', async () => {
     const after: Array<number> = [];
     const call = brainstorm({
       events: (from) => {
@@ -940,7 +940,7 @@ describe('the brainstorm API', () => {
     expect((await call('/api/v1/brainstorm/events?after=-1')).status).toBe(422);
   });
 
-  it('sends a message, decides on a proposal and starts a new chat', async () => {
+  it('sends a message, decides on a proposal and starts a new brainstorm', async () => {
     const asked: Array<unknown> = [];
     const call = brainstorm({
       send: (text, imageIds) => Effect.sync(() => void asked.push(['send', text, imageIds])),
@@ -949,26 +949,26 @@ describe('the brainstorm API', () => {
     });
 
     const sent = await call('/api/v1/brainstorm/messages', json({ text: 'Idea' }));
-    const pictured = await call(
+    const withImages = await call(
       '/api/v1/brainstorm/messages',
-      json({ text: '', imageIds: [PICTURE] }),
+      json({ text: '', imageIds: [IMAGE] }),
     );
     const decided = await call(
       '/api/v1/brainstorm/proposals/p-1/decision',
-      json({ _tag: 'Create', draft: { project: 'app', title: 'Dark mode', body: '' } }),
+      json({ _tag: 'Create', issue: { project: 'app', title: 'Dark mode', body: '' } }),
     );
     const reset = await call('/api/v1/brainstorm/reset', { method: 'POST' });
 
-    expect([sent.status, pictured.status, decided.status, reset.status]).toEqual([
+    expect([sent.status, withImages.status, decided.status, reset.status]).toEqual([
       204, 204, 204, 204,
     ]);
     expect(asked).toEqual([
       ['send', 'Idea', undefined],
-      ['send', '', [PICTURE]],
+      ['send', '', [IMAGE]],
       [
         'decide',
         'p-1',
-        { _tag: 'Create', draft: { project: 'app', title: 'Dark mode', body: '' } },
+        { _tag: 'Create', issue: { project: 'app', title: 'Dark mode', body: '' } },
       ],
       ['reset'],
     ]);
@@ -1406,7 +1406,7 @@ describe('the speech API', () => {
   const speech = (inbound: Partial<SpeechInbound['Service']>) =>
     serve({}, undefined, {}, {}, {}, {}, {}, {}, {}, inbound);
 
-  const clip = (bytes: Uint8Array) => ({
+  const voiceMessage = (bytes: Uint8Array) => ({
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
     body: new Uint8Array(bytes),
@@ -1421,14 +1421,14 @@ describe('the speech API', () => {
       },
     });
 
-    const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
+    const response = await call('/api/v1/speech/transcriptions', voiceMessage(WEBM));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ text: 'Idea: dark mode for pocket-home' });
     expect(Array.from(received ?? [])).toEqual(Array.from(WEBM));
   });
 
-  it('answers a validation problem for a clip the use case refuses', async () => {
+  it('answers a validation problem for a voice message the use case refuses', async () => {
     const call = speech({
       transcribe: () =>
         Effect.fail(
@@ -1440,7 +1440,7 @@ describe('the speech API', () => {
 
     const response = await call(
       '/api/v1/speech/transcriptions',
-      clip(new TextEncoder().encode('text')),
+      voiceMessage(new TextEncoder().encode('text')),
     );
 
     expect(response.status).toBe(422);
@@ -1452,7 +1452,7 @@ describe('the speech API', () => {
   it('answers 503 when the server has no speech service', async () => {
     const call = speech({ transcribe: () => Effect.fail(new TranscriberNotSetUp()) });
 
-    const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
+    const response = await call('/api/v1/speech/transcriptions', voiceMessage(WEBM));
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({
@@ -1468,7 +1468,7 @@ describe('the speech API', () => {
         ),
     });
 
-    const response = await call('/api/v1/speech/transcriptions', clip(WEBM));
+    const response = await call('/api/v1/speech/transcriptions', voiceMessage(WEBM));
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({
@@ -1495,7 +1495,10 @@ describe('the speech API', () => {
   it('refuses a request without the allowed login', async () => {
     const call = speech({ transcribe: () => Effect.succeed({ text: 'no' }) });
 
-    const response = await call('/api/v1/speech/transcriptions', { ...clip(WEBM), login: null });
+    const response = await call('/api/v1/speech/transcriptions', {
+      ...voiceMessage(WEBM),
+      login: null,
+    });
 
     expect(response.status).toBe(403);
   });

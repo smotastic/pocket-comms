@@ -46,11 +46,11 @@ export const serverConfig = Config.all({
         .filter((host) => host !== ''),
     ),
   ),
-  // The brainstorm chat's state (spec 013).
+  // The brainstorm's state (spec 013).
   stateDir: Config.String('COMMS_STATE_DIR').pipe(
     Config.withDefault(join(homedir(), '.pocket-comms')),
   ),
-  // The brainstorm chat's model, for the start-up log; the agent package reads the
+  // The brainstorm's model, for the start-up log; the agent package reads the
   // `COMMS_BRAINSTORM_*` settings itself (ADR 0014).
   brainstormModel: optionalString('COMMS_BRAINSTORM_MODEL'),
   // The speech-to-text service of voice messages; `speechSettings` combines the two.

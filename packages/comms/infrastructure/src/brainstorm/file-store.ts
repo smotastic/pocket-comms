@@ -1,4 +1,4 @@
-import { BrainstormStoreOutbound, type StoredChat } from '@pocket-comms/comms-application';
+import { BrainstormStoreOutbound, type StoredBrainstorm } from '@pocket-comms/comms-application';
 import type { BrainstormEntry } from '@pocket-comms/comms-domain';
 import type { StoredChatEntry } from '@smotastic/pocket-agent';
 import { ChatEntry } from '@smotastic/pocket-agent/chat';
@@ -10,10 +10,12 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-// The brainstorm chat as one JSON file in the server's state folder (spec 013, requirement 5),
-// its entries numbered in order since version 4 (spec 026).
+// The brainstorm as one JSON file in the server's state folder (spec 013, requirement 5),
+// its entries numbered in order since version 4 (spec 026). Version 5 names a proposal's images
+// `images` and the start of a new brainstorm `brainstormStarted`, where older files say `pictures`
+// and `chatStarted`; an older file is read and saved again as version 5.
 // A write goes to a temporary file first and is renamed over the old one, so a crash never
-// leaves half a chat behind.
+// leaves half a brainstorm behind.
 
 const FILE = 'brainstorm.json';
 
@@ -33,8 +35,10 @@ const EditState = Schema.Union([
 ]);
 
 const Attached = Schema.Array(Schema.Struct({ image: Schema.String, url: Schema.String }));
+const Images = { images: Schema.Array(Schema.String), attached: Attached };
+// Versions 3 and 4 name a proposal's images `pictures`.
 const Pictures = { pictures: Schema.Array(Schema.String), attached: Attached };
-// A chat saved before pictures (version 2 and older) has none of these.
+// A brainstorm saved before pictures (version 2 and older) has none of these.
 const Ids = Schema.optional(Schema.Array(Schema.String));
 const MaybePictures = { pictures: Ids, attached: Schema.optional(Attached) };
 
@@ -56,9 +60,9 @@ const User = Schema.Struct({
 const Assistant = Schema.Struct({ type: Schema.tag('assistant'), ...Text, text: Schema.String });
 const Failed = Schema.Struct({ type: Schema.tag('failed'), ...Text, reason: Schema.String });
 
-const issueProposal = <P extends Schema.Struct.Fields>(pictures: P) =>
-  Schema.Struct({ ...IssueFields, ...pictures, kind: Schema.tag('issue') });
-const editProposal = <P extends Schema.Struct.Fields>(pictures: P) =>
+const issueProposal = <P extends Schema.Struct.Fields>(images: P) =>
+  Schema.Struct({ ...IssueFields, ...images, kind: Schema.tag('issue') });
+const editProposal = <P extends Schema.Struct.Fields>(images: P) =>
   Schema.Struct({
     type: Schema.tag('proposal'),
     kind: Schema.tag('edit'),
@@ -69,11 +73,11 @@ const editProposal = <P extends Schema.Struct.Fields>(pictures: P) =>
     title: Schema.String,
     body: Schema.String,
     base: Schema.Struct({ title: Schema.String, body: Schema.String }),
-    ...pictures,
+    ...images,
     state: EditState,
   });
 
-/** An entry of a chat before the log (versions 2 and 3). */
+/** An entry of a brainstorm before the log (versions 2 and 3). */
 const Entry = Schema.Union([
   User,
   Assistant,
@@ -93,28 +97,48 @@ const Read = Schema.Struct({
 
 const Runtime = Schema.NullOr(Schema.Struct({ adapter: Schema.String, state: Schema.Json }));
 
-/** The chat's own entries in the log; the agent package's shared ones are `ChatEntry`. */
-const OwnEntry = Schema.Union([
-  Schema.Struct({
-    kind: Schema.tag('said'),
-    ...Text,
-    text: Schema.String,
-    images: Schema.Array(Schema.String),
-  }),
-  Schema.Struct({
-    kind: Schema.tag('proposal'),
-    proposal: Schema.Union([issueProposal(Pictures), editProposal(Pictures)]),
-  }),
-  Schema.Struct({ kind: Schema.tag('chatStarted') }),
-]);
+/**
+ * The brainstorm's own entries in the log: its proposals' images under `images` or `pictures`, its
+ * start as `brainstormStarted` or `chatStarted`.
+ */
+const ownEntry = <P extends Schema.Struct.Fields, S extends string>(images: P, started: S) =>
+  Schema.Union([
+    Schema.Struct({
+      kind: Schema.tag('said'),
+      ...Text,
+      text: Schema.String,
+      images: Schema.Array(Schema.String),
+    }),
+    Schema.Struct({
+      kind: Schema.tag('proposal'),
+      proposal: Schema.Union([issueProposal(images), editProposal(images)]),
+    }),
+    Schema.Struct({ kind: Schema.tag(started) }),
+  ]);
 
-/** Version 4 numbers the entries, the package's and the chat's own (spec 026). */
+/** A numbered log of the package's shared entries (`ChatEntry`) and the brainstorm's own. */
+const logOfEntries = <P extends Schema.Struct.Fields, S extends string>(images: P, started: S) =>
+  Schema.Array(
+    Schema.Struct({
+      sequence: Schema.Int,
+      entry: Schema.Union([ChatEntry, ownEntry(images, started)]),
+    }),
+  );
+
+/** Version 5 names a proposal's images `images` and a new brainstorm's start `brainstormStarted`. */
+const StoredFileV5 = Schema.Struct({
+  version: Schema.Literal(5),
+  id: Schema.String,
+  log: logOfEntries(Images, 'brainstormStarted'),
+  reads: Schema.Array(Read),
+  runtime: Runtime,
+});
+
+/** Version 4 numbers the entries, the package's and the brainstorm's own (spec 026). */
 const StoredFileV4 = Schema.Struct({
   version: Schema.Literal(4),
   id: Schema.String,
-  log: Schema.Array(
-    Schema.Struct({ sequence: Schema.Int, entry: Schema.Union([ChatEntry, OwnEntry]) }),
-  ),
+  log: logOfEntries(Pictures, 'chatStarted'),
   reads: Schema.Array(Read),
   runtime: Runtime,
 });
@@ -137,13 +161,13 @@ const StoredFileV1 = Schema.Struct({
 });
 
 const decode = Schema.decodeUnknownOption(
-  Schema.fromJsonString(Schema.Union([StoredFileV4, StoredFile, StoredFileV1])),
+  Schema.fromJsonString(Schema.Union([StoredFileV5, StoredFileV4, StoredFile, StoredFileV1])),
 );
 
 type StoredEntry = (typeof StoredFile.Type)['entries'][number];
 type LogEntry = StoredChatEntry<BrainstormEntry>['entry'];
 
-/** An entry from before the log as the log holds it, with the pictures older files lack. */
+/** An entry from before the log as the log holds it, with the images older files lack. */
 const asLogEntry = (entry: StoredEntry): LogEntry => {
   switch (entry.type) {
     case 'user':
@@ -158,18 +182,37 @@ const asLogEntry = (entry: StoredEntry): LogEntry => {
       return { kind: 'agentMessage', text: entry.text };
     case 'failed':
       return { kind: 'turnFailed', reason: entry.reason };
-    case 'proposal':
+    case 'proposal': {
+      const { pictures, attached, ...proposal } = entry;
       return {
         kind: 'proposal',
-        proposal: { ...entry, pictures: entry.pictures ?? [], attached: entry.attached ?? [] },
+        proposal: { ...proposal, images: pictures ?? [], attached: attached ?? [] },
       };
+    }
   }
 };
 
-type AnyFile = typeof StoredFileV4.Type | typeof StoredFile.Type | typeof StoredFileV1.Type;
+type V4Entry = (typeof StoredFileV4.Type)['log'][number]['entry'];
+
+/**
+ * An entry of version 4 as version 5 holds it: a proposal's `pictures` become its `images`, and
+ * `chatStarted` becomes `brainstormStarted`.
+ */
+const fromV4 = (entry: V4Entry): LogEntry => {
+  if (entry.kind === 'chatStarted') return { kind: 'brainstormStarted' };
+  if (entry.kind !== 'proposal' || !('proposal' in entry)) return entry;
+  const { pictures, ...proposal } = entry.proposal;
+  return { kind: 'proposal', proposal: { ...proposal, images: pictures } };
+};
+
+type AnyFile =
+  | typeof StoredFileV5.Type
+  | typeof StoredFileV4.Type
+  | typeof StoredFile.Type
+  | typeof StoredFileV1.Type;
 
 /** The entries of a file from before the log, numbered from their position (spec 026). */
-const logOf = (stored: Exclude<AnyFile, typeof StoredFileV4.Type>) =>
+const logOf = (stored: typeof StoredFile.Type | typeof StoredFileV1.Type) =>
   (stored.version === 1
     ? stored.entries.map((entry) =>
         entry.type === 'proposal' ? { ...entry, kind: 'issue' as const } : entry,
@@ -177,9 +220,14 @@ const logOf = (stored: Exclude<AnyFile, typeof StoredFileV4.Type>) =>
     : stored.entries
   ).map((entry, index) => ({ sequence: index + 1, entry: asLogEntry(entry) }));
 
-const toChat = (stored: AnyFile): StoredChat => ({
+const toBrainstorm = (stored: AnyFile): StoredBrainstorm => ({
   id: stored.id,
-  log: stored.version === 4 ? stored.log : logOf(stored),
+  log:
+    stored.version === 5
+      ? stored.log
+      : stored.version === 4
+        ? stored.log.map(({ sequence, entry }) => ({ sequence, entry: fromV4(entry) }))
+        : logOf(stored),
   reads: stored.version === 1 ? [] : stored.reads,
   runtime: Option.fromNullishOr(stored.runtime),
 });
@@ -201,33 +249,33 @@ export const layerFile = ({ folder }: FileStoreOptions) => {
       Effect.catch((error) =>
         codeOf(error.cause) === 'ENOENT'
           ? Effect.succeed(undefined)
-          : Effect.logWarning('The brainstorm chat cannot be read').pipe(
+          : Effect.logWarning('The brainstorm cannot be read').pipe(
               Effect.annotateLogs({ path, error: String(error.cause) }),
               Effect.as(undefined),
             ),
       ),
     );
-    if (text === undefined) return Option.none<StoredChat>();
+    if (text === undefined) return Option.none<StoredBrainstorm>();
     const stored = decode(text);
     if (Option.isNone(stored)) {
-      yield* Effect.logWarning('The stored brainstorm chat is unreadable; it is kept as .bad').pipe(
+      yield* Effect.logWarning('The stored brainstorm is unreadable; it is kept as .bad').pipe(
         Effect.annotateLogs({ path }),
       );
       yield* Effect.promise(() => rename(path, `${path}.bad`).catch(() => undefined));
-      return Option.none<StoredChat>();
+      return Option.none<StoredBrainstorm>();
     }
-    return Option.some(toChat(stored.value));
+    return Option.some(toBrainstorm(stored.value));
   }).pipe(Effect.withSpan('Brainstorm.load'));
 
-  const save = (chat: StoredChat) =>
+  const save = (brainstorm: StoredBrainstorm) =>
     Effect.tryPromise(async () => {
       await mkdir(folder, { recursive: true, mode: 0o700 });
-      const file: typeof StoredFileV4.Encoded = {
-        version: 4,
-        id: chat.id,
-        log: chat.log,
-        reads: chat.reads,
-        runtime: Option.getOrNull(chat.runtime),
+      const file: typeof StoredFileV5.Encoded = {
+        version: 5,
+        id: brainstorm.id,
+        log: brainstorm.log,
+        reads: brainstorm.reads,
+        runtime: Option.getOrNull(brainstorm.runtime),
       };
       // A name of its own per save, so a slower earlier save never renames over a later one's file.
       const temporary = `${path}.${randomUUID()}.tmp`;
@@ -235,7 +283,7 @@ export const layerFile = ({ folder }: FileStoreOptions) => {
       await rename(temporary, path);
     }).pipe(
       Effect.catch((error) =>
-        Effect.logError('The brainstorm chat was not saved').pipe(
+        Effect.logError('The brainstorm was not saved').pipe(
           Effect.annotateLogs({ path, error: String(error.cause) }),
         ),
       ),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { BrainstormStoreOutbound, type StoredChat } from '@pocket-comms/comms-application';
+import { BrainstormStoreOutbound, type StoredBrainstorm } from '@pocket-comms/comms-application';
 import type { EditProposal, IssueProposal } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
@@ -10,7 +10,7 @@ import { layerFile } from './file-store.js';
 
 const folder = () => join(mkdtempSync(join(tmpdir(), 'comms-state-')), 'state');
 
-const PICTURE = 'a'.repeat(26);
+const IMAGE = 'a'.repeat(26);
 
 const issue = (id: string, state: IssueProposal['state'], attached: IssueProposal['attached']) =>
   ({
@@ -21,7 +21,7 @@ const issue = (id: string, state: IssueProposal['state'], attached: IssueProposa
     project: 'app',
     title: 'Dark mode',
     body: 'A toggle.',
-    pictures: [PICTURE],
+    images: [IMAGE],
     attached,
     state,
   }) satisfies IssueProposal;
@@ -37,16 +37,16 @@ const edit: EditProposal = {
   title: 'Orchestrator',
   body: 'New.',
   base: { title: 'Orchestrator', body: 'Old.' },
-  pictures: [],
+  images: [],
   attached: [],
   state: { _tag: 'updated', url: 'http://gitea.test/owner/app/issues/11' },
 };
 
-const chat: StoredChat = {
+const history: StoredBrainstorm = {
   id: 'chat-1',
   log: [
-    { sequence: 7, entry: { kind: 'chatStarted' } },
-    { sequence: 8, entry: { kind: 'said', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] } },
+    { sequence: 7, entry: { kind: 'brainstormStarted' } },
+    { sequence: 8, entry: { kind: 'said', id: 'u1', at: 1, text: 'Idea', images: [IMAGE] } },
     {
       sequence: 9,
       entry: { kind: 'toolStarted', callId: 'c1', tool: 'read_issue', target: 'app #11' },
@@ -61,7 +61,7 @@ const chat: StoredChat = {
         proposal: issue(
           'p1',
           { _tag: 'attaching', number: 13, url: 'http://gitea.test/owner/app/issues/13' },
-          [{ image: PICTURE, url: 'http://gitea.test/attachments/u-1' }],
+          [{ image: IMAGE, url: 'http://gitea.test/attachments/u-1' }],
         ),
       },
     },
@@ -98,21 +98,21 @@ describe('the brainstorm file store', () => {
       const path = folder();
       const outbound = yield* store(path);
 
-      yield* outbound.save(chat);
-      yield* outbound.save({ ...chat, runtime: Option.none() });
+      yield* outbound.save(history);
+      yield* outbound.save({ ...history, runtime: Option.none() });
 
       expect(yield* (yield* store(path)).load).toEqual(
-        Option.some({ ...chat, runtime: Option.none() }),
+        Option.some({ ...history, runtime: Option.none() }),
       );
       expect(statSync(join(path, 'brainstorm.json')).mode & 0o777).toBe(0o600);
     }),
   );
 
-  it.effect('loads a chat saved before edits, with its proposals as new issues', () =>
+  it.effect('loads a brainstorm saved before edits, with its proposals as new issues', () =>
     Effect.gen(function* () {
       const path = folder();
       const outbound = yield* store(path);
-      yield* outbound.save(chat);
+      yield* outbound.save(history);
       writeFileSync(
         join(path, 'brainstorm.json'),
         JSON.stringify({
@@ -149,7 +149,7 @@ describe('the brainstorm file store', () => {
                   project: 'app',
                   title: 'Dark mode',
                   body: 'A toggle.',
-                  pictures: [],
+                  images: [],
                   attached: [],
                   state: { _tag: 'open' },
                 },
@@ -163,11 +163,11 @@ describe('the brainstorm file store', () => {
     }),
   );
 
-  it.effect('loads a chat saved before pictures, with no pictures anywhere', () =>
+  it.effect('loads a brainstorm saved before images, with no images anywhere', () =>
     Effect.gen(function* () {
       const path = folder();
       const outbound = yield* store(path);
-      yield* outbound.save(chat);
+      yield* outbound.save(history);
       writeFileSync(
         join(path, 'brainstorm.json'),
         JSON.stringify({
@@ -202,7 +202,7 @@ describe('the brainstorm file store', () => {
             sequence: 2,
             entry: {
               kind: 'proposal',
-              proposal: expect.objectContaining({ kind: 'edit', pictures: [], attached: [] }),
+              proposal: expect.objectContaining({ kind: 'edit', images: [], attached: [] }),
             },
           },
         ]),
@@ -210,18 +210,18 @@ describe('the brainstorm file store', () => {
     }),
   );
 
-  it.effect('numbers the entries of a chat saved before the log from their position', () =>
+  it.effect('numbers the entries of a brainstorm saved before the log from their position', () =>
     Effect.gen(function* () {
       const path = folder();
       const outbound = yield* store(path);
-      yield* outbound.save(chat);
+      yield* outbound.save(history);
       writeFileSync(
         join(path, 'brainstorm.json'),
         JSON.stringify({
           version: 3,
           id: 'chat-3',
           entries: [
-            { type: 'user', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] },
+            { type: 'user', id: 'u1', at: 1, text: 'Idea', images: [IMAGE] },
             { type: 'assistant', id: 'a1', at: 2, text: 'Nice.' },
             { type: 'failed', id: 'f1', at: 3, reason: 'The model cannot be reached.' },
           ],
@@ -236,7 +236,7 @@ describe('the brainstorm file store', () => {
           log: [
             {
               sequence: 1,
-              entry: { kind: 'said', id: 'u1', at: 1, text: 'Idea', images: [PICTURE] },
+              entry: { kind: 'said', id: 'u1', at: 1, text: 'Idea', images: [IMAGE] },
             },
             { sequence: 2, entry: { kind: 'agentMessage', text: 'Nice.' } },
             { sequence: 3, entry: { kind: 'turnFailed', reason: 'The model cannot be reached.' } },
@@ -248,11 +248,51 @@ describe('the brainstorm file store', () => {
     }),
   );
 
-  it.effect('keeps an unreadable file as .bad and starts without a chat', () =>
+  it.effect(
+    "loads a version 4 file, its proposals' pictures as images and its chat start as a brainstorm start",
+    () =>
+      Effect.gen(function* () {
+        const path = folder();
+        const outbound = yield* store(path);
+        yield* outbound.save(history);
+        const { images, ...open } = issue('p1', { _tag: 'open' }, []);
+        writeFileSync(
+          join(path, 'brainstorm.json'),
+          JSON.stringify({
+            version: 4,
+            id: 'chat-4',
+            log: [
+              { sequence: 1, entry: { kind: 'chatStarted' } },
+              { sequence: 2, entry: { kind: 'said', id: 'u1', at: 1, text: 'Idea', images } },
+              { sequence: 3, entry: { kind: 'proposal', proposal: { ...open, pictures: images } } },
+            ],
+            reads: [],
+            runtime: null,
+          }),
+        );
+
+        const loaded = yield* outbound.load;
+        expect(Option.map(loaded, (stored) => stored.log)).toEqual(
+          Option.some([
+            { sequence: 1, entry: { kind: 'brainstormStarted' } },
+            { sequence: 2, entry: { kind: 'said', id: 'u1', at: 1, text: 'Idea', images } },
+            { sequence: 3, entry: { kind: 'proposal', proposal: { ...open, images } } },
+          ]),
+        );
+
+        yield* outbound.save(Option.getOrThrow(loaded));
+        expect(JSON.parse(readFileSync(join(path, 'brainstorm.json'), 'utf-8'))).toMatchObject({
+          version: 5,
+          log: [{}, {}, { entry: { proposal: { images } } }],
+        });
+      }),
+  );
+
+  it.effect('keeps an unreadable file as .bad and starts without a brainstorm', () =>
     Effect.gen(function* () {
       const path = folder();
       const outbound = yield* store(path);
-      yield* outbound.save(chat);
+      yield* outbound.save(history);
       writeFileSync(join(path, 'brainstorm.json'), '{"version":1,');
 
       expect(yield* outbound.load).toEqual(Option.none());

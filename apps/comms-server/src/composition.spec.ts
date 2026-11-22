@@ -85,7 +85,7 @@ describe('the composed server', () => {
     expect((await serve()('/api/v1/projects/nope/issues')).status).toBe(404);
   });
 
-  it('says that the brainstorm chat is not set up without a model, and still serves', async () => {
+  it('says that the brainstorm is not set up without a model, and still serves', async () => {
     const response = await serve()('/api/v1/brainstorm');
 
     expect(response.status).toBe(200);
@@ -125,14 +125,14 @@ describe('the composed server', () => {
 });
 
 describe('voice messages in the composed server', () => {
-  const clip = {
+  const voiceMessage = {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
     body: new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2]),
   };
 
   it('are not set up without the speech settings', async () => {
-    const response = await serve()('/api/v1/speech/transcriptions', clip);
+    const response = await serve()('/api/v1/speech/transcriptions', voiceMessage);
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({
@@ -147,7 +147,7 @@ describe('voice messages in the composed server', () => {
       undefined,
       undefined,
       speech,
-    )('/api/v1/speech/transcriptions', clip);
+    )('/api/v1/speech/transcriptions', voiceMessage);
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({

@@ -2,23 +2,23 @@ import { describe, expect, it } from '@effect/vitest';
 import * as Result from 'effect/Result';
 import {
   baseChanged,
-  chatPictures,
+  brainstormImages,
   cutDoc,
   cutIssueBody,
   isProjectDoc,
   MAX_DOC_LENGTH,
   MAX_ISSUE_BODY,
   MAX_ISSUE_TITLE,
-  MAX_PROPOSAL_PICTURES,
-  missingPictures,
-  parseIssueDraft,
+  MAX_PROPOSAL_IMAGES,
+  missingImages,
+  parseProposedIssue,
   parseIssueEdit,
-  parsePictureChoice,
-  picturesByNumber,
+  parseImageChoice,
+  imagesByNumber,
   proposalOf,
   readOf,
   rememberRead,
-  withPictures,
+  withImages,
   type BrainstormEntry,
   type IssueProposal,
   type IssueRead,
@@ -32,7 +32,7 @@ const proposal = (id: string, state: IssueProposal['state'] = { _tag: 'open' }):
   project: 'pocket-home',
   title: 'Dark mode',
   body: 'A toggle.',
-  pictures: [],
+  images: [],
   attached: [],
   state,
 });
@@ -45,16 +45,16 @@ const entries: ReadonlyArray<BrainstormEntry> = [
   recorded(proposal('p2', { _tag: 'discarded' })),
 ];
 
-describe('parseIssueDraft', () => {
+describe('parseProposedIssue', () => {
   it('trims the fields', () => {
     expect(
-      parseIssueDraft({ project: ' pocket-home ', title: '  Dark mode ', body: '\nBody\n' }),
+      parseProposedIssue({ project: ' pocket-home ', title: '  Dark mode ', body: '\nBody\n' }),
     ).toEqual(Result.succeed({ project: 'pocket-home', title: 'Dark mode', body: 'Body' }));
   });
 
   it('refuses a blank title, a title over the limit and a body over the limit', () => {
-    const issues = (draft: { project: string; title: string; body: string }) => {
-      const result = parseIssueDraft(draft);
+    const issues = (issue: { project: string; title: string; body: string }) => {
+      const result = parseProposedIssue(issue);
       return Result.isFailure(result) ? result.failure.issues.map((issue) => issue.field) : [];
     };
     expect(issues({ project: 'a', title: ' ', body: '' })).toEqual(['title']);
@@ -70,7 +70,7 @@ describe('parseIssueDraft', () => {
   it('accepts a title of exactly the limit and an empty body', () => {
     expect(
       Result.isSuccess(
-        parseIssueDraft({ project: 'a', title: 'x'.repeat(MAX_ISSUE_TITLE), body: '' }),
+        parseProposedIssue({ project: 'a', title: 'x'.repeat(MAX_ISSUE_TITLE), body: '' }),
       ),
     ).toBe(true);
   });
@@ -171,44 +171,44 @@ describe('project docs', () => {
   });
 });
 
-describe('pictures', () => {
+describe('images', () => {
   const imageA = 'a'.repeat(26);
   const imageB = 'b'.repeat(26);
   const imageC = 'c'.repeat(26);
-  const chat: ReadonlyArray<BrainstormEntry> = [
+  const history: ReadonlyArray<BrainstormEntry> = [
     { kind: 'said', id: 'u1', at: 1, text: 'Like this?', images: [imageA, imageB] },
-    { kind: 'chatStarted' },
+    { kind: 'brainstormStarted' },
     { kind: 'said', id: 'u2', at: 3, text: '', images: [imageC] },
   ];
 
-  it('numbers the pictures of the chat from 1 in the order they were sent', () => {
-    expect(chatPictures(chat)).toEqual([
+  it('numbers the images of the brainstorm from 1 in the order they were sent', () => {
+    expect(brainstormImages(history)).toEqual([
       { id: imageA, number: 1 },
       { id: imageB, number: 2 },
       { id: imageC, number: 3 },
     ]);
-    expect(chatPictures(entries)).toEqual([]);
+    expect(brainstormImages(entries)).toEqual([]);
   });
 
-  it('finds the pictures Pi names by number, in their order', () => {
-    expect(picturesByNumber(chat, [3, 1])).toEqual(Result.succeed([imageA, imageC]));
+  it('finds the images Pi names by number, in their order', () => {
+    expect(imagesByNumber(history, [3, 1])).toEqual(Result.succeed([imageA, imageC]));
   });
 
-  it('refuses a number that is no picture of the chat, a repeat, and more than five', () => {
-    expect(Result.isFailure(picturesByNumber(chat, [4]))).toBe(true);
-    expect(Result.isFailure(picturesByNumber(chat, [0]))).toBe(true);
-    expect(Result.isFailure(picturesByNumber(chat, [1, 1]))).toBe(true);
-    expect(Result.isFailure(picturesByNumber(chat, [1, 2, 3, 1, 2, 3]))).toBe(true);
+  it('refuses a number that is no image of the history, a repeat, and more than five', () => {
+    expect(Result.isFailure(imagesByNumber(history, [4]))).toBe(true);
+    expect(Result.isFailure(imagesByNumber(history, [0]))).toBe(true);
+    expect(Result.isFailure(imagesByNumber(history, [1, 1]))).toBe(true);
+    expect(Result.isFailure(imagesByNumber(history, [1, 2, 3, 1, 2, 3]))).toBe(true);
   });
 
   it('checks the owner choice by id and puts it in number order', () => {
-    expect(parsePictureChoice(chat, [imageC, imageB])).toEqual(Result.succeed([imageB, imageC]));
-    expect(parsePictureChoice(chat, [])).toEqual(Result.succeed([]));
-    expect(Result.isFailure(parsePictureChoice(chat, ['z'.repeat(26)]))).toBe(true);
-    expect(Result.isFailure(parsePictureChoice(chat, [imageA, imageA]))).toBe(true);
+    expect(parseImageChoice(history, [imageC, imageB])).toEqual(Result.succeed([imageB, imageC]));
+    expect(parseImageChoice(history, [])).toEqual(Result.succeed([]));
+    expect(Result.isFailure(parseImageChoice(history, ['z'.repeat(26)]))).toBe(true);
+    expect(Result.isFailure(parseImageChoice(history, [imageA, imageA]))).toBe(true);
   });
 
-  it('refuses more than five chosen pictures', () => {
+  it('refuses more than five chosen images', () => {
     const many: ReadonlyArray<BrainstormEntry> = [
       {
         kind: 'said',
@@ -218,25 +218,25 @@ describe('pictures', () => {
         images: ['a', 'b', 'c', 'd', 'e', 'f'].map((letter) => letter.repeat(26)),
       },
     ];
-    const ids = chatPictures(many).map((picture) => picture.id);
-    expect(Result.isFailure(parsePictureChoice(many, ids))).toBe(true);
-    expect(MAX_PROPOSAL_PICTURES).toBe(5);
+    const ids = brainstormImages(many).map((image) => image.id);
+    expect(Result.isFailure(parseImageChoice(many, ids))).toBe(true);
+    expect(MAX_PROPOSAL_IMAGES).toBe(5);
   });
 
-  it('appends a Pictures block to the body, and keeps the body without pictures', () => {
-    expect(withPictures('The idea.', [])).toBe('The idea.');
+  it('appends a Images block to the body, and keeps the body without images', () => {
+    expect(withImages('The idea.', [])).toBe('The idea.');
     expect(
-      withPictures('The idea.', [
+      withImages('The idea.', [
         { number: 1, url: 'https://gitea.test/attachments/1' },
         { number: 3, url: 'https://gitea.test/attachments/3' },
       ]),
     ).toBe(
-      'The idea.\n\n## Pictures\n\n![Picture 1](https://gitea.test/attachments/1)\n![Picture 3](https://gitea.test/attachments/3)',
+      'The idea.\n\n## Images\n\n![Image 1](https://gitea.test/attachments/1)\n![Image 3](https://gitea.test/attachments/3)',
     );
-    expect(withPictures('', [{ number: 2, url: 'u' }])).toBe('## Pictures\n\n![Picture 2](u)');
+    expect(withImages('', [{ number: 2, url: 'u' }])).toBe('## Images\n\n![Image 2](u)');
   });
 
-  it('names the chosen pictures that are not attached yet', () => {
-    expect(missingPictures([imageA, imageB], [{ image: imageA, url: 'u' }])).toEqual([imageB]);
+  it('names the chosen images that are not attached yet', () => {
+    expect(missingImages([imageA, imageB], [{ image: imageA, url: 'u' }])).toEqual([imageB]);
   });
 });

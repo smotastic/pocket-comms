@@ -22,7 +22,7 @@ import {
   QuickReplies,
   Seen,
   StatusHistory,
-  Transcript,
+  Conversation,
 } from '@pocket-comms/comms-infrastructure';
 import { layerPiRuntime } from '@smotastic/pocket-agent/pi';
 import {
@@ -42,7 +42,7 @@ import { join } from 'node:path';
  */
 const PUSH_SUBJECT = 'https://github.com/smotastic/pocket-comms';
 
-/** How requests name this app to the brainstorm chat's model provider. */
+/** How requests name this app to the brainstorm's model provider. */
 const ATTRIBUTION = { name: 'pocket-comms', url: 'https://github.com/smotastic/pocket-comms' };
 
 export interface ServerOptions {
@@ -57,7 +57,7 @@ export interface ServerOptions {
   /** The Gitea server whose issues the app reads (spec 006). */
   readonly gitea: Gitea.HttpOptions;
   /**
-   * The folder of the server's stored state: the brainstorm chat (spec 013), images (spec 014),
+   * The folder of the server's stored state: the brainstorm (spec 013), images (spec 014),
    * the activity timeline (spec 017), push devices (spec 018) and quick replies (spec 025).
    */
   readonly stateDir: string;
@@ -68,7 +68,7 @@ export interface ServerOptions {
 
 /**
  * The adapters: Herdr over its socket, session files below `home`, git below `projectsRoot`,
- * Gitea over HTTP, Pi in process with the `COMMS_BRAINSTORM_*` settings (spec 013, ADR 0014), the brainstorm chat, the images, the activity timeline, the
+ * Gitea over HTTP, Pi in process with the `COMMS_BRAINSTORM_*` settings (spec 013, ADR 0014), the brainstorm, the images, the activity timeline, the
  * push devices and the quick replies in `stateDir`, Web Push to the devices, the speech service of
  * voice messages when set up, and memory for the rest.
  */
@@ -86,8 +86,8 @@ export const services = ({
     Projects.layerGit({ root: projectsRoot }),
     Gitea.layerHttp(gitea),
     // The Claude hook (`claude-hook.ts`) keeps the waiting questions in the same state folder.
-    Transcript.layerFiles({ home, questions: join(stateDir, 'questions') }),
-    // Optional: without a model the server starts and the chat says what is missing.
+    Conversation.layerFiles({ home, questions: join(stateDir, 'questions') }),
+    // Optional: without a model the server starts and the brainstorm says what is missing.
     layerPiRuntime({ prefix: 'COMMS_BRAINSTORM', required: false, attribution: ATTRIBUTION }),
     Brainstorm.layerFile({ folder: stateDir }),
     Images.layerFolder({ stateDir }),

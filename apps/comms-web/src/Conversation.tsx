@@ -25,7 +25,7 @@ import { AttachedImages } from './AttachedImages.js';
 import { BackgroundStrip } from './BackgroundStrip.js';
 import { useAttachments } from './attachments.js';
 import { delegationLink, stripItems } from './background.js';
-import { Chat } from './Chat.js';
+import { ConversationEntries } from './ConversationEntries.js';
 import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu } from './ConversationMenu.js';
 import {
@@ -33,7 +33,7 @@ import {
   quickRepliesQuery,
   screenQuery,
   speechQuery,
-  transcriptQuery,
+  conversationQuery,
 } from './comms-queries.js';
 import { KeyPad } from './KeyPad.js';
 import { QuickReplies, SuggestedReplies } from './QuickReplies.js';
@@ -55,10 +55,10 @@ export interface ConversationProps {
   readonly onGone?: (() => void) | undefined;
 }
 
-type View = 'chat' | 'screen';
+type View = 'conversation' | 'screen';
 
 const VIEWS: ReadonlyArray<{ readonly id: View; readonly label: string }> = [
-  { id: 'chat', label: 'Chat' },
+  { id: 'conversation', label: 'Conversation' },
   { id: 'screen', label: 'Screen' },
 ];
 
@@ -149,13 +149,16 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const [repliesOpen, setRepliesOpen] = useState(false);
   const agentResult = useQuery(agentQuery(client, agentRef));
   const agent = agentResult.data;
-  const hasChat = agent?.format !== undefined;
-  const [chosen, setChosen] = useState<View>('chat');
-  const view: View = hasChat ? chosen : 'screen';
-  const transcript = useQuery({ ...transcriptQuery(client, agentRef), enabled: hasChat });
+  const hasConversation = agent?.format !== undefined;
+  const [chosen, setChosen] = useState<View>('conversation');
+  const view: View = hasConversation ? chosen : 'screen';
+  const conversation = useQuery({
+    ...conversationQuery(client, agentRef),
+    enabled: hasConversation,
+  });
   // A dialog waits while the agent is blocked, or while a Claude agent's latest entry is a question
   // waiting for its answer: Herdr reports such an agent as done.
-  const pendingEntry = transcript.data?.entries.at(-1);
+  const pendingEntry = conversation.data?.entries.at(-1);
   const dialogWaits =
     agent?.status === 'blocked' ||
     (agent?.format === 'claude' &&
@@ -170,11 +173,11 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
 
   // Opening a done agent shows its completion, so it leaves Needs you (requirement 11). A failed
   // attempt is tried again; the overview keeps the agent under Needs you until one succeeds.
-  const unseenDone = agent?.status === 'done' && agent.needsYou;
+  const doneNotSeen = agent?.status === 'done' && agent.needsYou;
   const { mutate: markSeen } = useMutation({ mutationFn: () => client.seen(agentRef), retry: 3 });
   useEffect(() => {
-    if (unseenDone) markSeen();
-  }, [markSeen, unseenDone]);
+    if (doneNotSeen) markSeen();
+  }, [markSeen, doneNotSeen]);
 
   const [closing, setClosing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -186,9 +189,9 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const latestId = useRef<string>(undefined);
   const images = useAttachments(client);
   const speech = useQuery(speechQuery(client));
-  // A clip belongs to the message, also while a dialog's composer shows.
+  // A voice message belongs to the message, also while a dialog's composer shows.
   const voice = useVoiceClip(
-    (clip) => client.transcribe(clip),
+    (voiceMessage) => client.transcribe(voiceMessage),
     (text) => setDraft((current) => appendText(current, text)),
   );
   // A successful send from a field clears it, and the images; a failed one keeps both. A quick
@@ -200,7 +203,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
     onSuccess: (_, { text, fromField, answers }) => {
       if (answers !== undefined) setAnswered(answers);
       if (!fromField) return;
-      // Only the sent text goes: a transcript that arrived meanwhile stays.
+      // Only the sent text goes: a transcription that arrived meanwhile stays.
       setDraft((current) => withoutSent(current, text));
       images.clear();
       voice.dismiss();
@@ -301,11 +304,11 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
 
   // A suggestion answers only the latest message, and only while the agent waits for a prompt;
   // a blocked agent is answered with the keys and the dialog field alone.
-  const latest = transcript.data?.entries.at(-1);
+  const latest = conversation.data?.entries.at(-1);
   latestId.current = latest?.id;
   const waiting = agent.status === 'idle' || agent.status === 'done';
   const suggested =
-    view === 'chat' && waiting && latest?.type === 'assistant' && latest.id !== answered
+    view === 'conversation' && waiting && latest?.type === 'assistant' && latest.id !== answered
       ? { id: latest.id, replies: latest.replies ?? [] }
       : undefined;
 
@@ -320,7 +323,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
       ? { call: latest.id, questions: latest.questions }
       : undefined;
   const sentCall = answer.isSuccess ? answer.variables.call : undefined;
-  const answerable = asking !== undefined && view === 'chat';
+  const answerable = asking !== undefined && view === 'conversation';
   const picked =
     asking !== undefined && choices?.call === asking.call
       ? choices.chosen
@@ -434,7 +437,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           ) : null}
           {dialogWaits ? (
             <Composer
-              label="Type into the dialog"
+              label="Answer the agent question"
               value={dialogText}
               onChange={setDialogText}
               onSend={(text) => typeText({ text, fromField: true })}
@@ -508,15 +511,15 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           <TerminalScreen label={`Screen of ${name}`} text={screenText} />
         ) : (
           <>
-            <Chat
-              transcript={transcript.data}
-              failed={transcript.error !== null}
+            <ConversationEntries
+              conversation={conversation.data}
+              failed={conversation.error !== null}
               imageUrl={client.imageUrl}
               linkOf={delegationLink(agent)}
               {...(answering === undefined ? {} : { answering })}
             />
             {agent.status === 'working' ? (
-              <Activity label={transcript.data?.activity ?? 'Thinking…'} />
+              <Activity label={conversation.data?.currentStep ?? 'Thinking…'} />
             ) : null}
             {/* Once answers are sent, a dialog still up shows again, so the owner sees what is left. */}
             {dialogWaits && (answering === undefined || answering.sent) ? (

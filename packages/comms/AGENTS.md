@@ -91,7 +91,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   command `node ~/pocket-cloud-data/pocket-comms/current/apps/comms-server/dist/claude-hook.js`
   (the deployed release; `COMMS_STATE_DIR` must match the server's when it is set).
 - Suggested replies (spec 025) come from fixed rules in `suggestedReplies`, never from a model,
-  and travel on the assistant entries. The web app offers them only in the Chat view of an idle
+  and travel on the assistant entries. The web app offers them only in the Conversation view of an idle
   or done agent and sends one only as a prompt: a suggestion never presses a key, never types
   into a waiting agent question and never answers a blocked agent. A broken `quick-replies.json` is
   reported and a read never replaces it; only the owner's next save writes over it.
@@ -127,14 +127,14 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   the server re-reads the issue right before the `PATCH`, and before uploading any image.
 - The brainstorm streams through the package's chat feed (spec 026): its entries are one
   numbered log behind `ChatLog`, saved with the brainstorm file, with one feed key whose numbers go on
-  across a New chat (`chatStarted`). A proposal that changes is recorded again; never rewrite an
+  across a New brainstorm (`brainstormStarted`). A proposal that changes is recorded again; never rewrite an
   entry. A tool row carries only `describeBrainstormCall`'s target, never a tool's input or
   output. The brainstorm is answering before it records what starts a turn and idle before the turn's
   end is recorded, so the sheet reads the state again on those entries.
 - Brainstorm images (spec 023) are images of the image store, numbered across the brainstorm
-  (`chatPictures`). Pi names them by number; only the owner's choice on the card goes to Gitea,
+  (`brainstormImages`). Pi names them by number; only the owner's choice on the card goes to Gitea,
   and only on approval. Each upload is saved on the proposal (`attached`) before the next, so a
-  retry never uploads one twice and never creates a second issue; the `## Pictures` block is
+  retry never uploads one twice and never creates a second issue; the `## Images` block is
   appended to the body last. Pi gets the bytes only when the runtime `seesImages`. Pi may propose an edit only for an
   issue it read in this brainstorm, and never for one whose body was cut.
 - The brainstorm is optional: without its model settings the server starts and the brainstorm says
@@ -144,7 +144,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   listens on `127.0.0.1` only. Do not add a route outside `commsServerLayer`.
 - Session file formats are undocumented. Parsers skip what they do not know; tests use the
   anonymised fixtures in `infrastructure/src/testing/fixtures`. Never commit a real session file.
-- Background work comes from Claude's session file only (`transcript/claude-background.ts`); Herdr's
+- Background work comes from Claude's session file only (`conversation/claude-background.ts`); Herdr's
   status stays as Herdr reports it, and the background work only keeps a done agent out of Needs
   you and holds its done push (spec 020). The overview and the push count it with the same
   `makeBackgroundOf`. A subagent id from a request must match `^[a-z0-9]{1,64}$` before it names a file, and

@@ -2,7 +2,7 @@ import {
   promptWithImages,
   type Question,
   type QuestionOption,
-  type TranscriptEntry,
+  type ConversationEntry,
 } from '@pocket-comms/comms-domain';
 import { join } from 'node:path';
 import { backgroundLog, subagentOf } from './claude-background.js';
@@ -17,7 +17,7 @@ import {
   stringField,
   type ToolEntry,
   type ToolSummary,
-  type TranscriptParser,
+  type ConversationParser,
 } from './entries.js';
 
 // Claude Code writes one JSON object per line: `user` and `assistant` messages in the API's shape,
@@ -219,20 +219,20 @@ export interface ClaudeParserOptions {
 export const createClaudeParser = (
   cwd: string | undefined,
   { sidechain = false }: ClaudeParserOptions = {},
-): TranscriptParser => {
+): ConversationParser => {
   const log = entryLog();
   const background = backgroundLog();
   // The latest prompt with images, its text without markers and the files named so far.
   let attached: { id: string; text: string; paths: Array<string> } | undefined;
 
-  const push = (raw: string): ReadonlyArray<TranscriptEntry> => {
+  const push = (raw: string): ReadonlyArray<ConversationEntry> => {
     const line = parseLine(raw);
     // Lines of a subagent's own conversation belong to that subagent, not to this chat.
     if (line === undefined || (line['isSidechain'] === true) !== sidechain) return [];
     const id = stringField(line, 'uuid') ?? '';
     const at = Date.parse(stringField(line, 'timestamp') ?? '');
     const message = line['message'];
-    const changed: Array<TranscriptEntry> = [];
+    const changed: Array<ConversationEntry> = [];
 
     const notice = taskNoticeOf(line);
     if (notice !== undefined) {

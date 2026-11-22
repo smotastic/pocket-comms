@@ -7,7 +7,7 @@ import type {
   BrainstormEventView,
   CommsClient,
   SubagentView,
-  TranscriptView,
+  ConversationView,
 } from './comms-client.js';
 import {
   activityKey,
@@ -15,28 +15,28 @@ import {
   brainstormKey,
   overviewKey,
   subagentKey,
-  transcriptKey,
+  conversationKey,
 } from './comms-queries.js';
 
 type EntriesEvent = Extract<AgentEventView, { readonly type: 'entries' }>;
 
 /**
- * Applies an entries event to the transcript the cache holds: a reset replaces it, any other event
+ * Applies an entries event to the conversation the cache holds: a reset replaces it, any other event
  * updates the entries with the same id in place and appends the new ones.
  */
 export const mergeEntries = (
-  held: TranscriptView | undefined,
+  held: ConversationView | undefined,
   event: EntriesEvent,
-): TranscriptView => {
+): ConversationView => {
   if (event.reset || held === undefined) {
-    return { entries: event.entries, activity: event.activity };
+    return { entries: event.entries, currentStep: event.currentStep };
   }
   const changed = new Map(event.entries.map((entry) => [entry.id, entry]));
   const kept = held.entries.map((entry) => changed.get(entry.id) ?? entry);
   const known = new Set(held.entries.map((entry) => entry.id));
   return {
     entries: [...kept, ...event.entries.filter((entry) => !known.has(entry.id))],
-    activity: event.activity,
+    currentStep: event.currentStep,
   };
 };
 
@@ -87,7 +87,7 @@ export const useAgentLive = (client: CommsClient, ref: string) => {
           if (event.type === 'agent') {
             queryClient.setQueryData(agentKey(ref), event.agent);
           } else {
-            queryClient.setQueryData<TranscriptView>(transcriptKey(ref), (held) =>
+            queryClient.setQueryData<ConversationView>(conversationKey(ref), (held) =>
               mergeEntries(held, event),
             );
           }
@@ -131,13 +131,13 @@ export const useSubagentLive = (client: CommsClient, ref: string, id: string, ac
   return { live };
 };
 
-/** The brainstorm chat as the sheet shows it: its items, Pi's draft, and whether Pi works. */
+/** The brainstorm as the sheet shows it: its items, Pi's draft, and whether Pi works. */
 export type BrainstormView = ChatView<BrainstormEntryView>;
 
 export const emptyBrainstorm: BrainstormView = emptyChat;
 
 /**
- * Folds a brainstorm event into the view with the agent package's fold (spec 026). A New chat
+ * Folds a brainstorm event into the view with the agent package's fold (spec 026). A New brainstorm
  * drops everything before it; the view keeps only where to follow on from.
  */
 export const foldBrainstorm = (
@@ -145,20 +145,20 @@ export const foldBrainstorm = (
   event: BrainstormEventView,
 ): BrainstormView => {
   const next = foldChat(view, event);
-  return next !== view && event.kind === 'entry' && event.entry.kind === 'chatStarted'
+  return next !== view && event.kind === 'entry' && event.entry.kind === 'brainstormStarted'
     ? { ...emptyBrainstorm, after: next.after }
     : next;
 };
 
-// The entries after which the chat's state may have changed: Pi started or ended a turn, a
-// message brought pictures, or a proposal changed.
+// The entries after which the brainstorm's state may have changed: Pi started or ended a turn, a
+// message brought images, or a proposal changed.
 const CHANGES_STATE: ReadonlySet<string> = new Set([
   'said',
   'proposal',
   'turnEnded',
   'turnFailed',
   'turnStopped',
-  'chatStarted',
+  'brainstormStarted',
 ]);
 
 /**

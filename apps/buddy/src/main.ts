@@ -11,7 +11,7 @@ import * as TerminalButton from './terminal-button.js';
 import * as TerminalScreen from './terminal-screen.js';
 
 // The buddy on the laptop: the keyboard is the button, `ffmpeg` the microphone, the terminal
-// the screen. The clips wait in `$BUDDY_HOME/outbox`.
+// the screen. The voice messages wait in `$BUDDY_HOME/outbox`.
 
 const main = Effect.gen(function* () {
   const config = yield* buddyConfig.pipe(
@@ -35,7 +35,7 @@ const main = Effect.gen(function* () {
       ),
     ),
   );
-  process.stdout.write('Bye. Clips not yet sent stay in the outbox.\n');
+  process.stdout.write('Bye. Voice messages not yet sent stay in the outbox.\n');
 });
 
 NodeRuntime.runMain(main, { disableErrorReporting: false });

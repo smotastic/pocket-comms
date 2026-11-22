@@ -2,9 +2,9 @@ export {
   agentRef,
   AgentStatus,
   completionKey,
-  transcriptFormatOf,
+  conversationFormatOf,
   type Agent,
-  type TranscriptFormat,
+  type ConversationFormat,
 } from './agent.js';
 export { isAllowedLogin } from './access.js';
 export { runningAt, type BackgroundItem, type BackgroundKind } from './background.js';
@@ -44,13 +44,13 @@ export {
 export { pagedAwayAfter, whilePagedAway } from './paging.js';
 export { buildOverview, needsYou, type Overview, type OverviewGroup } from './overview.js';
 export {
-  activityOf,
+  currentStepOf,
   type Question,
   type QuestionOption,
   type ToolOutcome,
   type ToolVerb,
-  type TranscriptEntry,
-} from './transcript.js';
+  type ConversationEntry,
+} from './conversation.js';
 export { OTHER_GROUP, type Workspace, type WorkspaceGroup } from './workspace.js';
 export {
   agentNameFor,
@@ -90,30 +90,30 @@ export {
 } from './issue.js';
 export {
   baseChanged,
-  chatPictures,
+  brainstormImages,
   cutDoc,
   cutIssueBody,
   isProjectDoc,
   MAX_DOC_LENGTH,
   MAX_ISSUE_BODY,
   MAX_ISSUE_TITLE,
-  MAX_PROPOSAL_PICTURES,
-  missingPictures,
-  parseIssueDraft,
+  MAX_PROPOSAL_IMAGES,
+  missingImages,
+  parseProposedIssue,
   parseIssueEdit,
-  parsePictureChoice,
-  picturesByNumber,
+  parseImageChoice,
+  imagesByNumber,
   PROJECT_DOCS,
   proposalOf,
   readOf,
   rememberRead,
-  withPictures,
-  type AttachedPicture,
+  withImages,
+  type AttachedImage,
   type BrainstormEntry,
-  type ChatPicture,
+  type BrainstormImage,
   type EditProposal,
   type EditState,
-  type IssueDraft,
+  type ProposedIssue,
   type IssueProposal,
   type IssueRead,
   type IssueText,
@@ -143,7 +143,7 @@ export {
   notificationOf,
   stillHolds,
   watchStep,
-  type Attention,
+  type NeedsYouReason,
   type Change,
   type Notification,
   type PushSubscription,

@@ -6,7 +6,7 @@ import { RequestError, type CommsClient } from './comms-client.js';
 
 export const overviewKey = ['overview'] as const;
 export const agentKey = (ref: string) => ['agent', ref] as const;
-export const transcriptKey = (ref: string) => ['transcript', ref] as const;
+export const conversationKey = (ref: string) => ['conversation', ref] as const;
 export const screenKey = (ref: string) => ['screen', ref] as const;
 export const subagentKey = (ref: string, id: string) => ['subagent', ref, id] as const;
 export const projectsKey = ['projects'] as const;
@@ -28,8 +28,8 @@ export const agentQuery = (client: CommsClient, ref: string) =>
       !(error instanceof RequestError && error.status === 404) && failures < 3,
   });
 
-export const transcriptQuery = (client: CommsClient, ref: string) =>
-  queryOptions({ queryKey: transcriptKey(ref), queryFn: () => client.transcript(ref) });
+export const conversationQuery = (client: CommsClient, ref: string) =>
+  queryOptions({ queryKey: conversationKey(ref), queryFn: () => client.conversation(ref) });
 
 /** A subagent that does not exist will not appear on a second try, so a 404 is not retried. */
 export const subagentQuery = (client: CommsClient, ref: string, id: string) =>
@@ -60,7 +60,7 @@ export const issuesQuery = (client: CommsClient, project: string) =>
     refetchInterval: 30_000,
   });
 
-/** The brainstorm chat, read when its sheet opens; the stream keeps it current while open. */
+/** The brainstorm, read when its sheet opens; the stream keeps it current while open. */
 export const brainstormQuery = (client: CommsClient) =>
   queryOptions({ queryKey: brainstormKey, queryFn: () => client.brainstorm(), staleTime: 0 });
 

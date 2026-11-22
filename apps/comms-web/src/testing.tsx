@@ -22,7 +22,7 @@ import {
   type SubagentEventView,
   type SubagentView,
   type TaskCreatedView,
-  type TranscriptView,
+  type ConversationView,
 } from './comms-client.js';
 import { ImageHandlingContext, UnreadableImageError, type ImageHandling } from './attachments.js';
 import {
@@ -58,7 +58,7 @@ export const fakeAgent = (overrides: Partial<AgentView> = {}): AgentView => ({
 export interface FakeState {
   overview: OverviewView;
   readonly agents: Map<string, AgentView>;
-  readonly transcripts: Map<string, TranscriptView>;
+  readonly conversations: Map<string, ConversationView>;
   /** The subagents of each agent, by `<ref>/<id>`. */
   readonly subagents: Map<string, SubagentView>;
   readonly screens: Map<string, string>;
@@ -72,9 +72,9 @@ export interface FakeState {
   answerFailure?: RequestError;
   /** A failure for the next image upload. */
   uploadFailure?: string;
-  /** Whether the server transcribes voice clips. */
+  /** Whether the server transcribes voice messages. */
   speechAvailable: boolean;
-  /** What the next voice clip is transcribed to, or a failure. */
+  /** What the next voice message is transcribed to, or a failure. */
   transcription: string | RequestError;
   /** Holds a transcription on its way until it resolves, such as to see the wait. */
   transcriptionGate?: Promise<void>;
@@ -93,9 +93,9 @@ export interface FakeState {
   closeFailure?: RequestError;
   /** The failures of the next agent closes, in order; a close without one succeeds. */
   closeAgentFailures: Array<RequestError>;
-  /** The brainstorm chat's state as the server holds it. */
+  /** The brainstorm's state as the server holds it. */
   brainstorm: BrainstormStateView;
-  /** The brainstorm chat's entries, numbered from 1, which a sheet that follows gets first. */
+  /** The brainstorm's entries, numbered from 1, which a sheet that follows gets first. */
   brainstormLog: Array<BrainstormEventView & { readonly kind: 'entry' }>;
   /** A failure for the next brainstorm message or decision, as the server would report it. */
   brainstormFailure?: RequestError;
@@ -117,7 +117,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
   const state: FakeState = {
     overview: { needsYou: [], groups: [] },
     agents: new Map(),
-    transcripts: new Map(),
+    conversations: new Map(),
     subagents: new Map(),
     screens: new Map(),
     projects: [
@@ -133,8 +133,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     brainstorm: {
       _tag: 'Ready',
       answering: false,
-      seesPictures: true,
-      pictures: [],
+      seesImages: true,
+      images: [],
       voice: false,
     },
     brainstormLog: [],
@@ -149,8 +149,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     uploads: [] as Array<Blob>,
     /** How often the app asked whether the server transcribes. */
     speechAsked: 0,
-    /** The voice clips sent for transcription. */
-    clips: [] as Array<Blob>,
+    /** The voice messages sent for transcription. */
+    voiceMessages: [] as Array<Blob>,
     keys: [] as Array<[string, ReadonlyArray<Key>]>,
     typed: [] as Array<[string, string]>,
     answers: [] as Array<[string, string, ReadonlyArray<ReadonlyArray<number>>]>,
@@ -164,7 +164,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     brainstormImageIds: [] as Array<ReadonlyArray<string>>,
     decisions: [] as Array<[string, ProposalDecision]>,
     brainstormResets: 0,
-    /** Where each follow of the brainstorm chat started: the `after` it asked for. */
+    /** Where each follow of the brainstorm started: the `after` it asked for. */
     brainstormFollows: [] as Array<number>,
     pushKeys: 0,
     subscribed: [] as Array<PushSubscriptionView>,
@@ -191,7 +191,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
   const client: CommsClient = {
     overview: async () => state.overview,
     agent: async (ref) => find(ref),
-    transcript: async (ref) => state.transcripts.get(ref) ?? { entries: [], activity: 'Thinking…' },
+    conversation: async (ref) =>
+      state.conversations.get(ref) ?? { entries: [], currentStep: 'Thinking…' },
     subagent: async (ref, id) => {
       const subagent = state.subagents.get(`${ref}/${id}`);
       if (subagent === undefined) throw new RequestError(`${ref} has no subagent ${id}.`, 404);
@@ -216,8 +217,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       calls.speechAsked += 1;
       return state.speechAvailable;
     },
-    transcribe: async (clip) => {
-      calls.clips.push(clip);
+    transcribe: async (voiceMessage) => {
+      calls.voiceMessages.push(voiceMessage);
       await state.transcriptionGate;
       if (state.transcription instanceof RequestError) throw state.transcription;
       return state.transcription;

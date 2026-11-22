@@ -8,7 +8,7 @@ import {
   Text,
 } from '@smotastic/pocket-design';
 import { useQuery } from '@tanstack/react-query';
-import { Chat } from './Chat.js';
+import { ConversationEntries } from './ConversationEntries.js';
 import { RequestError, type CommsClient, type SubagentView } from './comms-client.js';
 import { agentQuery, subagentQuery } from './comms-queries.js';
 import { useSubagentLive } from './live.js';
@@ -88,8 +88,8 @@ export const SubagentConversation = ({
   return (
     <DockedPage label={`Subagent of ${parent}`} header={header} footer={null}>
       <Stack gap="md">
-        <Chat transcript={subagent} failed={false} imageUrl={client.imageUrl} />
-        {subagent.running ? <Activity label={subagent.activity} /> : null}
+        <ConversationEntries conversation={subagent} failed={false} imageUrl={client.imageUrl} />
+        {subagent.running ? <Activity label={subagent.currentStep} /> : null}
       </Stack>
     </DockedPage>
   );

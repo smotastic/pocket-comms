@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { Recorder, RecorderError } from './recorder.js';
 
 // The laptop's microphone through `ffmpeg` (macOS AVFoundation): 16 kHz mono WAV, about 3.8 MB
-// for the two minutes a recording may last. `q` on its input ends a recording cleanly.
+// for the two minutes a voice message may last. `q` on its input ends a voice message cleanly.
 
 const text = (bytes: Uint8Array, at: number) =>
   String.fromCharCode(bytes[at] ?? 0, bytes[at + 1] ?? 0, bytes[at + 2] ?? 0, bytes[at + 3] ?? 0);

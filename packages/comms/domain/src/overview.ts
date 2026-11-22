@@ -37,7 +37,7 @@ export const buildOverview = <A extends Agent>(
   seen: ReadonlySet<string>,
   runningOf: (agent: A) => number = () => 0,
 ): Overview<A> => {
-  const attention = agents.filter((agent) => needsYou(agent, seen, runningOf(agent)));
+  const needingYou = agents.filter((agent) => needsYou(agent, seen, runningOf(agent)));
   const rest = agents.filter((agent) => !needsYou(agent, seen, runningOf(agent)));
 
   const groupOf = new Map(workspaces.map((workspace) => [workspace.id, workspace.group]));
@@ -56,8 +56,8 @@ export const buildOverview = <A extends Agent>(
 
   return {
     needsYou: [
-      ...attention.filter((agent) => agent.status === 'blocked'),
-      ...attention.filter((agent) => agent.status !== 'blocked'),
+      ...needingYou.filter((agent) => agent.status === 'blocked'),
+      ...needingYou.filter((agent) => agent.status !== 'blocked'),
     ],
     groups: [...groups.values()]
       .filter((entry) => entry.agents.length > 0)

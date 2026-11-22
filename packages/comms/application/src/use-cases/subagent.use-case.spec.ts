@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import type { BackgroundItem, TranscriptEntry } from '@pocket-comms/comms-domain';
+import type { BackgroundItem, ConversationEntry } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Fiber from 'effect/Fiber';
 import * as Layer from 'effect/Layer';
@@ -14,8 +14,8 @@ import { collect, settle } from '../testing/streams.js';
 const layer = () => AgentsInbound.layer.pipe(Layer.provideMerge(fakeLayer()));
 
 const at = 1_000;
-const prompt: TranscriptEntry = { type: 'user', id: 'su1', at, text: 'Review the diff' };
-const reading: TranscriptEntry = {
+const prompt: ConversationEntry = { type: 'user', id: 'su1', at, text: 'Review the diff' };
+const reading: ConversationEntry = {
   type: 'tool',
   id: 'st1',
   at,
@@ -36,8 +36,8 @@ const review: BackgroundItem = {
 const kirkWithSubagent = Effect.gen(function* () {
   const state = yield* FakeState;
   state.agents = [fakeAgent({ paneId: 'w1:p1', name: 'kirk', session: 's1', status: 'done' })];
-  state.transcripts.set('s1', { entries: [], modifiedAt: at, background: [review] });
-  state.transcripts.set(subagentKey('s1', 'a1'), { entries: [prompt], modifiedAt: at });
+  state.conversations.set('s1', { entries: [], modifiedAt: at, background: [review] });
+  state.conversations.set(subagentKey('s1', 'a1'), { entries: [prompt], modifiedAt: at });
   state.subagentMetas.set(subagentKey('s1', 'a1'), {
     description: 'Review the diff',
     agentType: 'general-purpose',
@@ -60,7 +60,7 @@ describe('AgentsInbound.subagent', () => {
         running: true,
         inBackground: true,
         entries: [prompt],
-        activity: 'Thinking…',
+        currentStep: 'Thinking…',
       });
     }).pipe(Effect.provide(layer())),
   );
@@ -68,7 +68,7 @@ describe('AgentsInbound.subagent', () => {
   it.effect('reads a subagent that ended', () =>
     Effect.gen(function* () {
       const state = yield* kirkWithSubagent;
-      state.transcripts.set('s1', { entries: [], modifiedAt: at, background: [] });
+      state.conversations.set('s1', { entries: [], modifiedAt: at, background: [] });
 
       const subagent = yield* AgentsInbound.use((inbound) => inbound.subagent('kirk', 'a1'));
 
@@ -102,7 +102,7 @@ describe('AgentsInbound.subagent', () => {
   it.effect('fails for a subagent Claude recorded without a conversation', () =>
     Effect.gen(function* () {
       const state = yield* kirkWithSubagent;
-      state.transcripts.delete(subagentKey('s1', 'a1'));
+      state.conversations.delete(subagentKey('s1', 'a1'));
 
       const error = yield* AgentsInbound.use((inbound) => inbound.subagent('kirk', 'a1')).pipe(
         Effect.flip,
@@ -141,10 +141,10 @@ describe('AgentsInbound.subagentEvents', () => {
 
       expect(yield* firstTwo(events)).toEqual([
         { type: 'subagent', subagent: expect.objectContaining({ id: 'a1', running: true }) },
-        { type: 'entries', reset: true, entries: [prompt], activity: 'Thinking…' },
+        { type: 'entries', reset: true, entries: [prompt], currentStep: 'Thinking…' },
       ]);
       yield* settle;
-      yield* PubSub.publish(state.transcriptAppends, {
+      yield* PubSub.publish(state.conversationAppends, {
         session: subagentKey('s1', 'a1'),
         entries: [reading],
       });
@@ -152,10 +152,10 @@ describe('AgentsInbound.subagentEvents', () => {
         type: 'entries',
         reset: false,
         entries: [reading],
-        activity: 'Reading src/a.ts…',
+        currentStep: 'Reading src/a.ts…',
       });
 
-      state.transcripts.set('s1', { entries: [], modifiedAt: at, background: [] });
+      state.conversations.set('s1', { entries: [], modifiedAt: at, background: [] });
       yield* PubSub.publish(state.herdrChanges, undefined);
       expect(yield* Queue.take(events)).toEqual({
         type: 'subagent',

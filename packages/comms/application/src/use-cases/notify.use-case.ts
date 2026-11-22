@@ -3,10 +3,10 @@ import {
   excerptOf,
   notificationOf,
   stillHolds,
-  transcriptFormatOf,
+  conversationFormatOf,
   watchStep,
   type Agent,
-  type Attention,
+  type NeedsYouReason,
   type Change,
   type Reading,
 } from '@pocket-comms/comms-domain';
@@ -17,7 +17,7 @@ import * as Stream from 'effect/Stream';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
 import { SeenOutbound } from '../ports/memory.outbound.port.js';
 import { PushSenderOutbound, PushSubscriptionsOutbound } from '../ports/push.outbound.port.js';
-import { TranscriptOutbound } from '../ports/transcript.outbound.port.js';
+import { ConversationOutbound } from '../ports/conversation.outbound.port.js';
 import { makeBackgroundOf } from './agents.js';
 
 /** How long a change must hold before it notifies, so a passing blocked state stays quiet. */
@@ -29,18 +29,18 @@ const HOLD = '10 seconds';
 export const makeNotify = Effect.gen(function* () {
   const herdrOutbound = yield* HerdrOutbound;
   const seenOutbound = yield* SeenOutbound;
-  const transcriptOutbound = yield* TranscriptOutbound;
+  const conversationOutbound = yield* ConversationOutbound;
   const pushSubscriptionsOutbound = yield* PushSubscriptionsOutbound;
   const pushSenderOutbound = yield* PushSenderOutbound;
   const backgroundOf = yield* makeBackgroundOf;
 
-  const excerpt = (agent: Agent, attention: Attention) => {
-    const format = transcriptFormatOf(agent);
+  const excerpt = (agent: Agent, reason: NeedsYouReason) => {
+    const format = conversationFormatOf(agent);
     if (format === undefined || agent.session === undefined) return Effect.succeed(undefined);
-    return transcriptOutbound
+    return conversationOutbound
       .read({ ref: agentRef(agent), format, session: agent.session, cwd: agent.cwd })
       .pipe(
-        Effect.map((transcript) => excerptOf(attention, transcript.entries)),
+        Effect.map((conversation) => excerptOf(reason, conversation.entries)),
         Effect.orElseSucceed(() => undefined),
       );
   };
@@ -48,9 +48,9 @@ export const makeNotify = Effect.gen(function* () {
   const send = Effect.fn('Push.send')(function* (change: Change, agent: Agent, project?: string) {
     const notification = notificationOf({
       agent,
-      attention: change.attention,
+      reason: change.reason,
       project,
-      excerpt: yield* excerpt(agent, change.attention),
+      excerpt: yield* excerpt(agent, change.reason),
     });
     const subscriptions = yield* pushSubscriptionsOutbound.list;
     yield* Effect.forEach(
@@ -95,9 +95,9 @@ export const makeNotify = Effect.gen(function* () {
   // interrupted by a newer change of the same agent; only the wait is.
   const deliver = (change: Change, seenAs: Agent) =>
     Effect.gen(function* () {
-      let wasQuiet = change.attention === 'blocked' || (yield* quiet(seenAs));
+      let wasQuiet = change.reason === 'blocked' || (yield* quiet(seenAs));
       let held = yield* holding(change);
-      while (held !== undefined && change.attention === 'done') {
+      while (held !== undefined && change.reason === 'done') {
         const isQuiet = yield* quiet(held.agent);
         if (wasQuiet && isQuiet) break;
         wasQuiet = isQuiet;

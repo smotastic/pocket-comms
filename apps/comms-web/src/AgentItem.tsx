@@ -6,7 +6,7 @@ import { projectLabel, rowName, rowWorktree } from './rows.js';
 import { since } from './since.js';
 import { statusDot } from './StatusBadge.js';
 
-const attentionOf = (agent: AgentView) =>
+const needsYouToneOf = (agent: AgentView) =>
   agent.status === 'blocked'
     ? { attention: 'danger' as const }
     : agent.needsYou
@@ -37,7 +37,7 @@ export const AgentItem = ({
       hue={hue}
       title={agent.title}
       since={since(agent.changedAt, now)}
-      {...attentionOf(agent)}
+      {...needsYouToneOf(agent)}
       {...backgroundMarker(agent)}
     />
   );

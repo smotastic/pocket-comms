@@ -2,12 +2,12 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { fitWithin, keepsAsIs } from './attachments.js';
-import type { TranscriptView } from './comms-client.js';
+import type { ConversationView } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
 
-// Images in the agent chat and the New task form (spec 014).
+// Images in the conversation and the New task form (spec 014).
 
 const image = (name: string) => new File(['x'], name, { type: 'image/png' });
 const picker = () => document.querySelector<HTMLInputElement>('input[type="file"]');
@@ -21,11 +21,11 @@ const canUpload = async () => {
   return enabled;
 };
 
-const open = (transcript: TranscriptView = { entries: [], activity: 'Thinking…' }) => {
+const open = (conversation: ConversationView = { entries: [], currentStep: 'Thinking…' }) => {
   const agent = fakeAgent({ status: 'idle' });
   const fake = fakeClient({
     agents: new Map([[agent.ref, agent]]),
-    transcripts: new Map([[agent.ref, transcript]]),
+    conversations: new Map([[agent.ref, conversation]]),
   });
   return { ...fake, agent, ...renderApp({ client: fake.client, path: `/agents/${agent.ref}` }) };
 };
@@ -158,17 +158,17 @@ describe('images in the conversation', () => {
   it("shows a sent prompt's images as thumbnails linking to the full size", async () => {
     open({
       entries: [{ type: 'user', id: 'u1', at: 1, text: 'Look', images: ['abc', 'def'] }],
-      activity: 'Thinking…',
+      currentStep: 'Thinking…',
     });
 
     const card = (await screen.findByText('Look')).parentElement as HTMLElement;
-    const pictures = within(card).getAllByRole('img');
+    const images = within(card).getAllByRole('img');
 
-    expect(pictures.map((picture) => picture.getAttribute('src'))).toEqual([
+    expect(images.map((image) => image.getAttribute('src'))).toEqual([
       '/api/v1/images/abc',
       '/api/v1/images/def',
     ]);
-    expect(pictures[0]?.closest('a')?.getAttribute('href')).toBe('/api/v1/images/abc');
+    expect(images[0]?.closest('a')?.getAttribute('href')).toBe('/api/v1/images/abc');
   });
 });
 
