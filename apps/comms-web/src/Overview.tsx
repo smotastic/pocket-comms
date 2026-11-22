@@ -3,6 +3,7 @@ import {
   Alert,
   AppBar,
   ChipGroup,
+  Heading,
   IconButton,
   LiveIndicator,
   Page,
@@ -32,6 +33,14 @@ export interface OverviewProps {
   /** Opens the Settings page. */
   readonly onSettings: () => void;
 }
+
+/** How many agents run, and how many of them wait for the reader: `3 running · 1 needs you`. */
+export const agentSummary = (running: number, needsYou: number) =>
+  running === 0
+    ? 'No agents are running.'
+    : needsYou === 0
+      ? `${running} running`
+      : `${running} running · ${needsYou} need${needsYou === 1 ? 's' : ''} you`;
 
 const Group = ({
   title,
@@ -93,7 +102,6 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
   useEffect(() => {
     if (filter !== chosen) setChosen(filter);
   }, [filter, chosen]);
-  const empty = data !== undefined && data.needsYou.length === 0 && groups.length === 0;
 
   return (
     <>
@@ -122,7 +130,19 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
           else onProject(project, startedNotice(created));
         }}
       />
-      <Page>
+      <Page
+        kind="home"
+        header={
+          <Stack gap="2xs">
+            <Heading level={1}>Agents</Heading>
+            {data === undefined ? null : (
+              <Text tone="muted">
+                {agentSummary(data.needsYou.length + agentsOf(groups).length, data.needsYou.length)}
+              </Text>
+            )}
+          </Stack>
+        }
+      >
         <Stack gap="lg">
           {herdrAway === undefined ? null : (
             <Alert>Herdr is not running. The app keeps trying. ({herdrAway})</Alert>
@@ -163,7 +183,6 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
                   }
                 />
               )}
-              {empty ? <Text tone="muted">No agents are running.</Text> : null}
             </>
           )}
         </Stack>

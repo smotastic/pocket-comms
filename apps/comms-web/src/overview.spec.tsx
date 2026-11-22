@@ -68,6 +68,13 @@ describe('the overview', () => {
     ).toEqual(['/agents/kirk', '/agents/w4%3Ap1']);
   });
 
+  it('heads the page with Agents and how many run and need the reader', async () => {
+    renderApp({ client: fakeClient({ overview }).client });
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeDefined();
+    expect(await screen.findByText('4 running · 2 need you')).toBeDefined();
+  });
+
   it('marks a row whose agent has background work running', async () => {
     const waiting = fakeAgent({
       status: 'done',
