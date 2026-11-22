@@ -9,9 +9,8 @@ Use pnpm. Run `pnpm install` before the first build.
 
 - `pnpm verify:local` — the fast local checks (also the pre-push hook). CI runs the full set,
   `pnpm verify`, from the shared CI package `@smotastic/pocket-ci` (ADR 0013).
-- `pnpm dev` — every app's `dev` target: database, migrations, example data, API and web app.
-  `pnpm dev:memory` runs without Docker; `pnpm dev:down` stops the database, `pnpm dev:reset`
-  wipes it.
+- `pnpm dev` — every app's `dev` target: the API and the web app with hot reload (the service
+  has no database). `pnpm start` builds the web app and serves it with the API.
 - `pnpm nx sync` and `pnpm format` — after adding or moving projects.
 - `pnpm validate:conventions` — branch names, commit subjects and pull request titles.
 
@@ -20,6 +19,8 @@ Use pnpm. Run `pnpm install` before the first build.
 - Read [the constitution](.specify/memory/constitution.md) before every task. It wins over every
   other document.
 - Use English for all repository artifacts.
+- Name things with the words of [the glossary](GLOSSARY.md) and never its _Avoid_ words, in docs,
+  specs and new code.
 - For work below `apps/<app>/`, `packages/<service>/` or `blueprints/<name>/`, read the nearest
   `AGENTS.md`.
 
