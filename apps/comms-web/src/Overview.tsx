@@ -3,8 +3,10 @@ import {
   Alert,
   AppBar,
   ChipGroup,
+  Figure,
   Heading,
   IconButton,
+  Inline,
   LiveIndicator,
   Page,
   SectionHeader,
@@ -34,13 +36,56 @@ export interface OverviewProps {
   readonly onSettings: () => void;
 }
 
-/** How many agents run, and how many of them wait for the reader: `3 running · 1 needs you`. */
-export const agentSummary = (running: number, needsYou: number) =>
-  running === 0
-    ? 'No agents are running.'
-    : needsYou === 0
-      ? `${running} running`
-      : `${running} running · ${needsYou} need${needsYou === 1 ? 's' : ''} you`;
+const Rows = ({
+  label,
+  agents,
+  projects,
+  now,
+}: {
+  readonly label: string;
+  readonly agents: ReadonlyArray<AgentView>;
+  /** Every project's name, in the order that gives each its colour. */
+  readonly projects: ReadonlyArray<string>;
+  readonly now: number;
+}) => (
+  <AgentList label={label}>
+    {agents.map((agent) => (
+      <AgentItem
+        key={agent.paneId}
+        agent={agent}
+        hue={projectHue(agent.project, projects)}
+        withProject
+        now={now}
+      />
+    ))}
+  </AgentList>
+);
+
+/**
+ * The overview's main action, on its stage: how many agents need the reader and every one of them,
+ * or that nobody does.
+ */
+const NeedsYou = ({
+  agents,
+  running,
+  projects,
+  now,
+}: {
+  readonly agents: ReadonlyArray<AgentView>;
+  readonly running: number;
+  readonly projects: ReadonlyArray<string>;
+  readonly now: number;
+}) =>
+  agents.length === 0 ? (
+    <Heading level={2}>{running === 0 ? 'No agents are running' : 'Nobody needs you'}</Heading>
+  ) : (
+    <section aria-label="Needs you">
+      <Stack gap="sm">
+        <Figure value={agents.length} unit={agents.length === 1 ? 'needs you' : 'need you'} />
+        <Rows label="Needs you" agents={agents} projects={projects} now={now} />
+      </Stack>
+    </section>
+  );
 
 const Group = ({
   title,
@@ -61,24 +106,14 @@ const Group = ({
     <Stack gap="xs">
       <SectionHeader title={title} count={agents.length} />
       {filter}
-      <AgentList label={title}>
-        {agents.map((agent) => (
-          <AgentItem
-            key={agent.paneId}
-            agent={agent}
-            hue={projectHue(agent.project, projects)}
-            withProject
-            now={now}
-          />
-        ))}
-      </AgentList>
+      <Rows label={title} agents={agents} projects={projects} now={now} />
     </Stack>
   </section>
 );
 
 /**
- * `/`: every live agent in two groups, Needs you and Everything else, the latter by project and
- * narrowed by a project filter. Its Projects action opens every project and the activity
+ * `/`: every live agent on a stage (spec 024 of the kit): how many need the reader and every one
+ * of them on the sky, then Everything else by project, narrowed by a project filter. Its Projects action opens every project and the activity
  * timeline in a side sheet, and its Settings action opens the Settings page. It updates live.
  */
 export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewProps) => {
@@ -98,6 +133,7 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
   const names = projects.data?.map(({ name }) => name) ?? [];
   const groups = data?.groups ?? [];
   const filter = activeFilter(groups, chosen);
+  const running = data === undefined ? undefined : data.needsYou.length + agentsOf(groups).length;
   // A project that leaves the list is forgotten, so it is not chosen again when it comes back.
   useEffect(() => {
     if (filter !== chosen) setChosen(filter);
@@ -132,16 +168,13 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
       />
       <Page
         kind="home"
+        hero="stage"
         landmark="constellation"
         header={
-          <Stack gap="2xs">
+          <Inline gap="sm">
             <Heading level={1}>Agents</Heading>
-            {data === undefined ? null : (
-              <Text tone="muted">
-                {agentSummary(data.needsYou.length + agentsOf(groups).length, data.needsYou.length)}
-              </Text>
-            )}
-          </Stack>
+            {running === undefined ? null : <Text tone="muted">{`${running} running`}</Text>}
+          </Inline>
         }
       >
         <Stack gap="lg">
@@ -158,9 +191,7 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
             ) : null
           ) : (
             <>
-              {data.needsYou.length === 0 ? null : (
-                <Group title="Needs you" agents={data.needsYou} projects={names} now={now} />
-              )}
+              <NeedsYou agents={data.needsYou} running={running ?? 0} projects={names} now={now} />
               {groups.length === 0 ? null : (
                 <Group
                   title="Everything else"

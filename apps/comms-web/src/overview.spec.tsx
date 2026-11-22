@@ -68,18 +68,23 @@ describe('the overview', () => {
     ).toEqual(['/agents/kirk', '/agents/w4%3Ap1']);
   });
 
-  it('heads the page with Agents and how many run and need the reader', async () => {
+  it('heads the page with Agents and how many run, then how many need the reader', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeDefined();
-    expect(await screen.findByText('4 running · 2 need you')).toBeDefined();
+    expect(await screen.findByText('4 running')).toBeDefined();
+    const needsYou = screen.getByRole('region', { name: 'Needs you' });
+    expect(within(needsYou).getByText('2').parentElement?.textContent).toBe('2 need you');
   });
 
-  it("draws Constellation, Pocket Comms' landmark, under the header", async () => {
+  it("opens on a stage: Constellation, Pocket Comms' landmark, behind the top of the page", async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
-    await screen.findByRole('heading', { level: 1, name: 'Agents' });
+    const header = (await screen.findByRole('heading', { level: 1, name: 'Agents' })).closest(
+      'main > div',
+    );
     expect(document.querySelector('[data-landmark="constellation"]')).not.toBeNull();
+    expect(header?.querySelector('[data-landmark]')).toBeNull();
   });
 
   it('marks a row whose agent has background work running', async () => {
@@ -110,7 +115,7 @@ describe('the overview', () => {
     ).toEqual(['Needs you', 'Everything else']);
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Needs you 2', 'Everything else 2']);
+    ).toEqual(['Everything else 2']);
   });
 
   it('leaves out an empty group', async () => {
@@ -120,6 +125,7 @@ describe('the overview', () => {
 
     await screen.findByRole('region', { name: 'Everything else' });
     expect(screen.queryByRole('region', { name: 'Needs you' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: 'Nobody needs you' })).toBeDefined();
   });
 
   it('names an agent without a Herdr name by its workspace, never by its pane id', async () => {
@@ -238,7 +244,8 @@ describe('the overview', () => {
   it('says when no agent runs', async () => {
     renderApp({ client: fakeClient().client });
 
-    expect(await screen.findByText('No agents are running.')).toBeDefined();
+    expect(await screen.findByRole('heading', { name: 'No agents are running' })).toBeDefined();
+    expect(screen.getByText('0 running')).toBeDefined();
   });
 
   it('shows that the live connection is up', async () => {
