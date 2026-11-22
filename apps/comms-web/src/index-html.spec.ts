@@ -10,8 +10,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const app = join(import.meta.dirname, '..');
 const html = readFileSync(join(app, 'index.html'), 'utf8');
 
-const VOID = '#070b14';
-const DAYLIGHT = '#eef2f7';
+const DUSK = '#130b26';
+const DAWN = '#fbf5fb';
 
 describe('the page shell', () => {
   it('gives the bar the color of each theme', () => {
@@ -23,8 +23,8 @@ describe('the page shell', () => {
         meta.content,
       ]),
     ).toEqual([
-      ['dark', '(prefers-color-scheme: dark)', VOID],
-      ['light', '(prefers-color-scheme: light)', DAYLIGHT],
+      ['dark', '(prefers-color-scheme: dark)', DUSK],
+      ['light', '(prefers-color-scheme: light)', DAWN],
     ]);
   });
 });
@@ -67,15 +67,15 @@ describe('the start-up script', () => {
     },
   );
 
-  it('paints Daylight with its bar color when Light is stored, whatever the system', () => {
+  it('paints Dawn with its bar color when Light is stored, whatever the system', () => {
     localStorage.setItem(THEME_STORAGE_KEY, 'light');
-    expect(outcome(runScript)).toEqual({ theme: 'light', bar: [DAYLIGHT, DAYLIGHT] });
+    expect(outcome(runScript)).toEqual({ theme: 'light', bar: [DAWN, DAWN] });
   });
 
   it('leaves the page to the system setting when storage is blocked', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked');
     });
-    expect(outcome(runScript)).toEqual({ theme: undefined, bar: [VOID, DAYLIGHT] });
+    expect(outcome(runScript)).toEqual({ theme: undefined, bar: [DUSK, DAWN] });
   });
 });

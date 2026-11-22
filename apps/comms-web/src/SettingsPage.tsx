@@ -199,7 +199,7 @@ export const SettingsPage = ({ client, onBack }: SettingsPageProps) => {
         title="Settings"
         end={<BrainstormAction />}
       />
-      <Page>
+      <Page kind="task">
         <Stack gap="lg">
           <ThemeSection />
           <Stack gap="sm">

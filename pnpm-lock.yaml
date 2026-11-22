@@ -40,8 +40,8 @@ catalogs:
       specifier: 0.2.6
       version: 0.2.6
     '@smotastic/pocket-design':
-      specifier: 0.18.0
-      version: 0.18.0
+      specifier: 0.37.4
+      version: 0.37.4
     '@tanstack/react-query':
       specifier: ~5.90.21
       version: 5.90.21
@@ -270,7 +270,7 @@ importers:
         version: 0.4.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(effect@4.0.0-rc.118)(supports-color@10.2.2)(ws@8.22.0)(zod@4.6.7)
       '@smotastic/pocket-design':
         specifier: 'catalog:'
-        version: 0.18.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2)
+        version: 0.37.4(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.21(react@19.3.1)
@@ -1831,8 +1831,8 @@ packages:
     peerDependencies:
       typescript: '>=5.9'
 
-  '@smotastic/pocket-design@0.18.0':
-    resolution: {integrity: sha512-KhUz3f4XlTqca4keLYK96HVBkUy//kjGbqKs/XwLH7Cdh5Pt13p9p8vDZ3dFFu0bFCzPI+oUlMetOu8PX7ZI4w==}
+  '@smotastic/pocket-design@0.37.4':
+    resolution: {integrity: sha512-G6BAiMevuSfF1xDVYBwuVh6z49jGxDvgpmirUWR/iBlQhhC/XrrK5MTY2EgJJdMgzHaDjDqnv1DetZT2HKlQ5g==}
     peerDependencies:
       react: ^19.3.0
       react-dom: ^19.3.0
@@ -2869,6 +2869,10 @@ packages:
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
 
+  fast-check@4.10.3:
+    resolution: {integrity: sha512-SBaU6nhh+sXxb05r2IHAKfxnR/1Pu6MqtHYaewM1BY6V5xzOxOk+4yoWO7WfeeyZG1iArFE6/DO/7iLYMUuOJg==}
+    engines: {node: '>=12.17.0'}
+
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
@@ -3659,6 +3663,9 @@ packages:
     resolution: {integrity: sha512-5b6Y85tPxZZ7QytO+BQzysW31HJku27cRIlkbAXaNx+BdcVi+LlRFmVXzeF6a7JCwJpyw5c4b+YSVImQIrBpuQ==}
     engines: {node: '>=10'}
 
+  orderedmap@2.1.1:
+    resolution: {integrity: sha512-TvAWxi0nDe1j/rtMcWcIj94+Ffe6n7zhow33h40SKxmsmozs6dz/e+EajymfoFcHd7sxNn8yHM8839uixMOV6g==}
+
   outvariant@1.4.3:
     resolution: {integrity: sha512-+Sl2UErvtsoajRDKCE5/dBz4DIvHXQQnAxtQTF04OJxY0+DyZXSo5P5Bb7XYWOh81syohlYL24hbDwxedPUJCA==}
 
@@ -3755,6 +3762,42 @@ packages:
   property-information@7.2.0:
     resolution: {integrity: sha512-IAtzIB6sUiWaJYrX9smp3V46pBGbBeLFRGdh25kg1334VcBlD8HzhPeNIWQH9zhGmo2itIe25EHt9dQP7G5hmg==}
 
+  prosemirror-commands@1.7.2:
+    resolution: {integrity: sha512-q6Q6szxqdu9Xd6EcdKsqXghu5nQdZTpB4Q9yd04WRc7/jt763e/rT60Owh0L1GYY+T46o5rD+9lEN36dZS43tw==}
+
+  prosemirror-dropcursor@1.8.4:
+    resolution: {integrity: sha512-VmKxhcA6a+h5oPSYmfF1ZNeQqPbyYaIxqZsKqeYCyTlPtrjUgNaHL3P8vVaO19oqAV0zuaM/axkowZHrB1P3Tg==}
+
+  prosemirror-gapcursor@1.4.1:
+    resolution: {integrity: sha512-pMdYaEnjNMSwl11yjEGtgTmLkR08m/Vl+Jj443167p9eB3HVQKhYCc4gmHVDsLPODfZfjr/MmirsdyZziXbQKw==}
+
+  prosemirror-history@1.5.2:
+    resolution: {integrity: sha512-/VCI9OUPT69PzzoKmLJ6xLTkMCXmpt/M6/tOlctR5DjSAinniYgjkw6Ao/Obmq/f5mG5csTQi6a9AWhwFVLSNA==}
+
+  prosemirror-inputrules@1.6.0:
+    resolution: {integrity: sha512-e/Ukf5qy6Pq49l7M7/ObOQThIyBR2Is5g2qJq4e6LXKuCGr66/Rr4MjghkL3kB5ty4MOG92P8LyqwC5ET7Qx7g==}
+
+  prosemirror-keymap@1.2.3:
+    resolution: {integrity: sha512-4HucRlpiLd1IPQQXNqeo81BGtkY8Ai5smHhKW9jjPKRc2wQIxksg7Hl1tTI2IfT2B/LgX6bfYvXxEpJl7aKYKw==}
+
+  prosemirror-model@1.25.13:
+    resolution: {integrity: sha512-MlDMWGjYXaYOeCiO17jcybntCOzPnN+97U0809ke2QsgPtxW3n5/sD6ZKyJONUgMw1iP93ohZTjeKjnRJ7L6kQ==}
+
+  prosemirror-schema-list@1.6.1:
+    resolution: {integrity: sha512-QiL/QjgCWr+3Mhukm48E5d3XCC8lVEIanixGkXbWKUyxCUGy4ntVffFapmMwQ4vxhZw+8i7117W2N6FSyqyWfA==}
+
+  prosemirror-state@1.4.4:
+    resolution: {integrity: sha512-6jiYHH2CIGbCfnxdHbXZ12gySFY/fz/ulZE333G6bPqIZ4F+TXo9ifiR86nAHpWnfoNjOb3o5ESi7J8Uz1jXHw==}
+
+  prosemirror-tables@1.8.5:
+    resolution: {integrity: sha512-V/0cDCsHKHe/tfWkeCmthNUcEp1IVO3p6vwN8XtwE9PZQLAZJigbw3QoraAdfJPir4NKJtNvOB8oYGKRl+t0Dw==}
+
+  prosemirror-transform@1.12.7:
+    resolution: {integrity: sha512-/e87cbxcM5WJOJrL1IrM9gJqO3EK8LdQoPvs+r4ss1lRO5t5QeqkU0SlmDvcitCSDUbm8s/MxbBB6ds4pY6Xlg==}
+
+  prosemirror-view@1.42.9:
+    resolution: {integrity: sha512-bKbfzeKZOu2H2JQU2TaJmYu6EBcor3VnGIR4jR31cbEt1ztUnfUB6bKGV1+fJzOJdrVWR+tRU0208zM3oQx4wA==}
+
   protobufjs@7.6.6:
     resolution: {integrity: sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==}
     engines: {node: '>=12.0.0'}
@@ -3775,6 +3818,9 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  pure-rand@8.4.2:
+    resolution: {integrity: sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng==}
 
   react-aria-components@1.21.1:
     resolution: {integrity: sha512-J88WflYY0z+EhLX0ce+GjFlQ3ag3ubIgfUTjpKSrBQBu92Xtl4Ub9o118HItUddtbk1Ido0jzyPy94/klZy1hg==}
@@ -3906,6 +3952,9 @@ packages:
     resolution: {integrity: sha512-8N52YH1B5JzBP+B1rkcBERG7rfRTGAM0RmUpyd76yyRfTljuG452GCNbVm6MPzs1+gXBha6Rw5/oHRFohOpfDg==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
+
+  rope-sequence@1.3.4:
+    resolution: {integrity: sha512-UT5EDe2cu2E/6O4igUr5PSFs23nvvukicWHx6GnOPlHAiiYbzNuCRQCuiUdHJQcqKalLKlrYJnjY0ySGsXNQXQ==}
 
   run-applescript@7.0.0:
     resolution: {integrity: sha512-9by4Ij99JUr/MCFBUkDKLWK3G9HVXmabKz9U5MlIAIuvuzkiOicRYs8XJLxX+xahD+mLiiCYDqF9dKAgtzKP1A==}
@@ -4373,6 +4422,9 @@ packages:
         optional: true
       jsdom:
         optional: true
+
+  w3c-keyname@2.2.8:
+    resolution: {integrity: sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ==}
 
   w3c-xmlserializer@6.0.0:
     resolution: {integrity: sha512-4Nsy8K5Tr6SPDH9jhKJOHf7ChDrc1zufZTVSF7x72hwuEXBqxqk9G6cK+K2NRUtB3iELRJqjXb4JPDMBjMTl2Q==}
@@ -6179,15 +6231,35 @@ snapshots:
     dependencies:
       typescript: 6.0.3
 
-  '@smotastic/pocket-design@0.18.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2)':
+  '@smotastic/pocket-design@0.37.4(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2)':
     dependencies:
+      '@types/hast': 3.0.5
+      '@types/mdast': 4.0.4
       axe-core: 4.14.0
+      diff: 9.0.0
+      fast-check: 4.10.3
+      mdast-util-gfm: 3.1.0(supports-color@10.2.2)
+      mdast-util-to-markdown: 2.2.0
+      prosemirror-commands: 1.7.2
+      prosemirror-dropcursor: 1.8.4
+      prosemirror-gapcursor: 1.4.1
+      prosemirror-history: 1.5.2
+      prosemirror-inputrules: 1.6.0
+      prosemirror-keymap: 1.2.3
+      prosemirror-model: 1.25.13
+      prosemirror-schema-list: 1.6.1
+      prosemirror-state: 1.4.4
+      prosemirror-tables: 1.8.5
+      prosemirror-transform: 1.12.7
+      prosemirror-view: 1.42.9
       react: 19.3.1
       react-aria: 3.52.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react-aria-components: 1.21.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react-dom: 19.3.1(react@19.3.1)
       react-markdown: 10.1.0(@types/react@19.3.0)(react@19.3.1)(supports-color@10.2.2)
       remark-gfm: 4.0.1(supports-color@10.2.2)
+      remark-parse: 11.0.0(supports-color@10.2.2)
+      unified: 11.0.5
     transitivePeerDependencies:
       - '@types/react'
       - supports-color
@@ -7288,6 +7360,10 @@ snapshots:
   expect-type@1.4.0: {}
 
   extend@3.0.2: {}
+
+  fast-check@4.10.3:
+    dependencies:
+      pure-rand: 8.4.2
 
   fast-deep-equal@3.1.3: {}
 
@@ -8400,6 +8476,8 @@ snapshots:
       strip-ansi: 6.0.1
       wcwidth: 1.0.1
 
+  orderedmap@2.1.1: {}
+
   outvariant@1.4.3:
     optional: true
 
@@ -8493,6 +8571,76 @@ snapshots:
 
   property-information@7.2.0: {}
 
+  prosemirror-commands@1.7.2:
+    dependencies:
+      prosemirror-model: 1.25.13
+      prosemirror-state: 1.4.4
+      prosemirror-transform: 1.12.7
+
+  prosemirror-dropcursor@1.8.4:
+    dependencies:
+      prosemirror-state: 1.4.4
+      prosemirror-transform: 1.12.7
+      prosemirror-view: 1.42.9
+
+  prosemirror-gapcursor@1.4.1:
+    dependencies:
+      prosemirror-keymap: 1.2.3
+      prosemirror-model: 1.25.13
+      prosemirror-state: 1.4.4
+      prosemirror-view: 1.42.9
+
+  prosemirror-history@1.5.2:
+    dependencies:
+      prosemirror-state: 1.4.4
+      prosemirror-transform: 1.12.7
+      prosemirror-view: 1.42.9
+      rope-sequence: 1.3.4
+
+  prosemirror-inputrules@1.6.0:
+    dependencies:
+      prosemirror-state: 1.4.4
+      prosemirror-transform: 1.12.7
+
+  prosemirror-keymap@1.2.3:
+    dependencies:
+      prosemirror-state: 1.4.4
+      w3c-keyname: 2.2.8
+
+  prosemirror-model@1.25.13:
+    dependencies:
+      orderedmap: 2.1.1
+
+  prosemirror-schema-list@1.6.1:
+    dependencies:
+      prosemirror-model: 1.25.13
+      prosemirror-state: 1.4.4
+      prosemirror-transform: 1.12.7
+
+  prosemirror-state@1.4.4:
+    dependencies:
+      prosemirror-model: 1.25.13
+      prosemirror-transform: 1.12.7
+      prosemirror-view: 1.42.9
+
+  prosemirror-tables@1.8.5:
+    dependencies:
+      prosemirror-keymap: 1.2.3
+      prosemirror-model: 1.25.13
+      prosemirror-state: 1.4.4
+      prosemirror-transform: 1.12.7
+      prosemirror-view: 1.42.9
+
+  prosemirror-transform@1.12.7:
+    dependencies:
+      prosemirror-model: 1.25.13
+
+  prosemirror-view@1.42.9:
+    dependencies:
+      prosemirror-model: 1.25.13
+      prosemirror-state: 1.4.4
+      prosemirror-transform: 1.12.7
+
   protobufjs@7.6.6:
     dependencies:
       '@protobufjs/aspromise': 1.1.2
@@ -8512,6 +8660,8 @@ snapshots:
   proxy-from-env@2.1.0: {}
 
   punycode@2.3.1: {}
+
+  pure-rand@8.4.2: {}
 
   react-aria-components@1.21.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
@@ -8736,6 +8886,8 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.64.10
       fsevents: 2.3.3
     optional: true
+
+  rope-sequence@1.3.4: {}
 
   run-applescript@7.0.0: {}
 
@@ -9098,6 +9250,8 @@ snapshots:
       jsdom: 30.1.3
     transitivePeerDependencies:
       - msw
+
+  w3c-keyname@2.2.8: {}
 
   w3c-xmlserializer@6.0.0:
     dependencies:
