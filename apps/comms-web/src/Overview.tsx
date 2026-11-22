@@ -80,7 +80,7 @@ const NeedsYou = ({
     <Heading level={2}>{running === 0 ? 'No agents are running' : 'Nobody needs you'}</Heading>
   ) : (
     <section aria-label="Needs you">
-      <Stack gap="sm">
+      <Stack gap="lg">
         <Figure value={agents.length} unit={agents.length === 1 ? 'needs you' : 'need you'} />
         <Rows label="Needs you" agents={agents} projects={projects} now={now} />
       </Stack>
