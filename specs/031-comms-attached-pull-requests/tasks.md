@@ -33,6 +33,6 @@ in the task's own commit.
 - [x] **T08** — Web: the changes sheet with `CodeDiff`, Refresh, Open in Gitea and the notices
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T09** — Docs and live check: the service guide, the glossary, the skill set up on the
+- [x] **T09** — Docs and live check: the service guide, the glossary, the skill set up on the
       owner's Mac; checked live at 390 px and on a wide screen; the spec's status `Done`
   - Gate: `pnpm verify:local`
