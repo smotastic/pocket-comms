@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Domain: `PullRequestRef`, `parsePullRequestPath`, `parseRepositoryName`,
+- [x] **T01** — Domain: `PullRequestRef`, `parsePullRequestPath`, `parseRepositoryName`,
       `attachTo`, `parseUnifiedDiff` with the per-file limit, `PullRequestState`
   - Gate: `pnpm nx test comms-domain`
 
