@@ -128,7 +128,7 @@ describe('the attached pull requests', () => {
     const more = await openMore();
     await userEvent.click(within(more).getByRole('button', { name: 'pocket-comms #99' }));
 
-    const sheet = await screen.findByRole('dialog', { name: 'pocket-comms #99' });
+    const sheet = await screen.findByRole('dialog', { name: 'smotastic/pocket-comms #99' });
     expect(screen.queryByRole('dialog', { name: 'More' })).toBeNull();
     expect(await within(sheet).findByText("export const theme = 'dark';")).toBeDefined();
     expect(within(sheet).getAllByText('Binary file, not shown').length).toBeGreaterThan(0);
@@ -155,11 +155,12 @@ describe('the attached pull requests', () => {
     await userEvent.click(
       within(await openMore()).getByRole('button', { name: 'pocket-comms #99' }),
     );
-    const sheet = await screen.findByRole('dialog', { name: 'pocket-comms #99' });
+    const sheet = await screen.findByRole('dialog', { name: 'smotastic/pocket-comms #99' });
     await within(sheet).findByText("export const theme = 'dark';");
 
     fake.state.pullRequestChanges.set('smotastic/pocket-comms#99', {
       ...changes(99),
+      pullRequest: pr(99, { state: 'merged', title: 'Pull request 99, merged' }),
       files: [
         {
           path: 'src/new.ts',
@@ -173,6 +174,7 @@ describe('the attached pull requests', () => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Refresh' }));
 
     await waitFor(() => expect(within(sheet).getAllByText('src/new.ts').length).toBeGreaterThan(0));
+    expect(within(sheet).getByText('merged · Pull request 99, merged')).toBeDefined();
     expect(fake.calls.changesReads).toEqual([
       'smotastic/pocket-comms#99',
       'smotastic/pocket-comms#99',
@@ -187,7 +189,7 @@ describe('the attached pull requests', () => {
     await userEvent.click(
       within(await openMore()).getByRole('button', { name: 'pocket-comms #99' }),
     );
-    const sheet = await screen.findByRole('dialog', { name: 'pocket-comms #99' });
+    const sheet = await screen.findByRole('dialog', { name: 'smotastic/pocket-comms #99' });
 
     expect(await within(sheet).findByText('Gitea cannot be reached.')).toBeDefined();
     fake.state.pullRequestChanges.set('smotastic/pocket-comms#99', changes(99));
@@ -236,5 +238,35 @@ describe('the attached pull requests', () => {
     expect(
       await within(await banner()).findByRole('button', { name: 'More, 1 pull request' }),
     ).toBeDefined();
+  });
+
+  it('names the open pull request in the address, so Back closes its sheet', async () => {
+    const fake = open([pr(99)], [['smotastic/pocket-comms#99', changes(99)]]);
+
+    await userEvent.click(
+      within(await openMore()).getByRole('button', { name: 'pocket-comms #99' }),
+    );
+    await screen.findByRole('dialog', { name: 'smotastic/pocket-comms #99' });
+    expect(fake.router.state.location.search).toMatchObject({ pr: 'smotastic/pocket-comms/99' });
+
+    act(() => fake.router.history.back());
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'smotastic/pocket-comms #99' })).toBeNull(),
+    );
+    expect(fake.router.state.location.pathname).toBe('/agents/kirk');
+  });
+
+  it('opens the pull request an address names', async () => {
+    const agent = fakeAgent({ status: 'idle' });
+    const fake = fakeClient({
+      agents: new Map([[agent.ref, agent]]),
+      pullRequests: new Map([[agent.ref, [pr(99)]]]),
+      pullRequestChanges: new Map([['smotastic/pocket-comms#99', changes(99)]]),
+    });
+    renderApp({ client: fake.client, path: `/agents/${agent.ref}?pr=smotastic/pocket-comms/99` });
+
+    const sheet = await screen.findByRole('dialog', { name: 'smotastic/pocket-comms #99' });
+    expect(await within(sheet).findByText("export const theme = 'dark';")).toBeDefined();
   });
 });

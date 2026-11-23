@@ -6,6 +6,25 @@ import type { AttachedPullRequestView, ChangedFileView, PullRequestRef } from '.
 /** Names a pull request in a row or a sheet: `repo #number`. */
 export const pullRequestName = ({ name, number }: PullRequestRef): string => `${name} #${number}`;
 
+/** Names a pull request in its sheet: `owner/repo #number` (requirement 15). */
+export const pullRequestTitle = ({ owner, name, number }: PullRequestRef): string =>
+  `${owner}/${name} #${number}`;
+
+/** A pull request in the route's search: `owner/repo/number`. */
+export const pullRequestSearch = ({ owner, name, number }: PullRequestRef): string =>
+  `${owner}/${name}/${number}`;
+
+const SEARCH = /^([A-Za-z0-9._-]{1,100})\/([A-Za-z0-9._-]{1,100})\/([1-9][0-9]{0,8})$/u;
+
+/** The pull request a route's search names, if it names one. */
+export const parsePullRequestSearch = (value: unknown): PullRequestRef | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const match = SEARCH.exec(value);
+  return match === null
+    ? undefined
+    : { owner: match[1] ?? '', name: match[2] ?? '', number: Number(match[3]) };
+};
+
 /** A stable key of a pull request, such as for React. */
 export const pullRequestId = ({ owner, name, number }: PullRequestRef): string =>
   `${owner}/${name}#${number}`;

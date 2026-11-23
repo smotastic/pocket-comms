@@ -19,7 +19,8 @@ import {
 } from '@smotastic/pocket-design';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { AgentView, AttachedPullRequestView, CommsClient, Key } from './comms-client.js';
+import type { AgentView, CommsClient, Key, PullRequestRef } from './comms-client.js';
+import { pullRequestId } from './pull-requests.js';
 import { PullRequestSheet } from './PullRequestSheet.js';
 import { RequestError } from './comms-client.js';
 import { AttachedImages } from './AttachedImages.js';
@@ -56,6 +57,10 @@ export interface ConversationProps {
    * shown; one that ends while it is open still says that it is not running any more.
    */
   readonly onGone?: (() => void) | undefined;
+  /** The attached pull request whose changes are shown, from the route (spec 031). */
+  readonly shownPullRequest?: PullRequestRef | undefined;
+  /** Shows a pull request's changes, or none to close them. */
+  readonly onShowPullRequest?: (pullRequest: PullRequestRef | undefined) => void;
 }
 
 type View = 'conversation' | 'screen';
@@ -148,18 +153,25 @@ const Header = ({
  * agent is blocked. The keys wait under Controls, so the question keeps the room, and the owner's
  * quick replies open from the composer's Actions menu. It updates live.
  */
-export const Conversation = ({ client, agentRef, onBack, note, onGone }: ConversationProps) => {
+export const Conversation = ({
+  client,
+  agentRef,
+  onBack,
+  note,
+  onGone,
+  shownPullRequest,
+  onShowPullRequest = () => undefined,
+}: ConversationProps) => {
   useAgentLive(client, agentRef);
   const now = useNow(60_000);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(false);
-  const [shownPullRequest, setShownPullRequest] = useState<AttachedPullRequestView>();
   const pullRequests = useQuery(pullRequestsQuery(client, agentRef));
   const queryClient = useQueryClient();
   const menuPullRequests: MenuPullRequests = {
     list: pullRequests.data ?? [],
-    onOpen: setShownPullRequest,
+    onOpen: onShowPullRequest,
     onRemove: async (pullRequest) => {
       await client.removePullRequest(agentRef, pullRequest);
       await queryClient.invalidateQueries({ queryKey: pullRequestsKey(agentRef) });
@@ -554,7 +566,12 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
         client={client}
         agentRef={agentRef}
         pullRequest={shownPullRequest}
-        onClose={() => setShownPullRequest(undefined)}
+        listed={pullRequests.data?.find(
+          (listed) =>
+            shownPullRequest !== undefined &&
+            pullRequestId(listed) === pullRequestId(shownPullRequest),
+        )}
+        onClose={() => onShowPullRequest(undefined)}
       />
       <QuickReplies
         open={repliesOpen}

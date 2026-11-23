@@ -9,13 +9,13 @@ import {
   Stack,
   Text,
 } from '@smotastic/pocket-design';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AttachedPullRequestView, CommsClient } from './comms-client.js';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AttachedPullRequestView, CommsClient, PullRequestRef } from './comms-client.js';
 import { pullRequestChangesQuery, pullRequestsKey } from './comms-queries.js';
 import {
   CODE_DIFF_LABELS,
   pullRequestDetail,
-  pullRequestName,
+  pullRequestTitle,
   toCodeDiffFile,
 } from './pull-requests.js';
 
@@ -23,80 +23,50 @@ export interface PullRequestSheetProps {
   readonly client: CommsClient;
   readonly agentRef: string;
   /** The pull request to show; none closes the sheet. */
-  readonly pullRequest: AttachedPullRequestView | undefined;
+  readonly pullRequest: PullRequestRef | undefined;
+  /** What the agent's list says of it, until its changes are read. */
+  readonly listed: AttachedPullRequestView | undefined;
   readonly onClose: () => void;
 }
 
-const Changes = ({
+const Failure = ({
+  message,
+  onRetry,
+}: {
+  readonly message: string;
+  readonly onRetry: () => void;
+}) => (
+  <Stack gap="sm">
+    <Alert>{message}</Alert>
+    <Button variant="secondary" onClick={onRetry}>
+      Try again
+    </Button>
+  </Stack>
+);
+
+const OpenSheet = ({
   client,
   agentRef,
   pullRequest,
-}: Omit<PullRequestSheetProps, 'pullRequest' | 'onClose'> & {
-  readonly pullRequest: AttachedPullRequestView;
-}) => {
-  // The files stay while a Refresh reads them again (requirement 20).
+  listed,
+  onClose,
+}: Omit<PullRequestSheetProps, 'pullRequest'> & { readonly pullRequest: PullRequestRef }) => {
+  const queryClient = useQueryClient();
+  // The files stay while Refresh reads them again (requirement 20).
   const changes = useQuery({
     ...pullRequestChangesQuery(client, agentRef, pullRequest),
     placeholderData: keepPreviousData,
   });
-  if (changes.data === undefined) {
-    return changes.error === null ? (
-      <Text tone="muted">Reading the changes…</Text>
-    ) : (
-      <Stack gap="sm">
-        <Alert>{changes.error.message}</Alert>
-        <Button variant="secondary" onClick={() => void changes.refetch()}>
-          Try again
-        </Button>
-      </Stack>
-    );
-  }
-  const { pullRequest: current, files, tooLarge } = changes.data;
-  return (
-    <Stack gap="md">
-      {changes.error === null ? null : (
-        <Stack gap="sm">
-          <Alert>{changes.error.message}</Alert>
-          <Button variant="secondary" onClick={() => void changes.refetch()}>
-            Try again
-          </Button>
-        </Stack>
-      )}
-      {tooLarge ? <Alert tone="info">This pull request is too large to show here.</Alert> : null}
-      <CodeDiff
-        label={`Changes of ${pullRequestName(current)}`}
-        files={files.map((file) => toCodeDiffFile(file, current.url))}
-        labels={CODE_DIFF_LABELS}
-      />
-    </Stack>
-  );
-};
-
-/**
- * A pull request's changed files and diff (spec 031), read from Gitea: a sheet from the bottom over
- * the conversation, which stays where it was. Refresh reads the changes and the pull request again.
- */
-export const PullRequestSheet = ({
-  client,
-  agentRef,
-  pullRequest,
-  onClose,
-}: PullRequestSheetProps) => {
-  const queryClient = useQueryClient();
-  const refresh = useMutation({
-    mutationFn: async (shown: AttachedPullRequestView) => {
-      await Promise.all([
-        queryClient.refetchQueries({
-          queryKey: pullRequestChangesQuery(client, agentRef, shown).queryKey,
-        }),
-        queryClient.invalidateQueries({ queryKey: pullRequestsKey(agentRef) }),
-      ]);
-    },
-  });
-  const title = pullRequest === undefined ? 'Pull request' : pullRequestName(pullRequest);
+  // The changes carry the pull request as Gitea has it now, so the header follows a Refresh.
+  const current = changes.data?.pullRequest ?? listed;
+  const title = pullRequestTitle(pullRequest);
+  const refresh = () => {
+    void changes.refetch();
+    void queryClient.invalidateQueries({ queryKey: pullRequestsKey(agentRef) });
+  };
   return (
     <Sheet
-      open={pullRequest !== undefined}
+      open
       label={title}
       bodyLabel="Changed files"
       size="full"
@@ -105,30 +75,55 @@ export const PullRequestSheet = ({
       header={
         <SheetHeader
           title={title}
-          {...(pullRequest === undefined ? {} : { subtitle: pullRequestDetail(pullRequest) })}
+          {...(current === undefined ? {} : { subtitle: pullRequestDetail(current) })}
         >
-          {pullRequest === undefined ? null : (
-            <IconButton
-              icon="retry"
-              label="Refresh"
-              disabled={refresh.isPending}
-              onClick={() => refresh.mutate(pullRequest)}
-            />
-          )}
+          <IconButton
+            icon="retry"
+            label="Refresh"
+            disabled={changes.isFetching}
+            onClick={refresh}
+          />
           <IconButton icon="close" label="Close" onClick={onClose} />
         </SheetHeader>
       }
       notices={
-        pullRequest === undefined ? null : (
-          <LinkButton href={pullRequest.url} external variant="secondary" size="sm">
+        current === undefined ? null : (
+          <LinkButton href={current.url} external variant="secondary" size="sm">
             Open in Gitea
           </LinkButton>
         )
       }
     >
-      {pullRequest === undefined ? null : (
-        <Changes client={client} agentRef={agentRef} pullRequest={pullRequest} />
+      {changes.data === undefined ? (
+        changes.error === null ? (
+          <Text tone="muted">Reading the changes…</Text>
+        ) : (
+          <Failure message={changes.error.message} onRetry={() => void changes.refetch()} />
+        )
+      ) : (
+        <Stack gap="md">
+          {changes.error === null ? null : (
+            <Failure message={changes.error.message} onRetry={() => void changes.refetch()} />
+          )}
+          {changes.data.tooLarge ? (
+            <Alert tone="info">This pull request is too large to show here.</Alert>
+          ) : null}
+          <CodeDiff
+            label={`Changes of ${title}`}
+            files={changes.data.files.map((file) =>
+              toCodeDiffFile(file, changes.data.pullRequest.url),
+            )}
+            labels={CODE_DIFF_LABELS}
+          />
+        </Stack>
       )}
     </Sheet>
   );
 };
+
+/**
+ * A pull request's changed files and diff (spec 031), read from Gitea: a sheet from the bottom over
+ * the conversation, which stays where it was. Refresh reads the changes and the pull request again.
+ */
+export const PullRequestSheet = ({ pullRequest, ...props }: PullRequestSheetProps) =>
+  pullRequest === undefined ? null : <OpenSheet pullRequest={pullRequest} {...props} />;
