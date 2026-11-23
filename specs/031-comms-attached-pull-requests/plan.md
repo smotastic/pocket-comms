@@ -13,14 +13,13 @@
 | `packages/comms/contract`       | `AttachPullRequestRequest`, `AttachedPullRequest`, `AttachedPullRequests`, `PullRequestChanges`; four endpoints in the `agents` group.                                                                                                                     | `scope:comms`, `type:contract`        |
 | `packages/comms/api`            | The four handlers and the error mapping.                                                                                                                                                                                                                   | `scope:comms`, `layer:api`            |
 | `apps/comms-server`             | Wires the file store; the regenerated OpenAPI document; the skill at `apps/comms-server/skills/comms-attach-pull-request/SKILL.md`, copied into `dist` by the build.                                                                                       | `scope:comms`, `type:app`             |
-| `apps/comms-web`                | `CommsClient` methods and queries; a `PullRequestStrip` in `Conversation`; a `PullRequestSheet` composing the kit's `Sheet`, `SheetHeader` and the new code diff component.                                                                                | `scope:comms`, `type:app`             |
+| `apps/comms-web`                | `CommsClient` methods and queries; the pull requests in `ConversationMenu` with their count on its button; a `PullRequestSheet` composing the kit's `Sheet`, `SheetHeader` and `CodeDiff`.                                                                 | `scope:comms`, `type:app`             |
 | `pnpm-workspace.yaml`           | The catalog bump of `@smotastic/pocket-design` to the release with the code diff component.                                                                                                                                                                | —                                     |
 | `packages/comms/AGENTS.md`      | Names spec 031, the new Gitea reads and the skill's one-time setup.                                                                                                                                                                                        | —                                     |
 | `GLOSSARY.md`                   | **Pull request** and **Attached pull request**.                                                                                                                                                                                                            | —                                     |
 | `.pocket-ci`                    | The accepted OpenAPI diff lines for the new endpoints.                                                                                                                                                                                                     | —                                     |
 
-The design kit component is pocket-factory's own spec; this plan takes it as a dependency. The
-server side and the strip can land first; the sheet's diff needs the kit release.
+The kit's `CodeDiff` and the count on `IconButton` are pocket-factory spec 025; this plan takes them as a dependency. The server side and the skill can land first; the menu's count and the sheet's diff need the kit release.
 
 ## 2. Contract changes
 
@@ -42,7 +41,7 @@ AttachedPullRequest = {
 }
 PullRequestChanges = {
   pullRequest: AttachedPullRequest;
-  tooLarge: boolean;            // requirement 17: files without hunks
+  tooLarge: boolean; // requirement 19: files without hunks
   files: Array<{
     path: string; previousPath?: string;
     kind: 'added' | 'deleted' | 'modified' | 'renamed';
@@ -116,13 +115,14 @@ empty. Written to a temp file and renamed, as the other state files are.
 
 - `comms-client.ts` / `comms-queries.ts`: `pullRequests(agent)` (refetch every 30 s and on
   focus), `pullRequestChanges(agent, ref)`, `attach` is not used by the web app, `removePullRequest`.
-- `PullRequestStrip` under the conversation header: a horizontal list of kit items (`ItemRow` /
-  `Tag` for the state, a `Menu` with **Remove** and an alert-dialog `Sheet` to confirm). No strip
-  when the list is empty. `unavailable` items show the reason in place of the title.
+- `ConversationMenu` (the **More** sheet of spec 016) takes the pull requests and lists them
+  first under a `SectionHeader` "Pull requests": per row a `ListItem` with a button
+  `repo #number`, muted small `Text` with the state and title (or the `unavailable` reason), and a
+  **Remove** `IconButton` that opens an alert-dialog `Sheet` to confirm. Picking a row closes More
+  first, so only one sheet is ever open, then opens the pull request. The **More** `IconButton`
+  takes the kit's new `count` with its label "More, N pull requests".
 - `PullRequestSheet`: kit `Sheet` with `side` from a width media query (`end` at ≥ 768 px, else
-  `bottom`, `size="full"`), `SheetHeader` with title, state, **Refresh** (`IconButton`) and **Open
-  in Gitea** (`LinkButton`), the notice for `tooLarge`, and the kit's code diff component with
-  the files. The open request lives in the route search (`?pr=owner/repo/number`), so back closes
+  `bottom`, `size="full"`), `SheetHeader` with title, state, **Refresh** and **Open in Gitea** as header actions (the prototype showed that an `ActionBar` footer of a side sheet spreads across the page), the notice for `tooLarge`, and the kit's `CodeDiff` with the files (lines wrap). The open request lives in the route search (`?pr=owner/repo/number`), so back closes
   it; the conversation is not unmounted, so its scroll stays. Refresh refetches both queries with
   `placeholderData: keepPreviousData`.
 - All words are in the app (`labels.ts`); the kit component takes its labels as props.
@@ -160,18 +160,16 @@ only inside Herdr (`HERDR_PANE_ID` set); outside, it says so. The build copies `
   starts empty, and reports a broken file without replacing it.
 - **API and contract:** the request union decodes; each endpoint's status codes; the OpenAPI
   document is regenerated and the diff lines accepted.
-- **Web (Testing Library):** no strip without pull requests; the strip shows repo, number, title
-  and the state tag; remove asks, confirms and calls `DELETE`; tapping opens the sheet with files
+- **Web (Testing Library):** no count and no heading without pull requests; More shows the count and its label, and lists repo, number, state and title; remove asks, confirms and calls `DELETE`; picking one closes More and opens the sheet with files
   and hunks; binary and too-large files show their notes; `tooLarge` shows the notice; Refresh
   refetches; a failed read shows the reason and **Try again**; axe has no violations.
 - **Boundaries:** dependency-cruiser and the Nx tags as for every layer; the ports check.
 - **Manual (phone, 390 px, and desktop):** a live Claude agent runs the skill after opening a pull
-  request; the strip and sheet show it; a new push and Refresh; remove.
+  request; the count, More and the sheet show it; a new push and Refresh; remove.
 
 ## 6. Risks
 
-- **The kit release gates the sheet's diff.** Mitigation: land the server, skill and strip first;
-  the sheet follows the catalog bump.
+- **The kit release gates the sheet's diff.** Mitigation: land the server and the skill first; the menu and the sheet follow the catalog bump.
 - **The tailnet URL from the agent's machine.** It works today (checked 2026-11-23: a request from
   the home server to its own `ts.net` URL passes the guard). If the node becomes tagged, Tailscale
   stops sending the login and the skill gets `403`; the skill reports it, nothing else breaks.

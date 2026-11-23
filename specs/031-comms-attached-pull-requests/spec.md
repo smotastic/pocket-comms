@@ -2,8 +2,7 @@
 
 - **Status:** `Draft` — not yet approved (human gate pending)
 - **Issue:** smotastic/pocket-comms#98
-- **Depends on:** a code diff component in the design kit (pocket-factory spec, drafted with this
-  one), released and taken here as a catalog bump
+- **Depends on:** pocket-factory spec 025: the design kit's `CodeDiff` component and a count on `IconButton`, released and taken here as a catalog bump
 
 ## 1. Problem / intent (WHY)
 
@@ -18,8 +17,7 @@ and steering stay in one place.
 ## 2. Scope
 
 - **In scope:** an agent skill that attaches a pull request to the calling agent; a list of
-  attached pull requests per agent, kept by the server; the owner removing one; a strip of them in
-  the conversation; a sheet with a pull request's changed files and diff, read from Gitea, with
+  attached pull requests per agent, kept by the server; the owner removing one; a list of them in the conversation's **More** menu, with their count on its button; a sheet with a pull request's changed files and diff, read from Gitea, with
   refresh and a link to Gitea; the API for all of it.
 - **Out of scope:** creating, approving, merging, commenting on or reviewing pull requests;
   forges other than the app's Gitea (GitHub, GitLab); the agent's local working-tree diff;
@@ -64,52 +62,55 @@ and steering stay in one place.
    repository, number, Gitea URL and, read from Gitea at that moment, its title and its state:
    **open**, **merged** or **closed**. A pull request Gitea cannot read now keeps its repository,
    number and URL and says why it is unavailable; the others still show.
-10. The Conversation view of an agent with attached pull requests shows them as a strip under its
-    header, one item each: `owner/repo #number`, the title, and the state as a tag. Without any,
-    there is no strip. The strip reads the list again when the conversation opens, every 30
-    seconds while it is open, and when the app comes back to the foreground.
-11. Each item has a **Remove** action (behind its menu), which asks for confirmation and then
-    calls `DELETE /agents/:agent/pull-requests/:owner/:repo/:number`; the pull request leaves the
-    strip. Removing one that is not attached answers `204` too. Removing never changes Gitea.
+10. The conversation's **More** menu (the top bar's button of spec 016) lists the attached pull
+    requests first, under a **Pull requests** heading, one row each: `repo #number`, and under it,
+    small and muted, the state and the title. Without any, there is no heading. Nothing about them
+    is shown in the conversation itself, so it keeps its whole height.
+11. While an agent has attached pull requests, the **More** button shows their count, and its name
+    says it, such as "More, 2 pull requests". Without any, it shows no count.
+12. The app reads the list again when the conversation opens, every 30 seconds while it is open,
+    and when the app comes back to the foreground, so the count and the list follow an agent's new
+    attach.
+13. Each row has a **Remove** action, which asks for confirmation and then calls
+    `DELETE /agents/:agent/pull-requests/:owner/:repo/:number`; the pull request leaves the list. Removing one that is not attached answers `204` too. Removing never changes Gitea.
 
 ### The changes sheet
 
-12. Tapping an item opens a sheet: from the bottom on a phone, from the side (`end`) on a wide
-    screen. The conversation stays where it was under the sheet, and closing the sheet returns to
+14. Tapping a row closes **More** and opens the pull request's sheet: from the bottom, at full
+    height, on a phone; from the side (`end`) on a wide screen. The conversation stays where it was under the sheet, and closing the sheet returns to
     the same place, with its scroll position.
-13. The sheet's header shows `owner/repo #number`, the title and the state, a **Refresh** action
+15. The sheet's header shows `owner/repo #number`, the title and the state, a **Refresh** action
     and an **Open in Gitea** link to the pull request's page.
-14. The sheet reads `GET /agents/:agent/pull-requests/:owner/:repo/:number/changes`, which only
+16. The sheet reads `GET /agents/:agent/pull-requests/:owner/:repo/:number/changes`, which only
     answers for an attached pull request (`404` otherwise). It answers the changed files in
     Gitea's order, each with its path, its previous path when renamed, its kind (**added**,
     **deleted**, **modified**, **renamed**), its counts of added and removed lines and its diff
     hunks, read from the pull request's diff on Gitea, never from the agent's worktree.
-15. A binary file shows in the list with "Binary file, not shown" and no hunks.
-16. A file with more than 1,500 added and removed lines shows in the list with "Too large to show
+17. A binary file shows in the list with "Binary file, not shown" and no hunks.
+18. A file with more than 1,500 added and removed lines shows in the list with "Too large to show
     here" and a link to the pull request's files on Gitea, and no hunks.
-17. When the whole diff is larger than 2 MB, the server stops reading it and answers the changed
+19. When the whole diff is larger than 2 MB, the server stops reading it and answers the changed
     files from Gitea's file list instead, with their counts and no hunks, and the sheet says "This
     pull request is too large to show here" above the list, with the Gitea link.
-18. **Refresh** reads the changes and the pull request's title and state again, so the sheet shows
+20. **Refresh** reads the changes and the pull request's title and state again, so the sheet shows
     new pushes; the sheet keeps the files it showed until the new ones arrive.
-19. A failed read shows its reason in the sheet with a **Try again** action: Gitea not set up,
+21. A failed read shows its reason in the sheet with a **Try again** action: Gitea not set up,
     Gitea unreachable, or the pull request no longer readable.
-20. No Gitea token, header or credential reaches the browser or the agent skill's answer; the
+22. No Gitea token, header or credential reaches the browser or the agent skill's answer; the
     server reads Gitea with its own token, and the browser only gets the server's answers.
 
 ## 4. Acceptance criteria
 
 - Given a Claude agent with the skill, when it runs the skill with
   `http://localhost:3000/smotastic/pocket-comms/pulls/99`, then the route answers the pull request
-  with its title and state, and the agent's conversation shows `smotastic/pocket-comms #99` in the
-  strip.
+  with its title and state, and the agent's **More** button shows the count 1 and its menu lists `pocket-comms #99`.
 - Given the agent attaches a second pull request, then both show, the first one first; given it
-  attaches the first again, then the strip still shows two.
+  attaches the first again, then the count is still 2.
 - Given a GitHub URL, then the route answers `422` with "Only pull requests on this app's Gitea can
-  be attached." and the strip is unchanged.
+  be attached." and the list is unchanged.
 - Given a pull request number Gitea does not have, then the route answers `404`.
 - Given an agent without a session id, then the route answers `409`.
-- Given the owner taps an item, then a sheet opens over the conversation (from the bottom at
+- Given the owner opens **More** and taps a pull request, then **More** closes and a sheet opens over the conversation (from the bottom at
   390 px, from the side at 1280 px) with the changed files and their hunks; closing it shows the
   conversation at the same scroll position.
 - Given the agent pushes another commit, when the owner taps **Refresh**, then the new changes show.
@@ -118,20 +119,18 @@ and steering stay in one place.
   files show their hunks.
 - Given a diff over 2 MB, then the sheet shows the file list with counts and "This pull request is
   too large to show here".
-- Given the owner removes a pull request and confirms, then it leaves the strip, also after a
+- Given the owner removes a pull request and confirms, then it leaves the list and the count, also after a
   reload and a server restart, and Gitea is unchanged.
-- Given a merged pull request, then its tag says **merged**.
+- Given a merged pull request, then its row says **merged**.
 - Given a server restart, then every agent's attached pull requests are still there.
-- Given a phone at 390 px width, then the strip and the sheet fit without sideways page scrolling
-  (a diff line may scroll inside its own container), and axe finds no violations.
+- Given a phone at 390 px width, then the menu and the sheet fit without any sideways scrolling (long diff lines wrap), and axe finds no violations.
 
 ## 5. Notes
 
 - **Owner's decisions of 2026-11-23:** an agent attaches through an ordinary, guarded API route,
   called from a skill with `curl` (the home server is a user-owned tailnet node, so a request to
   its own tailnet URL carries the owner's login); Claude and Pi agents, named by `HERDR_PANE_ID`;
-  the owner can remove an attached pull request; the attached pull requests show as a strip at the
-  top of the conversation; a per-file limit of about 1,500 lines and a whole-diff limit of 2 MB;
+  the owner can remove an attached pull request; the attached pull requests are listed in the conversation's **More** menu, not pinned to the conversation (a prototype showed that a strip under the header takes too much room), with their count on the **More** button, a kit change the owner approved; the changes open in a sheet over the conversation, not in the kit's agent workspace `detail` (the prototype showed no difference on a phone, and the sheet needs no rewrite of the page); long diff lines wrap and never scroll sideways; a per-file limit of about 1,500 lines and a whole-diff limit of 2 MB;
   the diff is drawn by a new design kit component, made first in pocket-factory.
 - The skill is the "agent-callable tool" of the issue: a skill needs no extra process and works
   for both Claude and Pi.
