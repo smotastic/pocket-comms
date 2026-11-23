@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
-import { RequestError, type CommsClient } from './comms-client.js';
+import { RequestError, type CommsClient, type PullRequestRef } from './comms-client.js';
 
 // Query keys and options. The live streams write into the same keys (`live.ts`), so a screen
 // reads one cache whether the data came from a request or an event.
@@ -15,6 +15,9 @@ export const brainstormKey = ['brainstorm'] as const;
 export const activityKey = ['activity'] as const;
 export const quickRepliesKey = ['quick-replies'] as const;
 export const speechKey = ['speech'] as const;
+export const pullRequestsKey = (ref: string) => ['pull-requests', ref] as const;
+export const pullRequestChangesKey = (ref: string, { owner, name, number }: PullRequestRef) =>
+  ['pull-request-changes', ref, owner, name, number] as const;
 
 export const overviewQuery = (client: CommsClient) =>
   queryOptions({ queryKey: overviewKey, queryFn: () => client.overview() });
@@ -75,3 +78,30 @@ export const speechQuery = (client: CommsClient) =>
 /** The owner's quick replies; the Settings page writes the saved list into the cache. */
 export const quickRepliesQuery = (client: CommsClient) =>
   queryOptions({ queryKey: quickRepliesKey, queryFn: () => client.quickReplies() });
+
+/**
+ * The agent's attached pull requests (spec 031): read when the conversation opens, every 30
+ * seconds while it is open and when the app comes back to the foreground.
+ */
+export const pullRequestsQuery = (client: CommsClient, ref: string) =>
+  queryOptions({
+    queryKey: pullRequestsKey(ref),
+    queryFn: () => client.pullRequests(ref),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+
+/** An attached pull request's changes, read when its sheet opens and on Refresh. */
+export const pullRequestChangesQuery = (
+  client: CommsClient,
+  ref: string,
+  pullRequest: PullRequestRef,
+) =>
+  queryOptions({
+    queryKey: pullRequestChangesKey(ref, pullRequest),
+    queryFn: () => client.pullRequestChanges(ref, pullRequest),
+    staleTime: 0,
+    retry: (failures, error) =>
+      !(error instanceof RequestError && error.status === 404) && failures < 2,
+  });

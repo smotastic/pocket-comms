@@ -6,6 +6,9 @@ import { fakeMicrophone } from '@smotastic/pocket-design/testing';
 import {
   RequestError,
   type ActivityView,
+  type AttachedPullRequestView,
+  type PullRequestChangesView,
+  type PullRequestRef,
   type AgentEventView,
   type AgentView,
   type BrainstormEventView,
@@ -57,6 +60,10 @@ export const fakeAgent = (overrides: Partial<AgentView> = {}): AgentView => ({
 
 export interface FakeState {
   overview: OverviewView;
+  /** Each agent's attached pull requests, by its ref. */
+  readonly pullRequests: Map<string, Array<AttachedPullRequestView>>;
+  /** Each pull request's changes, by `<owner>/<name>#<number>`, or a failure. */
+  readonly pullRequestChanges: Map<string, PullRequestChangesView | RequestError>;
   readonly agents: Map<string, AgentView>;
   readonly conversations: Map<string, ConversationView>;
   /** The subagents of each agent, by `<ref>/<id>`. */
@@ -116,6 +123,8 @@ export interface FakeState {
 export const fakeClient = (initial: Partial<FakeState> = {}) => {
   const state: FakeState = {
     overview: { needsYou: [], groups: [] },
+    pullRequests: new Map(),
+    pullRequestChanges: new Map(),
     agents: new Map(),
     conversations: new Map(),
     subagents: new Map(),
@@ -170,6 +179,10 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     subscribed: [] as Array<PushSubscriptionView>,
     unsubscribed: [] as Array<string>,
     savedQuickReplies: [] as Array<ReadonlyArray<string>>,
+    /** How often each agent's pull requests and each pull request's changes were read. */
+    pullRequestReads: [] as Array<string>,
+    changesReads: [] as Array<string>,
+    removedPullRequests: [] as Array<[string, string]>,
   };
   const brainstormFollowers = new Set<(event: BrainstormEventView) => void>();
   const failBrainstorm = () => {
@@ -188,8 +201,27 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     return agent;
   };
 
+  const prKey = ({ owner, name, number }: PullRequestRef) => `${owner}/${name}#${number}`;
   const client: CommsClient = {
     overview: async () => state.overview,
+    pullRequests: async (ref) => {
+      calls.pullRequestReads.push(ref);
+      return [...(state.pullRequests.get(ref) ?? [])];
+    },
+    pullRequestChanges: async (_ref, pullRequest) => {
+      calls.changesReads.push(prKey(pullRequest));
+      const changes = state.pullRequestChanges.get(prKey(pullRequest));
+      if (changes === undefined) throw new RequestError('Pull request not found', 404);
+      if (changes instanceof RequestError) throw changes;
+      return changes;
+    },
+    removePullRequest: async (ref, pullRequest) => {
+      calls.removedPullRequests.push([ref, prKey(pullRequest)]);
+      state.pullRequests.set(
+        ref,
+        (state.pullRequests.get(ref) ?? []).filter((entry) => prKey(entry) !== prKey(pullRequest)),
+      );
+    },
     agent: async (ref) => find(ref),
     conversation: async (ref) =>
       state.conversations.get(ref) ?? { entries: [], currentStep: 'Thinking…' },

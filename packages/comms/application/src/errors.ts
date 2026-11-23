@@ -87,6 +87,31 @@ export class IssueNotFoundError extends Data.TaggedError('IssueNotFoundError')<{
   readonly number: number;
 }> {}
 
+/**
+ * Gitea has no such pull request, or the app's token cannot read it (spec 031); also a pull
+ * request an agent has not attached.
+ */
+export class PullRequestNotFoundError extends Data.TaggedError('PullRequestNotFoundError')<{
+  readonly owner: string;
+  readonly name: string;
+  readonly number: number;
+}> {}
+
+/** The input does not name a pull request on this app's Gitea; `reason` says why. */
+export class InvalidPullRequestError extends Data.TaggedError('InvalidPullRequestError')<{
+  readonly reason: string;
+}> {}
+
+/** The agent has no session id, so it has no conversation to attach a pull request to. */
+export class NoConversationError extends Data.TaggedError('NoConversationError')<{
+  readonly ref: string;
+}> {}
+
+/** The file of attached pull requests cannot be read or written; a broken file is never replaced. */
+export class PullRequestsStoreError extends Data.TaggedError('PullRequestsStoreError')<{
+  readonly reason: string;
+}> {}
+
 /** The issue's title or body changed since Pi read it, so an edit would overwrite newer work. */
 export class IssueChangedError extends Data.TaggedError('IssueChangedError')<{
   readonly number: number;

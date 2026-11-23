@@ -149,3 +149,23 @@ export {
   type PushSubscription,
   type Reading,
 } from './notification.js';
+export {
+  attachTo,
+  MAX_ATTACHED_PULL_REQUESTS,
+  MAX_DIFF_BYTES,
+  MAX_SHOWN_FILE_LINES,
+  parsePullRequestPath,
+  parseRepositoryName,
+  parseUnifiedDiff,
+  PullRequestListFullError,
+  pullRequestState,
+  samePullRequest,
+  type AttachedPullRequestRef,
+  type ChangedFile,
+  type ChangedFileKind,
+  type DiffHunk,
+  type DiffLine,
+  type PullRequestRef,
+  type PullRequestState,
+  type ShownChanges,
+} from './pull-request.js';

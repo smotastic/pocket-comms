@@ -1775,6 +1775,247 @@ const speech = HttpApiGroup.make('speech')
     }),
   );
 
+// ── Attached pull requests (spec 031) ──────────────────────────────────────────────────────
+
+const GiteaName = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9._-]{1,100}$/u));
+
+export const OwnerParam = GiteaName.annotate({
+  description: "The repository's owner on the app's Gitea.",
+  examples: ['smotastic'],
+});
+export const RepositoryParam = GiteaName.annotate({
+  description: "The repository's name on the app's Gitea.",
+  examples: ['pocket-comms'],
+});
+export const PullRequestNumberParam = Schema.String.check(
+  Schema.isPattern(/^[1-9][0-9]{0,8}$/u),
+).annotate({ description: "The pull request's number in its repository.", examples: ['99'] });
+
+export const AttachPullRequestRequest = Schema.Union([
+  Schema.Struct({
+    url: Schema.String.check(Schema.isMaxLength(2000)).annotate({
+      description: "The pull request's page on the app's Gitea.",
+      examples: ['http://localhost:3000/smotastic/pocket-comms/pulls/99'],
+    }),
+  }).annotate({ description: 'A pull request by its page.' }),
+  Schema.Struct({
+    repository: Schema.String.check(Schema.isMaxLength(201)).annotate({
+      description: "The repository on the app's Gitea, as `owner/name`.",
+      examples: ['smotastic/pocket-comms'],
+    }),
+    number: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 999_999_999 })).annotate({
+      description: "The pull request's number in the repository.",
+      examples: [99],
+    }),
+  }).annotate({ description: 'A pull request by its repository and number.' }),
+]).annotate({
+  identifier: 'AttachPullRequestRequest',
+  description: 'The pull request to attach: its page, or its repository and number.',
+});
+
+export const AttachedPullRequest = Schema.Struct({
+  owner: Schema.String.annotate({
+    description: "The repository's owner.",
+    examples: ['smotastic'],
+  }),
+  name: Schema.String.annotate({
+    description: "The repository's name.",
+    examples: ['pocket-comms'],
+  }),
+  number: Schema.Int.annotate({ description: "The pull request's number.", examples: [99] }),
+  url: Schema.String.annotate({
+    description: "The pull request's page on Gitea.",
+    examples: ['http://localhost:3000/smotastic/pocket-comms/pulls/99'],
+  }),
+  title: optional(Schema.String, {
+    description: "The pull request's title, read from Gitea now; absent when it is unavailable.",
+    examples: ['feat(comms): attach pull requests to an agent'],
+  }),
+  state: optional(Schema.Literals(['open', 'merged', 'closed']), {
+    description: "The pull request's state, read from Gitea now; absent when it is unavailable.",
+    examples: ['open'],
+  }),
+  unavailable: optional(Schema.String, {
+    description: 'Why Gitea cannot read the pull request now.',
+    examples: ['Gitea cannot be reached at http://localhost:3000: connect ECONNREFUSED.'],
+  }),
+}).annotate({
+  identifier: 'AttachedPullRequest',
+  description:
+    'A pull request attached to an agent, with its title and state as Gitea has them now.',
+});
+
+export const AttachedPullRequests = Schema.Struct({
+  pullRequests: Schema.Array(AttachedPullRequest).annotate({
+    description: 'In the order they were attached; at most 20.',
+    examples: [[]],
+  }),
+}).annotate({
+  identifier: 'AttachedPullRequests',
+  description: "An agent's attached pull requests.",
+});
+
+export const DiffLine = Schema.Struct({
+  kind: Schema.Literals(['context', 'added', 'removed']).annotate({
+    description: 'An unchanged, added or removed line.',
+    examples: ['added'],
+  }),
+  text: Schema.String.annotate({
+    description: 'The line, without its sign.',
+    examples: ['const a = 1;'],
+  }),
+  old: optional(Schema.Int, {
+    description: 'Its number in the old file; absent for an added line.',
+    examples: [12],
+  }),
+  new: optional(Schema.Int, {
+    description: 'Its number in the new file; absent for a removed line.',
+    examples: [12],
+  }),
+}).annotate({ identifier: 'DiffLine', description: 'One line of a hunk.' });
+
+export const DiffHunk = Schema.Struct({
+  header: Schema.String.annotate({
+    description: "The hunk's header line as the diff wrote it.",
+    examples: ['@@ -12,7 +12,9 @@ function name'],
+  }),
+  lines: Schema.Array(DiffLine).annotate({ description: 'Its lines, in order.', examples: [[]] }),
+}).annotate({ identifier: 'DiffHunk', description: 'One hunk of a file.' });
+
+export const ChangedFile = Schema.Struct({
+  path: Schema.String.annotate({ description: "The file's path.", examples: ['src/theme.ts'] }),
+  previousPath: optional(Schema.String, {
+    description: 'Its path before a rename.',
+    examples: ['src/colors.ts'],
+  }),
+  kind: Schema.Literals(['added', 'deleted', 'modified', 'renamed']).annotate({
+    description: 'How the file changed.',
+    examples: ['modified'],
+  }),
+  additions: Schema.Int.annotate({ description: 'Its added lines.', examples: [2] }),
+  deletions: Schema.Int.annotate({ description: 'Its removed lines.', examples: [1] }),
+  shown: Schema.Union([
+    Schema.Struct({
+      kind: Schema.tag('hunks').annotate({ description: 'Its lines show.', examples: ['hunks'] }),
+      hunks: Schema.Array(DiffHunk).annotate({ description: 'Its hunks.', examples: [[]] }),
+    }),
+    Schema.Struct({
+      kind: Schema.tag('binary').annotate({
+        description: 'A binary file, whose lines do not show.',
+        examples: ['binary'],
+      }),
+    }),
+    Schema.Struct({
+      kind: Schema.tag('too-large').annotate({
+        description: 'Too many changed lines to show here.',
+        examples: ['too-large'],
+      }),
+    }),
+  ]).annotate({ description: 'What shows of its changes.', examples: [{ kind: 'binary' }] }),
+}).annotate({ identifier: 'ChangedFile', description: 'One changed file of a pull request.' });
+
+export const PullRequestChanges = Schema.Struct({
+  pullRequest: AttachedPullRequest.annotate({
+    description: 'The pull request, with its title and state read from Gitea now.',
+    examples: [
+      {
+        owner: 'smotastic',
+        name: 'pocket-comms',
+        number: 99,
+        url: 'http://localhost:3000/smotastic/pocket-comms/pulls/99',
+        title: 'feat(comms): attach pull requests to an agent',
+        state: 'open',
+      },
+    ],
+  }),
+  tooLarge: Schema.Boolean.annotate({
+    description:
+      "The diff was too large to read, so the files come from Gitea's list and show no lines.",
+    examples: [false],
+  }),
+  files: Schema.Array(ChangedFile).annotate({
+    description: "The changed files, in Gitea's order.",
+    examples: [[]],
+  }),
+}).annotate({
+  identifier: 'PullRequestChanges',
+  description: "An attached pull request's changed files, read from Gitea now.",
+});
+
+const pullRequest = {
+  agent: AgentParam,
+  owner: OwnerParam,
+  repository: RepositoryParam,
+  number: PullRequestNumberParam,
+};
+
+const pullRequests = HttpApiGroup.make('pullRequests')
+  .add(
+    HttpApiEndpoint.post('attach', '/agents/:agent/pull-requests', {
+      params: { agent: AgentParam },
+      payload: AttachPullRequestRequest,
+      success: AttachedPullRequest,
+      error: [
+        Problems.NotFound,
+        Problems.Conflict,
+        Problems.Validation,
+        Problems.ServiceUnavailable,
+      ],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Attach a pull request to an agent',
+        description:
+          "Reads the pull request from the app's Gitea and adds it to the agent's list, which belongs to the agent's conversation. Attaching one the agent has changes nothing. A page on another host or not of a pull request is 422, a pull request Gitea cannot read 404, an agent without a conversation or with 20 pull requests 409.",
+      }),
+    ),
+    HttpApiEndpoint.get('list', '/agents/:agent/pull-requests', {
+      params: { agent: AgentParam },
+      success: AttachedPullRequests,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "List an agent's pull requests",
+        description:
+          'The attached pull requests in their order, each with its title and state read from Gitea now, or why it is unavailable.',
+      }),
+    ),
+    HttpApiEndpoint.delete('remove', '/agents/:agent/pull-requests/:owner/:repository/:number', {
+      params: pullRequest,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Remove a pull request from an agent',
+        description:
+          "Removes the pull request from the agent's list; one that is not there is not an error. Gitea does not change.",
+      }),
+    ),
+    HttpApiEndpoint.get(
+      'changes',
+      '/agents/:agent/pull-requests/:owner/:repository/:number/changes',
+      {
+        params: pullRequest,
+        success: PullRequestChanges,
+        error: [Problems.NotFound, Problems.Conflict, Problems.ServiceUnavailable],
+      },
+    ).annotateMerge(
+      OpenApi.annotations({
+        summary: "Read an attached pull request's changes",
+        description:
+          "The changed files and their hunks, from the pull request's diff on Gitea. A file with more than 1,500 changed lines and a binary file show none; a diff over 2 MB gives the file list only, with `tooLarge`. A pull request the agent has not attached is 404.",
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Pull requests',
+      description: "The pull requests attached to an agent's conversation, and their changes.",
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
@@ -1786,6 +2027,7 @@ export const CommsApi = HttpApi.make('comms')
   .add(push)
   .add(quickReplies)
   .add(speech)
+  .add(pullRequests)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

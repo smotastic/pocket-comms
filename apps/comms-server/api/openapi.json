@@ -552,6 +552,202 @@
         "required": ["call", "answers"],
         "type": "object"
       },
+      "AttachPullRequestRequest": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "description": "A pull request by its page.",
+            "properties": {
+              "url": {
+                "description": "The pull request's page on the app's Gitea.",
+                "examples": ["http://localhost:3000/smotastic/pocket-comms/pulls/99"],
+                "maxLength": 2000,
+                "type": "string"
+              }
+            },
+            "required": ["url"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "A pull request by its repository and number.",
+            "properties": {
+              "number": {
+                "description": "The pull request's number in the repository.",
+                "examples": [99],
+                "maximum": 999999999,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "repository": {
+                "description": "The repository on the app's Gitea, as `owner/name`.",
+                "examples": ["smotastic/pocket-comms"],
+                "maxLength": 201,
+                "type": "string"
+              }
+            },
+            "required": ["repository", "number"],
+            "type": "object"
+          }
+        ],
+        "description": "The pull request to attach: its page, or its repository and number."
+      },
+      "AttachedPullRequest": {
+        "additionalProperties": false,
+        "description": "A pull request attached to an agent, with its title and state as Gitea has them now.",
+        "properties": {
+          "name": {
+            "description": "The repository's name.",
+            "examples": ["pocket-comms"],
+            "type": "string"
+          },
+          "number": {
+            "description": "The pull request's number.",
+            "examples": [99],
+            "type": "integer"
+          },
+          "owner": {
+            "description": "The repository's owner.",
+            "examples": ["smotastic"],
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "enum": ["open", "merged", "closed"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pull request's state, read from Gitea now; absent when it is unavailable.",
+            "examples": ["open"]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pull request's title, read from Gitea now; absent when it is unavailable.",
+            "examples": ["feat(comms): attach pull requests to an agent"]
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why Gitea cannot read the pull request now.",
+            "examples": ["Gitea cannot be reached at http://localhost:3000: connect ECONNREFUSED."]
+          },
+          "url": {
+            "description": "The pull request's page on Gitea.",
+            "examples": ["http://localhost:3000/smotastic/pocket-comms/pulls/99"],
+            "type": "string"
+          }
+        },
+        "required": ["owner", "name", "number", "url"],
+        "type": "object"
+      },
+      "AttachedPullRequest_1": {
+        "additionalProperties": false,
+        "description": "The pull request, with its title and state read from Gitea now.",
+        "examples": [
+          {
+            "name": "pocket-comms",
+            "number": 99,
+            "owner": "smotastic",
+            "state": "open",
+            "title": "feat(comms): attach pull requests to an agent",
+            "url": "http://localhost:3000/smotastic/pocket-comms/pulls/99"
+          }
+        ],
+        "properties": {
+          "name": {
+            "description": "The repository's name.",
+            "examples": ["pocket-comms"],
+            "type": "string"
+          },
+          "number": {
+            "description": "The pull request's number.",
+            "examples": [99],
+            "type": "integer"
+          },
+          "owner": {
+            "description": "The repository's owner.",
+            "examples": ["smotastic"],
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "enum": ["open", "merged", "closed"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pull request's state, read from Gitea now; absent when it is unavailable.",
+            "examples": ["open"]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pull request's title, read from Gitea now; absent when it is unavailable.",
+            "examples": ["feat(comms): attach pull requests to an agent"]
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why Gitea cannot read the pull request now.",
+            "examples": ["Gitea cannot be reached at http://localhost:3000: connect ECONNREFUSED."]
+          },
+          "url": {
+            "description": "The pull request's page on Gitea.",
+            "examples": ["http://localhost:3000/smotastic/pocket-comms/pulls/99"],
+            "type": "string"
+          }
+        },
+        "required": ["owner", "name", "number", "url"],
+        "type": "object"
+      },
+      "AttachedPullRequests": {
+        "additionalProperties": false,
+        "description": "An agent's attached pull requests.",
+        "properties": {
+          "pullRequests": {
+            "description": "In the order they were attached; at most 20.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/AttachedPullRequest"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["pullRequests"],
+        "type": "object"
+      },
       "BackgroundItem": {
         "additionalProperties": false,
         "description": "Work an agent left running while it carries on or waits at its prompt.",
@@ -732,6 +928,104 @@
           }
         ],
         "description": "The brainstorm, or why it is not set up."
+      },
+      "ChangedFile": {
+        "additionalProperties": false,
+        "description": "One changed file of a pull request.",
+        "properties": {
+          "additions": {
+            "description": "Its added lines.",
+            "examples": [2],
+            "type": "integer"
+          },
+          "deletions": {
+            "description": "Its removed lines.",
+            "examples": [1],
+            "type": "integer"
+          },
+          "kind": {
+            "description": "How the file changed.",
+            "enum": ["added", "deleted", "modified", "renamed"],
+            "examples": ["modified"],
+            "type": "string"
+          },
+          "path": {
+            "description": "The file's path.",
+            "examples": ["src/theme.ts"],
+            "type": "string"
+          },
+          "previousPath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its path before a rename.",
+            "examples": ["src/colors.ts"]
+          },
+          "shown": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "hunks": {
+                    "description": "Its hunks.",
+                    "examples": [[]],
+                    "items": {
+                      "$ref": "#/components/schemas/DiffHunk"
+                    },
+                    "type": "array"
+                  },
+                  "kind": {
+                    "description": "Its lines show.",
+                    "enum": ["hunks"],
+                    "examples": ["hunks"],
+                    "type": "string"
+                  }
+                },
+                "required": ["kind", "hunks"],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "description": "A binary file, whose lines do not show.",
+                    "enum": ["binary"],
+                    "examples": ["binary"],
+                    "type": "string"
+                  }
+                },
+                "required": ["kind"],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "description": "Too many changed lines to show here.",
+                    "enum": ["too-large"],
+                    "examples": ["too-large"],
+                    "type": "string"
+                  }
+                },
+                "required": ["kind"],
+                "type": "object"
+              }
+            ],
+            "description": "What shows of its changes.",
+            "examples": [
+              {
+                "kind": "binary"
+              }
+            ]
+          }
+        },
+        "required": ["path", "kind", "additions", "deletions", "shown"],
+        "type": "object"
       },
       "CloseRequest": {
         "additionalProperties": false,
@@ -1080,6 +1374,70 @@
           }
         },
         "required": ["project", "task", "branch"],
+        "type": "object"
+      },
+      "DiffHunk": {
+        "additionalProperties": false,
+        "description": "One hunk of a file.",
+        "properties": {
+          "header": {
+            "description": "The hunk's header line as the diff wrote it.",
+            "examples": ["@@ -12,7 +12,9 @@ function name"],
+            "type": "string"
+          },
+          "lines": {
+            "description": "Its lines, in order.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/DiffLine"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["header", "lines"],
+        "type": "object"
+      },
+      "DiffLine": {
+        "additionalProperties": false,
+        "description": "One line of a hunk.",
+        "properties": {
+          "kind": {
+            "description": "An unchanged, added or removed line.",
+            "enum": ["context", "added", "removed"],
+            "examples": ["added"],
+            "type": "string"
+          },
+          "new": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its number in the new file; absent for a removed line.",
+            "examples": [12]
+          },
+          "old": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its number in the old file; absent for an added line.",
+            "examples": [12]
+          },
+          "text": {
+            "description": "The line, without its sign.",
+            "examples": ["const a = 1;"],
+            "type": "string"
+          }
+        },
+        "required": ["kind", "text"],
         "type": "object"
       },
       "FieldError": {
@@ -1746,6 +2104,30 @@
           }
         },
         "required": ["project", "title", "body"],
+        "type": "object"
+      },
+      "PullRequestChanges": {
+        "additionalProperties": false,
+        "description": "An attached pull request's changed files, read from Gitea now.",
+        "properties": {
+          "files": {
+            "description": "The changed files, in Gitea's order.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/ChangedFile"
+            },
+            "type": "array"
+          },
+          "pullRequest": {
+            "$ref": "#/components/schemas/AttachedPullRequest_1"
+          },
+          "tooLarge": {
+            "description": "The diff was too large to read, so the files come from Gitea's list and show no lines.",
+            "examples": [false],
+            "type": "boolean"
+          }
+        },
+        "required": ["pullRequest", "tooLarge", "files"],
         "type": "object"
       },
       "PushKey": {
@@ -3123,6 +3505,409 @@
         "security": [],
         "summary": "Send a prompt",
         "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/pull-requests": {
+      "get": {
+        "description": "The attached pull requests in their order, each with its title and state read from Gitea now, or why it is unavailable.",
+        "operationId": "pullRequests.list",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachedPullRequests"
+                }
+              }
+            },
+            "description": "An agent's attached pull requests."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "List an agent's pull requests",
+        "tags": ["Pull requests"]
+      },
+      "post": {
+        "description": "Reads the pull request from the app's Gitea and adds it to the agent's list, which belongs to the agent's conversation. Attaching one the agent has changes nothing. A page on another host or not of a pull request is 422, a pull request Gitea cannot read 404, an agent without a conversation or with 20 pull requests 409.",
+        "operationId": "pullRequests.attach",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachPullRequestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachedPullRequest"
+                }
+              }
+            },
+            "description": "A pull request attached to an agent, with its title and state as Gitea has them now."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Attach a pull request to an agent",
+        "tags": ["Pull requests"]
+      }
+    },
+    "/api/v1/agents/{agent}/pull-requests/{owner}/{repository}/{number}": {
+      "delete": {
+        "description": "Removes the pull request from the agent's list; one that is not there is not an error. Gitea does not change.",
+        "operationId": "pullRequests.remove",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The repository's owner on the app's Gitea.",
+            "example": "smotastic",
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "description": "The repository's owner on the app's Gitea.",
+              "examples": ["smotastic"],
+              "pattern": "^[A-Za-z0-9._-]{1,100}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The repository's name on the app's Gitea.",
+            "example": "pocket-comms",
+            "in": "path",
+            "name": "repository",
+            "required": true,
+            "schema": {
+              "description": "The repository's name on the app's Gitea.",
+              "examples": ["pocket-comms"],
+              "pattern": "^[A-Za-z0-9._-]{1,100}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The pull request's number in its repository.",
+            "example": "99",
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "description": "The pull request's number in its repository.",
+              "examples": ["99"],
+              "pattern": "^[1-9][0-9]{0,8}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Remove a pull request from an agent",
+        "tags": ["Pull requests"]
+      }
+    },
+    "/api/v1/agents/{agent}/pull-requests/{owner}/{repository}/{number}/changes": {
+      "get": {
+        "description": "The changed files and their hunks, from the pull request's diff on Gitea. A file with more than 1,500 changed lines and a binary file show none; a diff over 2 MB gives the file list only, with `tooLarge`. A pull request the agent has not attached is 404.",
+        "operationId": "pullRequests.changes",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The repository's owner on the app's Gitea.",
+            "example": "smotastic",
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "description": "The repository's owner on the app's Gitea.",
+              "examples": ["smotastic"],
+              "pattern": "^[A-Za-z0-9._-]{1,100}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The repository's name on the app's Gitea.",
+            "example": "pocket-comms",
+            "in": "path",
+            "name": "repository",
+            "required": true,
+            "schema": {
+              "description": "The repository's name on the app's Gitea.",
+              "examples": ["pocket-comms"],
+              "pattern": "^[A-Za-z0-9._-]{1,100}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The pull request's number in its repository.",
+            "example": "99",
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "description": "The pull request's number in its repository.",
+              "examples": ["99"],
+              "pattern": "^[1-9][0-9]{0,8}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestChanges"
+                }
+              }
+            },
+            "description": "An attached pull request's changed files, read from Gitea now."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read an attached pull request's changes",
+        "tags": ["Pull requests"]
       }
     },
     "/api/v1/agents/{agent}/screen": {
@@ -5045,6 +5830,10 @@
     {
       "description": "Voice messages turned into text for the composers.",
       "name": "Speech"
+    },
+    {
+      "description": "The pull requests attached to an agent's conversation, and their changes.",
+      "name": "Pull requests"
     }
   ]
 }

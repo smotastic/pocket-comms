@@ -1,0 +1,13 @@
+diff --git a/src/theme.ts b/src/theme.ts
+index 1111111..2222222 100644
+--- a/src/theme.ts
++++ b/src/theme.ts
+@@ -1,2 +1,3 @@
+-export const theme = 'light';
++export const theme = 'dark';
++export const themes = ['light', 'dark'];
+ export default theme;
+diff --git a/docs/dark.png b/docs/dark.png
+new file mode 100644
+index 0000000..3333333
+Binary files /dev/null and b/docs/dark.png differ

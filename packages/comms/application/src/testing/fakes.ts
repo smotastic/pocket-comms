@@ -2,8 +2,11 @@ import {
   type ActivityEvent,
   IN_PROGRESS_LABEL,
   OTHER_GROUP,
+  parsePullRequestPath,
   parseRemote,
   type Agent,
+  type ChangedFile,
+  type PullRequestRef,
   type BackgroundItem,
   type Issue,
   type Notification,
@@ -31,10 +34,12 @@ import {
   GiteaUnavailableError,
   HerdrRejectedError,
   IssueNotFoundError,
+  PullRequestNotFoundError,
   HerdrUnavailableError,
   ProjectGitError,
   PushStoreError,
   QuickRepliesStoreError,
+  PullRequestsStoreError,
   ConversationUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
@@ -42,7 +47,7 @@ import {
   BrainstormStoreOutbound,
   type StoredBrainstorm,
 } from '../ports/brainstorm-store.outbound.port.js';
-import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
+import { GiteaOutbound, type PullRequestInfo } from '../ports/gitea.outbound.port.js';
 import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
 import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
 import {
@@ -52,6 +57,7 @@ import {
 } from '../ports/memory.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { QuickRepliesOutbound } from '../ports/quick-replies.outbound.port.js';
+import { PullRequestsOutbound, type AttachedLists } from '../ports/pull-requests.outbound.port.js';
 import {
   PushKeysOutbound,
   PushSenderOutbound,
@@ -140,6 +146,23 @@ export class FakeState extends Context.Service<
     /** The names of the images the fake Gitea refuses to attach. */
     readonly giteaRefusedImages: Set<string>;
     /** Every Gitea request, as `<method> <owner>/<name> [<number>]`. */
+    /**
+     * The pull requests of every Gitea repository, by `<owner>/<name>#<number>`, with their diff;
+     * a diff of `undefined` is one over the limit.
+     */
+    readonly pullRequests: Map<
+      string,
+      PullRequestInfo & {
+        readonly diff: string | undefined;
+        readonly files: ReadonlyArray<ChangedFile>;
+      }
+    >;
+    /** The saved attached pull requests, by session id. */
+    attachedLists: AttachedLists;
+    /** When set, the attached pull requests file fails with this reason. */
+    attachedListsFailure: string | undefined;
+    /** When set, only reading the attached pull requests file fails, until the next save. */
+    attachedListsLoadFailure: string | undefined;
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
     readonly docs: Map<string, string>;
@@ -521,6 +544,40 @@ const gitea = (state: FakeState['Service']) => {
         issues[index] = { ...found, title, body };
         return Effect.void;
       }),
+    pullRequestOf: (address) => {
+      if (!URL.canParse(address)) return { _tag: 'NotAPullRequest' };
+      const url = new URL(address);
+      if (url.hostname !== 'gitea.test') return { _tag: 'OtherHost' };
+      return Option.match(parsePullRequestPath(url.pathname), {
+        onNone: () => ({ _tag: 'NotAPullRequest' }) as const,
+        onSome: (ref) => ({ _tag: 'PullRequest', ref }) as const,
+      });
+    },
+    pullRequest: (ref) =>
+      request(`pullRequest ${pullRequestKey(ref)}`, () => {
+        const found = state.pullRequests.get(pullRequestKey(ref));
+        return found === undefined
+          ? Effect.fail(new PullRequestNotFoundError(ref))
+          : Effect.succeed<PullRequestInfo>({
+              title: found.title,
+              state: found.state,
+              url: found.url,
+            });
+      }),
+    pullRequestDiff: (ref) =>
+      request(`pullRequestDiff ${pullRequestKey(ref)}`, () => {
+        const found = state.pullRequests.get(pullRequestKey(ref));
+        return found === undefined
+          ? Effect.fail(new PullRequestNotFoundError(ref))
+          : Effect.succeed(Option.fromNullishOr(found.diff));
+      }),
+    pullRequestFiles: (ref) =>
+      request(`pullRequestFiles ${pullRequestKey(ref)}`, () => {
+        const found = state.pullRequests.get(pullRequestKey(ref));
+        return found === undefined
+          ? Effect.fail(new PullRequestNotFoundError(ref))
+          : Effect.succeed(found.files);
+      }),
     attachImage: ({ owner, name }, number, image) =>
       request<string, IssueNotFoundError | GiteaUnavailableError>(
         `attachImage ${owner}/${name} ${number} ${image.name}`,
@@ -540,6 +597,10 @@ const gitea = (state: FakeState['Service']) => {
       ),
   });
 };
+
+/** How the fakes key a pull request: `<owner>/<name>#<number>`. */
+export const pullRequestKey = ({ owner, name, number }: PullRequestRef): string =>
+  `${owner}/${name}#${number}`;
 
 /** An open issue of `owner/app` with plain defaults. */
 export const fakeIssue = (overrides: Partial<Issue> & Pick<Issue, 'number'>): Issue => ({
@@ -590,6 +651,10 @@ export const fakeLayer = () => {
         giteaMarkFailure: undefined,
         giteaRefusedImages: new Set(),
         giteaCalls: [],
+        pullRequests: new Map(),
+        attachedLists: {},
+        attachedListsFailure: undefined,
+        attachedListsLoadFailure: undefined,
         docs: new Map(),
         readDocWait: undefined,
         notSetUp: undefined,
@@ -662,6 +727,23 @@ export const fakeLayer = () => {
               fake.pushes.push({ endpoint: subscription.endpoint, notification, at });
               return 'sent' as const;
             }),
+        }),
+        Context.add(PullRequestsOutbound, {
+          load: Effect.suspend(() => {
+            const reason = fake.attachedListsFailure ?? fake.attachedListsLoadFailure;
+            return reason === undefined
+              ? Effect.succeed(fake.attachedLists)
+              : Effect.fail(new PullRequestsStoreError({ reason }));
+          }),
+          save: (lists) =>
+            Effect.suspend(() =>
+              fake.attachedListsFailure === undefined
+                ? Effect.sync(() => {
+                    fake.attachedLists = lists;
+                    fake.attachedListsLoadFailure = undefined;
+                  })
+                : Effect.fail(new PullRequestsStoreError({ reason: fake.attachedListsFailure })),
+            ),
         }),
         Context.add(QuickRepliesOutbound, {
           load: Effect.suspend(() =>

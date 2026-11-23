@@ -12,6 +12,7 @@ import { tasksHandlers } from './tasks.handlers.js';
 import { healthLayer } from './health.handlers.js';
 import { imageSweepLayer, imagesHandlers } from './images.handlers.js';
 import { identityGuard, tailscaleIdentityLayer } from './identity.js';
+import { pullRequestsHandlers } from './pull-requests.handlers.js';
 import { pushHandlers, pushWatchLayer } from './push.handlers.js';
 import { quickRepliesHandlers } from './quick-replies.handlers.js';
 import { speechHandlers } from './speech.handlers.js';
@@ -39,6 +40,7 @@ export const commsApiLayer = (allowedLogin: string) =>
       pushHandlers,
       quickRepliesHandlers,
       speechHandlers,
+      pullRequestsHandlers,
     ]),
     Layer.provide(tailscaleIdentityLayer(allowedLogin)),
     Layer.provide(validationMiddlewareLayer),

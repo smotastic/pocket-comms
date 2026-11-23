@@ -1,0 +1,43 @@
+[
+  {
+    "filename": "src/theme.ts",
+    "status": "changed",
+    "additions": 2,
+    "deletions": 1,
+    "changes": 3,
+    "html_url": "http://localhost:3000/owner/app/src/commit/2222222/src/theme.ts",
+    "contents_url": "http://localhost:3000/api/v1/repos/owner/app/contents/src/theme.ts?ref=2222222",
+    "raw_url": "http://localhost:3000/owner/app/raw/commit/2222222/src/theme.ts"
+  },
+  {
+    "filename": "src/palette.ts",
+    "previous_filename": "src/colors.ts",
+    "status": "renamed",
+    "additions": 0,
+    "deletions": 0,
+    "changes": 0,
+    "html_url": "http://localhost:3000/owner/app/src/commit/2222222/src/palette.ts",
+    "contents_url": "http://localhost:3000/api/v1/repos/owner/app/contents/src/palette.ts?ref=2222222",
+    "raw_url": "http://localhost:3000/owner/app/raw/commit/2222222/src/palette.ts"
+  },
+  {
+    "filename": "docs/dark.png",
+    "status": "added",
+    "additions": 0,
+    "deletions": 0,
+    "changes": 0,
+    "html_url": "http://localhost:3000/owner/app/src/commit/2222222/docs/dark.png",
+    "contents_url": "http://localhost:3000/api/v1/repos/owner/app/contents/docs/dark.png?ref=2222222",
+    "raw_url": "http://localhost:3000/owner/app/raw/commit/2222222/docs/dark.png"
+  },
+  {
+    "filename": "old.txt",
+    "status": "deleted",
+    "additions": 0,
+    "deletions": 4,
+    "changes": 4,
+    "html_url": "http://localhost:3000/owner/app/src/commit/2222222/old.txt",
+    "contents_url": "http://localhost:3000/api/v1/repos/owner/app/contents/old.txt?ref=2222222",
+    "raw_url": "http://localhost:3000/owner/app/raw/commit/2222222/old.txt"
+  }
+]

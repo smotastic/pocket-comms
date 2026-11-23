@@ -1,4 +1,12 @@
-import type { GiteaRepository, ImageKind, Issue, IssueText } from '@pocket-comms/comms-domain';
+import type {
+  ChangedFile,
+  GiteaRepository,
+  ImageKind,
+  Issue,
+  IssueText,
+  PullRequestRef,
+  PullRequestState,
+} from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
@@ -6,6 +14,7 @@ import type {
   GiteaNotConfiguredError,
   GiteaUnavailableError,
   IssueNotFoundError,
+  PullRequestNotFoundError,
 } from '../errors.js';
 
 /** A repository on the app's Gitea, with its page there. */
@@ -26,6 +35,20 @@ export interface IssueImage {
   readonly name: string;
   readonly kind: ImageKind;
   readonly bytes: Uint8Array;
+}
+
+/** What an address names: a pull request on this Gitea, a page on another host, or neither. */
+export type PullRequestAddress =
+  | { readonly _tag: 'PullRequest'; readonly ref: PullRequestRef }
+  | { readonly _tag: 'OtherHost' }
+  | { readonly _tag: 'NotAPullRequest' };
+
+/** A pull request as Gitea has it now. */
+export interface PullRequestInfo {
+  readonly title: string;
+  readonly state: PullRequestState;
+  /** Its page in Gitea. */
+  readonly url: string;
 }
 
 /**
@@ -69,6 +92,20 @@ export class GiteaOutbound extends Context.Service<
       number: number,
       text: IssueText,
     ) => Effect.Effect<void, Failure | IssueNotFoundError>;
+    /** The pull request an address names, when the address is a pull request page of this Gitea. */
+    readonly pullRequestOf: (address: string) => PullRequestAddress;
+    readonly pullRequest: (
+      ref: PullRequestRef,
+    ) => Effect.Effect<PullRequestInfo, Failure | PullRequestNotFoundError>;
+    /** The pull request's unified diff, or none when it is longer than `maxBytes`. */
+    readonly pullRequestDiff: (
+      ref: PullRequestRef,
+      maxBytes: number,
+    ) => Effect.Effect<Option.Option<string>, Failure | PullRequestNotFoundError>;
+    /** The pull request's changed files with their counts and no lines, in Gitea's order. */
+    readonly pullRequestFiles: (
+      ref: PullRequestRef,
+    ) => Effect.Effect<ReadonlyArray<ChangedFile>, Failure | PullRequestNotFoundError>;
     /** Uploads the image as an attachment of the issue and answers its link in Gitea. */
     readonly attachImage: (
       repository: GiteaRepository,
