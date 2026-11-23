@@ -13,7 +13,7 @@ in the task's own commit.
       `pullRequestFiles` in the port, the HTTP adapter (GET only) and the fakes
   - Gate: `pnpm nx run-many -t test,test-typecheck -p comms-application comms-infrastructure`
 
-- [ ] **T03** — The lists file: `PullRequestsStoreOutbound` and the file store
+- [x] **T03** — The lists file: `PullRequestsStoreOutbound` and the file store
   - Gate: `pnpm nx run-many -t test,test-typecheck -p comms-application comms-infrastructure`
 
 - [ ] **T04** — Use case: `PullRequestsInbound` (attach, list, remove, changes) and its errors

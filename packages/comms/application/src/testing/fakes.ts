@@ -39,6 +39,7 @@ import {
   ProjectGitError,
   PushStoreError,
   QuickRepliesStoreError,
+  PullRequestsStoreError,
   ConversationUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
@@ -56,6 +57,7 @@ import {
 } from '../ports/memory.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { QuickRepliesOutbound } from '../ports/quick-replies.outbound.port.js';
+import { PullRequestsOutbound, type AttachedLists } from '../ports/pull-requests.outbound.port.js';
 import {
   PushKeysOutbound,
   PushSenderOutbound,
@@ -155,6 +157,10 @@ export class FakeState extends Context.Service<
         readonly files: ReadonlyArray<ChangedFile>;
       }
     >;
+    /** The saved attached pull requests, by session id. */
+    attachedLists: AttachedLists;
+    /** When set, the attached pull requests file fails with this reason. */
+    attachedListsFailure: string | undefined;
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
     readonly docs: Map<string, string>;
@@ -644,6 +650,8 @@ export const fakeLayer = () => {
         giteaRefusedImages: new Set(),
         giteaCalls: [],
         pullRequests: new Map(),
+        attachedLists: {},
+        attachedListsFailure: undefined,
         docs: new Map(),
         readDocWait: undefined,
         notSetUp: undefined,
@@ -716,6 +724,19 @@ export const fakeLayer = () => {
               fake.pushes.push({ endpoint: subscription.endpoint, notification, at });
               return 'sent' as const;
             }),
+        }),
+        Context.add(PullRequestsOutbound, {
+          load: Effect.suspend(() =>
+            fake.attachedListsFailure === undefined
+              ? Effect.succeed(fake.attachedLists)
+              : Effect.fail(new PullRequestsStoreError({ reason: fake.attachedListsFailure })),
+          ),
+          save: (lists) =>
+            Effect.suspend(() =>
+              fake.attachedListsFailure === undefined
+                ? Effect.sync(() => void (fake.attachedLists = lists))
+                : Effect.fail(new PullRequestsStoreError({ reason: fake.attachedListsFailure })),
+            ),
         }),
         Context.add(QuickRepliesOutbound, {
           load: Effect.suspend(() =>
