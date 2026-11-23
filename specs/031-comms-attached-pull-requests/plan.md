@@ -121,8 +121,7 @@ empty. Written to a temp file and renamed, as the other state files are.
   **Remove** `IconButton` that opens an alert-dialog `Sheet` to confirm. Picking a row closes More
   first, so only one sheet is ever open, then opens the pull request. The **More** `IconButton`
   takes the kit's new `count` with its label "More, N pull requests".
-- `PullRequestSheet`: kit `Sheet` with `side` from a width media query (`end` at ≥ 768 px, else
-  `bottom`, `size="full"`), `SheetHeader` with title, state, **Refresh** and **Open in Gitea** as header actions (the prototype showed that an `ActionBar` footer of a side sheet spreads across the page), the notice for `tooLarge`, and the kit's `CodeDiff` with the files (lines wrap). The open request lives in the route search (`?pr=owner/repo/number`), so back closes
+- `PullRequestSheet`: kit `Sheet` from the bottom, `size="full"`, at every width, `SheetHeader` with title, state, **Refresh** and **Open in Gitea** as header actions (in the sheet's header, so they stay in reach while the files scroll), the notice for `tooLarge`, and the kit's `CodeDiff` with the files (lines wrap). The open request lives in the route search (`?pr=owner/repo/number`), so back closes
   it; the conversation is not unmounted, so its scroll stays. Refresh refetches both queries with
   `placeholderData: keepPreviousData`.
 - All words are in the app (`labels.ts`); the kit component takes its labels as props.

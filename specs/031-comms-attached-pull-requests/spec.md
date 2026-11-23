@@ -76,8 +76,7 @@ and steering stay in one place.
 
 ### The changes sheet
 
-14. Tapping a row closes **More** and opens the pull request's sheet: from the bottom, at full
-    height, on a phone; from the side (`end`) on a wide screen. The conversation stays where it was under the sheet, and closing the sheet returns to
+14. Tapping a row closes **More** and opens the pull request's sheet from the bottom, at full height, at every width. The conversation stays where it was under the sheet, and closing the sheet returns to
     the same place, with its scroll position.
 15. The sheet's header shows `owner/repo #number`, the title and the state, a **Refresh** action
     and an **Open in Gitea** link to the pull request's page.
@@ -110,8 +109,7 @@ and steering stay in one place.
   be attached." and the list is unchanged.
 - Given a pull request number Gitea does not have, then the route answers `404`.
 - Given an agent without a session id, then the route answers `409`.
-- Given the owner opens **More** and taps a pull request, then **More** closes and a sheet opens over the conversation (from the bottom at
-  390 px, from the side at 1280 px) with the changed files and their hunks; closing it shows the
+- Given the owner opens **More** and taps a pull request, then **More** closes and a sheet opens over the conversation (from the bottom, at 390 px and at 1280 px) with the changed files and their hunks; closing it shows the
   conversation at the same scroll position.
 - Given the agent pushes another commit, when the owner taps **Refresh**, then the new changes show.
 - Given a pull request with a PNG and a 3,000-line generated file, then the PNG shows "Binary
@@ -130,7 +128,7 @@ and steering stay in one place.
 - **Owner's decisions of 2026-11-23:** an agent attaches through an ordinary, guarded API route,
   called from a skill with `curl` (the home server is a user-owned tailnet node, so a request to
   its own tailnet URL carries the owner's login); Claude and Pi agents, named by `HERDR_PANE_ID`;
-  the owner can remove an attached pull request; the attached pull requests are listed in the conversation's **More** menu, not pinned to the conversation (a prototype showed that a strip under the header takes too much room), with their count on the **More** button, a kit change the owner approved; the changes open in a sheet over the conversation, not in the kit's agent workspace `detail` (the prototype showed no difference on a phone, and the sheet needs no rewrite of the page); long diff lines wrap and never scroll sideways; a per-file limit of about 1,500 lines and a whole-diff limit of 2 MB;
+  the owner can remove an attached pull request; the attached pull requests are listed in the conversation's **More** menu, not pinned to the conversation (a prototype showed that a strip under the header takes too much room), with their count on the **More** button, a kit change the owner approved; the changes open in a sheet from the bottom over the conversation, at every width (the kit's side sheet is 320 px, too narrow for a diff; decided after the kit was built), not in the kit's agent workspace `detail` (the prototype showed no difference on a phone, and the sheet needs no rewrite of the page); long diff lines wrap and never scroll sideways; a per-file limit of about 1,500 lines and a whole-diff limit of 2 MB;
   the diff is drawn by a new design kit component, made first in pocket-factory.
 - The skill is the "agent-callable tool" of the issue: a skill needs no extra process and works
   for both Claude and Pi.
