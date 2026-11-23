@@ -19,7 +19,7 @@ in the task's own commit.
 - [x] **T04** — Use case: `PullRequestsInbound` (attach, list, remove, changes) and its errors
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T05** — Contract, API and composition: the four endpoints, their problems, the wiring, the
+- [x] **T05** — Contract, API and composition: the four endpoints, their problems, the wiring, the
       OpenAPI document and the accepted diff lines
   - Gate: `pnpm nx run-many -t test,test-typecheck,lint -p comms-contract comms-api comms-server`
 

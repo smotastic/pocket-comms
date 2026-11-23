@@ -29,6 +29,10 @@ import {
   PushInbound,
   PushStoreError,
   QuickRepliesInbound,
+  PullRequestsInbound,
+  PullRequestNotFoundError,
+  InvalidPullRequestError,
+  NoConversationError,
   QuestionNotWaitingError,
   QuickRepliesStoreError,
   TasksInbound,
@@ -105,6 +109,7 @@ const serve = (
   push: Partial<PushInbound['Service']> = {},
   quickReplies: Partial<QuickRepliesInbound['Service']> = {},
   speech: Partial<SpeechInbound['Service']> = {},
+  pullRequests: Partial<PullRequestsInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -121,6 +126,7 @@ const serve = (
       Layer.provide(Layer.mock(PushInbound, { watch: Effect.never, ...push })),
       Layer.provide(Layer.mock(QuickRepliesInbound, quickReplies)),
       Layer.provide(Layer.mock(SpeechInbound, speech)),
+      Layer.provide(Layer.mock(PullRequestsInbound, pullRequests)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -1499,6 +1505,142 @@ describe('the speech API', () => {
       ...voiceMessage(WEBM),
       login: null,
     });
+
+    expect(response.status).toBe(403);
+  });
+});
+
+describe('the pull requests routes', () => {
+  const only = (pullRequests: Partial<PullRequestsInbound['Service']>) =>
+    serve({}, undefined, {}, {}, {}, {}, {}, {}, {}, {}, pullRequests);
+  const attached = {
+    owner: 'smotastic',
+    name: 'pocket-comms',
+    number: 99,
+    url: 'http://localhost:3000/smotastic/pocket-comms/pulls/99',
+    title: 'feat(comms): attach pull requests',
+    state: 'open' as const,
+  };
+
+  it('attaches a pull request by its page or by its repository and number', async () => {
+    const asked: Array<unknown> = [];
+    const call = only({
+      attach: (ref, input) => Effect.sync(() => (asked.push([ref, input]), attached)),
+    });
+
+    const byUrl = await call('/api/v1/agents/w6N%3Ap1/pull-requests', json({ url: attached.url }));
+    const byNumber = await call(
+      '/api/v1/agents/kirk/pull-requests',
+      json({ repository: 'smotastic/pocket-comms', number: 99 }),
+    );
+
+    expect(byUrl.status).toBe(200);
+    expect(await byUrl.json()).toEqual(attached);
+    expect(byNumber.status).toBe(200);
+    expect(asked).toEqual([
+      ['w6N:p1', { url: attached.url }],
+      ['kirk', { repository: 'smotastic/pocket-comms', number: 99 }],
+    ]);
+  });
+
+  it('answers 422 for another host, 404 for a missing pull request and 409 without a conversation', async () => {
+    const failing = (error: unknown) =>
+      only({ attach: () => Effect.fail(error as never) })(
+        '/api/v1/agents/kirk/pull-requests',
+        json({ url: 'x' }),
+      );
+
+    const other = await failing(
+      new InvalidPullRequestError({
+        reason: "Only pull requests on this app's Gitea can be attached.",
+      }),
+    );
+    const missing = await failing(
+      new PullRequestNotFoundError({ owner: 'smotastic', name: 'pocket-comms', number: 9 }),
+    );
+    const none = await failing(new NoConversationError({ ref: 'kirk' }));
+
+    expect(other.status).toBe(422);
+    expect(await other.json()).toMatchObject({
+      errors: [
+        { field: 'url', message: "Only pull requests on this app's Gitea can be attached." },
+      ],
+    });
+    expect(missing.status).toBe(404);
+    expect(none.status).toBe(409);
+  });
+
+  it('answers 422 for a body that names no pull request, before asking the use case', async () => {
+    const call = only({ attach: () => Effect.die('not called') });
+
+    const response = await call('/api/v1/agents/kirk/pull-requests', json({ number: 0 }));
+
+    expect(response.status).toBe(422);
+  });
+
+  it('lists, removes and reads the changes of a pull request', async () => {
+    const removed: Array<unknown> = [];
+    const call = only({
+      list: () => Effect.succeed([attached]),
+      remove: (ref, pullRequest) => Effect.sync(() => void removed.push([ref, pullRequest])),
+      changes: () =>
+        Effect.succeed({
+          pullRequest: attached,
+          tooLarge: false,
+          files: [
+            {
+              path: 'a.ts',
+              kind: 'modified' as const,
+              additions: 1,
+              deletions: 0,
+              shown: {
+                kind: 'hunks' as const,
+                hunks: [
+                  {
+                    header: '@@ -1 +1,2 @@',
+                    lines: [{ kind: 'added' as const, text: 'b', new: 2 }],
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+    });
+
+    const list = await call('/api/v1/agents/kirk/pull-requests');
+    const remove = await call('/api/v1/agents/kirk/pull-requests/smotastic/pocket-comms/99', {
+      method: 'DELETE',
+    });
+    const changes = await call(
+      '/api/v1/agents/kirk/pull-requests/smotastic/pocket-comms/99/changes',
+    );
+
+    expect(await list.json()).toEqual({ pullRequests: [attached] });
+    expect(remove.status).toBe(204);
+    expect(removed).toEqual([['kirk', { owner: 'smotastic', name: 'pocket-comms', number: 99 }]]);
+    expect(changes.status).toBe(200);
+    expect(await changes.json()).toMatchObject({ tooLarge: false, files: [{ path: 'a.ts' }] });
+  });
+
+  it('answers 404 for the changes of a pull request the agent has not attached', async () => {
+    const call = only({
+      changes: (_, pullRequest) => Effect.fail(new PullRequestNotFoundError(pullRequest)),
+    });
+
+    const response = await call(
+      '/api/v1/agents/kirk/pull-requests/smotastic/pocket-comms/7/changes',
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({
+      type: 'urn:pocket-comms:problem:pull-request-not-found',
+    });
+  });
+
+  it('needs the allowed login', async () => {
+    const call = only({ list: () => Effect.die('not called') });
+
+    const response = await call('/api/v1/agents/kirk/pull-requests', { login: null });
 
     expect(response.status).toBe(403);
   });
