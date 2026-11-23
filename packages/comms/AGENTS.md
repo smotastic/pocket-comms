@@ -4,7 +4,8 @@ The backend of pocket-comms: it reads Herdr's agents and the agents' session fil
 them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, it reads,
 closes and marks in progress the projects' Gitea issues, it runs the brainstorm with Pi, which proposes new issues and edits of existing ones, it keeps the images
 the owner attaches to a prompt or a brainstorm message and attaches the chosen ones to approved issues in Gitea, it pushes a notification to the owner's devices when an agent
-needs them, and it follows the background work and the subagents of Claude agents. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
+needs them, it follows the background work and the subagents of Claude agents, and it keeps the
+pull requests agents attach to their conversation and reads their changes from Gitea. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
 [spec 005](../../specs/005-comms-new-task/spec.md),
 [spec 006](../../specs/006-comms-gitea-issues/spec.md),
 [spec 007](../../specs/007-comms-sessions-by-project/spec.md),
@@ -22,13 +23,15 @@ needs them, and it follows the background work and the subagents of Claude agent
 [spec 024](../../specs/024-comms-typed-answers/spec.md),
 [spec 025](../../specs/025-comms-quick-replies/spec.md),
 [spec 026](../../specs/026-comms-brainstorm-chat-stream/spec.md),
-[spec 027](../../specs/027-comms-brainstorm-voice/spec.md) and
-[spec 030](../../specs/030-comms-answer-questions-in-chat/spec.md).
+[spec 027](../../specs/027-comms-brainstorm-voice/spec.md),
+[spec 030](../../specs/030-comms-answer-questions-in-chat/spec.md) and
+[spec 031](../../specs/031-comms-attached-pull-requests/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, the push devices and the
-VAPID key pair are two JSON files in its `push` folder, and the owner's quick replies are
-`quick-replies.json` in the state folder.
+VAPID key pair are two JSON files in its `push` folder, the owner's quick replies are
+`quick-replies.json` in the state folder, and the agents' attached pull requests are
+`pull-requests.json` there, by the session id of each agent's conversation.
 
 ## Where each file type goes
 
@@ -43,6 +46,9 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
 | Voice message rules, the speech-to-text service                                | `@smotastic/pocket-agent` (`./speech`), wired by the server |
 | Suggested replies, the quick replies' rules and default list                   | `domain` (`src/replies.ts`)                                 |
 | The quick replies file                                                         | `infrastructure` (`src/quick-replies`)                      |
+| Pull request rules (pages, the list, the unified diff and its limits)          | `domain` (`src/pull-request.ts`)                            |
+| The attached pull requests file                                                | `infrastructure` (`src/pull-requests`)                      |
+| The agent skill that attaches a pull request                                   | `apps/comms-server/skills/comms-attach-pull-request`        |
 | The image store                                                                | `infrastructure` (`src/images`)                             |
 | Activity rules (snapshot diff, what is kept, prompt excerpts)                  | `domain` (`src/activity.ts`)                                |
 | The activity recorder and timeline                                             | `application` (`src/use-cases/activity*`)                   |
@@ -97,7 +103,7 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   reported and a read never replaces it; only the owner's next save writes over it.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
-- `GiteaOutbound` reads, and writes only `closeIssue` (spec 010), `createIssue` (spec 013),
+- `GiteaOutbound` reads (also a pull request, its `.diff` and its changed files for spec 031), and writes only `closeIssue` (spec 010), `createIssue` (spec 013),
   `markInProgress` (spec 015), `updateIssue` (spec 022) and `attachImage` (spec 023): the HTTP
   adapter sends `GET`, a `PATCH` with exactly `{"state":"closed"}`, a `PATCH` with exactly
   `{"title","body"}`, a `POST` with exactly `{"title","body"}`, a `POST` that creates the
@@ -106,6 +112,16 @@ VAPID key pair are two JSON files in its `push` folder, and the owner's quick re
   `DELETE`, and it follows no redirect. The token (`COMMS_GITEA_TOKEN`) stays in the `Authorization`
   header; never log it, put it in an error or send it to the browser. Tests use the anonymised
   fixtures in `infrastructure/src/testing/fixtures` and a local fake server, never a real token.
+- Attached pull requests (spec 031) come from agents through the guarded
+  `POST /agents/:agent/pull-requests`, which the `comms-attach-pull-request` skill calls with
+  `curl` on this machine's tailnet name: the home server is a user-owned tailnet node, so the
+  request carries the owner's login. Never add a route outside the guard for it. Only pull
+  requests on the app's Gitea are accepted (`pullRequestOf`); the list keeps the repository,
+  number, URL and time, never a title or state, which are read from Gitea each time. The diff is
+  read up to `MAX_DIFF_BYTES` and parsed in the domain (`parseUnifiedDiff`); the browser never
+  gets Gitea's token. Set the skill up once per machine, from the deployed release:
+  `ln -s ~/pocket-cloud-data/pocket-comms/current/apps/comms-server/skills/comms-attach-pull-request ~/.claude/skills/`
+  and the same into `~/.pi/agent/skills/`.
 - Closing an agent removes only a workspace that both Herdr and git know as a linked worktree of
   a project, through `worktree.remove`; never the primary checkout, never a path from a request.
   Without `force`, the server asks git for changes first and removes nothing when there are any.

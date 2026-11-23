@@ -94,6 +94,14 @@ _Avoid_: ticket, task, bug
 The worktrees and agents working on one issue's branch.
 _Avoid_: issue branch, progress
 
+**Pull request**:
+A proposed change to a project on the app's Gitea, with its changed files.
+_Avoid_: PR, MR, merge request (in prose)
+
+**Attached pull request**:
+A pull request an agent added to its conversation, so the owner can read its changes there.
+_Avoid_: linked PR, session PR
+
 ### Brainstorm
 
 **Brainstorm**:
