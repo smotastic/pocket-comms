@@ -3,17 +3,24 @@ import {
   GiteaOutbound,
   GiteaUnavailableError,
   IssueNotFoundError,
+  PullRequestNotFoundError,
   type IssueImage,
+  type PullRequestAddress,
 } from '@pocket-comms/comms-application';
 import {
   IN_PROGRESS_LABEL,
   IN_PROGRESS_LABEL_STYLE,
   isInProgressLabel,
+  parsePullRequestPath,
   parseRemote,
+  pullRequestState,
+  type ChangedFile,
+  type ChangedFileKind,
   type GiteaRepository,
   type ImageKind,
   type Issue,
   type IssueText,
+  type PullRequestRef,
 } from '@pocket-comms/comms-domain';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -25,7 +32,8 @@ import * as Schema from 'effect/Schema';
 // Gitea's REST API (`/api/v1`). It reads with `GET`, and writes only the `PATCH` that closes an
 // issue (spec 010), the `POST` that creates one (spec 013), the `POST`s that create the
 // in-progress label and add it to an issue (spec 015), the `PATCH` of an issue's title and body
-// (spec 022) and the multipart `POST` that attaches a image to an issue (spec 023). It never
+// (spec 022) and the multipart `POST` that attaches a image to an issue (spec 023). It reads pull
+// requests, their diff and their changed files for the agents' attached pull requests (spec 031). It never
 // replaces or removes labels or attachments. The
 // token travels in the `Authorization` header and nowhere else; no reason, log line or span
 // carries it (spec 006, requirement 2).
@@ -41,11 +49,15 @@ export interface HttpOptions {
   readonly timeout?: Duration.Input;
   /** How long one image upload may take. Default 60 seconds. */
   readonly uploadTimeout?: Duration.Input;
+  /** How long reading a pull request's diff may take, once Gitea answered. Default 30 seconds. */
+  readonly diffTimeout?: Duration.Input;
 }
 
 const PAGE_SIZE = 50;
 const MAX_ISSUES = 500;
 const MAX_LABEL_PAGES = 10;
+/** Gitea lists at most this many changed files of a pull request. */
+const MAX_FILES = 3000;
 
 const GiteaIssue = Schema.Struct({
   number: Schema.Int,
@@ -57,6 +69,72 @@ const GiteaIssue = Schema.Struct({
   labels: Schema.optional(Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String })))),
   pull_request: Schema.optional(Schema.NullOr(Schema.Unknown)),
 });
+const GiteaPullRequest = Schema.Struct({
+  title: Schema.String,
+  state: Schema.String,
+  merged: Schema.optional(Schema.NullOr(Schema.Boolean)),
+  html_url: Schema.String,
+});
+const GiteaChangedFile = Schema.Struct({
+  filename: Schema.String,
+  previous_filename: Schema.optional(Schema.NullOr(Schema.String)),
+  status: Schema.String,
+  additions: Schema.Int,
+  deletions: Schema.Int,
+});
+const decodePullRequest = Schema.decodeUnknownEffect(GiteaPullRequest);
+const decodeChangedFiles = Schema.decodeUnknownEffect(Schema.Array(GiteaChangedFile));
+
+// Gitea says `changed` for a modified file.
+const FILE_KINDS: Readonly<Record<string, ChangedFileKind>> = {
+  added: 'added',
+  deleted: 'deleted',
+  renamed: 'renamed',
+};
+
+const toChangedFile = (file: typeof GiteaChangedFile.Type): ChangedFile => {
+  const kind = FILE_KINDS[file.status] ?? 'modified';
+  const previous = file.previous_filename ?? undefined;
+  return {
+    path: file.filename,
+    ...(kind === 'renamed' && previous !== undefined && previous !== ''
+      ? { previousPath: previous }
+      : {}),
+    kind,
+    additions: file.additions,
+    deletions: file.deletions,
+    // The file list carries no lines; it stands in for a diff too large to read.
+    shown: { kind: 'too-large' },
+  };
+};
+
+/** The body as text, or none once it is longer than `maxBytes`; the rest is not read. */
+const textUpTo = async (
+  response: Response,
+  maxBytes: number,
+  signal: AbortSignal,
+): Promise<string | undefined> => {
+  const reader = response.body?.getReader();
+  if (reader === undefined) return '';
+  // An interrupted read, such as one past its deadline, stops the download too.
+  signal.addEventListener('abort', () => void reader.cancel().catch(() => undefined), {
+    once: true,
+  });
+  const chunks: Array<Uint8Array> = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel();
+      return undefined;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+};
+
 const GiteaLabel = Schema.Struct({ id: Schema.Int, name: Schema.String });
 const decodeLabel = Schema.decodeUnknownEffect(GiteaLabel);
 const decodeLabels = Schema.decodeUnknownEffect(Schema.Array(GiteaLabel));
@@ -86,6 +164,7 @@ export const layerHttp = ({
   hosts,
   timeout = '10 seconds',
   uploadTimeout = '60 seconds',
+  diffTimeout = '30 seconds',
 }: HttpOptions) => {
   const base = url.replace(/\/+$/u, '');
   const ownHosts = new Set(
@@ -344,6 +423,69 @@ export const layerHttp = ({
       }),
     );
 
+  const pullRequestPath = ({ owner, name, number }: PullRequestRef) =>
+    `${repositoryPath({ owner, name })}/pulls/${number}`;
+  const pullRequestSpan = (span: string, ref: PullRequestRef) =>
+    Effect.withSpan(`Gitea.${span}`, {
+      attributes: { owner: ref.owner, repository: ref.name, number: ref.number },
+    });
+  const notFound = (ref: PullRequestRef) =>
+    new PullRequestNotFoundError({ owner: ref.owner, name: ref.name, number: ref.number });
+
+  const basePath = URL.canParse(base) ? new URL(base).pathname.replace(/\/+$/u, '') : '';
+
+  const pullRequestOf = (address: string): PullRequestAddress => {
+    if (!URL.canParse(address)) return { _tag: 'NotAPullRequest' };
+    const url = new URL(address);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return { _tag: 'NotAPullRequest' };
+    if (!ownHosts.has(url.hostname.toLowerCase())) return { _tag: 'OtherHost' };
+    return Option.match(parsePullRequestPath(url.pathname, basePath), {
+      onNone: (): PullRequestAddress => ({ _tag: 'NotAPullRequest' }),
+      onSome: (ref): PullRequestAddress => ({ _tag: 'PullRequest', ref }),
+    });
+  };
+
+  const pullRequest = (ref: PullRequestRef) =>
+    Effect.gen(function* () {
+      const answer = yield* get(pullRequestPath(ref));
+      if (answer === undefined) return yield* notFound(ref);
+      const decoded = yield* decodePullRequest(answer).pipe(Effect.mapError(unknownShape));
+      return {
+        title: decoded.title,
+        state: pullRequestState(decoded.state, decoded.merged === true),
+        url: decoded.html_url,
+      };
+    }).pipe(pullRequestSpan('pullRequest', ref));
+
+  const pullRequestDiff = (ref: PullRequestRef, maxBytes: number) =>
+    Effect.gen(function* () {
+      const answer = yield* send('GET', `${pullRequestPath(ref)}.diff`);
+      if (answer === undefined) return yield* notFound(ref);
+      const text = yield* Effect.tryPromise({
+        try: (signal) => textUpTo(answer, maxBytes, signal),
+        catch: () => unavailable('Gitea stopped sending the diff.'),
+      }).pipe(
+        Effect.timeoutOrElse({
+          duration: diffTimeout,
+          orElse: () => Effect.fail(unavailable('Gitea did not send the whole diff in time.')),
+        }),
+      );
+      return Option.fromNullishOr(text);
+    }).pipe(pullRequestSpan('pullRequestDiff', ref));
+
+  const pullRequestFiles = (ref: PullRequestRef) =>
+    Effect.gen(function* () {
+      const files: Array<ChangedFile> = [];
+      for (let page = 1; files.length < MAX_FILES; page += 1) {
+        const answer = yield* get(`${pullRequestPath(ref)}/files?limit=${PAGE_SIZE}&page=${page}`);
+        if (answer === undefined) return yield* notFound(ref);
+        const decoded = yield* decodeChangedFiles(answer).pipe(Effect.mapError(unknownShape));
+        files.push(...decoded.map(toChangedFile));
+        if (decoded.length < PAGE_SIZE) break;
+      }
+      return files.slice(0, MAX_FILES);
+    }).pipe(pullRequestSpan('pullRequestFiles', ref));
+
   const repositoryOf = (remoteUrl: string) => {
     const remote = parseRemote(remoteUrl);
     return remote === undefined || !ownHosts.has(remote.host)
@@ -366,6 +508,10 @@ export const layerHttp = ({
       createIssue,
       updateIssue,
       attachImage,
+      pullRequestOf,
+      pullRequest,
+      pullRequestDiff,
+      pullRequestFiles,
     }),
   );
 };

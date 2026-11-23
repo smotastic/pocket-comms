@@ -250,6 +250,44 @@ export const problems = {
         detail: `No image ${error.id} is kept; images go after 30 days.`,
       }),
     ),
+  pullRequestNotFound: (error: {
+    readonly owner: string;
+    readonly name: string;
+    readonly number: number;
+  }) =>
+    Effect.fail(
+      notFoundProblem({
+        slug: 'pull-request-not-found',
+        title: 'Pull request not found',
+        detail: `${error.owner}/${error.name} #${error.number} is not a pull request Gitea can read, or not one attached to this agent.`,
+      }),
+    ),
+  invalidPullRequest: (error: { readonly reason: string }) =>
+    Effect.fail(validationProblem([{ field: 'url', message: error.reason }])),
+  noConversation: (error: { readonly ref: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'no-conversation',
+        title: 'The agent has no conversation',
+        detail: `${error.ref} has no conversation to attach to.`,
+      }),
+    ),
+  pullRequestListFull: (error: { readonly limit: number }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'pull-request-list-full',
+        title: 'The agent has the most pull requests it may have',
+        detail: `An agent keeps at most ${error.limit} pull requests. Remove one first.`,
+      }),
+    ),
+  pullRequestsUnavailable: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'pull-requests-unavailable',
+        title: 'The attached pull requests cannot be kept',
+        detail: error.reason,
+      }),
+    ),
   invalidInput: (error: { readonly issues: ReadonlyArray<FieldIssue> }) =>
     Effect.fail(validationProblem(error.issues)),
 };

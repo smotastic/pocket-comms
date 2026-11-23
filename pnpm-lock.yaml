@@ -40,8 +40,8 @@ catalogs:
       specifier: 0.2.6
       version: 0.2.6
     '@smotastic/pocket-design':
-      specifier: 0.40.0
-      version: 0.40.0
+      specifier: 0.42.0
+      version: 0.42.0
     '@tanstack/react-query':
       specifier: ~5.90.21
       version: 5.90.21
@@ -270,7 +270,7 @@ importers:
         version: 0.4.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(effect@4.0.0-rc.118)(supports-color@10.2.2)(ws@8.22.0)(zod@4.6.7)
       '@smotastic/pocket-design':
         specifier: 'catalog:'
-        version: 0.40.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2)
+        version: 0.42.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.21(react@19.3.1)
@@ -1831,8 +1831,8 @@ packages:
     peerDependencies:
       typescript: '>=5.9'
 
-  '@smotastic/pocket-design@0.40.0':
-    resolution: {integrity: sha512-115piZVmEAzQuRbkbQy+OtLx1uDgZ8Z82GFySdoT/yrHU2AXH9Zh2xUDzyYD/3x8fl0b8ynO5OYnbvHWRWoeJw==}
+  '@smotastic/pocket-design@0.42.0':
+    resolution: {integrity: sha512-EkJ4N8V18pZS1s88BT7NH1g17dem+pCyLavOh56+eX0J2PRXxiVKRADm1lG0vRh33EF0wcYahDgNFNTPwJf1UQ==}
     peerDependencies:
       react: ^19.3.0
       react-dom: ^19.3.0
@@ -6231,7 +6231,7 @@ snapshots:
     dependencies:
       typescript: 6.0.3
 
-  '@smotastic/pocket-design@0.40.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2)':
+  '@smotastic/pocket-design@0.42.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2)':
     dependencies:
       '@types/hast': 3.0.5
       '@types/mdast': 4.0.4

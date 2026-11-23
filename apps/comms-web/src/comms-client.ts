@@ -17,6 +17,8 @@ import {
   type Overview,
   type Project,
   type ProposalDecisionRequest,
+  type AttachedPullRequest,
+  type PullRequestChanges,
   type Subagent,
   SubagentEvent,
   type TaskCreated,
@@ -53,6 +55,16 @@ export type BrainstormEventView = typeof BrainstormEvent.Type;
 export type BrainstormEntryView = typeof BrainstormEntry.Type;
 export type ProposedIssueView = typeof ProposedIssue.Type;
 export type ProposalDecision = typeof ProposalDecisionRequest.Type;
+export type AttachedPullRequestView = typeof AttachedPullRequest.Type;
+export type PullRequestChangesView = typeof PullRequestChanges.Type;
+export type ChangedFileView = PullRequestChangesView['files'][number];
+
+/** A pull request by its repository and number. */
+export interface PullRequestRef {
+  readonly owner: string;
+  readonly name: string;
+  readonly number: number;
+}
 
 /** Stops a live subscription. */
 export type Unsubscribe = () => void;
@@ -66,6 +78,15 @@ export type OnLive = (live: boolean) => void;
  */
 export interface CommsClient {
   readonly overview: () => Promise<OverviewView>;
+  /** The pull requests attached to the agent (spec 031), with their title and state now. */
+  readonly pullRequests: (ref: string) => Promise<ReadonlyArray<AttachedPullRequestView>>;
+  /** The changed files of an attached pull request, read from Gitea now. */
+  readonly pullRequestChanges: (
+    ref: string,
+    pullRequest: PullRequestRef,
+  ) => Promise<PullRequestChangesView>;
+  /** Removes the pull request from the agent's list; Gitea does not change. */
+  readonly removePullRequest: (ref: string, pullRequest: PullRequestRef) => Promise<void>;
   readonly agent: (ref: string) => Promise<AgentView>;
   readonly conversation: (ref: string) => Promise<ConversationView>;
   /** A subagent of the agent's session, with its own conversation. */
@@ -280,9 +301,18 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     throw new RequestError(messageOf(error), statusOf(error), issuesOf(error), problemOf(error));
   };
   const agent = (ref: string) => ({ params: { agent: ref } });
+  const pullRequest = (ref: string, { owner, name, number }: PullRequestRef) => ({
+    params: { agent: ref, owner, repository: name, number: String(number) },
+  });
 
   return {
     overview: () => run((api) => api.agents.overview()),
+    pullRequests: (ref) =>
+      run((api) => api.pullRequests.list(agent(ref))).then((list) => list.pullRequests),
+    pullRequestChanges: (ref, request) =>
+      run((api) => api.pullRequests.changes(pullRequest(ref, request))),
+    removePullRequest: (ref, request) =>
+      run((api) => api.pullRequests.remove(pullRequest(ref, request))).then(() => undefined),
     agent: (ref) => run((api) => api.agents.agent(agent(ref))),
     conversation: (ref) => run((api) => api.agents.conversation(agent(ref))),
     subagent: (ref, id) =>

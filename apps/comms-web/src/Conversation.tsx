@@ -17,9 +17,11 @@ import {
   VoiceClipRow,
   withoutSent,
 } from '@smotastic/pocket-design';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { AgentView, CommsClient, Key } from './comms-client.js';
+import type { AgentView, CommsClient, Key, PullRequestRef } from './comms-client.js';
+import { pullRequestId } from './pull-requests.js';
+import { PullRequestSheet } from './PullRequestSheet.js';
 import { RequestError } from './comms-client.js';
 import { AttachedImages } from './AttachedImages.js';
 import { BackgroundStrip } from './BackgroundStrip.js';
@@ -27,9 +29,11 @@ import { useAttachments } from './attachments.js';
 import { delegationLink, stripItems } from './background.js';
 import { ConversationEntries } from './ConversationEntries.js';
 import { CloseAgent } from './CloseAgent.js';
-import { ConversationMenu } from './ConversationMenu.js';
+import { ConversationMenu, type MenuPullRequests } from './ConversationMenu.js';
 import {
   agentQuery,
+  pullRequestsKey,
+  pullRequestsQuery,
   quickRepliesQuery,
   screenQuery,
   speechQuery,
@@ -53,6 +57,10 @@ export interface ConversationProps {
    * shown; one that ends while it is open still says that it is not running any more.
    */
   readonly onGone?: (() => void) | undefined;
+  /** The attached pull request whose changes are shown, from the route (spec 031). */
+  readonly shownPullRequest?: PullRequestRef | undefined;
+  /** Shows a pull request's changes, or none to close them. */
+  readonly onShowPullRequest?: (pullRequest: PullRequestRef | undefined) => void;
 }
 
 type View = 'conversation' | 'screen';
@@ -92,8 +100,11 @@ const Header = ({
   onView,
   onBack,
   onClose,
+  pullRequests,
 }: {
   readonly agent: AgentView | undefined;
+  /** The agent's attached pull requests, in the More menu (spec 031). */
+  readonly pullRequests?: MenuPullRequests;
   readonly view: View;
   readonly onView: (view: View) => void;
   readonly onBack: () => void;
@@ -119,6 +130,7 @@ const Header = ({
             />
           )}
           <ConversationMenu
+            {...(pullRequests === undefined ? {} : { pullRequests })}
             {...(agent?.worktree === undefined || onClose === undefined
               ? {}
               : { close: { label: `Close ${agent.ref}`, onClose } })}
@@ -141,12 +153,30 @@ const Header = ({
  * agent is blocked. The keys wait under Controls, so the question keeps the room, and the owner's
  * quick replies open from the composer's Actions menu. It updates live.
  */
-export const Conversation = ({ client, agentRef, onBack, note, onGone }: ConversationProps) => {
+export const Conversation = ({
+  client,
+  agentRef,
+  onBack,
+  note,
+  onGone,
+  shownPullRequest,
+  onShowPullRequest = () => undefined,
+}: ConversationProps) => {
   useAgentLive(client, agentRef);
   const now = useNow(60_000);
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(false);
+  const pullRequests = useQuery(pullRequestsQuery(client, agentRef));
+  const queryClient = useQueryClient();
+  const menuPullRequests: MenuPullRequests = {
+    list: pullRequests.data ?? [],
+    onOpen: onShowPullRequest,
+    onRemove: async (pullRequest) => {
+      await client.removePullRequest(agentRef, pullRequest);
+      await queryClient.invalidateQueries({ queryKey: pullRequestsKey(agentRef) });
+    },
+  };
   const agentResult = useQuery(agentQuery(client, agentRef));
   const agent = agentResult.data;
   const hasConversation = agent?.format !== undefined;
@@ -383,6 +413,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           onView={setChosen}
           onBack={onBack}
           onClose={() => setClosing(true)}
+          pullRequests={menuPullRequests}
         />
       }
       footer={
@@ -531,6 +562,17 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           </>
         )}
       </Stack>
+      <PullRequestSheet
+        client={client}
+        agentRef={agentRef}
+        pullRequest={shownPullRequest}
+        listed={pullRequests.data?.find(
+          (listed) =>
+            shownPullRequest !== undefined &&
+            pullRequestId(listed) === pullRequestId(shownPullRequest),
+        )}
+        onClose={() => onShowPullRequest(undefined)}
+      />
       <QuickReplies
         open={repliesOpen}
         onClose={() => setRepliesOpen(false)}

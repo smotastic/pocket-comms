@@ -6,6 +6,7 @@ import {
   HerdrOutbound,
   ImagesInbound,
   IssuesInbound,
+  PullRequestsInbound,
   PushInbound,
   QuickRepliesInbound,
   SpeechInbound,
@@ -18,6 +19,7 @@ import {
   Herdr,
   Images,
   Projects,
+  PullRequests,
   Push,
   QuickReplies,
   Seen,
@@ -58,7 +60,7 @@ export interface ServerOptions {
   readonly gitea: Gitea.HttpOptions;
   /**
    * The folder of the server's stored state: the brainstorm (spec 013), images (spec 014),
-   * the activity timeline (spec 017), push devices (spec 018) and quick replies (spec 025).
+   * the activity timeline (spec 017), push devices (spec 018), quick replies (spec 025) and the attached pull requests (spec 031).
    */
   readonly stateDir: string;
   /** The speech-to-text service of voice messages; none leaves them off. */
@@ -94,6 +96,7 @@ export const services = ({
     Push.layer({ stateDir, subject: PUSH_SUBJECT }),
     Activity.layerFile({ folder: stateDir }),
     QuickReplies.layerFile({ folder: stateDir }),
+    PullRequests.layerFile({ folder: stateDir }),
     speech === undefined ? layerTranscriberNotSetUp : layerOpenAiTranscriber(speech),
     Seen.layerMemory,
     StatusHistory.layerMemory,
@@ -121,6 +124,7 @@ export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
       ActivityInbound.layer,
       QuickRepliesInbound.layer,
       SpeechInbound.layer,
+      PullRequestsInbound.layer,
     ]),
     Layer.provideMerge(services(adapters)),
   );
