@@ -62,20 +62,26 @@ describe('parseRepositoryName', () => {
 });
 
 describe('attachTo', () => {
-  const at = (number: number): AttachedPullRequestRef => ({ ...ref(number), attachedAt: number });
+  const at = (number: number): AttachedPullRequestRef => ({
+    ...ref(number),
+    url: `http://gitea.test/smotastic/pocket-comms/pulls/${number}`,
+    attachedAt: number,
+  });
 
   it('appends a new pull request', () => {
-    expect(attachTo([at(1)], ref(2), 2)).toEqual(Result.succeed([at(1), at(2)]));
+    expect(attachTo([at(1)], at(2))).toEqual(Result.succeed([at(1), at(2)]));
   });
 
   it('keeps the list as it is for one that is attached already', () => {
-    expect(attachTo([at(1), at(2)], ref(1), 9)).toEqual(Result.succeed([at(1), at(2)]));
+    expect(attachTo([at(1), at(2)], { ...at(1), attachedAt: 9 })).toEqual(
+      Result.succeed([at(1), at(2)]),
+    );
   });
 
   it('refuses one more than the limit', () => {
     const full = Array.from({ length: MAX_ATTACHED_PULL_REQUESTS }, (_, index) => at(index + 1));
-    expect(Result.isFailure(attachTo(full, ref(99), 0))).toBe(true);
-    expect(attachTo(full, ref(1), 0)).toEqual(Result.succeed(full));
+    expect(Result.isFailure(attachTo(full, at(99)))).toBe(true);
+    expect(attachTo(full, at(1))).toEqual(Result.succeed(full));
   });
 
   it('tells pull requests apart by repository and number', () => {

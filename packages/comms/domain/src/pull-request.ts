@@ -13,8 +13,9 @@ export interface PullRequestRef extends GiteaRepository {
   readonly number: number;
 }
 
-/** A pull request in an agent's list, with when it was attached (epoch milliseconds). */
+/** A pull request in an agent's list, with its page and when it was attached (epoch milliseconds). */
 export interface AttachedPullRequestRef extends PullRequestRef {
+  readonly url: string;
   readonly attachedAt: number;
 }
 
@@ -82,17 +83,13 @@ export const parseRepositoryName = (
  */
 export const attachTo = (
   list: ReadonlyArray<AttachedPullRequestRef>,
-  ref: PullRequestRef,
-  now: number,
+  attached: AttachedPullRequestRef,
 ): Result.Result<ReadonlyArray<AttachedPullRequestRef>, PullRequestListFullError> => {
-  if (list.some((attached) => samePullRequest(attached, ref))) return Result.succeed(list);
+  if (list.some((entry) => samePullRequest(entry, attached))) return Result.succeed(list);
   if (list.length >= MAX_ATTACHED_PULL_REQUESTS) {
     return Result.fail(new PullRequestListFullError({ limit: MAX_ATTACHED_PULL_REQUESTS }));
   }
-  return Result.succeed([
-    ...list,
-    { owner: ref.owner, name: ref.name, number: ref.number, attachedAt: now },
-  ]);
+  return Result.succeed([...list, attached]);
 };
 
 export type PullRequestState = 'open' | 'merged' | 'closed';

@@ -95,6 +95,12 @@ export {
   PushSubscriptionsOutbound,
   type PushOutcome,
 } from './ports/push.outbound.port.js';
+export { PullRequestsInbound } from './ports/pull-requests.inbound.port.js';
+export type {
+  AttachedPullRequestDto,
+  AttachPullRequestInput,
+  PullRequestChangesDto,
+} from './dto/pull-request.dto.js';
 export { QuickRepliesInbound } from './ports/quick-replies.inbound.port.js';
 export { QuickRepliesOutbound } from './ports/quick-replies.outbound.port.js';
 export { PullRequestsOutbound, type AttachedLists } from './ports/pull-requests.outbound.port.js';

@@ -134,8 +134,7 @@ and steering stay in one place.
   the diff is drawn by a new design kit component, made first in pocket-factory.
 - The skill is the "agent-callable tool" of the issue: a skill needs no extra process and works
   for both Claude and Pi.
-- Title and state are read live, so they are never stale; only the repository, the number and the
-  time of attaching are stored.
+- Title and state are read live, so they are never stale; only the repository, the number, the Gitea URL (so the link works while Gitea cannot be read) and the time of attaching are stored.
 - Gitea's word is **pull request**; the issue's "PR/MR" means the same.
 - New endpoints and response shapes add OpenAPI diff lines, accepted in `.pocket-ci`.
 

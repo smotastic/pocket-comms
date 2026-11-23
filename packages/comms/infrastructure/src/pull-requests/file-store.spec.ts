@@ -13,8 +13,20 @@ const store = (path: string) =>
 
 const lists = {
   'session-1': [
-    { owner: 'smotastic', name: 'pocket-comms', number: 99, attachedAt: 1 },
-    { owner: 'smotastic', name: 'pocket-factory', number: 3, attachedAt: 2 },
+    {
+      owner: 'smotastic',
+      name: 'pocket-comms',
+      number: 99,
+      url: 'http://gitea.test/smotastic/pocket-comms/pulls/99',
+      attachedAt: 1,
+    },
+    {
+      owner: 'smotastic',
+      name: 'pocket-factory',
+      number: 3,
+      url: 'http://gitea.test/smotastic/pocket-factory/pulls/3',
+      attachedAt: 2,
+    },
   ],
 };
 

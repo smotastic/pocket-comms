@@ -35,7 +35,7 @@ Compatible within `/api/v1`: four new endpoints in the `agents` group, nothing c
 
 ```ts
 AttachedPullRequest = {
-  owner: string; repo: string; number: int; url: string;
+  owner: string; name: string; number: int; url: string;
   // Absent when Gitea cannot read it now; then `unavailable` says why.
   title?: string; state?: 'open' | 'merged' | 'closed'; unavailable?: string;
 }
@@ -60,14 +60,14 @@ positive int. The `agent` param is the existing one; the skill URL-encodes `HERD
 ## 3. Migrations
 
 No database. A new state file, `<state>/pull-requests.json`:
-`{ version: 1, agents: { [sessionId]: Array<{ owner, repo, number, attachedAt }> } }`. Absent means
+`{ version: 1, agents: { [sessionId]: Array<{ owner, name, number, url, attachedAt }> } }`. Absent means
 empty. Written to a temp file and renamed, as the other state files are.
 
 ## 4. Design
 
 ### Domain (`pull-request.ts`)
 
-- `PullRequestRef = { owner, repo, number }`; `refKey` for equality.
+- `PullRequestRef = { owner, name, number }` (as `GiteaRepository`); `samePullRequest` for equality.
 - `parsePullRequestPath(pathname)`: `/<owner>/<repo>/pulls/<n>` with optional trailing segments
   (`/files`, `/commits`) and slash → `Option<PullRequestRef>`. The host check stays in the
   adapter, which knows the Gitea URL and hosts (as `repositoryOf` does).

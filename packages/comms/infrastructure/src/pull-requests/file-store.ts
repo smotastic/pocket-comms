@@ -22,6 +22,7 @@ const Attached = Schema.Struct({
   owner: Schema.String,
   name: Schema.String,
   number: Schema.Int,
+  url: Schema.String,
   attachedAt: Schema.Number,
 });
 

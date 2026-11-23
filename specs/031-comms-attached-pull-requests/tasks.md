@@ -16,7 +16,7 @@ in the task's own commit.
 - [x] **T03** — The lists file: `PullRequestsStoreOutbound` and the file store
   - Gate: `pnpm nx run-many -t test,test-typecheck -p comms-application comms-infrastructure`
 
-- [ ] **T04** — Use case: `PullRequestsInbound` (attach, list, remove, changes) and its errors
+- [x] **T04** — Use case: `PullRequestsInbound` (attach, list, remove, changes) and its errors
   - Gate: `pnpm nx test comms-application`
 
 - [ ] **T05** — Contract, API and composition: the four endpoints, their problems, the wiring, the
