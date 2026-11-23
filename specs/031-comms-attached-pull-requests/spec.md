@@ -1,6 +1,6 @@
 # Spec 031 — pocket-comms: pull requests attached to an agent, with their changes
 
-- **Status:** `Approved` — approved by the owner (2026-11-23)
+- **Status:** `Done` — approved by the owner (2026-11-23), checked live (2026-11-23)
 - **Issue:** smotastic/pocket-comms#98
 - **Depends on:** pocket-factory spec 025: the design kit's `CodeDiff` component and a count on `IconButton`, released and taken here as a catalog bump
 
