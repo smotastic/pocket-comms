@@ -1,12 +1,14 @@
 import {
   Activity,
   Alert,
+  AgentTask,
   AppBar,
   Card,
   Composer,
   type ComposerAction,
   Disclosure,
   DockedPage,
+  type Hue,
   IconButton,
   SegmentedControl,
   Stack,
@@ -30,6 +32,7 @@ import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu } from './ConversationMenu.js';
 import {
   agentQuery,
+  projectsQuery,
   quickRepliesQuery,
   screenQuery,
   speechQuery,
@@ -38,6 +41,7 @@ import {
 import { KeyPad } from './KeyPad.js';
 import { QuickReplies, SuggestedReplies } from './QuickReplies.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
+import { projectHue, projectLabel } from './rows.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
 import { voiceLabels, voiceNotice } from './voice.js';
@@ -88,12 +92,15 @@ const isKey = (value: string): value is Key =>
 
 const Header = ({
   agent,
+  hue,
   view,
   onView,
   onBack,
   onClose,
 }: {
   readonly agent: AgentView | undefined;
+  /** The color of the agent's project, as on the overview. */
+  readonly hue?: Hue;
   readonly view: View;
   readonly onView: (view: View) => void;
   readonly onBack: () => void;
@@ -127,10 +134,7 @@ const Header = ({
       }
     />
     {agent === undefined ? null : (
-      <Text tone="muted" size="sm" truncate>
-        {kindOf(agent.kind).label}
-        {agent.cwd === undefined ? '' : ` · ${agent.cwd}`}
-      </Text>
+      <AgentTask project={projectLabel(agent)} hue={hue ?? 'neutral'} title={agent.title} />
     )}
   </Stack>
 );
@@ -166,6 +170,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
       pendingEntry.outcome === 'pending' &&
       pendingEntry.questions !== undefined);
   const quickReplies = useQuery(quickRepliesQuery(client));
+  const projects = useQuery(projectsQuery(client));
   const screen = useQuery({
     ...screenQuery(client, agentRef),
     enabled: agent !== undefined && (view === 'screen' || dialogWaits),
@@ -379,6 +384,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
       header={
         <Header
           agent={agent}
+          hue={projectHue(agent.project, projects.data?.map((project) => project.name) ?? [])}
           view={view}
           onView={setChosen}
           onBack={onBack}
