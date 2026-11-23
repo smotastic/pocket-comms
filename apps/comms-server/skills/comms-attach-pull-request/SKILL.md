@@ -40,7 +40,8 @@ The first line is the HTTP status, then the body.
   one line, such as "Attached owner/repo #12 to this conversation in pocket-comms."
 - `422`: the address is not a pull request on the app's Gitea. Its `errors[0].message` says why.
 - `404`: Gitea has no such pull request, or the app cannot read it; or the agent is unknown.
-- `409`: this agent has no conversation, or already has 20 pull requests attached.
+- `409`: this agent has no conversation, already has 20 pull requests attached, or the server has
+  no Gitea token set up.
 - `403`: the request did not come through the owner's tailnet login.
 - `503`: Gitea or the server's state cannot be reached now.
 
