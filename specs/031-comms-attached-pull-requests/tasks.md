@@ -23,8 +23,8 @@ in the task's own commit.
       OpenAPI document and the accepted diff lines
   - Gate: `pnpm nx run-many -t test,test-typecheck,lint -p comms-contract comms-api comms-server`
 
-- [ ] **T06** — The agent skill `comms-attach-pull-request`, copied into the server's `dist`
-  - Gate: `pnpm nx run-many -t build -p comms-server`
+- [x] **T06** — The agent skill `comms-attach-pull-request` in the server's tree
+  - Gate: `pnpm format:check`; checked live in T09
 
 - [ ] **T07** — Web: the client and queries; the pull requests in More with the count; remove
       (needs the kit 0.42.0 catalog bump)

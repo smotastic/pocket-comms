@@ -12,7 +12,7 @@
 | `packages/comms/infrastructure` | `gitea/http.ts`: the reads (`GET` only). A new `pull-requests/file-store.ts`: `<state>/pull-requests.json`, written atomically.                                                                                                                            | `scope:comms`, `layer:infrastructure` |
 | `packages/comms/contract`       | `AttachPullRequestRequest`, `AttachedPullRequest`, `AttachedPullRequests`, `PullRequestChanges`; four endpoints in the `agents` group.                                                                                                                     | `scope:comms`, `type:contract`        |
 | `packages/comms/api`            | The four handlers and the error mapping.                                                                                                                                                                                                                   | `scope:comms`, `layer:api`            |
-| `apps/comms-server`             | Wires the file store; the regenerated OpenAPI document; the skill at `apps/comms-server/skills/comms-attach-pull-request/SKILL.md`, copied into `dist` by the build.                                                                                       | `scope:comms`, `type:app`             |
+| `apps/comms-server`             | Wires the file store; the regenerated OpenAPI document; the skill at `apps/comms-server/skills/comms-attach-pull-request/SKILL.md`, linked from the deployed release's tree.                                                                               | `scope:comms`, `type:app`             |
 | `apps/comms-web`                | `CommsClient` methods and queries; the pull requests in `ConversationMenu` with their count on its button; a `PullRequestSheet` composing the kit's `Sheet`, `SheetHeader` and `CodeDiff`.                                                                 | `scope:comms`, `type:app`             |
 | `pnpm-workspace.yaml`           | The catalog bump of `@smotastic/pocket-design` to the release with the code diff component.                                                                                                                                                                | —                                     |
 | `packages/comms/AGENTS.md`      | Names spec 031, the new Gitea reads and the skill's one-time setup.                                                                                                                                                                                        | —                                     |
@@ -140,8 +140,7 @@ curl -sS -X POST "$base/api/v1/agents/$(jq -rn --arg p "$HERDR_PANE_ID" '$p|@uri
 ```
 
 how to read `200` and a problem's `detail`, and to stop and tell the owner on a refusal. It runs
-only inside Herdr (`HERDR_PANE_ID` set); outside, it says so. The build copies `skills/` to
-`dist/skills/`; `AGENTS.md` gives the two `ln -s` lines for the deployed release.
+only inside Herdr (`HERDR_PANE_ID` set); outside, it says so. The deployed release holds the whole repository, so the skill is linked from its tree with no build step; `AGENTS.md` gives the two `ln -s` lines.
 
 ## 5. Test strategy
 
