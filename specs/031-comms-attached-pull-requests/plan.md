@@ -1,7 +1,7 @@
 # Plan 031 — pocket-comms: pull requests attached to an agent, with their changes
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Draft` — spec and plan await one human approval
+- **Status:** `Approved` — approved with the spec by the owner (2026-11-23)
 
 ## 1. Affected projects
 
