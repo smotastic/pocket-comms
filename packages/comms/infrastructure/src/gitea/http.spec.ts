@@ -802,4 +802,48 @@ describe('Gitea.layerHttp', () => {
       ]);
     }).pipe(Effect.scoped),
   );
+
+  it.live('gives up on a diff that stalls half way, and says so', () =>
+    Effect.gen(function* () {
+      const stalled = yield* Effect.acquireRelease(
+        Effect.callback<{ readonly url: string; close: () => void }>((resume) => {
+          const server = createServer((_request, response) => {
+            response.writeHead(200, { 'content-type': 'text/plain' });
+            // Headers and the start of the body, then nothing more.
+            response.write('diff --git a/a b/a\n');
+          });
+          server.listen(0, '127.0.0.1', () => {
+            const { port } = server.address() as AddressInfo;
+            resume(
+              Effect.succeed({
+                url: `http://127.0.0.1:${port}`,
+                close: () => {
+                  server.closeAllConnections();
+                  server.close();
+                },
+              }),
+            );
+          });
+        }),
+        (server) => Effect.sync(() => server.close()),
+      );
+
+      const error = yield* GiteaOutbound.use((gitea) =>
+        gitea.pullRequestDiff({ owner: 'owner', name: 'app', number: 7 }, 4096).pipe(Effect.flip),
+      ).pipe(
+        Effect.provide(
+          layerHttp({
+            url: stalled.url,
+            token: Option.some(Redacted.make(TOKEN)),
+            hosts: [],
+            diffTimeout: '200 millis',
+          }),
+        ),
+      );
+
+      expect(error).toEqual(
+        new GiteaUnavailableError({ reason: 'Gitea did not send the whole diff in time.' }),
+      );
+    }).pipe(Effect.scoped),
+  );
 });

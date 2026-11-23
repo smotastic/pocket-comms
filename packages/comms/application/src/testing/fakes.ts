@@ -161,6 +161,8 @@ export class FakeState extends Context.Service<
     attachedLists: AttachedLists;
     /** When set, the attached pull requests file fails with this reason. */
     attachedListsFailure: string | undefined;
+    /** When set, only reading the attached pull requests file fails, until the next save. */
+    attachedListsLoadFailure: string | undefined;
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
     readonly docs: Map<string, string>;
@@ -652,6 +654,7 @@ export const fakeLayer = () => {
         pullRequests: new Map(),
         attachedLists: {},
         attachedListsFailure: undefined,
+        attachedListsLoadFailure: undefined,
         docs: new Map(),
         readDocWait: undefined,
         notSetUp: undefined,
@@ -726,15 +729,19 @@ export const fakeLayer = () => {
             }),
         }),
         Context.add(PullRequestsOutbound, {
-          load: Effect.suspend(() =>
-            fake.attachedListsFailure === undefined
+          load: Effect.suspend(() => {
+            const reason = fake.attachedListsFailure ?? fake.attachedListsLoadFailure;
+            return reason === undefined
               ? Effect.succeed(fake.attachedLists)
-              : Effect.fail(new PullRequestsStoreError({ reason: fake.attachedListsFailure })),
-          ),
+              : Effect.fail(new PullRequestsStoreError({ reason }));
+          }),
           save: (lists) =>
             Effect.suspend(() =>
               fake.attachedListsFailure === undefined
-                ? Effect.sync(() => void (fake.attachedLists = lists))
+                ? Effect.sync(() => {
+                    fake.attachedLists = lists;
+                    fake.attachedListsLoadFailure = undefined;
+                  })
                 : Effect.fail(new PullRequestsStoreError({ reason: fake.attachedListsFailure })),
             ),
         }),

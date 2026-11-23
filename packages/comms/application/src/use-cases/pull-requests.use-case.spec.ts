@@ -189,16 +189,25 @@ describe('PullRequestsInbound.attach', () => {
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect('keeps a broken file as it is', () =>
+  it.effect('writes over a broken file on the next attach', () =>
     Effect.gen(function* () {
       const state = yield* arrange;
       state.attachedListsFailure = 'pull-requests.json is not readable';
-
-      const error = yield* attach('kirk', { url: url(7) }).pipe(Effect.flip);
-
-      expect(error).toEqual(
+      const listed = yield* PullRequestsInbound.use((inbound) => inbound.list('kirk')).pipe(
+        Effect.flip,
+      );
+      expect(listed).toEqual(
         new PullRequestsStoreError({ reason: 'pull-requests.json is not readable' }),
       );
+
+      // The fake fails its load only; a save goes through and the next load reads it.
+      state.attachedListsFailure = undefined;
+      state.attachedListsLoadFailure = 'pull-requests.json is not readable';
+      yield* attach('kirk', { url: url(7) });
+
+      expect(state.attachedLists).toEqual({
+        'session-1': [{ ...pr(7), url: url(7), attachedAt: 0 }],
+      });
     }).pipe(Effect.provide(layer())),
   );
 

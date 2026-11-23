@@ -49,6 +49,8 @@ export interface HttpOptions {
   readonly timeout?: Duration.Input;
   /** How long one image upload may take. Default 60 seconds. */
   readonly uploadTimeout?: Duration.Input;
+  /** How long reading a pull request's diff may take, once Gitea answered. Default 30 seconds. */
+  readonly diffTimeout?: Duration.Input;
 }
 
 const PAGE_SIZE = 50;
@@ -107,9 +109,17 @@ const toChangedFile = (file: typeof GiteaChangedFile.Type): ChangedFile => {
 };
 
 /** The body as text, or none once it is longer than `maxBytes`; the rest is not read. */
-const textUpTo = async (response: Response, maxBytes: number): Promise<string | undefined> => {
+const textUpTo = async (
+  response: Response,
+  maxBytes: number,
+  signal: AbortSignal,
+): Promise<string | undefined> => {
   const reader = response.body?.getReader();
   if (reader === undefined) return '';
+  // An interrupted read, such as one past its deadline, stops the download too.
+  signal.addEventListener('abort', () => void reader.cancel().catch(() => undefined), {
+    once: true,
+  });
   const chunks: Array<Uint8Array> = [];
   let size = 0;
   for (;;) {
@@ -154,6 +164,7 @@ export const layerHttp = ({
   hosts,
   timeout = '10 seconds',
   uploadTimeout = '60 seconds',
+  diffTimeout = '30 seconds',
 }: HttpOptions) => {
   const base = url.replace(/\/+$/u, '');
   const ownHosts = new Set(
@@ -451,9 +462,14 @@ export const layerHttp = ({
       const answer = yield* send('GET', `${pullRequestPath(ref)}.diff`);
       if (answer === undefined) return yield* notFound(ref);
       const text = yield* Effect.tryPromise({
-        try: () => textUpTo(answer, maxBytes),
+        try: (signal) => textUpTo(answer, maxBytes, signal),
         catch: () => unavailable('Gitea stopped sending the diff.'),
-      });
+      }).pipe(
+        Effect.timeoutOrElse({
+          duration: diffTimeout,
+          orElse: () => Effect.fail(unavailable('Gitea did not send the whole diff in time.')),
+        }),
+      );
       return Option.fromNullishOr(text);
     }).pipe(pullRequestSpan('pullRequestDiff', ref));
 

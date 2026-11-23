@@ -21,11 +21,13 @@ PR_URL='http://localhost:3000/<owner>/<repo>/pulls/<number>'
 if [ -z "${HERDR_PANE_ID:-}" ]; then echo 'Not inside Herdr: nothing to attach to.'; else
   base="${COMMS_URL:-https://$(tailscale status --json | jq -r '.Self.DNSName | rtrimstr(".")')}"
   agent="$(jq -rn --arg pane "$HERDR_PANE_ID" '$pane | @uri')"
-  curl -sS -o /tmp/comms-attach.json -w '%{http_code}\n' -X POST \
+  # The answer stays in this shell, so agents attaching at once never read each other's.
+  answer="$(curl -sS -w '\n%{http_code}' -X POST \
     "$base/api/v1/agents/$agent/pull-requests" \
     -H 'content-type: application/json' \
-    -d "$(jq -n --arg url "$PR_URL" '{url: $url}')"
-  cat /tmp/comms-attach.json; echo
+    -d "$(jq -n --arg url "$PR_URL" '{url: $url}')")"
+  echo "${answer##*$'\n'}"
+  echo "${answer%$'\n'*}"
 fi
 ```
 

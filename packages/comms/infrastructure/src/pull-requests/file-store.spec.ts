@@ -64,4 +64,16 @@ describe('the attached pull requests file store', () => {
       expect(readFileSync(join(path, 'pull-requests.json'), 'utf-8')).toBe('{"version":9}');
     }),
   );
+
+  it.effect('writes over a broken file on a save', () =>
+    Effect.gen(function* () {
+      const path = folder();
+      mkdirSync(path, { recursive: true });
+      writeFileSync(join(path, 'pull-requests.json'), '{"version":9}');
+
+      yield* (yield* store(path)).save(lists);
+
+      expect(yield* (yield* store(path)).load).toEqual(lists);
+    }),
+  );
 });

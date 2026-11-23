@@ -68,6 +68,17 @@ export const makePullRequests = Effect.gen(function* () {
   const listOf = (session: string) =>
     store.load.pipe(Effect.map((lists) => ({ lists, list: lists[session] ?? [] })));
 
+  // A change starts from the saved lists, or from none when the file is broken: a read never
+  // replaces a broken file, only the next attach or removal writes over it (requirement 6).
+  const listToChange = (session: string) =>
+    listOf(session).pipe(
+      Effect.catchTag('PullRequestsStoreError', (error) =>
+        Effect.logWarning(`Writing over the attached pull requests: ${error.reason}`).pipe(
+          Effect.as({ lists: {}, list: [] }),
+        ),
+      ),
+    );
+
   const refOf = Effect.fn('PullRequests.refOf')(function* (input: AttachPullRequestInput) {
     if ('url' in input) {
       const address = giteaOutbound.pullRequestOf(input.url.trim());
@@ -95,7 +106,7 @@ export const makePullRequests = Effect.gen(function* () {
     const entry: AttachedPullRequestRef = { ...plain(pullRequest), url: info.url, attachedAt: now };
     yield* writing.withPermits(1)(
       Effect.gen(function* () {
-        const { lists, list } = yield* listOf(session.value);
+        const { lists, list } = yield* listToChange(session.value);
         const next = yield* Effect.fromResult(attachTo(list, entry));
         if (next !== list) yield* store.save({ ...lists, [session.value]: next });
       }),
@@ -140,7 +151,7 @@ export const makePullRequests = Effect.gen(function* () {
     if (Option.isNone(session)) return;
     yield* writing.withPermits(1)(
       Effect.gen(function* () {
-        const { lists, list: attached } = yield* listOf(session.value);
+        const { lists, list: attached } = yield* listToChange(session.value);
         const next = attached.filter((entry) => !samePullRequest(entry, pullRequest));
         if (next.length !== attached.length) {
           yield* store.save({ ...lists, [session.value]: next });
