@@ -26,11 +26,11 @@ in the task's own commit.
 - [x] **T06** — The agent skill `comms-attach-pull-request` in the server's tree
   - Gate: `pnpm format:check`; checked live in T09
 
-- [ ] **T07** — Web: the client and queries; the pull requests in More with the count; remove
+- [x] **T07** — Web: the client and queries; the pull requests in More with the count; remove
       (needs the kit 0.42.0 catalog bump)
   - Gate: `pnpm nx test comms-web`
 
-- [ ] **T08** — Web: the changes sheet with `CodeDiff`, Refresh, Open in Gitea and the notices
+- [x] **T08** — Web: the changes sheet with `CodeDiff`, Refresh, Open in Gitea and the notices
   - Gate: `pnpm nx test comms-web`
 
 - [ ] **T09** — Docs and live check: the service guide, the glossary, the skill set up on the

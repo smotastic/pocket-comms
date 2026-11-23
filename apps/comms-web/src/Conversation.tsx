@@ -17,9 +17,10 @@ import {
   VoiceClipRow,
   withoutSent,
 } from '@smotastic/pocket-design';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { AgentView, CommsClient, Key } from './comms-client.js';
+import type { AgentView, AttachedPullRequestView, CommsClient, Key } from './comms-client.js';
+import { PullRequestSheet } from './PullRequestSheet.js';
 import { RequestError } from './comms-client.js';
 import { AttachedImages } from './AttachedImages.js';
 import { BackgroundStrip } from './BackgroundStrip.js';
@@ -27,9 +28,11 @@ import { useAttachments } from './attachments.js';
 import { delegationLink, stripItems } from './background.js';
 import { ConversationEntries } from './ConversationEntries.js';
 import { CloseAgent } from './CloseAgent.js';
-import { ConversationMenu } from './ConversationMenu.js';
+import { ConversationMenu, type MenuPullRequests } from './ConversationMenu.js';
 import {
   agentQuery,
+  pullRequestsKey,
+  pullRequestsQuery,
   quickRepliesQuery,
   screenQuery,
   speechQuery,
@@ -92,8 +95,11 @@ const Header = ({
   onView,
   onBack,
   onClose,
+  pullRequests,
 }: {
   readonly agent: AgentView | undefined;
+  /** The agent's attached pull requests, in the More menu (spec 031). */
+  readonly pullRequests?: MenuPullRequests;
   readonly view: View;
   readonly onView: (view: View) => void;
   readonly onBack: () => void;
@@ -119,6 +125,7 @@ const Header = ({
             />
           )}
           <ConversationMenu
+            {...(pullRequests === undefined ? {} : { pullRequests })}
             {...(agent?.worktree === undefined || onClose === undefined
               ? {}
               : { close: { label: `Close ${agent.ref}`, onClose } })}
@@ -147,6 +154,17 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(false);
+  const [shownPullRequest, setShownPullRequest] = useState<AttachedPullRequestView>();
+  const pullRequests = useQuery(pullRequestsQuery(client, agentRef));
+  const queryClient = useQueryClient();
+  const menuPullRequests: MenuPullRequests = {
+    list: pullRequests.data ?? [],
+    onOpen: setShownPullRequest,
+    onRemove: async (pullRequest) => {
+      await client.removePullRequest(agentRef, pullRequest);
+      await queryClient.invalidateQueries({ queryKey: pullRequestsKey(agentRef) });
+    },
+  };
   const agentResult = useQuery(agentQuery(client, agentRef));
   const agent = agentResult.data;
   const hasConversation = agent?.format !== undefined;
@@ -383,6 +401,7 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           onView={setChosen}
           onBack={onBack}
           onClose={() => setClosing(true)}
+          pullRequests={menuPullRequests}
         />
       }
       footer={
@@ -531,6 +550,12 @@ export const Conversation = ({ client, agentRef, onBack, note, onGone }: Convers
           </>
         )}
       </Stack>
+      <PullRequestSheet
+        client={client}
+        agentRef={agentRef}
+        pullRequest={shownPullRequest}
+        onClose={() => setShownPullRequest(undefined)}
+      />
       <QuickReplies
         open={repliesOpen}
         onClose={() => setRepliesOpen(false)}
