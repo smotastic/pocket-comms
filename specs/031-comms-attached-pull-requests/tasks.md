@@ -9,7 +9,7 @@ in the task's own commit.
       `attachTo`, `parseUnifiedDiff` with the per-file limit, `PullRequestState`
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T02** — Gitea reads: `pullRequestOf`, `pullRequest`, `pullRequestDiff` (bounded) and
+- [x] **T02** — Gitea reads: `pullRequestOf`, `pullRequest`, `pullRequestDiff` (bounded) and
       `pullRequestFiles` in the port, the HTTP adapter (GET only) and the fakes
   - Gate: `pnpm nx run-many -t test,test-typecheck -p comms-application comms-infrastructure`
 

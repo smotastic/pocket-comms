@@ -4,6 +4,7 @@ import {
   GiteaOutbound,
   GiteaUnavailableError,
   IssueNotFoundError,
+  PullRequestNotFoundError,
 } from '@pocket-comms/comms-application';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
@@ -20,6 +21,12 @@ const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(join(import.meta.dirname, '..', 'testing', 'fixtures', name), 'utf8'));
 const listed = fixture('gitea-issues.json') as ReadonlyArray<Record<string, unknown>>;
 const closed = fixture('gitea-issue-closed.json');
+const pull = fixture('gitea-pull-request.json') as Record<string, unknown>;
+const pullFiles = fixture('gitea-pull-files.json') as ReadonlyArray<Record<string, unknown>>;
+const pullDiff = readFileSync(
+  join(import.meta.dirname, '..', 'testing', 'fixtures', 'gitea-pull-request.diff'),
+  'utf8',
+);
 
 const TOKEN = 'secret-token-0123456789';
 
@@ -626,6 +633,173 @@ describe('Gitea.layerHttp', () => {
         `Gitea cannot be reached at ${gitea.url}`,
       );
       expect(JSON.stringify(error)).not.toContain(TOKEN);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('names the pull request of a page on this Gitea, and tells other hosts apart', () =>
+    withGitea('http://localhost:3000/', (gitea) =>
+      Effect.sync(() => {
+        expect(
+          gitea.pullRequestOf('http://localhost:3000/smotastic/pocket-comms/pulls/99'),
+        ).toEqual({
+          _tag: 'PullRequest',
+          ref: { owner: 'smotastic', name: 'pocket-comms', number: 99 },
+        });
+        expect(gitea.pullRequestOf('https://GITEA/a/b/pulls/3/files')).toEqual({
+          _tag: 'PullRequest',
+          ref: { owner: 'a', name: 'b', number: 3 },
+        });
+        expect(gitea.pullRequestOf('https://github.com/a/b/pull/3')).toEqual({ _tag: 'OtherHost' });
+        expect(gitea.pullRequestOf('http://localhost:3000/a/b/issues/3')).toEqual({
+          _tag: 'NotAPullRequest',
+        });
+        expect(gitea.pullRequestOf('not a url')).toEqual({ _tag: 'NotAPullRequest' });
+        expect(gitea.pullRequestOf('ftp://localhost:3000/a/b/pulls/3')).toEqual({
+          _tag: 'NotAPullRequest',
+        });
+      }),
+    ),
+  );
+
+  it.effect('reads a pull request page below the path Gitea is served at', () =>
+    withGitea('http://example.test/git/', (gitea) =>
+      Effect.sync(() => {
+        expect(gitea.pullRequestOf('http://example.test/git/a/b/pulls/3')).toEqual({
+          _tag: 'PullRequest',
+          ref: { owner: 'a', name: 'b', number: 3 },
+        });
+        expect(gitea.pullRequestOf('http://example.test/a/b/pulls/3')).toEqual({
+          _tag: 'NotAPullRequest',
+        });
+      }),
+    ),
+  );
+
+  const pullRoute =
+    (diff: string = pullDiff, merged = false, files = pullFiles): Route =>
+    (url) => {
+      if (url.pathname === '/api/v1/repos/owner/app/pulls/7') {
+        return {
+          status: 200,
+          body: merged ? { ...pull, state: 'closed', merged: true } : pull,
+        };
+      }
+      if (url.pathname === '/api/v1/repos/owner/app/pulls/7.diff')
+        return { status: 200, body: diff };
+      if (url.pathname === '/api/v1/repos/owner/app/pulls/7/files') {
+        const page = Number(url.searchParams.get('page'));
+        const limit = Number(url.searchParams.get('limit'));
+        return { status: 200, body: files.slice((page - 1) * limit, page * limit) };
+      }
+      return { status: 404, body: { message: 'The target couldn’t be found.' } };
+    };
+  const pr = { owner: 'owner', name: 'app', number: 7 };
+
+  it.live('reads a pull request with GET, and says merged for a merged one', () =>
+    Effect.gen(function* () {
+      const open = yield* fakeGitea(pullRoute());
+      const merged = yield* fakeGitea(pullRoute(pullDiff, true));
+
+      const found = yield* withGitea(open.url, (outbound) => outbound.pullRequest(pr));
+      const done = yield* withGitea(merged.url, (outbound) => outbound.pullRequest(pr));
+      const missing = yield* withGitea(open.url, (outbound) =>
+        outbound.pullRequest({ ...pr, number: 8 }).pipe(Effect.flip),
+      );
+
+      expect(found).toEqual({
+        title: 'feat: dark mode',
+        state: 'open',
+        url: 'http://localhost:3000/owner/app/pulls/7',
+      });
+      expect(done.state).toBe('merged');
+      expect(missing).toEqual(new PullRequestNotFoundError({ ...pr, number: 8 }));
+      expect(open.seen).toEqual([
+        { method: 'GET', url: '/api/v1/repos/owner/app/pulls/7', authorization: `token ${TOKEN}` },
+        { method: 'GET', url: '/api/v1/repos/owner/app/pulls/8', authorization: `token ${TOKEN}` },
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('reads the diff of a pull request, and none over the limit', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea(pullRoute('x'.repeat(5000)));
+      const small = yield* fakeGitea(pullRoute());
+
+      const diff = yield* withGitea(small.url, (outbound) => outbound.pullRequestDiff(pr, 4096));
+      const over = yield* withGitea(gitea.url, (outbound) => outbound.pullRequestDiff(pr, 4096));
+      const missing = yield* withGitea(small.url, (outbound) =>
+        outbound.pullRequestDiff({ ...pr, number: 8 }, 4096).pipe(Effect.flip),
+      );
+
+      expect(diff).toEqual(Option.some(pullDiff));
+      expect(over).toEqual(Option.none());
+      expect(missing._tag).toBe('PullRequestNotFoundError');
+      expect(small.seen[0]).toEqual({
+        method: 'GET',
+        url: '/api/v1/repos/owner/app/pulls/7.diff',
+        authorization: `token ${TOKEN}`,
+      });
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('reads the changed files of every page, with their kinds and counts', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea(pullRoute());
+
+      const files = yield* withGitea(gitea.url, (outbound) => outbound.pullRequestFiles(pr));
+
+      expect(files).toEqual([
+        {
+          path: 'src/theme.ts',
+          kind: 'modified',
+          additions: 2,
+          deletions: 1,
+          shown: { kind: 'too-large' },
+        },
+        {
+          path: 'src/palette.ts',
+          previousPath: 'src/colors.ts',
+          kind: 'renamed',
+          additions: 0,
+          deletions: 0,
+          shown: { kind: 'too-large' },
+        },
+        {
+          path: 'docs/dark.png',
+          kind: 'added',
+          additions: 0,
+          deletions: 0,
+          shown: { kind: 'too-large' },
+        },
+        {
+          path: 'old.txt',
+          kind: 'deleted',
+          additions: 0,
+          deletions: 4,
+          shown: { kind: 'too-large' },
+        },
+      ]);
+      expect(gitea.seen.map((request) => [request.method, request.url])).toEqual([
+        ['GET', '/api/v1/repos/owner/app/pulls/7/files?limit=50&page=1'],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('reads the changed files until a short page', () =>
+    Effect.gen(function* () {
+      const many = Array.from({ length: 60 }, (_, index) => ({
+        ...pullFiles[0],
+        filename: `f${index}.ts`,
+      }));
+      const gitea = yield* fakeGitea(pullRoute(pullDiff, false, many));
+
+      const files = yield* withGitea(gitea.url, (outbound) => outbound.pullRequestFiles(pr));
+
+      expect(files).toHaveLength(60);
+      expect(gitea.seen.map((request) => request.url)).toEqual([
+        '/api/v1/repos/owner/app/pulls/7/files?limit=50&page=1',
+        '/api/v1/repos/owner/app/pulls/7/files?limit=50&page=2',
+      ]);
     }).pipe(Effect.scoped),
   );
 });

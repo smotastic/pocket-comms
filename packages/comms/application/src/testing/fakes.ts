@@ -2,8 +2,11 @@ import {
   type ActivityEvent,
   IN_PROGRESS_LABEL,
   OTHER_GROUP,
+  parsePullRequestPath,
   parseRemote,
   type Agent,
+  type ChangedFile,
+  type PullRequestRef,
   type BackgroundItem,
   type Issue,
   type Notification,
@@ -31,6 +34,7 @@ import {
   GiteaUnavailableError,
   HerdrRejectedError,
   IssueNotFoundError,
+  PullRequestNotFoundError,
   HerdrUnavailableError,
   ProjectGitError,
   PushStoreError,
@@ -42,7 +46,7 @@ import {
   BrainstormStoreOutbound,
   type StoredBrainstorm,
 } from '../ports/brainstorm-store.outbound.port.js';
-import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
+import { GiteaOutbound, type PullRequestInfo } from '../ports/gitea.outbound.port.js';
 import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
 import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
 import {
@@ -140,6 +144,17 @@ export class FakeState extends Context.Service<
     /** The names of the images the fake Gitea refuses to attach. */
     readonly giteaRefusedImages: Set<string>;
     /** Every Gitea request, as `<method> <owner>/<name> [<number>]`. */
+    /**
+     * The pull requests of every Gitea repository, by `<owner>/<name>#<number>`, with their diff;
+     * a diff of `undefined` is one over the limit.
+     */
+    readonly pullRequests: Map<
+      string,
+      PullRequestInfo & {
+        readonly diff: string | undefined;
+        readonly files: ReadonlyArray<ChangedFile>;
+      }
+    >;
     readonly giteaCalls: Array<string>;
     /** The top-level docs of every project, by `<project>/<file>`. */
     readonly docs: Map<string, string>;
@@ -521,6 +536,40 @@ const gitea = (state: FakeState['Service']) => {
         issues[index] = { ...found, title, body };
         return Effect.void;
       }),
+    pullRequestOf: (address) => {
+      if (!URL.canParse(address)) return { _tag: 'NotAPullRequest' };
+      const url = new URL(address);
+      if (url.hostname !== 'gitea.test') return { _tag: 'OtherHost' };
+      return Option.match(parsePullRequestPath(url.pathname), {
+        onNone: () => ({ _tag: 'NotAPullRequest' }) as const,
+        onSome: (ref) => ({ _tag: 'PullRequest', ref }) as const,
+      });
+    },
+    pullRequest: (ref) =>
+      request(`pullRequest ${pullRequestKey(ref)}`, () => {
+        const found = state.pullRequests.get(pullRequestKey(ref));
+        return found === undefined
+          ? Effect.fail(new PullRequestNotFoundError(ref))
+          : Effect.succeed<PullRequestInfo>({
+              title: found.title,
+              state: found.state,
+              url: found.url,
+            });
+      }),
+    pullRequestDiff: (ref) =>
+      request(`pullRequestDiff ${pullRequestKey(ref)}`, () => {
+        const found = state.pullRequests.get(pullRequestKey(ref));
+        return found === undefined
+          ? Effect.fail(new PullRequestNotFoundError(ref))
+          : Effect.succeed(Option.fromNullishOr(found.diff));
+      }),
+    pullRequestFiles: (ref) =>
+      request(`pullRequestFiles ${pullRequestKey(ref)}`, () => {
+        const found = state.pullRequests.get(pullRequestKey(ref));
+        return found === undefined
+          ? Effect.fail(new PullRequestNotFoundError(ref))
+          : Effect.succeed(found.files);
+      }),
     attachImage: ({ owner, name }, number, image) =>
       request<string, IssueNotFoundError | GiteaUnavailableError>(
         `attachImage ${owner}/${name} ${number} ${image.name}`,
@@ -540,6 +589,10 @@ const gitea = (state: FakeState['Service']) => {
       ),
   });
 };
+
+/** How the fakes key a pull request: `<owner>/<name>#<number>`. */
+export const pullRequestKey = ({ owner, name, number }: PullRequestRef): string =>
+  `${owner}/${name}#${number}`;
 
 /** An open issue of `owner/app` with plain defaults. */
 export const fakeIssue = (overrides: Partial<Issue> & Pick<Issue, 'number'>): Issue => ({
@@ -590,6 +643,7 @@ export const fakeLayer = () => {
         giteaMarkFailure: undefined,
         giteaRefusedImages: new Set(),
         giteaCalls: [],
+        pullRequests: new Map(),
         docs: new Map(),
         readDocWait: undefined,
         notSetUp: undefined,

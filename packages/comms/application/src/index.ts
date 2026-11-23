@@ -39,7 +39,11 @@ export {
   IssueChangedError,
   IssueClosedError,
   IssueNotFoundError,
+  InvalidPullRequestError,
+  NoConversationError,
   NoGiteaRemoteError,
+  PullRequestNotFoundError,
+  PullRequestsStoreError,
   NotAWorktreeError,
   ProjectGitError,
   ProjectNotFoundError,
@@ -78,6 +82,8 @@ export {
   type CreatedIssue,
   type IssueImage,
   type LinkedRepository,
+  type PullRequestAddress,
+  type PullRequestInfo,
 } from './ports/gitea.outbound.port.js';
 export { ImagesInbound } from './ports/images.inbound.port.js';
 export { ImagesOutbound, type StoredImage } from './ports/images.outbound.port.js';
