@@ -657,6 +657,81 @@
         "required": ["owner", "name", "number", "url"],
         "type": "object"
       },
+      "AttachedPullRequest_1": {
+        "additionalProperties": false,
+        "description": "The pull request, with its title and state read from Gitea now.",
+        "examples": [
+          {
+            "name": "pocket-comms",
+            "number": 99,
+            "owner": "smotastic",
+            "state": "open",
+            "title": "feat(comms): attach pull requests to an agent",
+            "url": "http://localhost:3000/smotastic/pocket-comms/pulls/99"
+          }
+        ],
+        "properties": {
+          "name": {
+            "description": "The repository's name.",
+            "examples": ["pocket-comms"],
+            "type": "string"
+          },
+          "number": {
+            "description": "The pull request's number.",
+            "examples": [99],
+            "type": "integer"
+          },
+          "owner": {
+            "description": "The repository's owner.",
+            "examples": ["smotastic"],
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "enum": ["open", "merged", "closed"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pull request's state, read from Gitea now; absent when it is unavailable.",
+            "examples": ["open"]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pull request's title, read from Gitea now; absent when it is unavailable.",
+            "examples": ["feat(comms): attach pull requests to an agent"]
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why Gitea cannot read the pull request now.",
+            "examples": ["Gitea cannot be reached at http://localhost:3000: connect ECONNREFUSED."]
+          },
+          "url": {
+            "description": "The pull request's page on Gitea.",
+            "examples": ["http://localhost:3000/smotastic/pocket-comms/pulls/99"],
+            "type": "string"
+          }
+        },
+        "required": ["owner", "name", "number", "url"],
+        "type": "object"
+      },
       "AttachedPullRequests": {
         "additionalProperties": false,
         "description": "An agent's attached pull requests.",
@@ -2044,7 +2119,7 @@
             "type": "array"
           },
           "pullRequest": {
-            "$ref": "#/components/schemas/AttachedPullRequest"
+            "$ref": "#/components/schemas/AttachedPullRequest_1"
           },
           "tooLarge": {
             "description": "The diff was too large to read, so the files come from Gitea's list and show no lines.",

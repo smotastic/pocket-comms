@@ -1915,7 +1915,19 @@ export const ChangedFile = Schema.Struct({
 }).annotate({ identifier: 'ChangedFile', description: 'One changed file of a pull request.' });
 
 export const PullRequestChanges = Schema.Struct({
-  pullRequest: AttachedPullRequest,
+  pullRequest: AttachedPullRequest.annotate({
+    description: 'The pull request, with its title and state read from Gitea now.',
+    examples: [
+      {
+        owner: 'smotastic',
+        name: 'pocket-comms',
+        number: 99,
+        url: 'http://localhost:3000/smotastic/pocket-comms/pulls/99',
+        title: 'feat(comms): attach pull requests to an agent',
+        state: 'open',
+      },
+    ],
+  }),
   tooLarge: Schema.Boolean.annotate({
     description:
       "The diff was too large to read, so the files come from Gitea's list and show no lines.",
