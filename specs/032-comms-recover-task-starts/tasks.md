@@ -33,7 +33,7 @@ in the task's own commit.
       problems, the wiring, the OpenAPI document and the accepted diff lines
   - Gate: `pnpm nx run-many -t test,test-typecheck,lint -p comms-contract comms-api comms-server`
 
-- [ ] **T08** — Web: the client and queries; `TaskStartCard` in the conversation in place of the
+- [x] **T08** — Web: the client and queries; `TaskStartCard` in the conversation in place of the
       note
   - Gate: `pnpm nx run-many -t test,lint -p comms-web`
 

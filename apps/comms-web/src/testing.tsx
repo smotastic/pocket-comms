@@ -25,6 +25,10 @@ import {
   type SubagentEventView,
   type SubagentView,
   type TaskCreatedView,
+  type TaskStartSend,
+  type TaskStartSentView,
+  type TaskStartView,
+  type AgentToStart,
   type ConversationView,
 } from './comms-client.js';
 import { ImageHandlingContext, UnreadableImageError, type ImageHandling } from './attachments.js';
@@ -114,6 +118,12 @@ export interface FakeState {
   quickReplies: ReadonlyArray<string>;
   /** A failure for the next save of the quick replies. */
   saveQuickRepliesFailure?: RequestError;
+  /** Each agent's task start by its ref, and with `?issue` the one its issue's task makes. */
+  readonly taskStarts: Map<string, TaskStartView>;
+  /** What the next send of a task start answers, or a failure. */
+  taskStartSent: TaskStartSentView | RequestError;
+  /** What the next Start an agent here answers. */
+  startedInWorktree: TaskCreatedView | RequestError;
 }
 
 /**
@@ -149,6 +159,9 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     brainstormLog: [],
     activity: { events: [] },
     quickReplies: ['Go ahead', 'Commit and open a PR'],
+    taskStarts: new Map(),
+    taskStartSent: { delivery: 'delivered' },
+    startedInWorktree: { workspace: 'w5', branch: 'fix/12-login', path: '/worktrees/fix-12-login' },
     ...initial,
   };
   const calls = {
@@ -183,6 +196,9 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     pullRequestReads: [] as Array<string>,
     changesReads: [] as Array<string>,
     removedPullRequests: [] as Array<[string, string]>,
+    taskStartSends: [] as Array<[string, TaskStartSend]>,
+    dismissedTaskStarts: [] as Array<string>,
+    startedInWorktree: [] as Array<[string, number, string, AgentToStart]>,
   };
   const brainstormFollowers = new Set<(event: BrainstormEventView) => void>();
   const failBrainstorm = () => {
@@ -291,6 +307,25 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       );
       if (state.implemented instanceof RequestError) throw state.implemented;
       return state.implemented;
+    },
+    taskStart: async (ref, fromIssue) => state.taskStarts.get(fromIssue ? `${ref}?issue` : ref),
+    sendTaskStart: async (ref, send) => {
+      calls.taskStartSends.push([ref, send]);
+      if (state.taskStartSent instanceof RequestError) throw state.taskStartSent;
+      if (state.taskStartSent.delivery === 'delivered') {
+        state.taskStarts.delete(ref);
+        state.taskStarts.delete(`${ref}?issue`);
+      }
+      return state.taskStartSent;
+    },
+    dismissTaskStart: async (ref) => {
+      calls.dismissedTaskStarts.push(ref);
+      state.taskStarts.delete(ref);
+    },
+    startAgentInWorktree: async (project, number, branch, kind) => {
+      calls.startedInWorktree.push([project, number, branch, kind]);
+      if (state.startedInWorktree instanceof RequestError) throw state.startedInWorktree;
+      return state.startedInWorktree;
     },
     closeIssue: async (project, number) => {
       calls.closed.push([project, number]);
