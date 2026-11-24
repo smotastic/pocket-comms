@@ -16,7 +16,7 @@ in the task's own commit.
 - [x] **T03** — The starts file: `TaskStartsStoreOutbound`, the file store and the fake
   - Gate: `pnpm nx run-many -t test,test-typecheck -p comms-application comms-infrastructure`
 
-- [ ] **T04** — `HerdrOutbound.openShell` and `openWorktree` in the port, the socket adapter and
+- [x] **T04** — `HerdrOutbound.openShell` and `openWorktree` in the port, the socket adapter and
       the fake
   - Gate: `pnpm nx run-many -t test,test-typecheck -p comms-application comms-infrastructure`
 

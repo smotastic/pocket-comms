@@ -82,6 +82,8 @@ export interface HerdrCall {
     | 'typeText'
     | 'sendKeys'
     | 'createWorktree'
+    | 'openWorktree'
+    | 'openShell'
     | 'removeWorktree'
     | 'startAgent';
   readonly target?: string;
@@ -318,6 +320,19 @@ const herdr = (state: FakeState['Service']) => {
         paneId: `w-${request.branch}:p1`,
         path: `/worktrees/${request.branch.replaceAll('/', '-')}`,
         branch: request.branch,
+      })),
+    // A worktree opens as the workspace that already has its checkout, else as `w-<folder>`.
+    openWorktree: (opening) =>
+      command({ method: 'openWorktree', target: opening.path, params: opening }, () => {
+        const open = state.workspaces.find((workspace) => workspace.checkout === opening.path);
+        const workspaceId = open?.id ?? `w-${opening.path}`;
+        return { workspaceId, paneId: `${workspaceId}:p1`, alreadyOpen: open !== undefined };
+      }),
+    // Every new shell is the workspace's pane `p9`.
+    openShell: (workspaceId) =>
+      command({ method: 'openShell', target: workspaceId }, () => ({
+        workspaceId,
+        paneId: `${workspaceId}:p9`,
       })),
     removeWorktree: (removal) =>
       command(

@@ -116,6 +116,12 @@ const WorktreeCreated = Schema.Struct({
   root_pane: Schema.Struct({ pane_id: Schema.String }),
   worktree: Schema.Struct({ path: Schema.String, branch: optionalString }),
 });
+const WorktreeOpened = Schema.Struct({
+  workspace: Schema.Struct({ workspace_id: Schema.String }),
+  root_pane: Schema.Struct({ pane_id: Schema.String }),
+  already_open: Schema.optional(Schema.NullOr(Schema.Boolean)),
+});
+const TabCreated = Schema.Struct({ root_pane: Schema.Struct({ pane_id: Schema.String }) });
 // `agent.start` and `agent.get` both answer with the agent's status and whether it takes input.
 const AgentStarted = Schema.Struct({
   agent: Schema.Struct({
@@ -482,6 +488,33 @@ export const layerSocket = ({
             branch: result.worktree.branch ?? branch,
           })),
           Effect.withSpan('Herdr.createWorktree'),
+        ),
+      // Opens a worktree git already has; `trust_repository` is never sent.
+      openWorktree: ({ cwd, path: checkout }) =>
+        request(
+          'worktree.open',
+          { cwd, path: checkout, focus: false },
+          WorktreeOpened,
+          checkout,
+          '60 seconds',
+        ).pipe(
+          Effect.map((result) => ({
+            workspaceId: result.workspace.workspace_id,
+            paneId: result.root_pane.pane_id,
+            alreadyOpen: result.already_open === true,
+          })),
+          Effect.withSpan('Herdr.openWorktree'),
+        ),
+      // A new tab's shell starts in the workspace's checkout.
+      openShell: (workspaceId) =>
+        request(
+          'tab.create',
+          { workspace_id: workspaceId, focus: false },
+          TabCreated,
+          workspaceId,
+        ).pipe(
+          Effect.map((result) => ({ workspaceId, paneId: result.root_pane.pane_id })),
+          Effect.withSpan('Herdr.openShell'),
         ),
       // Herdr removes the checkout folder and closes the workspace; the branch stays.
       // `trust_repository` is never sent: the owner decides

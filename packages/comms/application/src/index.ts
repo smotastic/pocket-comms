@@ -74,7 +74,9 @@ export {
   type AgentStart,
   type CreatedWorktree,
   type HerdrSnapshot,
+  type OpenedPane,
   type StartedAgent,
+  type WorktreeOpening,
   type WorktreeRemoval,
   type WorktreeRequest,
 } from './ports/herdr.outbound.port.js';
