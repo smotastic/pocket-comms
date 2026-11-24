@@ -37,6 +37,7 @@ import {
   projectsQuery,
   pullRequestsKey,
   pullRequestsQuery,
+  taskStartQuery,
   quickRepliesQuery,
   screenQuery,
   speechQuery,
@@ -48,6 +49,7 @@ import { kindOf, STATUS_LABELS } from './labels.js';
 import { projectHue, projectLabel } from './rows.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
+import { TaskStartCard } from './TaskStartCard.js';
 import { voiceLabels, voiceNotice } from './voice.js';
 
 export interface ConversationProps {
@@ -56,6 +58,8 @@ export interface ConversationProps {
   readonly onBack: () => void;
   /** What the New task flow could not do for this agent, such as send the task (spec 005). */
   readonly note?: string | undefined;
+  /** Offer the issue's task in the Task not sent card, from Send the issue's task… (spec 032). */
+  readonly fromIssue?: boolean;
   /**
    * Called once, in place of saying so, when the agent turns out to be gone before it was ever
    * shown; one that ends while it is open still says that it is not running any more.
@@ -162,6 +166,7 @@ export const Conversation = ({
   agentRef,
   onBack,
   note,
+  fromIssue = false,
   onGone,
   shownPullRequest,
   onShowPullRequest = () => undefined,
@@ -172,6 +177,7 @@ export const Conversation = ({
   const [controlsOpen, setControlsOpen] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(false);
   const pullRequests = useQuery(pullRequestsQuery(client, agentRef));
+  const taskStart = useQuery(taskStartQuery(client, agentRef, fromIssue));
   const queryClient = useQueryClient();
   const menuPullRequests: MenuPullRequests = {
     list: pullRequests.data ?? [],
@@ -539,11 +545,13 @@ export const Conversation = ({
       }
     >
       <Stack gap="md">
-        {note === undefined ? null : (
+        {/* The card carries what the start's note said, and keeps it after a reload. */}
+        {note === undefined || taskStart.data !== null ? null : (
           <div role="status">
             <Text tone="muted">{note}</Text>
           </div>
         )}
+        <TaskStartCard client={client} agentRef={agentRef} fromIssue={fromIssue} />
         {view === 'screen' ? (
           <TerminalScreen label={`Screen of ${name}`} text={screenText} />
         ) : (

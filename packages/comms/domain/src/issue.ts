@@ -42,6 +42,8 @@ export interface Worktree {
 /** A worktree on an issue's branch, and the live agents in it. */
 export interface IssueWork {
   readonly branch: string;
+  /** The worktree folder. */
+  readonly path: string;
   readonly agents: ReadonlyArray<Agent>;
 }
 
@@ -203,6 +205,7 @@ export const workOnIssues = (
     if (number === undefined || worktree.branch === undefined) continue;
     const entry: IssueWork = {
       branch: worktree.branch,
+      path: worktree.path,
       agents: agents.filter((agent) => isIn(agent.cwd, worktree.path)),
     };
     work.set(number, [...(work.get(number) ?? []), entry]);

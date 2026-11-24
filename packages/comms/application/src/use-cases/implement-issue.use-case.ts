@@ -52,12 +52,15 @@ export const makeImplementIssue = Effect.gen(function* () {
     const issue = yield* giteaOutbound.issue(repository.value, input.number);
     if (issue.pull) return yield* new IssueNotFoundError({ number: input.number });
     if (issue.state !== 'open') return yield* new IssueClosedError({ number: input.number });
-    const created = yield* create({
-      project: project.name,
-      task: issueTask(issue, additionalInformation.success),
-      branch: input.branch,
-      agent: 'claude',
-    });
+    const created = yield* create(
+      {
+        project: project.name,
+        task: issueTask(issue, additionalInformation.success),
+        branch: input.branch,
+        agent: 'claude',
+      },
+      issue.number,
+    );
     if (hasInProgressLabel(issue)) return { ...created, markNote: undefined };
     const markNote = yield* giteaOutbound.markInProgress(repository.value, issue.number).pipe(
       Effect.as(undefined),

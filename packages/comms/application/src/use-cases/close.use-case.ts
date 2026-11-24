@@ -2,11 +2,13 @@ import * as Effect from 'effect/Effect';
 import { NotAWorktreeError, WorktreeHasChangesError } from '../errors.js';
 import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
+import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
 import { makeLoadAgents } from './agents.js';
 
 export const makeClose = Effect.gen(function* () {
   const herdrOutbound = yield* HerdrOutbound;
   const projectsOutbound = yield* ProjectsOutbound;
+  const starts = yield* TaskStartsOutbound;
   const { find } = yield* makeLoadAgents;
 
   /**
@@ -34,6 +36,16 @@ export const makeClose = Effect.gen(function* () {
       return yield* new WorktreeHasChangesError({ ref });
     }
     yield* herdrOutbound.removeWorktree({ workspaceId: workspace.id, force });
+    // The closed agent's task start goes with it (spec 032); a file that fails is only logged.
+    yield* starts
+      .forget(checkout)
+      .pipe(
+        Effect.catch((error) =>
+          Effect.logWarning('Task start not forgotten').pipe(
+            Effect.annotateLogs({ folder: checkout, reason: error.reason }),
+          ),
+        ),
+      );
   });
 
   return { close };

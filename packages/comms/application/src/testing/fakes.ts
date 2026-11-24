@@ -6,6 +6,7 @@ import {
   parseRemote,
   type Agent,
   type ChangedFile,
+  type TaskStart,
   type PullRequestRef,
   type BackgroundItem,
   type Issue,
@@ -40,6 +41,7 @@ import {
   PushStoreError,
   QuickRepliesStoreError,
   PullRequestsStoreError,
+  TaskStartsStoreError,
   ConversationUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
@@ -58,6 +60,7 @@ import {
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { QuickRepliesOutbound } from '../ports/quick-replies.outbound.port.js';
 import { PullRequestsOutbound, type AttachedLists } from '../ports/pull-requests.outbound.port.js';
+import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
 import {
   PushKeysOutbound,
   PushSenderOutbound,
@@ -79,6 +82,8 @@ export interface HerdrCall {
     | 'typeText'
     | 'sendKeys'
     | 'createWorktree'
+    | 'openWorktree'
+    | 'openShell'
     | 'removeWorktree'
     | 'startAgent';
   readonly target?: string;
@@ -130,6 +135,8 @@ export class FakeState extends Context.Service<
     readonly badBranchNames: Set<string>;
     /** What the next `startAgent` reports. */
     started: StartedAgent;
+    /** The panes whose prompt Herdr takes without answering, as a timeout. */
+    readonly unanswered: Set<string>;
     /** The panes whose agent Herdr does not yet report ready for input. */
     readonly unready: Set<string>;
     /** The `origin` URL of every project that has one. */
@@ -162,6 +169,10 @@ export class FakeState extends Context.Service<
     >;
     /** The saved attached pull requests, by session id. */
     attachedLists: AttachedLists;
+    /** The kept task starts, by worktree folder. */
+    readonly taskStarts: Map<string, TaskStart>;
+    /** When set, the task starts file fails with this reason. */
+    taskStartsFailure: string | undefined;
     /** When set, the attached pull requests file fails with this reason. */
     attachedListsFailure: string | undefined;
     /** When set, only reading the attached pull requests file fails, until the next save. */
@@ -299,7 +310,14 @@ const herdr = (state: FakeState['Service']) => {
               }),
         ),
       ),
-    prompt: (target, text) => command({ method: 'prompt', target, params: text }, () => undefined),
+    prompt: (target, text) =>
+      command({ method: 'prompt', target, params: text }, () => undefined).pipe(
+        Effect.andThen(
+          state.unanswered.has(target)
+            ? Effect.fail(new HerdrUnavailableError({ reason: 'Herdr did not answer in time.' }))
+            : Effect.void,
+        ),
+      ),
     typeText: (paneId, text) =>
       command({ method: 'typeText', target: paneId, params: text }, () => undefined),
     sendKeys: (target, keys) =>
@@ -311,6 +329,19 @@ const herdr = (state: FakeState['Service']) => {
         paneId: `w-${request.branch}:p1`,
         path: `/worktrees/${request.branch.replaceAll('/', '-')}`,
         branch: request.branch,
+      })),
+    // A worktree opens as the workspace that already has its checkout, else as `w-<folder>`.
+    openWorktree: (opening) =>
+      command({ method: 'openWorktree', target: opening.path, params: opening }, () => {
+        const open = state.workspaces.find((workspace) => workspace.checkout === opening.path);
+        const workspaceId = open?.id ?? `w-${opening.path}`;
+        return { workspaceId, paneId: `${workspaceId}:p1`, alreadyOpen: open !== undefined };
+      }),
+    // Every new shell is the workspace's pane `p9`.
+    openShell: (workspaceId) =>
+      command({ method: 'openShell', target: workspaceId }, () => ({
+        workspaceId,
+        paneId: `${workspaceId}:p9`,
       })),
     removeWorktree: (removal) =>
       command(
@@ -424,6 +455,11 @@ const pushStore = <A>(state: FakeState['Service'], result: () => A) =>
   state.pushStoreFailure === undefined
     ? Effect.sync(result)
     : Effect.fail(new PushStoreError({ reason: state.pushStoreFailure }));
+
+const taskStartsStore = <A>(state: FakeState['Service'], result: () => A) =>
+  state.taskStartsFailure === undefined
+    ? Effect.sync(result)
+    : Effect.fail(new TaskStartsStoreError({ reason: state.taskStartsFailure }));
 
 const pushSubscriptions = (state: FakeState['Service']): PushSubscriptionsOutbound['Service'] => ({
   list: Effect.suspend(() => pushStore(state, () => [...state.pushSubscriptions])),
@@ -666,6 +702,7 @@ export const fakeLayer = () => {
         badBranchNames: new Set(),
         started: { status: 'idle', ready: true },
         unready: new Set(),
+        unanswered: new Set(),
         origins: new Map([['app', 'gitea:owner/app.git']]),
         worktrees: new Map([['app', [{ path: '/work/app', branch: 'master' }]]]),
         changed: new Set(),
@@ -677,6 +714,8 @@ export const fakeLayer = () => {
         giteaCalls: [],
         pullRequests: new Map(),
         attachedLists: {},
+        taskStarts: new Map(),
+        taskStartsFailure: undefined,
         attachedListsFailure: undefined,
         attachedListsLoadFailure: undefined,
         docs: new Map(),
@@ -751,6 +790,15 @@ export const fakeLayer = () => {
               fake.pushes.push({ endpoint: subscription.endpoint, notification, at });
               return 'sent' as const;
             }),
+        }),
+        Context.add(TaskStartsOutbound, {
+          load: Effect.suspend(() => taskStartsStore(fake, () => [...fake.taskStarts.values()])),
+          put: (start) =>
+            Effect.suspend(() =>
+              taskStartsStore(fake, () => void fake.taskStarts.set(start.folder, start)),
+            ),
+          forget: (folder) =>
+            Effect.suspend(() => taskStartsStore(fake, () => void fake.taskStarts.delete(folder))),
         }),
         Context.add(PullRequestsOutbound, {
           load: Effect.suspend(() => {

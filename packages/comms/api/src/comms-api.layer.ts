@@ -16,6 +16,7 @@ import { pullRequestsHandlers } from './pull-requests.handlers.js';
 import { pushHandlers, pushWatchLayer } from './push.handlers.js';
 import { quickRepliesHandlers } from './quick-replies.handlers.js';
 import { speechHandlers } from './speech.handlers.js';
+import { taskStartsHandlers } from './task-starts.handlers.js';
 import { webAppLayer } from './web-app.js';
 
 export interface CommsServerOptions<E, R> {
@@ -41,6 +42,7 @@ export const commsApiLayer = (allowedLogin: string) =>
       quickRepliesHandlers,
       speechHandlers,
       pullRequestsHandlers,
+      taskStartsHandlers,
     ]),
     Layer.provide(tailscaleIdentityLayer(allowedLogin)),
     Layer.provide(validationMiddlewareLayer),

@@ -288,6 +288,57 @@ export const problems = {
         detail: error.reason,
       }),
     ),
+  taskStartsUnavailable: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'task-starts-unavailable',
+        title: 'The task starts cannot be kept',
+        detail: error.reason,
+      }),
+    ),
+  noTaskStart: (error: { readonly ref: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'no-task-start',
+        title: 'There is no task to send',
+        detail: `The worktree of ${error.ref} has no task start whose prompt was not delivered.`,
+      }),
+    ),
+  agentNotReady: (error: { readonly ref: string; readonly status: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'agent-not-ready',
+        title: 'The agent does not take a prompt now',
+        detail:
+          error.status === 'blocked'
+            ? `${error.ref} waits for an answer. Answer it first, then send the task.`
+            : `${error.ref} is ${error.status}, not idle and ready. Send the task when it is.`,
+      }),
+    ),
+  deliveryUncertain: (error: { readonly ref: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'delivery-uncertain',
+        title: 'The task may have arrived already',
+        detail: `Check the conversation of ${error.ref}, then send the task anyway if it is missing.`,
+      }),
+    ),
+  worktreeNotFound: (error: { readonly branch: string }) =>
+    Effect.fail(
+      notFoundProblem({
+        slug: 'worktree-not-found',
+        title: 'No worktree of the issue is on this branch',
+        detail: `The project has no linked worktree of this issue on ${error.branch}.`,
+      }),
+    ),
+  worktreeBusy: (error: { readonly branch: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'worktree-busy',
+        title: 'The worktree has an agent',
+        detail: `The worktree on ${error.branch} has a live agent, or one is starting. Open its conversation instead.`,
+      }),
+    ),
   invalidInput: (error: { readonly issues: ReadonlyArray<FieldIssue> }) =>
     Effect.fail(validationProblem(error.issues)),
 };

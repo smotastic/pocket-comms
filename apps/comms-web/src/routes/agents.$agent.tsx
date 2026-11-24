@@ -7,12 +7,14 @@ import { parsePullRequestSearch, pullRequestSearch } from '../pull-requests.js';
 export const Route = createFileRoute('/agents/$agent')({
   // `from=push` marks a tapped notification: an agent that is gone by then leads to the overview.
   // `pr=owner/repo/number` shows an attached pull request's changes (spec 031), so Back closes them.
+  // `task=issue` comes from an issue's Send the issue's task… (spec 032).
   validateSearch: (
     search: Record<string, unknown>,
-  ): { readonly from?: 'push'; readonly pr?: string } => {
+  ): { readonly from?: 'push'; readonly pr?: string; readonly task?: 'issue' } => {
     const pr = parsePullRequestSearch(search['pr']);
     return {
       ...(search['from'] === 'push' ? { from: 'push' as const } : {}),
+      ...(search['task'] === 'issue' ? { task: 'issue' as const } : {}),
       ...(pr === undefined ? {} : { pr: pullRequestSearch(pr) }),
     };
   },
@@ -21,7 +23,7 @@ export const Route = createFileRoute('/agents/$agent')({
     const { agent } = Route.useParams();
     const navigate = Route.useNavigate();
     const note = useRouterState({ select: (state) => state.location.state.note });
-    const { from, pr } = Route.useSearch();
+    const { from, pr, task } = Route.useSearch();
     const router = useRouter();
     // A sheet opened here added a step, so closing it goes back; one opened from a link replaces.
     const openedHere = useRef(false);
@@ -31,6 +33,7 @@ export const Route = createFileRoute('/agents/$agent')({
         client={client}
         agentRef={agent}
         note={note}
+        fromIssue={task === 'issue'}
         onBack={() => void navigate({ to: '/' })}
         {...(from === 'push' ? { onGone: () => void navigate({ to: '/', replace: true }) } : {})}
         shownPullRequest={parsePullRequestSearch(pr)}

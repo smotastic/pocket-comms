@@ -277,19 +277,24 @@ describe('workOnIssues', () => {
     expect(work.get(8)).toEqual([
       {
         branch: 'feat/8-list',
+        path: '/w/app/feat-8-list',
         agents: [agent('p1', '/w/app/feat-8-list'), agent('p2', '/w/app/feat-8-list/packages/web')],
       },
-      { branch: 'fix/8-again', agents: [] },
+      { branch: 'fix/8-again', path: '/w/app/fix-8-again', agents: [] },
     ]);
     expect(work.get(80)).toEqual([
-      { branch: 'feat/80-other', agents: [agent('p5', '/w/app/feat-80-other')] },
+      {
+        branch: 'feat/80-other',
+        path: '/w/app/feat-80-other',
+        agents: [agent('p5', '/w/app/feat-80-other')],
+      },
     ]);
     expect([...work.keys()].sort()).toEqual([8, 80]);
   });
 });
 
 describe('isInProgress', () => {
-  const work = [{ branch: 'feat/5-x', agents: [] }];
+  const work = [{ branch: 'feat/5-x', path: '/w/app/feat-5-x', agents: [] }];
 
   it('names the label pocket-comms sets', () => {
     expect(IN_PROGRESS_LABEL).toBe('status/in-progress');

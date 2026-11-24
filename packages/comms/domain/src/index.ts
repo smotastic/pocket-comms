@@ -169,3 +169,14 @@ export {
   type PullRequestState,
   type ShownChanges,
 } from './pull-request.js';
+export {
+  afterRestart,
+  deliveryOf,
+  isInFolder,
+  recoveryOf,
+  startFor,
+  type Delivery,
+  type PromptOutcome,
+  type Recovery,
+  type TaskStart,
+} from './task-start.js';

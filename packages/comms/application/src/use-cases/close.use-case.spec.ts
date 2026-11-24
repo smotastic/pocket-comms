@@ -47,6 +47,32 @@ describe('AgentsInbound.close', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect("forgets the worktree's task start once it is removed, and only then", () =>
+    Effect.gen(function* () {
+      const state = yield* arrange;
+      const start = {
+        folder: '/worktrees/feature',
+        project: 'app',
+        branch: 'feat/feature',
+        issue: undefined,
+        kind: 'claude' as const,
+        agent: 'kirk',
+        prompt: 'Do it',
+        delivery: 'not-sent' as const,
+        reason: undefined,
+        at: 1,
+      };
+      state.taskStarts.set(start.folder, start);
+      state.changed.add('/worktrees/feature');
+
+      yield* close('kirk').pipe(Effect.flip);
+      expect(state.taskStarts.has(start.folder)).toBe(true);
+
+      yield* close('kirk', true);
+      expect(state.taskStarts.has(start.folder)).toBe(false);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('removes nothing when the worktree has changes', () =>
     Effect.gen(function* () {
       const state = yield* arrange;

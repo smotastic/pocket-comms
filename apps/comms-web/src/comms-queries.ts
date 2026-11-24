@@ -16,6 +16,8 @@ export const activityKey = ['activity'] as const;
 export const quickRepliesKey = ['quick-replies'] as const;
 export const speechKey = ['speech'] as const;
 export const pullRequestsKey = (ref: string) => ['pull-requests', ref] as const;
+export const taskStartKey = (ref: string, fromIssue: boolean) =>
+  ['task-start', ref, fromIssue] as const;
 export const pullRequestChangesKey = (ref: string, { owner, name, number }: PullRequestRef) =>
   ['pull-request-changes', ref, owner, name, number] as const;
 
@@ -104,4 +106,17 @@ export const pullRequestChangesQuery = (
     staleTime: 0,
     retry: (failures, error) =>
       !(error instanceof RequestError && error.status === 404) && failures < 2,
+  });
+
+/**
+ * The agent's task start (spec 032): read when the conversation opens and every 5 seconds while
+ * one is shown, so Send follows the agent's readiness.
+ */
+export const taskStartQuery = (client: CommsClient, ref: string, fromIssue: boolean) =>
+  queryOptions({
+    queryKey: taskStartKey(ref, fromIssue),
+    queryFn: async () => (await client.taskStart(ref, fromIssue)) ?? null,
+    refetchInterval: (query) => (query.state.data === null ? false : 5_000),
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });

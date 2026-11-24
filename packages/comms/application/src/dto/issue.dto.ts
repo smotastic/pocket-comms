@@ -1,4 +1,4 @@
-import type { AgentStatus } from '@pocket-comms/comms-domain';
+import type { AgentStatus, Recovery } from '@pocket-comms/comms-domain';
 import type { TaskCreatedDto } from './task.dto.js';
 
 /** A live agent in an issue's worktree. */
@@ -11,6 +11,8 @@ export interface IssueAgentDto {
 export interface IssueWorkDto {
   readonly branch: string;
   readonly agents: ReadonlyArray<IssueAgentDto>;
+  /** What the worktree offers to recover (spec 032); none while a start runs. */
+  readonly recovery: Recovery | undefined;
 }
 
 /** An open issue as the project screen shows it. */

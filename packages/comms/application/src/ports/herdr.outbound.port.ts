@@ -33,6 +33,18 @@ export interface CreatedWorktree {
   readonly branch: string;
 }
 
+/** What `openWorktree` asks for: the existing worktree at `path` of the repository at `cwd`. */
+export interface WorktreeOpening {
+  readonly cwd: string;
+  readonly path: string;
+}
+
+/** A workspace and a pane in it. */
+export interface OpenedPane {
+  readonly workspaceId: string;
+  readonly paneId: string;
+}
+
 /** What `removeWorktree` asks for: the worktree workspace, and whether to drop its changes. */
 export interface WorktreeRemoval {
   readonly workspaceId: string;
@@ -87,6 +99,20 @@ export class HerdrOutbound extends Context.Service<
     readonly createWorktree: (
       request: WorktreeRequest,
     ) => Effect.Effect<CreatedWorktree, HerdrUnavailableError | HerdrRejectedError>;
+    /**
+     * Opens an existing git worktree as a workspace, without moving the focus. When Herdr already
+     * has one for it, that workspace and its first pane, which may hold an agent.
+     */
+    readonly openWorktree: (
+      opening: WorktreeOpening,
+    ) => Effect.Effect<
+      OpenedPane & { readonly alreadyOpen: boolean },
+      HerdrUnavailableError | HerdrRejectedError
+    >;
+    /** Opens a new shell in the workspace, in a tab of its own, without moving the focus. */
+    readonly openShell: (
+      workspaceId: string,
+    ) => Effect.Effect<OpenedPane, HerdrUnavailableError | HerdrRejectedError>;
     /**
      * Removes the checkout of a worktree workspace and closes the workspace with all its panes.
      * The branch stays.

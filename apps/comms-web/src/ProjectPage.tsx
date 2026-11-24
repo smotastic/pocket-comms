@@ -38,6 +38,7 @@ import { NewTask } from './NewTask.js';
 import { filterOverview } from './project-agents.js';
 import { projectHue } from './rows.js';
 import { since } from './since.js';
+import { StartAgentSheet, type WorktreeToStart } from './StartAgentSheet.js';
 import { startedNotice } from './started.js';
 import { StatusBadge } from './StatusBadge.js';
 
@@ -56,16 +57,21 @@ const updated = (at: number, now: number) => {
   return ago === 'now' ? 'Updated just now' : `Updated ${ago} ago`;
 };
 
+const agentHref = (ref: string, search = '') => `/agents/${encodeURIComponent(ref)}${search}`;
+
 const IssueRow = ({
   issue,
   now,
   onImplement,
   onClose,
+  onStartAgent,
 }: {
   readonly issue: IssueView;
   readonly now: number;
   readonly onImplement: () => void;
   readonly onClose: () => void;
+  /** Starts an agent in the issue's worktree on `branch`, which has none (spec 032). */
+  readonly onStartAgent: (branch: string) => void;
 }) => (
   <ListItem>
     <Stack gap="xs">
@@ -82,17 +88,32 @@ const IssueRow = ({
       </Inline>
       {issue.work.map((work) =>
         work.agents.length === 0 ? (
-          <Text key={work.branch} tone="muted" size="sm">
-            {work.branch} · no agent running
-          </Text>
+          <Inline key={work.branch} gap="xs">
+            <Text as="span" tone="muted" size="sm">
+              {work.branch} · no agent running
+            </Text>
+            {work.recovery === 'start-agent' ? (
+              <Button size="sm" variant="secondary" onClick={() => onStartAgent(work.branch)}>
+                Start an agent here
+              </Button>
+            ) : null}
+          </Inline>
         ) : (
           work.agents.map((agent) => (
             <Inline key={agent.ref} gap="xs">
-              <Link href={`/agents/${encodeURIComponent(agent.ref)}`}>{agent.ref}</Link>
+              <Link href={agentHref(agent.ref)}>{agent.ref}</Link>
               <Text as="span" size="sm">
                 is working on this
               </Text>
               <StatusBadge tone={agent.status} label={STATUS_LABELS[agent.status]} />
+              {work.recovery === 'resume' ? (
+                <Link emphasis="strong" href={agentHref(agent.ref)}>
+                  Resume: the task was not sent
+                </Link>
+              ) : null}
+              {work.recovery === 'send-issue-task' ? (
+                <Link href={agentHref(agent.ref, '?task=issue')}>Send the issue’s task…</Link>
+              ) : null}
             </Inline>
           ))
         ),
@@ -114,11 +135,13 @@ const Issues = ({
   now,
   onImplement,
   onClose,
+  onStartAgent,
 }: {
   readonly list: IssueListView;
   readonly now: number;
   readonly onImplement: (issue: IssueView) => void;
   readonly onClose: (issue: IssueView) => void;
+  readonly onStartAgent: (worktree: WorktreeToStart) => void;
 }) => {
   if (list._tag === 'NotConfigured') {
     return (
@@ -142,6 +165,7 @@ const Issues = ({
               now={now}
               onImplement={() => onImplement(issue)}
               onClose={() => onClose(issue)}
+              onStartAgent={(branch) => onStartAgent({ issue, branch })}
             />
           ))}
         </List>
@@ -207,6 +231,7 @@ export const ProjectPage = ({
   const queryClient = useQueryClient();
   const [implementing, setImplementing] = useState<IssueView | undefined>(undefined);
   const [closing, setClosing] = useState<IssueView | undefined>(undefined);
+  const [startingIn, setStartingIn] = useState<WorktreeToStart | undefined>(undefined);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState(initialNotice);
   const now = useNow();
@@ -274,6 +299,17 @@ export const ProjectPage = ({
           started(created);
         }}
       />
+      <StartAgentSheet
+        client={client}
+        project={project}
+        worktree={startingIn}
+        onClose={() => setStartingIn(undefined)}
+        onStarted={(created) => {
+          setStartingIn(undefined);
+          void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
+          started(created);
+        }}
+      />
       <CloseIssue
         client={client}
         project={project}
@@ -320,6 +356,10 @@ export const ProjectPage = ({
                   onClose={(issue) => {
                     setNotice(undefined);
                     setClosing(issue);
+                  }}
+                  onStartAgent={(worktree) => {
+                    setNotice(undefined);
+                    setStartingIn(worktree);
                   }}
                 />
               )}

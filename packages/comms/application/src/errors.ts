@@ -1,3 +1,4 @@
+import type { AgentStatus } from '@pocket-comms/comms-domain';
 import * as Data from 'effect/Data';
 
 // Failures that the use cases and outbound ports report. Input rule failures live in the domain.
@@ -110,6 +111,37 @@ export class NoConversationError extends Data.TaggedError('NoConversationError')
 /** The file of attached pull requests cannot be read or written; a broken file is never replaced. */
 export class PullRequestsStoreError extends Data.TaggedError('PullRequestsStoreError')<{
   readonly reason: string;
+}> {}
+
+/** The file of task starts cannot be read or written; a broken file is never replaced. */
+export class TaskStartsStoreError extends Data.TaggedError('TaskStartsStoreError')<{
+  readonly reason: string;
+}> {}
+
+/** The agent is not idle and ready for input, so a task start's prompt is not sent to it. */
+export class AgentNotReadyError extends Data.TaggedError('AgentNotReadyError')<{
+  readonly ref: string;
+  readonly status: AgentStatus;
+}> {}
+
+/** The prompt may have arrived already, so it is sent again only when the owner says so. */
+export class DeliveryUncertainError extends Data.TaggedError('DeliveryUncertainError')<{
+  readonly ref: string;
+}> {}
+
+/** The agent's worktree has no task start and no issue whose task could be sent. */
+export class NoTaskStartError extends Data.TaggedError('NoTaskStartError')<{
+  readonly ref: string;
+}> {}
+
+/** No linked worktree of the project is on the branch of this issue. */
+export class WorktreeNotFoundError extends Data.TaggedError('WorktreeNotFoundError')<{
+  readonly branch: string;
+}> {}
+
+/** The worktree has a live agent, or one is being started, so no second agent is started. */
+export class WorktreeBusyError extends Data.TaggedError('WorktreeBusyError')<{
+  readonly branch: string;
 }> {}
 
 /** The issue's title or body changed since Pi read it, so an edit would overwrite newer work. */

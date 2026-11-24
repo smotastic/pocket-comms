@@ -22,6 +22,8 @@ import {
   type Subagent,
   SubagentEvent,
   type TaskCreated,
+  type TaskStartSent,
+  type TaskStartView as TaskStartSchema,
   type Conversation,
 } from '@pocket-comms/comms-contract';
 import * as Cause from 'effect/Cause';
@@ -58,6 +60,17 @@ export type ProposalDecision = typeof ProposalDecisionRequest.Type;
 export type AttachedPullRequestView = typeof AttachedPullRequest.Type;
 export type PullRequestChangesView = typeof PullRequestChanges.Type;
 export type ChangedFileView = PullRequestChangesView['files'][number];
+export type TaskStartView = typeof TaskStartSchema.Type;
+export type TaskStartSentView = typeof TaskStartSent.Type;
+
+/** A task start's prompt as the owner sends it (spec 032). */
+export interface TaskStartSend {
+  readonly prompt: string;
+  /** The owner saw that the prompt may have arrived and sends it anyway. */
+  readonly anyway?: boolean;
+  /** Send the issue's task to an agent whose worktree has no kept start. */
+  readonly fromIssue?: boolean;
+}
 
 /** A pull request by its repository and number. */
 export interface PullRequestRef {
@@ -128,6 +141,22 @@ export interface CommsClient {
     additionalInformation?: string,
   ) => Promise<IssueTaskCreatedView>;
   readonly closeIssue: (project: string, number: number) => Promise<void>;
+  /**
+   * The task start of the agent's worktree whose first prompt was not delivered (spec 032), or
+   * with `fromIssue` its issue's task; none when there is nothing to recover.
+   */
+  readonly taskStart: (ref: string, fromIssue: boolean) => Promise<TaskStartView | undefined>;
+  /** Sends the task start's prompt while the agent is idle and ready. */
+  readonly sendTaskStart: (ref: string, send: TaskStartSend) => Promise<TaskStartSentView>;
+  /** Forgets the task start without sending anything. */
+  readonly dismissTaskStart: (ref: string) => Promise<void>;
+  /** Starts an agent in the issue's existing worktree on `branch`. */
+  readonly startAgentInWorktree: (
+    project: string,
+    number: number,
+    branch: string,
+    agent: AgentToStart,
+  ) => Promise<TaskCreatedView>;
   /** The brainstorm (spec 013). */
   readonly brainstorm: () => Promise<BrainstormStateView>;
   /**
@@ -362,6 +391,30 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     closeIssue: (project, number) =>
       run((api) => api.issues.close({ params: { project, number: String(number) } })).then(
         () => undefined,
+      ),
+    taskStart: (ref, fromIssue) =>
+      run((api) =>
+        api.taskStarts.read({ ...agent(ref), query: fromIssue ? { fromIssue: 'true' } : {} }),
+      ).then((result) => result.start ?? undefined),
+    sendTaskStart: (ref, send) =>
+      run((api) =>
+        api.taskStarts.send({
+          ...agent(ref),
+          payload: {
+            prompt: send.prompt,
+            ...(send.anyway === true ? { anyway: true } : {}),
+            ...(send.fromIssue === true ? { fromIssue: true } : {}),
+          },
+        }),
+      ),
+    dismissTaskStart: (ref) =>
+      run((api) => api.taskStarts.dismiss(agent(ref))).then(() => undefined),
+    startAgentInWorktree: (project, number, branch, kind) =>
+      run((api) =>
+        api.taskStarts.startAgent({
+          params: { project, number: String(number) },
+          payload: { branch, agent: kind },
+        }),
       ),
     brainstorm: () => run((api) => api.brainstorm.state()),
     sendBrainstorm: (text, imageIds = []) =>

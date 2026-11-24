@@ -363,3 +363,97 @@ describe('Close an issue', () => {
     expect(await rowOf(8)).toBeTruthy();
   });
 });
+
+describe('recovering a task start from an issue', () => {
+  it('offers Resume, Send the issue’s task… and Start an agent here per worktree', async () => {
+    open(
+      listed(
+        issue({
+          number: 12,
+          inProgress: true,
+          work: [
+            {
+              branch: 'fix/12-login',
+              agents: [{ ref: 'fix-12-login', status: 'idle' }],
+              recovery: 'resume',
+            },
+            { branch: 'fix/12-again', agents: [], recovery: 'start-agent' },
+            {
+              branch: 'fix/12-third',
+              agents: [{ ref: 'fix-12-third', status: 'done' }],
+              recovery: 'send-issue-task',
+            },
+          ],
+        }),
+      ),
+    );
+
+    const row = await rowOf(12);
+    expect(
+      within(row).getByRole('link', { name: 'Resume: the task was not sent' }).getAttribute('href'),
+    ).toBe('/agents/fix-12-login');
+    expect(
+      within(row).getByRole('link', { name: 'Send the issue’s task…' }).getAttribute('href'),
+    ).toBe('/agents/fix-12-third?task=issue');
+    expect(within(row).getAllByRole('button', { name: 'Start an agent here' })).toHaveLength(1);
+  });
+
+  it('starts Pi in the existing worktree after the owner confirms, and opens its conversation', async () => {
+    const user = userEvent.setup();
+    const fake = open(
+      listed(
+        issue({
+          number: 12,
+          title: 'Fix the login',
+          inProgress: true,
+          work: [{ branch: 'fix/12-login', agents: [], recovery: 'start-agent' }],
+        }),
+      ),
+      {
+        startedInWorktree: {
+          workspace: 'w5',
+          branch: 'fix/12-login',
+          path: '/worktrees/fix-12-login',
+          agent: { ref: 'fix-12-login', started: true, prompted: true },
+        },
+        agents: new Map([
+          ['fix-12-login', fakeAgent({ ref: 'fix-12-login', name: 'fix-12-login' })],
+        ]),
+      },
+    );
+
+    await user.click(within(await rowOf(12)).getByRole('button', { name: 'Start an agent here' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Start an agent here' });
+    expect(within(sheet).getByText(/existing worktree on fix\/12-login/u)).toBeTruthy();
+    expect(fake.calls.startedInWorktree).toEqual([]);
+    await user.click(within(sheet).getByRole('radio', { name: 'Pi' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Start Pi' }));
+
+    await waitFor(() =>
+      expect(fake.calls.startedInWorktree).toEqual([['pocket-comms', 12, 'fix/12-login', 'pi']]),
+    );
+    await waitFor(() => expect(fake.router.state.location.pathname).toBe('/agents/fix-12-login'));
+  });
+
+  it('keeps the sheet open with the reason when the worktree has an agent by now', async () => {
+    const user = userEvent.setup();
+    open(
+      listed(
+        issue({
+          number: 12,
+          inProgress: true,
+          work: [{ branch: 'fix/12-login', agents: [], recovery: 'start-agent' }],
+        }),
+      ),
+      {
+        startedInWorktree: new RequestError('The worktree on fix/12-login has a live agent.', 409),
+      },
+    );
+
+    await user.click(within(await rowOf(12)).getByRole('button', { name: 'Start an agent here' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Start an agent here' });
+    await user.click(within(sheet).getByRole('button', { name: 'Start Claude' }));
+
+    expect(await within(sheet).findByText(/has a live agent/u)).toBeTruthy();
+  });
+});

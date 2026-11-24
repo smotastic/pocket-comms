@@ -232,6 +232,48 @@ describe('Herdr.layerSocket', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('opens an existing worktree and a new shell, without moving the focus', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer((request) => {
+        if (request.method === 'worktree.open') {
+          return {
+            result: {
+              type: 'worktree_opened',
+              workspace: { workspace_id: 'w3', label: 'proj-wt' },
+              tab: { tab_id: 'w3:t1' },
+              root_pane: { pane_id: 'w3:p1', workspace_id: 'w3' },
+              worktree: { path: '/worktrees/fix-12-login', branch: 'fix/12-login' },
+              already_open: true,
+            },
+          };
+        }
+        if (request.method === 'tab.create') {
+          return {
+            result: {
+              type: 'tab_created',
+              tab: { tab_id: 'w3:t2', workspace_id: 'w3' },
+              root_pane: { pane_id: 'w3:p2', workspace_id: 'w3' },
+            },
+          };
+        }
+        return lists(request);
+      });
+      const [opened, shell] = yield* HerdrOutbound.use((herdr) =>
+        Effect.all([
+          herdr.openWorktree({ cwd: '/work/app', path: '/worktrees/fix-12-login' }),
+          herdr.openShell('w3'),
+        ]),
+      ).pipe(Effect.provide(layerSocket({ path: server.path })));
+
+      expect(opened).toEqual({ workspaceId: 'w3', paneId: 'w3:p1', alreadyOpen: true });
+      expect(shell).toEqual({ workspaceId: 'w3', paneId: 'w3:p2' });
+      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
+        ['worktree.open', { cwd: '/work/app', path: '/worktrees/fix-12-login', focus: false }],
+        ['tab.create', { workspace_id: 'w3', focus: false }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('reads an agent, which lets Herdr finish its start', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer((request) =>
