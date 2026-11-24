@@ -9,7 +9,7 @@ in the task's own commit.
       and note their request and answer shapes in the plan
   - Gate: the shapes are in plan section 4; a mismatch is raised with the owner
 
-- [ ] **T02** — Domain: `TaskStart`, `Delivery`, `deliveryOf`, `afterRestart`, `startFor`,
+- [x] **T02** — Domain: `TaskStart`, `Delivery`, `deliveryOf`, `afterRestart`, `startFor`,
       `recoveryOf`
   - Gate: `pnpm nx test comms-domain`
 
