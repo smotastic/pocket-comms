@@ -677,6 +677,11 @@ export const IssueWork = Schema.Struct({
     description: 'The live agents in the worktree; none is running when empty.',
     examples: [[]],
   }),
+  recovery: optional(Schema.Literals(['resume', 'start-agent', 'send-issue-task']), {
+    description:
+      'What the worktree offers to recover: `resume` an agent whose task was not delivered, `start-agent` in a worktree without one, or `send-issue-task` to an agent without a kept task start. None while a start runs.',
+    examples: ['resume'],
+  }),
 }).annotate({ identifier: 'IssueWork', description: "A worktree on the issue's branch." });
 
 export const Issue = Schema.Struct({
@@ -776,6 +781,109 @@ export const ImplementIssueRequest = Schema.Struct({
 }).annotate({
   identifier: 'ImplementIssueRequest',
   description: 'Implement the issue with Claude in a new worktree on this branch.',
+});
+
+export const TaskStartView = Schema.Struct({
+  source: Schema.Literals(['kept', 'issue']).annotate({
+    description:
+      "`kept` for a task start the server kept, `issue` for the issue's task built from Gitea now.",
+    examples: ['kept'],
+  }),
+  delivery: Schema.Literals(['pending', 'not-started', 'not-sent', 'uncertain']).annotate({
+    description:
+      'Where the first prompt is: the server is still starting the agent, the agent did not start, the agent did not get it, or it may have arrived.',
+    examples: ['not-sent'],
+  }),
+  reason: optional(Schema.String, {
+    description: 'Why the prompt was not delivered.',
+    examples: ['The agent waits for an answer, so the task was not sent.'],
+  }),
+  prompt: Schema.String.annotate({
+    description: 'The first prompt as it would be sent.',
+    examples: ['Fix the login\n\nGitea issue #12: …'],
+  }),
+  branch: Schema.String.annotate({
+    description: "The worktree's branch.",
+    examples: ['fix/12-login'],
+  }),
+  issue: optional(Schema.Int, {
+    description: 'The issue the task implements.',
+    examples: [12],
+  }),
+  agent: Schema.Struct({
+    status: AgentStatus,
+    ready: Schema.Boolean.annotate({
+      description: 'Herdr reports the agent ready for input.',
+      examples: [true],
+    }),
+  }).annotate({
+    description:
+      'The agent as Herdr reports it now; Send is offered only while it is idle and ready.',
+    examples: [{ status: 'idle', ready: true }],
+  }),
+}).annotate({
+  identifier: 'TaskStartView',
+  description: "A task start whose first prompt the agent did not get, or the issue's task.",
+});
+
+export const TaskStartResult = Schema.Struct({
+  start: optional(TaskStartView, {
+    description: 'None when the agent has nothing to recover.',
+    examples: [
+      {
+        source: 'kept',
+        delivery: 'not-sent',
+        reason: 'The agent waits for an answer, so the task was not sent.',
+        prompt: 'Fix the login',
+        branch: 'fix/12-login',
+        issue: 12,
+        agent: { status: 'blocked', ready: false },
+      },
+    ],
+  }),
+}).annotate({ identifier: 'TaskStartResult', description: "The agent's task start." });
+
+export const SendTaskStartRequest = Schema.Struct({
+  prompt: Schema.String.check(Schema.isMaxLength(20_000)).annotate({
+    description: 'The prompt as the owner edited it; it is sent trimmed and must not be blank.',
+    examples: ['Fix the login\n\nGitea issue #12: …'],
+  }),
+  anyway: optional(Schema.Boolean, {
+    description: 'The owner saw that the prompt may have arrived and sends it anyway.',
+    examples: [false],
+  }),
+  fromIssue: optional(Schema.Boolean, {
+    description: "Send the issue's task when the worktree has no kept task start.",
+    examples: [false],
+  }),
+}).annotate({
+  identifier: 'SendTaskStartRequest',
+  description: "Send a task start's prompt to its agent.",
+});
+
+export const TaskStartSent = Schema.Struct({
+  delivery: Schema.Literals(['delivered', 'not-sent', 'uncertain']).annotate({
+    description: 'Where the prompt is now: Herdr took it, refused it, or did not answer.',
+    examples: ['delivered'],
+  }),
+  reason: optional(Schema.String, {
+    description: 'Why it was not delivered.',
+    examples: ['The task was not sent: agent w6D:p1 is not ready'],
+  }),
+}).annotate({ identifier: 'TaskStartSent', description: 'Where the sent prompt is.' });
+
+export const StartAgentInWorktreeRequest = Schema.Struct({
+  branch: Schema.String.check(Schema.isMaxLength(80)).annotate({
+    description: "The branch of the issue's existing linked worktree.",
+    examples: ['fix/12-login'],
+  }),
+  agent: Schema.Literals(AGENTS_TO_START).annotate({
+    description: 'The agent to start.',
+    examples: ['pi'],
+  }),
+}).annotate({
+  identifier: 'StartAgentInWorktreeRequest',
+  description: "Start an agent in an issue's existing worktree.",
 });
 
 export const IssueTaskCreated = Schema.Struct({
@@ -2016,6 +2124,83 @@ const pullRequests = HttpApiGroup.make('pullRequests')
     }),
   );
 
+const taskStarts = HttpApiGroup.make('taskStarts')
+  .add(
+    HttpApiEndpoint.get('read', '/agents/:agent/task-start', {
+      params: { agent: AgentParam },
+      query: {
+        fromIssue: Schema.optionalKey(
+          Schema.Literals(['true', 'false']).annotate({
+            description: "Build the issue's task when the worktree has no kept task start.",
+            examples: ['true'],
+          }),
+        ),
+      },
+      success: TaskStartResult,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Read an agent's task start",
+        description:
+          "The task start of the agent's worktree whose first prompt was not delivered, with the agent's readiness now. With `fromIssue`, an agent in a worktree of an issue without a kept start gets the issue's task built from Gitea, as `uncertain`.",
+      }),
+    ),
+    HttpApiEndpoint.post('send', '/agents/:agent/task-start/send', {
+      params: { agent: AgentParam },
+      payload: SendTaskStartRequest,
+      success: TaskStartSent,
+      error: [
+        Problems.NotFound,
+        Problems.Conflict,
+        Problems.Validation,
+        Problems.ServiceUnavailable,
+      ],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Send a task start's prompt",
+        description:
+          'Sends the prompt only while the agent is idle and ready, never to a dialog; an `uncertain` start only with `anyway`. A delivered prompt forgets the start. Nothing to send, an agent that is not ready or an uncertain start without `anyway` is 409.',
+      }),
+    ),
+    HttpApiEndpoint.post('dismiss', '/agents/:agent/task-start/dismiss', {
+      params: { agent: AgentParam },
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Dismiss an agent's task start",
+        description: 'Forgets the task start without sending anything.',
+      }),
+    ),
+    HttpApiEndpoint.post('startAgent', '/projects/:project/issues/:number/start-agent', {
+      params: { project: ProjectParam, number: IssueNumberParam },
+      payload: StartAgentInWorktreeRequest,
+      success: TaskCreated.pipe(HttpApiSchema.status(201)),
+      error: [
+        Problems.NotFound,
+        Problems.Conflict,
+        Problems.Validation,
+        Problems.ServiceUnavailable,
+      ],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Start an agent in an issue's worktree",
+        description:
+          "Starts the agent in a new shell of the issue's existing linked worktree on `branch`, never a new worktree, and sends it the kept prompt, or the issue's task, once it is idle and ready. A branch that is not a linked worktree of the issue is 404; a worktree with a live agent or a start that runs is 409.",
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Task starts',
+      description:
+        'Recover a task start whose agent did not get its first prompt, into the same worktree and agent.',
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
@@ -2028,6 +2213,7 @@ export const CommsApi = HttpApi.make('comms')
   .add(quickReplies)
   .add(speech)
   .add(pullRequests)
+  .add(taskStarts)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

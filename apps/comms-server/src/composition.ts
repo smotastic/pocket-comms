@@ -7,6 +7,7 @@ import {
   ImagesInbound,
   IssuesInbound,
   PullRequestsInbound,
+  TaskStartsInbound,
   PushInbound,
   QuickRepliesInbound,
   SpeechInbound,
@@ -127,6 +128,7 @@ export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
       QuickRepliesInbound.layer,
       SpeechInbound.layer,
       PullRequestsInbound.layer,
+      TaskStartsInbound.layer,
     ]),
     Layer.provideMerge(services(adapters)),
   );

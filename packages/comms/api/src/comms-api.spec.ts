@@ -44,6 +44,12 @@ import {
   type AgentDto,
   type CreateTaskInput,
   type OverviewDto,
+  TaskStartsInbound,
+  AgentNotReadyError,
+  DeliveryUncertainError,
+  NoTaskStartError,
+  WorktreeBusyError,
+  WorktreeNotFoundError,
 } from '@pocket-comms/comms-application';
 import { InvalidInputError } from '@pocket-comms/comms-domain';
 import { TranscriberNotSetUp, TranscriberUnavailable } from '@smotastic/pocket-agent';
@@ -110,6 +116,7 @@ const serve = (
   quickReplies: Partial<QuickRepliesInbound['Service']> = {},
   speech: Partial<SpeechInbound['Service']> = {},
   pullRequests: Partial<PullRequestsInbound['Service']> = {},
+  taskStarts: Partial<TaskStartsInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -127,6 +134,7 @@ const serve = (
       Layer.provide(Layer.mock(QuickRepliesInbound, quickReplies)),
       Layer.provide(Layer.mock(SpeechInbound, speech)),
       Layer.provide(Layer.mock(PullRequestsInbound, pullRequests)),
+      Layer.provide(Layer.mock(TaskStartsInbound, taskStarts)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -608,6 +616,7 @@ describe('the issues API', () => {
           {
             branch: 'feat/8-issue-list',
             agents: [{ ref: 'feat-8-issue-list', status: 'working' }],
+            recovery: 'resume',
           },
         ],
         inProgress: true,
@@ -1643,5 +1652,112 @@ describe('the pull requests routes', () => {
     const response = await call('/api/v1/agents/kirk/pull-requests', { login: null });
 
     expect(response.status).toBe(403);
+  });
+});
+
+describe('the task starts routes', () => {
+  const only = (taskStarts: Partial<TaskStartsInbound['Service']>) =>
+    serve({}, undefined, {}, {}, {}, {}, {}, {}, {}, {}, {}, taskStarts);
+  const start = {
+    source: 'kept' as const,
+    delivery: 'not-sent' as const,
+    reason: 'The agent waits for an answer, so the task was not sent.',
+    prompt: 'Fix the login\n\nCloses #12',
+    branch: 'fix/12-login',
+    issue: 12,
+    agent: { status: 'blocked' as const, ready: false },
+  };
+
+  it("reads an agent's task start, and none", async () => {
+    const asked: Array<unknown> = [];
+    const call = only({
+      forAgent: (ref, fromIssue) =>
+        Effect.sync(() => (asked.push([ref, fromIssue]), fromIssue ? undefined : start)),
+    });
+
+    const kept = await call('/api/v1/agents/w6D%3Ap1/task-start');
+    const none = await call('/api/v1/agents/kirk/task-start?fromIssue=true');
+
+    expect(kept.status).toBe(200);
+    expect(await kept.json()).toEqual({ start });
+    expect(await none.json()).toEqual({ start: null });
+    expect(asked).toEqual([
+      ['w6D:p1', false],
+      ['kirk', true],
+    ]);
+  });
+
+  it('sends a prompt and answers 409 for what may not be sent', async () => {
+    const sent = await only({
+      send: (_ref, input) =>
+        Effect.succeed(
+          input.anyway === true
+            ? { delivery: 'delivered' as const, reason: undefined }
+            : { delivery: 'not-sent' as const, reason: 'refused' },
+        ),
+    })('/api/v1/agents/kirk/task-start/send', json({ prompt: 'Go', anyway: true }));
+    expect(sent.status).toBe(200);
+    expect(await sent.json()).toEqual({ delivery: 'delivered', reason: null });
+
+    const failing = async (error: unknown) => {
+      const response = await only({ send: () => Effect.fail(error as never) })(
+        '/api/v1/agents/kirk/task-start/send',
+        json({ prompt: 'Go' }),
+      );
+      return [response.status, ((await response.json()) as { type: string }).type];
+    };
+    expect(await failing(new AgentNotReadyError({ ref: 'kirk', status: 'blocked' }))).toEqual([
+      409,
+      'urn:pocket-comms:problem:agent-not-ready',
+    ]);
+    expect(await failing(new DeliveryUncertainError({ ref: 'kirk' }))).toEqual([
+      409,
+      'urn:pocket-comms:problem:delivery-uncertain',
+    ]);
+    expect(await failing(new NoTaskStartError({ ref: 'kirk' }))).toEqual([
+      409,
+      'urn:pocket-comms:problem:no-task-start',
+    ]);
+  });
+
+  it('dismisses a task start', async () => {
+    const dismissed: Array<string> = [];
+    const response = await only({
+      dismiss: (ref) => Effect.sync(() => void dismissed.push(ref)),
+    })('/api/v1/agents/kirk/task-start/dismiss', { method: 'POST' });
+
+    expect(response.status).toBe(204);
+    expect(dismissed).toEqual(['kirk']);
+  });
+
+  it("starts an agent in an issue's worktree, 404 for another branch and 409 for a busy one", async () => {
+    const created = {
+      workspace: 'w5',
+      branch: 'fix/12-login',
+      path: '/worktrees/fix-12-login',
+      agent: { ref: 'fix-12-login', started: true, prompted: true, note: undefined },
+    };
+    const asked: Array<unknown> = [];
+    const ok = await only({
+      startInWorktree: (input) => Effect.sync(() => (asked.push(input), created)),
+    })('/api/v1/projects/app/issues/12/start-agent', json({ branch: 'fix/12-login', agent: 'pi' }));
+    expect(ok.status).toBe(201);
+    expect(asked).toEqual([{ project: 'app', number: 12, branch: 'fix/12-login', agent: 'pi' }]);
+
+    const failing = async (error: unknown) =>
+      (
+        await only({ startInWorktree: () => Effect.fail(error as never) })(
+          '/api/v1/projects/app/issues/12/start-agent',
+          json({ branch: 'fix/12-login', agent: 'claude' }),
+        )
+      ).status;
+    expect(await failing(new WorktreeNotFoundError({ branch: 'master' }))).toBe(404);
+    expect(await failing(new WorktreeBusyError({ branch: 'fix/12-login' }))).toBe(409);
+
+    const invalid = await only({})(
+      '/api/v1/projects/app/issues/12/start-agent',
+      json({ branch: 'fix/12-login', agent: 'codex' }),
+    );
+    expect(invalid.status).toBe(422);
   });
 });

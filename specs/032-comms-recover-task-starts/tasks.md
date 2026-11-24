@@ -29,7 +29,7 @@ in the task's own commit.
       worktree is gone
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T07** — Contract, API and composition: the four endpoints, `IssueWork.recovery`, the
+- [x] **T07** — Contract, API and composition: the four endpoints, `IssueWork.recovery`, the
       problems, the wiring, the OpenAPI document and the accepted diff lines
   - Gate: `pnpm nx run-many -t test,test-typecheck,lint -p comms-contract comms-api comms-server`
 

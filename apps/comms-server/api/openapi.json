@@ -1756,6 +1756,19 @@
             "description": "The worktree's branch, `<type>/<number>-<description>`.",
             "examples": ["feat/8-per-project-gitea-issue-list"],
             "type": "string"
+          },
+          "recovery": {
+            "anyOf": [
+              {
+                "enum": ["resume", "start-agent", "send-issue-task"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the worktree offers to recover: `resume` an agent whose task was not delivered, `start-agent` in a worktree without one, or `send-issue-task` to an agent without a kept task start. None while a start runs.",
+            "examples": ["resume"]
           }
         },
         "required": ["branch", "agents"],
@@ -2355,6 +2368,44 @@
         "required": ["text"],
         "type": "object"
       },
+      "SendTaskStartRequest": {
+        "additionalProperties": false,
+        "description": "Send a task start's prompt to its agent.",
+        "properties": {
+          "anyway": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The owner saw that the prompt may have arrived and sends it anyway.",
+            "examples": [false]
+          },
+          "fromIssue": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Send the issue's task when the worktree has no kept task start.",
+            "examples": [false]
+          },
+          "prompt": {
+            "description": "The prompt as the owner edited it; it is sent trimmed and must not be blank.",
+            "examples": ["Fix the login\n\nGitea issue #12: …"],
+            "maxLength": 20000,
+            "type": "string"
+          }
+        },
+        "required": ["prompt"],
+        "type": "object"
+      },
       "ServiceUnavailableProblemEncoded": {
         "additionalProperties": false,
         "properties": {
@@ -2412,6 +2463,26 @@
           }
         },
         "required": ["text"],
+        "type": "object"
+      },
+      "StartAgentInWorktreeRequest": {
+        "additionalProperties": false,
+        "description": "Start an agent in an issue's existing worktree.",
+        "properties": {
+          "agent": {
+            "description": "The agent to start.",
+            "enum": ["claude", "pi"],
+            "examples": ["pi"],
+            "type": "string"
+          },
+          "branch": {
+            "description": "The branch of the issue's existing linked worktree.",
+            "examples": ["fix/12-login"],
+            "maxLength": 80,
+            "type": "string"
+          }
+        },
+        "required": ["branch", "agent"],
         "type": "object"
       },
       "Subagent": {
@@ -2551,6 +2622,184 @@
           }
         },
         "required": ["workspace", "branch", "path"],
+        "type": "object"
+      },
+      "TaskCreated_1": {
+        "additionalProperties": false,
+        "description": "The new worktree, and its agent.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskAgent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The agent, when one was asked for.",
+            "examples": [
+              {
+                "prompted": true,
+                "ref": "feat-dark-mode-toggle",
+                "started": true
+              }
+            ]
+          },
+          "branch": {
+            "description": "The branch of the new worktree.",
+            "examples": ["feat/dark-mode-toggle"],
+            "type": "string"
+          },
+          "path": {
+            "description": "The new worktree's folder.",
+            "examples": ["/Users/me/.herdr/worktrees/pocket-comms/feat-dark-mode-toggle"],
+            "type": "string"
+          },
+          "workspace": {
+            "description": "The new worktree's Herdr workspace.",
+            "examples": ["wK"],
+            "type": "string"
+          }
+        },
+        "required": ["workspace", "branch", "path"],
+        "type": "object"
+      },
+      "TaskStartResult": {
+        "additionalProperties": false,
+        "description": "The agent's task start.",
+        "properties": {
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskStartView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None when the agent has nothing to recover.",
+            "examples": [
+              {
+                "agent": {
+                  "ready": false,
+                  "status": "blocked"
+                },
+                "branch": "fix/12-login",
+                "delivery": "not-sent",
+                "issue": 12,
+                "prompt": "Fix the login",
+                "reason": "The agent waits for an answer, so the task was not sent.",
+                "source": "kept"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "TaskStartSent": {
+        "additionalProperties": false,
+        "description": "Where the sent prompt is.",
+        "properties": {
+          "delivery": {
+            "description": "Where the prompt is now: Herdr took it, refused it, or did not answer.",
+            "enum": ["delivered", "not-sent", "uncertain"],
+            "examples": ["delivered"],
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it was not delivered.",
+            "examples": ["The task was not sent: agent w6D:p1 is not ready"]
+          }
+        },
+        "required": ["delivery"],
+        "type": "object"
+      },
+      "TaskStartView": {
+        "additionalProperties": false,
+        "description": "A task start whose first prompt the agent did not get, or the issue's task.",
+        "properties": {
+          "agent": {
+            "additionalProperties": false,
+            "description": "The agent as Herdr reports it now; Send is offered only while it is idle and ready.",
+            "examples": [
+              {
+                "ready": true,
+                "status": "idle"
+              }
+            ],
+            "properties": {
+              "ready": {
+                "description": "Herdr reports the agent ready for input.",
+                "examples": [true],
+                "type": "boolean"
+              },
+              "status": {
+                "description": "What the agent is doing, as Herdr reports it. `blocked` waits for an answer.",
+                "enum": ["working", "blocked", "done", "idle", "unknown"],
+                "examples": ["working"],
+                "type": "string"
+              }
+            },
+            "required": ["status", "ready"],
+            "type": "object"
+          },
+          "branch": {
+            "description": "The worktree's branch.",
+            "examples": ["fix/12-login"],
+            "type": "string"
+          },
+          "delivery": {
+            "description": "Where the first prompt is: the server is still starting the agent, the agent did not start, the agent did not get it, or it may have arrived.",
+            "enum": ["pending", "not-started", "not-sent", "uncertain"],
+            "examples": ["not-sent"],
+            "type": "string"
+          },
+          "issue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The issue the task implements.",
+            "examples": [12]
+          },
+          "prompt": {
+            "description": "The first prompt as it would be sent.",
+            "examples": ["Fix the login\n\nGitea issue #12: …"],
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the prompt was not delivered.",
+            "examples": ["The agent waits for an answer, so the task was not sent."]
+          },
+          "source": {
+            "description": "`kept` for a task start the server kept, `issue` for the issue's task built from Gitea now.",
+            "enum": ["kept", "issue"],
+            "examples": ["kept"],
+            "type": "string"
+          }
+        },
+        "required": ["source", "delivery", "prompt", "branch", "agent"],
         "type": "object"
       },
       "TypeRequest": {
@@ -4317,6 +4566,260 @@
         "tags": ["Agents"]
       }
     },
+    "/api/v1/agents/{agent}/task-start": {
+      "get": {
+        "description": "The task start of the agent's worktree whose first prompt was not delivered, with the agent's readiness now. With `fromIssue`, an agent in a worktree of an issue without a kept start gets the issue's task built from Gitea, as `uncertain`.",
+        "operationId": "taskStarts.read",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Build the issue's task when the worktree has no kept task start.",
+            "example": "true",
+            "in": "query",
+            "name": "fromIssue",
+            "required": false,
+            "schema": {
+              "description": "Build the issue's task when the worktree has no kept task start.",
+              "enum": ["true", "false"],
+              "examples": ["true"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStartResult"
+                }
+              }
+            },
+            "description": "The agent's task start."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read an agent's task start",
+        "tags": ["Task starts"]
+      }
+    },
+    "/api/v1/agents/{agent}/task-start/dismiss": {
+      "post": {
+        "description": "Forgets the task start without sending anything.",
+        "operationId": "taskStarts.dismiss",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Dismiss an agent's task start",
+        "tags": ["Task starts"]
+      }
+    },
+    "/api/v1/agents/{agent}/task-start/send": {
+      "post": {
+        "description": "Sends the prompt only while the agent is idle and ready, never to a dialog; an `uncertain` start only with `anyway`. A delivered prompt forgets the start. Nothing to send, an agent that is not ready or an uncertain start without `anyway` is 409.",
+        "operationId": "taskStarts.send",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendTaskStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStartSent"
+                }
+              }
+            },
+            "description": "Where the sent prompt is."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Send a task start's prompt",
+        "tags": ["Task starts"]
+      }
+    },
     "/api/v1/agents/{agent}/text": {
       "post": {
         "description": "Types the text into the agent's terminal as it is, such as an answer to a waiting dialog. It never presses Enter: the owner submits with the `enter` key.",
@@ -5341,6 +5844,115 @@
         "tags": ["Issues"]
       }
     },
+    "/api/v1/projects/{project}/issues/{number}/start-agent": {
+      "post": {
+        "description": "Starts the agent in a new shell of the issue's existing linked worktree on `branch`, never a new worktree, and sends it the kept prompt, or the issue's task, once it is idle and ready. A branch that is not a linked worktree of the issue is 404; a worktree with a live agent or a start that runs is 409.",
+        "operationId": "taskStarts.startAgent",
+        "parameters": [
+          {
+            "description": "The project's folder name below the projects root.",
+            "example": "pocket-comms",
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "description": "The project's folder name below the projects root.",
+              "examples": ["pocket-comms"],
+              "pattern": "^[^/]{1,200}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The issue's number in its repository.",
+            "example": "8",
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "description": "The issue's number in its repository.",
+              "examples": ["8"],
+              "pattern": "^[1-9][0-9]{0,8}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartAgentInWorktreeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreated_1"
+                }
+              }
+            },
+            "description": "The new worktree, and its agent."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Start an agent in an issue's worktree",
+        "tags": ["Task starts"]
+      }
+    },
     "/api/v1/push/key": {
       "get": {
         "description": "The server's public key, which a device subscribes with.",
@@ -5834,6 +6446,10 @@
     {
       "description": "The pull requests attached to an agent's conversation, and their changes.",
       "name": "Pull requests"
+    },
+    {
+      "description": "Recover a task start whose agent did not get its first prompt, into the same worktree and agent.",
+      "name": "Task starts"
     }
   ]
 }
