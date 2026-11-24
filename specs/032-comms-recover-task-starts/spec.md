@@ -1,6 +1,6 @@
 # Spec 032 — pocket-comms: recover a task start that stopped before the first prompt
 
-- **Status:** `Draft` — not yet approved (human gate pending)
+- **Status:** `Approved` — approved by the owner (2026-11-24)
 - **Changes:** [spec 005](../005-comms-new-task/spec.md) (requirements 13 and 14),
   [spec 006](../006-comms-gitea-issues/spec.md) (implementing an issue),
   [spec 021](../021-comms-issue-additional-information/spec.md) (the additional information is never

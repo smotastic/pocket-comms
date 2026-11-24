@@ -1,7 +1,7 @@
 # Plan 032 — pocket-comms: recover a task start that stopped before the first prompt
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Draft` — spec and plan await one human approval
+- **Status:** `Approved` — approved with the spec by the owner (2026-11-24)
 
 ## 1. Affected projects
 
