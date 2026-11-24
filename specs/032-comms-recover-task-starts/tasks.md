@@ -20,7 +20,7 @@ in the task's own commit.
       the fake
   - Gate: `pnpm nx run-many -t test,test-typecheck -p comms-application comms-infrastructure`
 
-- [ ] **T05** — `makeCreateTask` keeps the start at each step and forgets it on delivery; `close`
+- [x] **T05** — `makeCreateTask` keeps the start at each step and forgets it on delivery; `close`
       forgets it
   - Gate: `pnpm nx test comms-application`
 

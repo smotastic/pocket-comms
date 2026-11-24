@@ -327,3 +327,95 @@ describe('TasksInbound.create', () => {
     }).pipe(Effect.provide(layer())),
   );
 });
+
+describe('TasksInbound.create keeps the task start', () => {
+  const folder = '/worktrees/feat-new-task-flow';
+
+  it.effect('forgets the start once the agent has its task', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+
+      yield* create({ agent: 'claude' });
+
+      expect(state.taskStarts.size).toBe(0);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('keeps the prompt of an agent that waits for an answer, with the reason', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.started = { status: 'blocked', ready: false };
+
+      yield* create({ agent: 'pi' });
+
+      expect(state.taskStarts.get(folder)).toMatchObject({
+        folder,
+        project: 'app',
+        branch: 'feat/new-task-flow',
+        issue: undefined,
+        kind: 'pi',
+        agent: 'feat-new-task-flow',
+        prompt: 'Add the new task flow\nWith a sheet.',
+        delivery: 'not-sent',
+        reason: expect.stringMatching(/waits for an answer/u),
+      });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('keeps the start as pending while the agent starts', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.started = { status: 'unknown', ready: false };
+
+      const fiber = yield* create({ agent: 'claude' }).pipe(Effect.forkChild);
+      yield* TestClock.adjust('1 second');
+      expect(state.taskStarts.get(folder)?.delivery).toBe('pending');
+      yield* TestClock.adjust('1 minute');
+      yield* Fiber.join(fiber);
+
+      expect(state.taskStarts.get(folder)?.delivery).toBe('not-sent');
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('keeps the prompt of an agent that did not start', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.rejects.set('w-feat/new-task-flow:p1', 'agent_start_timeout');
+
+      yield* create({ agent: 'claude' });
+
+      expect(state.taskStarts.get(folder)).toMatchObject({
+        delivery: 'not-started',
+        agent: undefined,
+        reason: 'The agent did not start: Herdr said agent_start_timeout.',
+      });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('reads a prompt Herdr did not answer as uncertain', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.unanswered.add('w-feat/new-task-flow:p1');
+
+      const created = yield* create({ agent: 'claude' });
+
+      expect(created.agent).toMatchObject({ started: true, prompted: false });
+      expect(state.taskStarts.get(folder)?.delivery).toBe('uncertain');
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect(
+    'keeps no start for a task without an agent, and a broken file never fails a start',
+    () =>
+      Effect.gen(function* () {
+        const state = yield* FakeState;
+
+        yield* create();
+        expect(state.taskStarts.size).toBe(0);
+
+        state.taskStartsFailure = 'task-starts.json is not readable';
+        const created = yield* create({ agent: 'claude', branch: 'feat/other' });
+        expect(created.agent).toMatchObject({ started: true, prompted: true });
+      }).pipe(Effect.provide(layer())),
+  );
+});

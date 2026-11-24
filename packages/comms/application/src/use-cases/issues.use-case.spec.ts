@@ -210,6 +210,24 @@ describe('IssuesInbound.implement', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('keeps the start of an issue whose agent did not get its task, with the issue', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const issue = fakeIssue({ number: 8, title: 'feat: issue list', body: 'Show them.' });
+      state.issues.set('owner/app', [issue]);
+      state.started = { status: 'blocked', ready: false };
+
+      yield* implement({ additionalInformation: 'Use the kit.' });
+
+      expect(state.taskStarts.get('/worktrees/feat-8-issue-list')).toMatchObject({
+        issue: 8,
+        kind: 'claude',
+        delivery: 'not-sent',
+        prompt: issueTask(issue, 'Use the kit.'),
+      });
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('does not mark an issue that has the label already', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

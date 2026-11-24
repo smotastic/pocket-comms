@@ -135,6 +135,8 @@ export class FakeState extends Context.Service<
     readonly badBranchNames: Set<string>;
     /** What the next `startAgent` reports. */
     started: StartedAgent;
+    /** The panes whose prompt Herdr takes without answering, as a timeout. */
+    readonly unanswered: Set<string>;
     /** The panes whose agent Herdr does not yet report ready for input. */
     readonly unready: Set<string>;
     /** The `origin` URL of every project that has one. */
@@ -308,7 +310,14 @@ const herdr = (state: FakeState['Service']) => {
               }),
         ),
       ),
-    prompt: (target, text) => command({ method: 'prompt', target, params: text }, () => undefined),
+    prompt: (target, text) =>
+      command({ method: 'prompt', target, params: text }, () => undefined).pipe(
+        Effect.andThen(
+          state.unanswered.has(target)
+            ? Effect.fail(new HerdrUnavailableError({ reason: 'Herdr did not answer in time.' }))
+            : Effect.void,
+        ),
+      ),
     typeText: (paneId, text) =>
       command({ method: 'typeText', target: paneId, params: text }, () => undefined),
     sendKeys: (target, keys) =>
@@ -693,6 +702,7 @@ export const fakeLayer = () => {
         badBranchNames: new Set(),
         started: { status: 'idle', ready: true },
         unready: new Set(),
+        unanswered: new Set(),
         origins: new Map([['app', 'gitea:owner/app.git']]),
         worktrees: new Map([['app', [{ path: '/work/app', branch: 'master' }]]]),
         changed: new Set(),
