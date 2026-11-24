@@ -37,7 +37,7 @@ in the task's own commit.
       note
   - Gate: `pnpm nx run-many -t test,lint -p comms-web`
 
-- [ ] **T09** — Web: Resume and Start an agent here on `IssueCard`, `StartAgentSheet`
+- [x] **T09** — Web: Resume and Start an agent here on `IssueCard`, `StartAgentSheet`
   - Gate: `pnpm nx run-many -t test,lint -p comms-web`
 
 - [ ] **T10** — Docs: `packages/comms/AGENTS.md`, the spec 021 note, `GLOSSARY.md`
