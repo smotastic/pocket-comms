@@ -27,9 +27,10 @@ existing confirmation pattern of `CloseAgent`; the sheet is `Sheet` with the age
 
 Compatible within `/api/v1`: four new endpoints and one new optional field.
 
-- `GET /agents/:agent/task-start` → `TaskStartView | null`. The start of the agent's worktree, or
-  for an issue worktree without one, the issue's rebuilt prompt (`source: 'issue'`).
-- `POST /agents/:agent/task-start/send` with `{ prompt: string; anyway?: boolean }` → `200`
+- `GET /agents/:agent/task-start?fromIssue=true|false` → `{ start: TaskStartView | null }`. The
+  start of the agent's worktree; with `fromIssue` and no kept start, the issue's rebuilt prompt
+  (`source: 'issue'`, delivery `uncertain`).
+- `POST /agents/:agent/task-start/send` with `{ prompt: string; anyway?: boolean; fromIssue?: boolean }` → `200`
   `{ delivery: 'delivered' | 'not-sent' | 'uncertain'; reason?: string }`. `409` when the agent is
   not idle and ready, when there is nothing to send, or when the start is `uncertain` without
   `anyway`; `422` an invalid prompt (spec 004 rules).
@@ -49,7 +50,7 @@ TaskStartView = {
   // Herdr's view now, so the card knows whether Send may be offered.
   agent: { status: AgentStatus; ready: boolean };
 }
-IssueWork.recovery?: 'resume' | 'start-agent' // absent when nothing needs recovering
+IssueWork.recovery?: 'resume' | 'start-agent' | 'send-issue-task' // absent while a start runs
 ```
 
 ## 3. Migrations
@@ -70,8 +71,9 @@ fails the reads that need it with a `503` and is never replaced by a read.
 - `afterRestart(starts)`: every `pending` → `uncertain`.
 - `startFor(starts, agent)`: the start whose folder holds the agent's `cwd`; with several live agents
   in one folder only the one named in the start.
-- `recoveryOf(work, starts)`: `start-agent` for a worktree without a live agent, `resume` for one
-  with a kept start that is not `delivered`, else none.
+- `recoveryOf(work, start)`: none while the start is `pending`; `start-agent` for a worktree
+  without a live agent; `resume` for one with a kept start that is not `delivered`;
+  `send-issue-task` for a live agent without a kept start.
 
 ### Application
 

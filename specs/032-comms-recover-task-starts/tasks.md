@@ -24,7 +24,7 @@ in the task's own commit.
       forgets it
   - Gate: `pnpm nx test comms-application`
 
-- [ ] **T06** — `TaskStartsInbound`: `forAgent` (kept or rebuilt from the issue), `send`,
+- [x] **T06** — `TaskStartsInbound`: `forAgent` (kept or rebuilt from the issue), `send`,
       `dismiss`, `startInWorktree`; the issues use case's `recovery` and forgetting starts whose
       worktree is gone
   - Gate: `pnpm nx test comms-application`

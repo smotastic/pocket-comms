@@ -84,8 +84,12 @@ describe('IssuesInbound.issues', () => {
       const list = yield* issues();
 
       expect(list._tag === 'Listed' && list.issues[0]?.work).toEqual([
-        { branch: 'feat/8-list', agents: [{ ref: 'feat-8-list', status: 'idle' }] },
-        { branch: 'fix/8-old', agents: [] },
+        {
+          branch: 'feat/8-list',
+          agents: [{ ref: 'feat-8-list', status: 'idle' }],
+          recovery: 'send-issue-task',
+        },
+        { branch: 'fix/8-old', agents: [], recovery: 'start-agent' },
       ]);
     }).pipe(Effect.provide(layer())),
   );
@@ -122,7 +126,7 @@ describe('IssuesInbound.issues', () => {
       const list = yield* issues();
 
       expect(list._tag === 'Listed' && list.issues[0]?.work).toEqual([
-        { branch: 'feat/8-list', agents: [] },
+        { branch: 'feat/8-list', agents: [], recovery: 'start-agent' },
       ]);
     }).pipe(Effect.provide(layer())),
   );
@@ -170,6 +174,58 @@ describe('IssuesInbound.issues', () => {
       expect(error).toEqual(
         new GiteaUnavailableError({ reason: 'Gitea refused the token (401).' }),
       );
+    }).pipe(Effect.provide(layer())),
+  );
+});
+
+describe('IssuesInbound.issues and task starts', () => {
+  const kept = {
+    folder: '/worktrees/feat-8-list',
+    project: 'app',
+    branch: 'feat/8-list',
+    issue: 8,
+    kind: 'claude' as const,
+    agent: 'feat-8-list',
+    prompt: 'The issue',
+    delivery: 'not-sent' as const,
+    reason: undefined,
+    at: 1,
+  };
+
+  it.effect('offers to resume an agent whose task was not delivered', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8 })]);
+      state.worktrees.set('app', [
+        { path: '/work/app', branch: 'master' },
+        { path: '/worktrees/feat-8-list', branch: 'feat/8-list' },
+      ]);
+      state.agents = [
+        fakeAgent({ paneId: 'w9:p1', name: 'feat-8-list', cwd: '/worktrees/feat-8-list' }),
+      ];
+      state.taskStarts.set(kept.folder, kept);
+
+      const list = yield* IssuesInbound.use((inbound) => inbound.issues('app'));
+
+      expect(list._tag === 'Listed' && list.issues[0]?.work[0]?.recovery).toBe('resume');
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect("forgets a start whose worktree git no longer lists, and keeps another project's", () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.issues.set('owner/app', [fakeIssue({ number: 8 })]);
+      state.worktrees.set('app', [{ path: '/work/app', branch: 'master' }]);
+      state.taskStarts.set(kept.folder, kept);
+      state.taskStarts.set('/worktrees/other', {
+        ...kept,
+        folder: '/worktrees/other',
+        project: 'other',
+      });
+
+      yield* IssuesInbound.use((inbound) => inbound.issues('app'));
+
+      expect([...state.taskStarts.keys()]).toEqual(['/worktrees/other']);
     }).pipe(Effect.provide(layer())),
   );
 });

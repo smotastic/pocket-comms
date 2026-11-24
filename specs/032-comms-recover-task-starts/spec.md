@@ -88,12 +88,12 @@ the agent's conversation or from the issue, into the same worktree and agent.
 
 ### Recovering from the issue
 
-13. An issue in progress (spec 015) whose work (spec 006, requirement 15) has a worktree with a kept
-    start that is not `delivered`, or a worktree without a live agent, shows its recovery on the
-    issue card, per worktree:
-    - a worktree with a live agent: **Resume**, which opens that agent's conversation, where the
-      card of requirement 7 is;
-    - a worktree without a live agent: **Start an agent here**.
+13. An issue in progress (spec 015) shows, per worktree of its work (spec 006, requirement 15):
+    - a worktree with a kept start that is not `delivered` and a live agent: **Resume**, which
+      opens that agent's conversation, where the card of requirement 7 is;
+    - a worktree without a live agent: **Start an agent here**;
+    - a worktree with a live agent and no kept start: a quiet **Send the issue's task…** link,
+      which opens the agent's conversation with the card of requirement 16.
 14. Start an agent here opens a sheet that names the project, the branch and the worktree folder,
     and offers Claude or Pi (Claude by default) and a **Start** button. It never creates a worktree
     or a branch.
@@ -102,12 +102,13 @@ the agent's conversation or from the issue, into the same worktree and agent.
     waited for as in spec 005 (requirements 12 and 13), and gets the kept prompt when it is idle and
     ready, so the start is recorded and delivered under the same rules. The app then opens the
     agent's conversation, with the card when the prompt was not delivered.
-16. A worktree on the issue's branch that has no kept start (a start by hand, or one from before this
-    spec) is recovered the same way, with the issue's prompt as the kept prompt: the server reads
+16. A worktree on the issue's branch that has no kept start (a start by hand, one from before this
+    spec, or one whose prompt was delivered) is recovered with the issue's prompt: the server reads
     the issue from Gitea again and builds its task (spec 006, requirement 13) with no additional
-    information. Resume on such a worktree's agent makes the card offer this prompt, labelled
-    "Prompt built from the issue", with delivery `not-sent` and no reason; nothing is kept until the
-    owner sends or the agent is started.
+    information. Start an agent here sends it as a new start's prompt. For a live agent, the card
+    opened by Send the issue's task… offers it, labelled "Prompt built from the issue", as
+    `uncertain`: the agent may have it already, so only Send anyway sends it. Nothing is kept until
+    the owner sends it or starts an agent.
 17. The server takes the worktree only from the project's own git worktree list, matched by the
     issue's branch, and the workspace only from Herdr; never a path from a request. Only a linked
     worktree is used, never the primary checkout.
@@ -142,8 +143,9 @@ the agent's conversation or from the issue, into the same worktree and agent.
   is idle and ready.
 - Given a worktree with a live agent, when Start an agent here is requested for it, then the server
   answers `409` and Herdr receives no `agent.start`.
-- Given a worktree on `fix/12-login` with an agent and no kept start, when the owner taps Resume on
-  issue #12, then the card offers the issue's prompt built from Gitea, and sends it only on Send.
+- Given a worktree on `fix/12-login` with an agent and no kept start, when the owner taps Send the
+  issue's task… on issue #12, then the card offers the issue's prompt built from Gitea, and sends
+  it only on Send anyway.
 - Given a request naming a branch that is not a linked worktree of the project, then the server
   answers `404` and calls neither git's write commands nor Herdr.
 - Given a kept start, when the owner sends a prompt from the composer, then the start is still kept

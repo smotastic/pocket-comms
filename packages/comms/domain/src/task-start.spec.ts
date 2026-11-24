@@ -94,12 +94,15 @@ describe('recoveryOf', () => {
     expect(recoveryOf({ path: folder, agents }, start({ delivery: 'uncertain' }))).toBe('resume');
   });
 
-  it('offers nothing while a start runs, or when the agent has its task', () => {
+  it('offers the issue task to an agent without a kept start', () => {
     const agents = [agent({ paneId: 'w1:p1' })];
 
+    expect(recoveryOf({ path: folder, agents }, undefined)).toBe('send-issue-task');
+  });
+
+  it('offers nothing while a start runs', () => {
     expect(
       recoveryOf({ path: folder, agents: [] }, start({ delivery: 'pending' })),
     ).toBeUndefined();
-    expect(recoveryOf({ path: folder, agents }, undefined)).toBeUndefined();
   });
 });

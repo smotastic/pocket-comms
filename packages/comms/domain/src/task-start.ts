@@ -52,7 +52,8 @@ export const afterRestart = (starts: ReadonlyArray<TaskStart>): ReadonlyArray<Ta
     each.delivery === 'pending' ? { ...each, delivery: 'uncertain' as const } : each,
   );
 
-const isIn = (cwd: string | undefined, path: string) =>
+/** Whether `cwd` is the folder `path` or lies in it. */
+export const isInFolder = (cwd: string | undefined, path: string): boolean =>
   cwd !== undefined && (cwd === path || cwd.startsWith(`${path}/`));
 
 /**
@@ -64,14 +65,17 @@ export const startFor = (
   agent: Agent,
   agents: ReadonlyArray<Agent>,
 ): TaskStart | undefined => {
-  const kept = starts.find((each) => isIn(agent.cwd, each.folder));
+  const kept = starts.find((each) => isInFolder(agent.cwd, each.folder));
   if (kept === undefined) return undefined;
-  const inFolder = agents.filter((each) => isIn(each.cwd, kept.folder));
+  const inFolder = agents.filter((each) => isInFolder(each.cwd, kept.folder));
   return inFolder.length <= 1 || kept.agent === agent.name ? kept : undefined;
 };
 
-/** What an issue's worktree offers to recover; nothing while a start runs or once it is done. */
-export type Recovery = 'resume' | 'start-agent';
+/**
+ * What an issue's worktree offers to recover: nothing while a start runs. A live agent without a
+ * kept start may or may not have its task, so it is only offered the issue's task to send.
+ */
+export type Recovery = 'resume' | 'start-agent' | 'send-issue-task';
 
 export const recoveryOf = (
   work: { readonly path: string; readonly agents: ReadonlyArray<Agent> },
@@ -79,5 +83,6 @@ export const recoveryOf = (
 ): Recovery | undefined => {
   if (start?.delivery === 'pending') return undefined;
   if (work.agents.length === 0) return 'start-agent';
-  return start !== undefined && start.delivery !== 'delivered' ? 'resume' : undefined;
+  if (start === undefined) return 'send-issue-task';
+  return start.delivery === 'delivered' ? undefined : 'resume';
 };
