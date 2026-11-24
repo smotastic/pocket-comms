@@ -100,10 +100,14 @@ fails the reads that need it with a `503` and is never replaced by a read.
 ### Infrastructure
 
 - `task-starts/file-store.ts` after `pull-requests/file-store.ts`.
-- `HerdrOutbound.openShell` → `tab.create { workspace_id, focus: false }` → its `root_pane`;
-  `openWorktree` → `worktree.open { cwd, path, focus: false }` → `root_pane`. Both checked live
-  against Herdr 0.9.5 in an isolated session (`herdr --session`) before the adapter is written, and
-  each gets a fake-socket test of its request and answer shape.
+- `HerdrOutbound.openShell(workspaceId)` → `tab.create { workspace_id, focus: false }`; the answer
+  `{ type: 'tab_created', tab, root_pane: { pane_id, cwd } }` gives the new shell's pane, whose
+  `cwd` is the workspace's checkout. `openWorktree({ cwd, path })` →
+  `worktree.open { cwd, path, focus: false }`; the answer
+  `{ type: 'worktree_opened', workspace: { workspace_id }, root_pane: { pane_id }, worktree, already_open }`.
+  Both checked live against Herdr 0.9.5 in an isolated session (T01). When `already_open` is true
+  the root pane may hold an agent, so the use case then opens a shell with `openShell`. Each gets a
+  fake-socket test of its request and answer shape.
 
 ### Web
 

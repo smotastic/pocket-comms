@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Check Herdr 0.9.5's `tab.create` and `worktree.open` live in an isolated session
+- [x] **T01** — Check Herdr 0.9.5's `tab.create` and `worktree.open` live in an isolated session
       and note their request and answer shapes in the plan
   - Gate: the shapes are in plan section 4; a mismatch is raised with the owner
 
