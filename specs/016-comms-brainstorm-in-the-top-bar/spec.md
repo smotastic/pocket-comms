@@ -5,6 +5,9 @@
   floating bubble and the sheet it opens) and [spec 011](../011-comms-close-agent/spec.md)
   (requirement 1: the conversation's Close action)
 - **Issue:** Gitea #28
+- **Amended:** 2026-11-24 by the owner: the conversation's More sheet no longer offers Brainstorm
+  with Pi; the brainstorm opens from the overview's top bar only, and More is left out while it
+  would be empty (no attached pull requests and no Close).
 
 ## 1. Problem / intent (WHY)
 

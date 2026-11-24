@@ -39,7 +39,7 @@ const open = (agent = fakeAgent({ status: 'working' }), extra: { screen?: string
 /** Opens the top bar's More sheet. */
 const openMore = async () => {
   const banner = await screen.findByRole('banner');
-  await userEvent.click(within(banner).getByRole('button', { name: 'More' }));
+  await userEvent.click(await within(banner).findByRole('button', { name: 'More' }));
   return screen.findByRole('dialog', { name: 'More' });
 };
 
@@ -723,22 +723,17 @@ describe('closing an agent', () => {
   it('offers no Close for an agent in a main checkout', async () => {
     open(fakeAgent());
     await screen.findByText('Fix the failing test');
-    const more = await openMore();
 
-    expect(within(more).getAllByRole('button')).toEqual([
-      within(more).getByRole('button', { name: 'Close' }),
-      within(more).getByRole('button', { name: 'Brainstorm with Pi' }),
-    ]);
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Close worktree' })).toBeNull();
   });
 
-  it('offers Brainstorm with Pi before Close, and closes More before asking', async () => {
+  it('offers Close worktree in More, and closes More before asking', async () => {
     openWorktree();
     const more = await openMore();
 
     expect(within(more).getAllByRole('button')).toEqual([
       within(more).getByRole('button', { name: 'Close' }),
-      within(more).getByRole('button', { name: 'Brainstorm with Pi' }),
       within(more).getByRole('button', { name: 'Close worktree' }),
     ]);
     await userEvent.click(within(more).getByRole('button', { name: 'Close worktree' }));
@@ -810,38 +805,29 @@ describe('closing an agent', () => {
 });
 
 describe('the More menu', () => {
-  it('holds the brainstorm and leaves the top bar to the agent', async () => {
+  it('leaves the brainstorm to the overview', async () => {
     open(fakeAgent({ workspace: 'feature', worktree: 'feature' }));
     const banner = await screen.findByRole('banner');
     await screen.findByText('Fix the failing test');
 
     expect(within(banner).queryByRole('button', { name: 'Brainstorm' })).toBeNull();
     expect(within(banner).queryByRole('button', { name: 'Close worktree' })).toBeNull();
-    await userEvent.click(
-      within(await openMore()).getByRole('button', { name: 'Brainstorm with Pi' }),
-    );
-
-    expect(await screen.findByRole('dialog', { name: 'Brainstorm' })).toBeDefined();
-    expect(screen.queryByRole('dialog', { name: 'More' })).toBeNull();
+    expect(within(await openMore()).queryByRole('button', { name: /Brainstorm/u })).toBeNull();
   });
 
-  it('shows while the agent loads and when it is gone', async () => {
+  it('is left out while the agent loads and when it is gone', async () => {
     const fake = fakeClient();
     renderApp({
       client: { ...fake.client, agent: () => new Promise(() => undefined) },
       path: '/agents/kirk',
     });
     await screen.findByText('Loading the agent…');
-    expect(
-      within(await openMore()).getByRole('button', { name: 'Brainstorm with Pi' }),
-    ).toBeDefined();
+    expect(screen.queryByRole('button', { name: /^More/u })).toBeNull();
     cleanup();
 
     renderApp({ client: fakeClient().client, path: '/agents/nobody' });
     await screen.findByText('nobody is not running any more.');
-    expect(
-      within(await openMore()).getByRole('button', { name: 'Brainstorm with Pi' }),
-    ).toBeDefined();
+    expect(screen.queryByRole('button', { name: /^More/u })).toBeNull();
   });
 
   it('closes without doing anything', async () => {
@@ -853,26 +839,6 @@ describe('the More menu', () => {
     expect(screen.queryByRole('dialog', { name: 'Brainstorm' })).toBeNull();
     expect(screen.queryByRole('dialog', { name: 'Close kirk' })).toBeNull();
     expect(fake.calls.closedAgents).toEqual([]);
-  });
-});
-
-describe('the brainstorm over a conversation', () => {
-  it('leaves the draft in the composer', async () => {
-    open();
-    const box = await screen.findByRole('textbox', { name: 'Message' });
-    await userEvent.type(box, 'half a thought');
-
-    await userEvent.click(
-      within(await openMore()).getByRole('button', { name: 'Brainstorm with Pi' }),
-    );
-    const sheet = await screen.findByRole('dialog', { name: 'Brainstorm' });
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
-
-    expect(screen.queryByRole('dialog', { name: 'Brainstorm' })).toBeNull();
-    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveProperty(
-      'value',
-      'half a thought',
-    );
   });
 });
 

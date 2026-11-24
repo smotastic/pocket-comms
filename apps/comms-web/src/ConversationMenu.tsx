@@ -4,7 +4,6 @@ import {
   type BadgeTone,
   Button,
   IconButton,
-  ItemRow,
   List,
   ListItem,
   SectionHeader,
@@ -16,7 +15,6 @@ import {
   Tile,
 } from '@smotastic/pocket-design';
 import { useState } from 'react';
-import { useOpenBrainstorm } from './Brainstorm.js';
 import type { AttachedPullRequestView } from './comms-client.js';
 import { moreLabel, pullRequestId, pullRequestName, STATE_LABELS } from './pull-requests.js';
 
@@ -121,9 +119,10 @@ const PullRequestItem = ({
 
 /**
  * The conversation's More action (spec 016): the top bar has no room for more icons next to the
- * agent's name, so the agent's attached pull requests (spec 031), the brainstorm and Close wait in
- * a sheet. Each pull request is a card that opens its changes; Close stands apart at the end, as
- * the one action that cannot be undone. The button counts the pull requests.
+ * agent's name, so the agent's attached pull requests (spec 031) and Close wait in a sheet. Each
+ * pull request is a card that opens its changes; Close stands apart at the end, as the one action
+ * that cannot be undone. The button counts the pull requests, and is left out while the sheet
+ * would be empty. The brainstorm opens from the overview.
  */
 export const ConversationMenu = ({
   close,
@@ -135,69 +134,68 @@ export const ConversationMenu = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState<AttachedPullRequestView>();
-  const openBrainstorm = useOpenBrainstorm();
   // More closes first, so only one sheet is ever open.
   const choose = (action: () => void) => () => {
     setOpen(false);
     action();
   };
   const list = pullRequests?.list ?? [];
+  const hasPullRequests = pullRequests !== undefined && list.length > 0;
 
   return (
     <>
-      <IconButton
-        icon="settings"
-        label={moreLabel(list.length)}
-        count={list.length}
-        onClick={() => setOpen(true)}
-      />
-      <Sheet
-        open={open}
-        label="More"
-        bodyLabel="More actions"
-        onClose={() => setOpen(false)}
-        header={
-          <SheetHeader title="More">
-            <IconButton icon="close" label="Close" onClick={() => setOpen(false)} />
-          </SheetHeader>
-        }
-      >
-        <Stack gap="md">
-          {pullRequests === undefined || list.length === 0 ? null : (
-            <Stack gap="xs">
-              <SectionHeader title="Pull requests" count={list.length} />
-              <List divided={false}>
-                {list.map((pullRequest) => (
-                  <PullRequestItem
-                    key={pullRequestId(pullRequest)}
-                    pullRequest={pullRequest}
-                    onOpen={choose(() => pullRequests.onOpen(pullRequest))}
-                    onRemove={choose(() => setRemoving(pullRequest))}
-                  />
-                ))}
-              </List>
+      {!hasPullRequests && close === undefined ? null : (
+        <>
+          <IconButton
+            icon="settings"
+            label={moreLabel(list.length)}
+            count={list.length}
+            onClick={() => setOpen(true)}
+          />
+          <Sheet
+            open={open}
+            label="More"
+            bodyLabel="More actions"
+            onClose={() => setOpen(false)}
+            header={
+              <SheetHeader title="More">
+                <IconButton icon="close" label="Close" onClick={() => setOpen(false)} />
+              </SheetHeader>
+            }
+          >
+            <Stack gap="md">
+              {!hasPullRequests ? null : (
+                <Stack gap="xs">
+                  <SectionHeader title="Pull requests" count={list.length} />
+                  <List divided={false}>
+                    {list.map((pullRequest) => (
+                      <PullRequestItem
+                        key={pullRequestId(pullRequest)}
+                        pullRequest={pullRequest}
+                        onOpen={choose(() => pullRequests?.onOpen(pullRequest))}
+                        onRemove={choose(() => setRemoving(pullRequest))}
+                      />
+                    ))}
+                  </List>
+                </Stack>
+              )}
+              {close === undefined ? null : (
+                <>
+                  {hasPullRequests ? <Separator /> : null}
+                  <Stack gap="xs">
+                    <Text size="sm" tone="muted">
+                      Removes the worktree and its checkout. The branch stays.
+                    </Text>
+                    <Button variant="danger" onClick={choose(close.onClose)}>
+                      Close worktree
+                    </Button>
+                  </Stack>
+                </>
+              )}
             </Stack>
-          )}
-          <List divided={false}>
-            <ItemRow icon="sparkle" onClick={choose(openBrainstorm)}>
-              Brainstorm with Pi
-            </ItemRow>
-          </List>
-          {close === undefined ? null : (
-            <>
-              <Separator />
-              <Stack gap="xs">
-                <Text size="sm" tone="muted">
-                  Removes the worktree and its checkout. The branch stays.
-                </Text>
-                <Button variant="danger" onClick={choose(close.onClose)}>
-                  Close worktree
-                </Button>
-              </Stack>
-            </>
-          )}
-        </Stack>
-      </Sheet>
+          </Sheet>
+        </>
+      )}
       {pullRequests === undefined ? null : (
         <RemoveConfirmation
           pullRequest={removing}

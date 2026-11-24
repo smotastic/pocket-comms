@@ -86,12 +86,11 @@ const openMore = async (name: RegExp | string = /^More/) => {
 };
 
 describe('the attached pull requests', () => {
-  it('shows no count and no heading without pull requests', async () => {
+  it('leaves out More without pull requests and nothing else in it', async () => {
     open([]);
+    await screen.findByText('Fix the build');
 
-    const more = await openMore('More');
-
-    expect(within(more).queryByRole('heading', { name: 'Pull requests' })).toBeNull();
+    expect(within(await banner()).queryByRole('button', { name: /^More/u })).toBeNull();
   });
 
   it('counts them on the More button and lists them first in More', async () => {
@@ -230,7 +229,7 @@ describe('the attached pull requests', () => {
 
   it('follows an agent that attaches one while the conversation is open', async () => {
     const fake = open([]);
-    await within(await banner()).findByRole('button', { name: 'More' });
+    await screen.findByText('Fix the build');
 
     fake.state.pullRequests.set('kirk', [pr(99)]);
     act(() => {
