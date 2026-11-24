@@ -43,7 +43,7 @@ in the task's own commit.
 - [x] **T10** — Docs: `packages/comms/AGENTS.md`, the spec 021 note, `GLOSSARY.md`
   - Gate: `pnpm format:check`
 
-- [ ] **T11** — The recovery check live against an isolated Herdr session, for Claude and Pi, with
+- [x] **T11** — The recovery check live against an isolated Herdr session, for Claude and Pi, with
       a server restart between the partial start and the recovery; the 390 px check of the card and
       the sheet
   - Gate: noted in the pull request

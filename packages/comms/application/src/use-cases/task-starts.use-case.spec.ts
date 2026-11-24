@@ -195,6 +195,15 @@ describe('TaskStartsInbound.send', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('sends to an agent that finished its turn and takes input', () =>
+    Effect.gen(function* () {
+      const state = yield* arrange();
+      state.agents = [AGENT({ status: 'done' })];
+
+      expect(yield* send()).toMatchObject({ delivery: 'delivered' });
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('refuses an empty prompt', () =>
     Effect.gen(function* () {
       yield* arrange();

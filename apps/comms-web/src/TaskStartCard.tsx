@@ -35,13 +35,15 @@ const WAITING: Record<TaskStartView['agent']['status'], string> = {
   blocked: 'Answer the agent’s question first. The task stays here until then.',
   working: 'The agent is working. Send the task when it is idle.',
   idle: 'The agent is not ready for input yet.',
-  done: 'The agent is not ready for input. Look at its screen.',
+  done: 'The agent is not ready for input yet.',
   unknown: 'The agent is not ready for input. Look at its screen.',
 };
 
 // Why Send waits: the app never answers a dialog and never prompts an agent that is not ready.
 const waitingOf = ({ agent }: TaskStartView): string | undefined =>
-  agent.status === 'idle' && agent.ready ? undefined : WAITING[agent.status];
+  (agent.status === 'idle' || agent.status === 'done') && agent.ready
+    ? undefined
+    : WAITING[agent.status];
 
 const facts = (start: TaskStartView): string =>
   [start.branch, start.issue === undefined ? undefined : `issue #${start.issue}`]

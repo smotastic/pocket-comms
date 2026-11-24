@@ -60,6 +60,15 @@ describe('the Task not sent card', () => {
     );
   });
 
+  it('offers Send to an agent that finished its turn and takes input', async () => {
+    open(start({ agent: { status: 'done', ready: true } }));
+
+    const region = await card('The task was not sent');
+    expect(within(region).getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(
+      false,
+    );
+  });
+
   it('sends an uncertain task only through Send anyway', async () => {
     const user = userEvent.setup();
     const { calls } = open(start({ delivery: 'uncertain', reason: undefined }));

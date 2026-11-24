@@ -154,8 +154,9 @@ export const makeTaskStarts = Effect.gen(function* () {
     if (start.delivery === 'uncertain' && input.anyway !== true) {
       return yield* new DeliveryUncertainError({ ref });
     }
+    // An agent that finished its turn takes input as an idle one does (Herdr's `done`).
     const now = yield* readiness(agent);
-    if (now.status !== 'idle' || !now.ready) {
+    if ((now.status !== 'idle' && now.status !== 'done') || !now.ready) {
       return yield* new AgentNotReadyError({ ref, status: now.status });
     }
     const outcome = yield* deliver(

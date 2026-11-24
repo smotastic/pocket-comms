@@ -73,12 +73,12 @@ the agent's conversation or from the issue, into the same worktree and agent.
    - `pending`: "Starting the agent…", without actions.
 8. The card shows the kept prompt in an editable text field (the whole prompt, scrollable), and the
    actions **Send**, **Dismiss** and, for `uncertain`, **Send anyway** in place of Send.
-9. Send is offered only while the agent is idle and ready for input, as Herdr reports it now (the
+9. Send is offered only while the agent is idle or done and ready for input, as Herdr reports it now (the
    readiness of pull request #104). While the agent is blocked the card says "Answer the agent's
    question first" and keeps the prompt; while it is working or unknown it says so. The app never
    presses a key or answers a dialog for the owner.
 10. Send submits the field's text as a prompt, with the same rules as a prompt from the composer
-    (spec 004). The server checks again that the agent is idle and ready and that the start is still
+    (spec 004). The server checks again that the agent is idle or done and ready and that the start is still
     kept; if not, it sends nothing and says why. When Herdr accepts the prompt the start is forgotten
     and the card goes away; when Herdr refuses it the start stays `not-sent` with the new reason;
     when Herdr does not answer it becomes `uncertain`.
