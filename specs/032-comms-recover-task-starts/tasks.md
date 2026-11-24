@@ -40,7 +40,7 @@ in the task's own commit.
 - [x] **T09** — Web: Resume and Start an agent here on `IssueCard`, `StartAgentSheet`
   - Gate: `pnpm nx run-many -t test,lint -p comms-web`
 
-- [ ] **T10** — Docs: `packages/comms/AGENTS.md`, the spec 021 note, `GLOSSARY.md`
+- [x] **T10** — Docs: `packages/comms/AGENTS.md`, the spec 021 note, `GLOSSARY.md`
   - Gate: `pnpm format:check`
 
 - [ ] **T11** — The recovery check live against an isolated Herdr session, for Claude and Pi, with

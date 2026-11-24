@@ -48,7 +48,8 @@ message after the agent has already started on the plain issue.
 5. The additional information is never cut. When the task would be longer than 20 000
    characters, the issue's body is cut as in spec 006, requirement 13, to make room for it.
 6. The issue in Gitea is not changed by the text, and the app does not store it: it lives only in
-   the agent's first prompt.
+   the agent's first prompt. (Changed by [spec 032](../032-comms-recover-task-starts/spec.md): the
+   first prompt is kept with its task start in the state folder until the agent has it.)
 7. The field belongs to one issue's sheet: opening the sheet for another issue, or again after
    closing it, starts with an empty field. A failed start keeps the text, as it keeps the branch.
 

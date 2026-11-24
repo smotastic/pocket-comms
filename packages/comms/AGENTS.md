@@ -24,14 +24,16 @@ pull requests agents attach to their conversation and reads their changes from G
 [spec 025](../../specs/025-comms-quick-replies/spec.md),
 [spec 026](../../specs/026-comms-brainstorm-chat-stream/spec.md),
 [spec 027](../../specs/027-comms-brainstorm-voice/spec.md),
-[spec 030](../../specs/030-comms-answer-questions-in-chat/spec.md) and
-[spec 031](../../specs/031-comms-attached-pull-requests/spec.md).
+[spec 030](../../specs/030-comms-answer-questions-in-chat/spec.md),
+[spec 031](../../specs/031-comms-attached-pull-requests/spec.md) and
+[spec 032](../../specs/032-comms-recover-task-starts/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, the push devices and the
 VAPID key pair are two JSON files in its `push` folder, the owner's quick replies are
 `quick-replies.json` in the state folder, and the agents' attached pull requests are
-`pull-requests.json` there, by the session id of each agent's conversation.
+`pull-requests.json` there, by the session id of each agent's conversation, and the task starts
+whose first prompt is not yet delivered are `task-starts.json` there, by worktree folder.
 
 ## Where each file type goes
 
@@ -48,6 +50,9 @@ VAPID key pair are two JSON files in its `push` folder, the owner's quick replie
 | The quick replies file                                                         | `infrastructure` (`src/quick-replies`)                      |
 | Pull request rules (pages, the list, the unified diff and its limits)          | `domain` (`src/pull-request.ts`)                            |
 | The attached pull requests file                                                | `infrastructure` (`src/pull-requests`)                      |
+| Task start rules (delivery, the start of an agent, an issue's recovery)        | `domain` (`src/task-start.ts`)                              |
+| Starting an agent and its first prompt, kept as a task start                   | `application` (`src/use-cases/agent-launch.ts`)             |
+| The task starts file                                                           | `infrastructure` (`src/task-starts`)                        |
 | The agent skill that attaches a pull request                                   | `apps/comms-server/skills/comms-attach-pull-request`        |
 | The image store                                                                | `infrastructure` (`src/images`)                             |
 | Activity rules (snapshot diff, what is kept, prompt excerpts)                  | `domain` (`src/activity.ts`)                                |
@@ -130,6 +135,18 @@ VAPID key pair are two JSON files in its `push` folder, the owner's quick replie
   a project, through `worktree.remove`; never the primary checkout, never a path from a request.
   Without `force`, the server asks git for changes first and removes nothing when there are any.
   `force` comes only from the owner's explicit Discard changes and close.
+- Every agent the app starts goes through `makeAgentLaunch` (spec 005 and spec 032): it keeps the
+  task start at each step and forgets it once Herdr accepts the prompt. Do not start an agent or
+  send a first prompt around it. A prompt Herdr did not answer is `uncertain` and is sent again
+  only on the owner's explicit Send anyway, never by the server; a refused one is `not-sent`. A
+  start that was `pending` when the server stopped reads `uncertain` (`TaskStartsInbound.layer`).
+  A failing `task-starts.json` is logged and never fails a start. The kept prompt holds the
+  additional information of spec 021 until the start is forgotten (on delivery, Dismiss, closing
+  the agent, or when git no longer lists the worktree); it never goes to Gitea.
+- Start an agent here (spec 032) takes the worktree only from the project's git worktree list,
+  matched by the issue's branch, never the primary checkout, and never a path from a request; it
+  refuses a worktree with a live agent or a `pending` start, and never calls `worktree.create`.
+  It opens a new shell with `tab.create`, or `worktree.open` when Herdr has no workspace for it.
 - Implementing an issue goes through the spec 005 `create` use case; do not copy its rules. It
   marks the issue in progress only after the task exists, and a failed mark never fails the start.
   Whether an issue is in progress is `isInProgress` in the domain; the web app only groups by it.

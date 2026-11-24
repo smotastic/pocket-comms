@@ -86,6 +86,15 @@ _Avoid_: tab, session, project
 Starting work in a project: the task text, a branch for a new worktree, and optionally an agent.
 _Avoid_: job, ticket, task (unqualified)
 
+**Task start**:
+A new task's worktree and agent, kept with the agent's first prompt until the agent has it, so the
+owner can send it later into the same worktree and agent.
+_Avoid_: launch, partial start, job
+
+**Delivery**:
+Where a task start's first prompt is: pending, not started, not sent, uncertain or delivered.
+_Avoid_: prompt status, sent state
+
 **Issue**:
 A tracked piece of work in a project's issue tracker.
 _Avoid_: ticket, task, bug

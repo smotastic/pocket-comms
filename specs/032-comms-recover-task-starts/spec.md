@@ -66,8 +66,8 @@ the agent's conversation or from the issue, into the same worktree and agent.
 ### The Task not sent card
 
 7. The conversation of an agent whose worktree has a kept start that is not `delivered` shows a
-   **Task not sent** card above the composer. It says what exists (worktree, agent, issue and
-   whether it is marked in progress) and what did not happen, in the words of the delivery:
+   **Task not sent** card above the composer. It says what exists (the worktree's branch and the
+   issue) and what did not happen, in the words of the delivery:
    - `not-sent` and `not-started`: "The task was not sent" with the reason;
    - `uncertain`: "The task may not have arrived. Check the conversation before you send it again.";
    - `pending`: "Starting the agent…", without actions.
@@ -164,7 +164,7 @@ the agent's conversation or from the issue, into the same worktree and agent.
   a shell; `worktree.open` opens an existing worktree as a workspace when Herdr has none. Both
   without focus (spec 004, requirement 18). The exact parameters are checked against Herdr 0.9.5
   before the adapter is written.
-- The words follow the glossary; "task start", "kept prompt" and "delivery" are added to it.
+- The words follow the glossary; "task start" and "delivery" are added to it.
 
 ## 6. Open questions
 
