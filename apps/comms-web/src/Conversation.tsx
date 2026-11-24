@@ -140,7 +140,7 @@ const Header = ({
             {...(pullRequests === undefined ? {} : { pullRequests })}
             {...(agent?.worktree === undefined || onClose === undefined
               ? {}
-              : { close: { label: `Close ${agent.ref}`, onClose } })}
+              : { close: { onClose } })}
           />
         </>
       }
