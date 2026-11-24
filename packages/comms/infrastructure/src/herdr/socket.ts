@@ -116,6 +116,7 @@ const WorktreeCreated = Schema.Struct({
   root_pane: Schema.Struct({ pane_id: Schema.String }),
   worktree: Schema.Struct({ path: Schema.String, branch: optionalString }),
 });
+// `agent.start` and `agent.get` both answer with the agent's status and whether it takes input.
 const AgentStarted = Schema.Struct({
   agent: Schema.Struct({
     agent_status: optionalString,
@@ -124,6 +125,11 @@ const AgentStarted = Schema.Struct({
 });
 
 const isStatus = Schema.is(AgentStatus);
+
+const toStartedAgent = ({ agent }: typeof AgentStarted.Type) => ({
+  status: isStatus(agent.agent_status) ? agent.agent_status : 'unknown',
+  ready: agent.interactive_ready === true,
+});
 
 // Herdr refuses `agent.start` until the pane's shell sits at its prompt. A pane that
 // `worktree.create` just spawned gets there only after the shell has read its startup files,
@@ -411,9 +417,21 @@ export const layerSocket = ({
           Effect.map((result) => result.read.text),
           Effect.withSpan('Herdr.readScreen'),
         ),
-      // Text, like any key but paging, ends the paging away from a question.
+      // `agent.start` may answer before the agent takes input, and Herdr finishes the start only
+      // on `agent.get`; `agent.list` never does (Herdr 0.9.5).
+      readAgent: (target) =>
+        request('agent.get', { target }, AgentStarted, target).pipe(
+          Effect.map(toStartedAgent),
+          Effect.withSpan('Herdr.readAgent'),
+        ),
+      // Text, like any key but paging, ends the paging away from a question. Herdr refuses a
+      // prompt to an agent whose start it has not finished ("is not an active named agent"), so
+      // the agent is read first; when that read fails, the prompt says why.
       prompt: (target, text) =>
         Effect.sync(() => pagedAway.delete(target)).pipe(
+          Effect.andThen(
+            request('agent.get', { target }, Schema.Unknown, target).pipe(Effect.ignore),
+          ),
           Effect.andThen(request('agent.prompt', { target, text }, Schema.Unknown, target)),
           Effect.asVoid,
           Effect.withSpan('Herdr.prompt'),
@@ -490,10 +508,7 @@ export const layerSocket = ({
             schedule: Schedule.spaced(SHELL_PAUSE),
             times: Math.ceil(Duration.toMillis(shellWait) / Duration.toMillis(SHELL_PAUSE)),
           }),
-          Effect.map(({ agent }) => ({
-            status: isStatus(agent.agent_status) ? agent.agent_status : 'unknown',
-            ready: agent.interactive_ready === true,
-          })),
+          Effect.map(toStartedAgent),
           Effect.withSpan('Herdr.startAgent'),
         ),
       changes,

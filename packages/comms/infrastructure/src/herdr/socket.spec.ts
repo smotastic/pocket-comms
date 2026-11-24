@@ -224,9 +224,71 @@ describe('Herdr.layerSocket', () => {
       ).pipe(Effect.provide(layerSocket({ path: server.path })));
 
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
+        ['agent.get', { target: 'wJ:p1' }],
         ['agent.prompt', { target: 'wJ:p1', text: 'hello' }],
         ['agent.send_keys', { target: 'wJ:p1', keys: ['1'] }],
         ['agent.send_keys', { target: 'wJ:p1', keys: ['enter'] }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('reads an agent, which lets Herdr finish its start', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer((request) =>
+        request.method === 'agent.get'
+          ? {
+              result: {
+                type: 'agent_info',
+                agent: { pane_id: 'wK:p1', agent_status: 'idle', interactive_ready: true },
+              },
+            }
+          : lists(request),
+      );
+      const agent = yield* HerdrOutbound.use((herdr) => herdr.readAgent('wK:p1')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+      );
+
+      expect(agent).toEqual({ status: 'idle', ready: true });
+      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
+        ['agent.get', { target: 'wK:p1' }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('reports an agent whose start Herdr still holds as not ready', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer((request) =>
+        request.method === 'agent.get'
+          ? {
+              result: {
+                type: 'agent_info',
+                agent: { pane_id: 'wK:p1', agent_status: 'idle', launch_pending: true },
+              },
+            }
+          : lists(request),
+      );
+      const agent = yield* HerdrOutbound.use((herdr) => herdr.readAgent('wK:p1')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+      );
+
+      expect(agent).toEqual({ status: 'idle', ready: false });
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('still sends the prompt when Herdr cannot read the agent first', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer((request) =>
+        request.method === 'agent.get'
+          ? { error: { code: 'agent_not_found', message: 'agent wJ:p1 not found' } }
+          : lists(request),
+      );
+      yield* HerdrOutbound.use((herdr) => herdr.prompt('wJ:p1', 'hello')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+      );
+
+      expect(server.requests.map((request) => request.method)).toEqual([
+        'agent.get',
+        'agent.prompt',
       ]);
     }).pipe(Effect.scoped),
   );

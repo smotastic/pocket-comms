@@ -74,6 +74,7 @@ export interface HerdrCall {
   readonly method:
     | 'snapshot'
     | 'readScreen'
+    | 'readAgent'
     | 'prompt'
     | 'typeText'
     | 'sendKeys'
@@ -129,6 +130,8 @@ export class FakeState extends Context.Service<
     readonly badBranchNames: Set<string>;
     /** What the next `startAgent` reports. */
     started: StartedAgent;
+    /** The panes whose agent Herdr does not yet report ready for input. */
+    readonly unready: Set<string>;
     /** The `origin` URL of every project that has one. */
     readonly origins: Map<string, string>;
     /** The worktrees of every project. */
@@ -276,6 +279,26 @@ const herdr = (state: FakeState['Service']) => {
     })).pipe(Effect.catchTag('HerdrRejectedError', Effect.die)),
     readScreen: (target) =>
       command({ method: 'readScreen', target }, () => state.screens.get(target) ?? ''),
+    // An agent of `agents`, by pane id or name; none answers as Herdr does.
+    readAgent: (target) =>
+      command({ method: 'readAgent', target }, () =>
+        state.agents.find((agent) => agent.paneId === target || agent.name === target),
+      ).pipe(
+        Effect.flatMap((agent) =>
+          agent === undefined
+            ? Effect.fail(
+                new HerdrRejectedError({
+                  ref: target,
+                  code: 'agent_not_found',
+                  message: `agent ${target} not found`,
+                }),
+              )
+            : Effect.succeed({
+                status: agent.status,
+                ready: !state.unready.has(agent.paneId),
+              }),
+        ),
+      ),
     prompt: (target, text) => command({ method: 'prompt', target, params: text }, () => undefined),
     typeText: (paneId, text) =>
       command({ method: 'typeText', target: paneId, params: text }, () => undefined),
@@ -642,6 +665,7 @@ export const fakeLayer = () => {
         branches: new Set(),
         badBranchNames: new Set(),
         started: { status: 'idle', ready: true },
+        unready: new Set(),
         origins: new Map([['app', 'gitea:owner/app.git']]),
         worktrees: new Map([['app', [{ path: '/work/app', branch: 'master' }]]]),
         changed: new Set(),

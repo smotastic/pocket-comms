@@ -260,6 +260,27 @@ describe('TasksInbound.create', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('waits until the idle agent also takes input, as a just-started Pi does', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const paneId = 'w-feat/new-task-flow:p1';
+      state.started = { status: 'unknown', ready: false };
+      state.agents = [fakeAgent({ paneId, name: 'feat-new-task-flow', kind: 'pi' })];
+      state.unready.add(paneId);
+
+      const fiber = yield* create({ agent: 'pi' }).pipe(Effect.forkChild);
+      yield* TestClock.adjust('2 seconds');
+      expect(herdrMethods(state)).not.toContain('prompt');
+      state.unready.delete(paneId);
+      yield* TestClock.adjust('1 second');
+      const created = yield* Fiber.join(fiber);
+
+      expect(created.agent).toMatchObject({ started: true, prompted: true });
+      expect(herdrMethods(state).at(-1)).toBe('prompt');
+      expect(herdrMethods(state)).toContain('readAgent');
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('sends nothing when the started agent turns out to wait for an answer', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

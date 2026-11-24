@@ -103,6 +103,10 @@ VAPID key pair are two JSON files in its `push` folder, the owner's quick replie
   reported and a read never replaces it; only the owner's next save writes over it.
 - A new agent gets its first prompt only while it is idle and ready: the app never answers an
   agent's dialog for the owner (spec 005, requirement 13). Never send `trust_repository`.
+  Ready comes from `readAgent` (Herdr's `agent.get`), never from the snapshot: Herdr's
+  `agent.start` may answer before the agent takes input, only `agent.get` finishes the start, and
+  until then Herdr refuses a prompt as "not an active named agent". So the socket adapter's
+  `prompt` reads the agent first.
 - `GiteaOutbound` reads (also a pull request, its `.diff` and its changed files for spec 031), and writes only `closeIssue` (spec 010), `createIssue` (spec 013),
   `markInProgress` (spec 015), `updateIssue` (spec 022) and `attachImage` (spec 023): the HTTP
   adapter sends `GET`, a `PATCH` with exactly `{"state":"closed"}`, a `PATCH` with exactly
