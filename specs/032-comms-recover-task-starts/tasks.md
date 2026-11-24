@@ -13,7 +13,7 @@ in the task's own commit.
       `recoveryOf`
   - Gate: `pnpm nx test comms-domain`
 
-- [ ] **T03** — The starts file: `TaskStartsStoreOutbound`, the file store and the fake
+- [x] **T03** — The starts file: `TaskStartsStoreOutbound`, the file store and the fake
   - Gate: `pnpm nx run-many -t test,test-typecheck -p comms-application comms-infrastructure`
 
 - [ ] **T04** — `HerdrOutbound.openShell` and `openWorktree` in the port, the socket adapter and

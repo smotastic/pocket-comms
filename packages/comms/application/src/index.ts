@@ -44,6 +44,7 @@ export {
   NoGiteaRemoteError,
   PullRequestNotFoundError,
   PullRequestsStoreError,
+  TaskStartsStoreError,
   NotAWorktreeError,
   ProjectGitError,
   ProjectNotFoundError,
@@ -107,6 +108,7 @@ export { PullRequestsOutbound, type AttachedLists } from './ports/pull-requests.
 export { ProjectsOutbound } from './ports/projects.outbound.port.js';
 export { SpeechInbound } from './ports/speech.inbound.port.js';
 export { TasksInbound } from './ports/tasks.inbound.port.js';
+export { TaskStartsOutbound } from './ports/task-starts.outbound.port.js';
 export {
   SeenOutbound,
   StatusHistoryOutbound,

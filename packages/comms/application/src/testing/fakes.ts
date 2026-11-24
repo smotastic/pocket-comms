@@ -6,6 +6,7 @@ import {
   parseRemote,
   type Agent,
   type ChangedFile,
+  type TaskStart,
   type PullRequestRef,
   type BackgroundItem,
   type Issue,
@@ -40,6 +41,7 @@ import {
   PushStoreError,
   QuickRepliesStoreError,
   PullRequestsStoreError,
+  TaskStartsStoreError,
   ConversationUnavailableError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
@@ -58,6 +60,7 @@ import {
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { QuickRepliesOutbound } from '../ports/quick-replies.outbound.port.js';
 import { PullRequestsOutbound, type AttachedLists } from '../ports/pull-requests.outbound.port.js';
+import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
 import {
   PushKeysOutbound,
   PushSenderOutbound,
@@ -162,6 +165,10 @@ export class FakeState extends Context.Service<
     >;
     /** The saved attached pull requests, by session id. */
     attachedLists: AttachedLists;
+    /** The kept task starts, by worktree folder. */
+    readonly taskStarts: Map<string, TaskStart>;
+    /** When set, the task starts file fails with this reason. */
+    taskStartsFailure: string | undefined;
     /** When set, the attached pull requests file fails with this reason. */
     attachedListsFailure: string | undefined;
     /** When set, only reading the attached pull requests file fails, until the next save. */
@@ -425,6 +432,11 @@ const pushStore = <A>(state: FakeState['Service'], result: () => A) =>
     ? Effect.sync(result)
     : Effect.fail(new PushStoreError({ reason: state.pushStoreFailure }));
 
+const taskStartsStore = <A>(state: FakeState['Service'], result: () => A) =>
+  state.taskStartsFailure === undefined
+    ? Effect.sync(result)
+    : Effect.fail(new TaskStartsStoreError({ reason: state.taskStartsFailure }));
+
 const pushSubscriptions = (state: FakeState['Service']): PushSubscriptionsOutbound['Service'] => ({
   list: Effect.suspend(() => pushStore(state, () => [...state.pushSubscriptions])),
   save: (subscription) =>
@@ -677,6 +689,8 @@ export const fakeLayer = () => {
         giteaCalls: [],
         pullRequests: new Map(),
         attachedLists: {},
+        taskStarts: new Map(),
+        taskStartsFailure: undefined,
         attachedListsFailure: undefined,
         attachedListsLoadFailure: undefined,
         docs: new Map(),
@@ -751,6 +765,15 @@ export const fakeLayer = () => {
               fake.pushes.push({ endpoint: subscription.endpoint, notification, at });
               return 'sent' as const;
             }),
+        }),
+        Context.add(TaskStartsOutbound, {
+          load: Effect.suspend(() => taskStartsStore(fake, () => [...fake.taskStarts.values()])),
+          put: (start) =>
+            Effect.suspend(() =>
+              taskStartsStore(fake, () => void fake.taskStarts.set(start.folder, start)),
+            ),
+          forget: (folder) =>
+            Effect.suspend(() => taskStartsStore(fake, () => void fake.taskStarts.delete(folder))),
         }),
         Context.add(PullRequestsOutbound, {
           load: Effect.suspend(() => {

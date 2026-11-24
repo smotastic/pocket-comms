@@ -112,6 +112,11 @@ export class PullRequestsStoreError extends Data.TaggedError('PullRequestsStoreE
   readonly reason: string;
 }> {}
 
+/** The file of task starts cannot be read or written; a broken file is never replaced. */
+export class TaskStartsStoreError extends Data.TaggedError('TaskStartsStoreError')<{
+  readonly reason: string;
+}> {}
+
 /** The issue's title or body changed since Pi read it, so an edit would overwrite newer work. */
 export class IssueChangedError extends Data.TaggedError('IssueChangedError')<{
   readonly number: number;

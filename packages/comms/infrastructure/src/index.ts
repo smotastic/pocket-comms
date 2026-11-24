@@ -10,3 +10,4 @@ export * as Seen from './memory/seen.js';
 export * as StatusHistory from './memory/status-history.js';
 export * as Conversation from './conversation/index.js';
 export * as PullRequests from './pull-requests/index.js';
+export * as TaskStarts from './task-starts/index.js';
