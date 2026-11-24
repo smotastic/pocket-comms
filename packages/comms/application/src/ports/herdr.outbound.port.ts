@@ -46,7 +46,7 @@ export interface AgentStart {
   readonly kind: AgentToStart;
 }
 
-/** The started agent as Herdr reports it: its status, and whether it takes input. */
+/** An agent as Herdr reports it: its status, and whether it takes input. */
 export interface StartedAgent {
   readonly status: AgentStatus;
   readonly ready: boolean;
@@ -94,7 +94,17 @@ export class HerdrOutbound extends Context.Service<
     readonly removeWorktree: (
       removal: WorktreeRemoval,
     ) => Effect.Effect<void, HerdrUnavailableError | HerdrRejectedError>;
-    /** Starts an agent in a pane at its shell prompt and waits until it is up. */
+    /**
+     * One agent as Herdr reports it now. Herdr finishes an agent's start, and lets it take a
+     * prompt, only when the agent is read this way; `snapshot` never does.
+     */
+    readonly readAgent: (
+      target: string,
+    ) => Effect.Effect<StartedAgent, HerdrUnavailableError | HerdrRejectedError>;
+    /**
+     * Starts an agent in a pane at its shell prompt. Herdr may answer before the agent takes
+     * input; `readAgent` tells when it does.
+     */
     readonly startAgent: (
       start: AgentStart,
     ) => Effect.Effect<StartedAgent, HerdrUnavailableError | HerdrRejectedError>;

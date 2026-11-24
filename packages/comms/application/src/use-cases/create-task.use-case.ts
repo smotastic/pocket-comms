@@ -76,18 +76,19 @@ export const makeCreateTask = Effect.gen(function* () {
     return base;
   });
 
-  // The status that decides whether the task is sent: `idle`, `blocked`, or `unsettled` when
-  // Herdr reports neither within the settle time.
+  // The status that decides whether the task is sent: `idle` once the agent is idle and takes
+  // input, `blocked`, or `unsettled` when Herdr reports neither within the settle time. Herdr
+  // may report a just-started agent idle before it takes input, and finishes its start only
+  // when the agent is read (`readAgent`); a prompt before then is refused.
   const settledStatus = Effect.fnUntraced(function* (paneId: string, started: StartedAgent) {
     if (started.status === 'blocked') return 'blocked' as const;
     if (started.status === 'idle' && started.ready) return 'idle' as const;
     for (let attempt = 0; attempt < SETTLE_TRIES; attempt += 1) {
       yield* Effect.sleep(SETTLE_PAUSE);
-      const snapshot = yield* herdrOutbound.snapshot.pipe(Effect.option);
-      const status = Option.isSome(snapshot)
-        ? snapshot.value.agents.find((agent) => agent.paneId === paneId)?.status
-        : undefined;
-      if (status === 'idle' || status === 'blocked') return status;
+      const agent = yield* herdrOutbound.readAgent(paneId).pipe(Effect.option);
+      if (Option.isNone(agent)) continue;
+      if (agent.value.status === 'blocked') return 'blocked' as const;
+      if (agent.value.status === 'idle' && agent.value.ready) return 'idle' as const;
     }
     return 'unsettled' as const;
   });
