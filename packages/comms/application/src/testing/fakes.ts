@@ -15,6 +15,7 @@ import {
   type PushSubscription,
   type ConversationEntry,
   type Workspace,
+  type Multiplexer,
   type Worktree,
 } from '@pocket-comms/comms-domain';
 import { AgentRuntime, type Clip, type TurnInput } from '@smotastic/pocket-agent';
@@ -113,6 +114,8 @@ export class FakeState extends Context.Service<
     /** Pane id to the Herdr error code that a command for it fails with. */
     readonly rejects: Map<string, string>;
     available: boolean;
+    /** Which multiplexer the fake reports itself as. */
+    multiplexer: Multiplexer;
     readonly calls: Array<MultiplexerCall>;
     readonly herdrChanges: PubSub.PubSub<void>;
     readonly conversationAppends: PubSub.PubSub<{
@@ -284,6 +287,9 @@ const herdr = (state: FakeState['Service']) => {
       return result();
     });
   return MultiplexerOutbound.of({
+    get multiplexer() {
+      return state.multiplexer;
+    },
     // A snapshot names no agent, so Herdr never refuses it.
     snapshot: command({ method: 'snapshot' }, () => ({
       agents: [...state.agents],
@@ -699,6 +705,7 @@ export const fakeLayer = () => {
         subagentMetas: new Map(),
         rejects: new Map(),
         available: true,
+        multiplexer: 'herdr',
         calls: [],
         herdrChanges: yield* PubSub.unbounded<void>(),
         conversationAppends: yield* PubSub.unbounded<{

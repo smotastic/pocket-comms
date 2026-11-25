@@ -3,6 +3,7 @@ import type {
   DialogKey,
   AgentStatus,
   AgentToStart,
+  Multiplexer,
   Workspace,
 } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
@@ -53,6 +54,8 @@ export interface StartedAgent {
 export class MultiplexerOutbound extends Context.Service<
   MultiplexerOutbound,
   {
+    /** Which multiplexer this is, so the app can name it to the owner. */
+    readonly multiplexer: Multiplexer;
     readonly snapshot: Effect.Effect<MultiplexerSnapshot, MultiplexerUnavailableError>;
     /** The visible screen of the agent's pane, with its ANSI escape sequences. */
     readonly readScreen: (

@@ -10,7 +10,7 @@ in the task's own commit.
       **multiplexer**, and the **agent** entry no longer names a pane.
   - Gate: `pnpm nx run comms-domain:test`
 
-- [ ] **T02** — The overview state names the multiplexer: `MultiplexerOutbound.multiplexer`, the
+- [x] **T02** — The overview state names the multiplexer: `MultiplexerOutbound.multiplexer`, the
       Herdr adapter reports `herdr`, `OverviewState` gets `multiplexer` on both variants, the API
       passes it on, the OpenAPI document is regenerated.
   - Gate: `pnpm nx run-many -t test -p comms-domain comms-application comms-api comms-server` and

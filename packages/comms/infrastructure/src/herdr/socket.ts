@@ -407,6 +407,7 @@ export const layerSocket = ({
   return Layer.succeed(
     MultiplexerOutbound,
     MultiplexerOutbound.of({
+      multiplexer: 'herdr',
       snapshot,
       readScreen: (target) =>
         request(

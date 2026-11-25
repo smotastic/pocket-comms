@@ -214,6 +214,7 @@ describe('the overview', () => {
     act(() =>
       fake.emitOverview({
         _tag: 'Available',
+        multiplexer: 'herdr',
         overview: {
           needsYou: [],
           groups: [
@@ -236,7 +237,9 @@ describe('the overview', () => {
     renderApp({ client: fake.client });
     await screen.findByRole('link', { name: /kirk/ });
 
-    act(() => fake.emitOverview({ _tag: 'Unavailable', reason: 'connect ENOENT' }));
+    act(() =>
+      fake.emitOverview({ _tag: 'Unavailable', multiplexer: 'herdr', reason: 'connect ENOENT' }),
+    );
 
     expect((await screen.findByRole('alert')).textContent).toContain('Herdr is not running');
   });
@@ -349,6 +352,7 @@ describe('the project filter', () => {
     act(() =>
       fake.emitOverview({
         _tag: 'Available',
+        multiplexer: 'herdr',
         overview: {
           ...twoProjects,
           groups: [
@@ -368,7 +372,9 @@ describe('the project filter', () => {
     expect((await screen.findByRole('row', { name: 'All' })).getAttribute('aria-selected')).toBe(
       'true',
     );
-    act(() => fake.emitOverview({ _tag: 'Available', overview: twoProjects }));
+    act(() =>
+      fake.emitOverview({ _tag: 'Available', multiplexer: 'herdr', overview: twoProjects }),
+    );
     expect(screen.getByRole('row', { name: 'All' }).getAttribute('aria-selected')).toBe('true');
   });
 });

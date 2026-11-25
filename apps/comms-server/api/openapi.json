@@ -1894,7 +1894,9 @@
       "OverviewStateEncoded": {
         "contentMediaType": "application/json",
         "description": "The event as JSON.",
-        "examples": ["{\"_tag\":\"Unavailable\",\"reason\":\"Herdr is not running.\"}"],
+        "examples": [
+          "{\"_tag\":\"Unavailable\",\"multiplexer\":\"herdr\",\"reason\":\"Herdr is not running.\"}"
+        ],
         "type": "string"
       },
       "Project": {

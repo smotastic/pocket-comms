@@ -283,19 +283,31 @@ describe('wire schemas', () => {
     expect(Schema.encodeSync(codec)(Schema.decodeUnknownSync(codec)(entries))).toEqual(entries);
   });
 
-  it('decodes both overview states', () => {
+  it('decodes both overview states, each naming its multiplexer', () => {
     expect(
       Schema.decodeUnknownSync(OverviewState)({
         _tag: 'Unavailable',
-        reason: 'Herdr is not running.',
+        multiplexer: 'hc',
+        reason: 'connect ENOENT',
       }),
-    ).toEqual({ _tag: 'Unavailable', reason: 'Herdr is not running.' });
+    ).toEqual({ _tag: 'Unavailable', multiplexer: 'hc', reason: 'connect ENOENT' });
     expect(
       Schema.decodeUnknownSync(OverviewState)({
         _tag: 'Available',
+        multiplexer: 'herdr',
         overview: { needsYou: [], groups: [] },
       }),
-    ).toMatchObject({ _tag: 'Available' });
+    ).toMatchObject({ _tag: 'Available', multiplexer: 'herdr' });
+  });
+
+  it('refuses an overview state of a multiplexer it does not know', () => {
+    expect(() =>
+      Schema.decodeUnknownSync(OverviewState)({
+        _tag: 'Unavailable',
+        multiplexer: 'tmux',
+        reason: 'away',
+      }),
+    ).toThrow();
   });
 
   it('decodes an entries event with its reset flag', () => {

@@ -139,6 +139,17 @@ const lists = (request: HerdrRequest) => {
 };
 
 describe('Herdr.layerSocket', () => {
+  it.live('names itself Herdr', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      const multiplexer = yield* MultiplexerOutbound.use((herdr) =>
+        Effect.succeed(herdr.multiplexer),
+      ).pipe(Effect.provide(layerSocket({ path: server.path })));
+
+      expect(multiplexer).toBe('herdr');
+    }).pipe(Effect.scoped),
+  );
+
   it.live('reads the agents and the workspaces', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);

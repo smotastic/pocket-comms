@@ -256,6 +256,26 @@ describe('AgentsInbound.overviewChanges', () => {
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 
+  it.effect('names the multiplexer in every state, available or not', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.multiplexer = 'hc';
+      state.available = false;
+      const changes = yield* collect(
+        yield* AgentsInbound.use((inbound) => Effect.succeed(inbound.overviewChanges)),
+      );
+
+      const away = yield* Queue.take(changes);
+      yield* settle;
+      state.available = true;
+      yield* PubSub.publish(state.herdrChanges, undefined);
+      const back = yield* Queue.take(changes);
+
+      expect([away._tag, away.multiplexer]).toEqual(['Unavailable', 'hc']);
+      expect([back._tag, back.multiplexer]).toEqual(['Available', 'hc']);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
   it.effect('emits again when the owner sees a done agent', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
