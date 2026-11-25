@@ -82,8 +82,8 @@ adds hc as the second multiplexer. The phone app looks and works the same with e
   (`HC_SOCKET` overrides), described by `hc schema`. Terminals have an address (`t7`), an optional
   unique name (1–32 of `a-z 0-9 - _`), free-form labels, a foreground program (`agent`), a title,
   a turn counter and the OSC 7501 status record.
-- hc sends a prompt after about 3 s of quiet, holds it while the owner types in that terminal
-  (up to 60 s), and refuses to type into a `blocked` program unless forced; the app does not force.
+- hc sends a prompt once the program is quiet, and refuses to type into a `blocked` program
+  unless forced; the app does not force.
 - Claude Code reports nothing while it shows its folder-trust dialog (ADR 0015). Every pocket
   repository is trusted, and a worktree inherits its project's trust.
 - The glossary gets **multiplexer**: the program that runs the agents in terminals, such as Herdr

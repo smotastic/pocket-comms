@@ -40,9 +40,11 @@
   It then ends and removes the shell terminal it was given. `readAgent` is `terminal.get`: ready
   once a status is reported and it is not `blocked`.
 - **Input.** `prompt` is `terminal.send` without `force`. `typeText` and `sendKeys` write raw
-  bytes through `terminal.attach` on a framed connection, with the key sequences the Herdr
-  adapter already encodes, one key per write, `keyGap` apart; `terminal.keys` waits ~3 s of quiet
-  per key, too slow for a dialog. `readScreen` is `terminal.read`.
+  bytes as DATA frames through `terminal.attach` on a framed connection
+  (`[channel u32 LE][kind u8][len u32 LE][payload]`), attached with the terminal's own size so
+  it is never resized, with the key sequences the Herdr adapter already encodes, one key per
+  write, `keyGap` apart, then CLOSE. `terminal.keys` is not used: it waits for ~3 s of quiet
+  while the program prints. `readScreen` is `terminal.read`.
 - **Closing.** `closeWorkspace` kills and then removes every terminal of the workspace.
 
 ### The session of an hc agent
@@ -65,10 +67,12 @@ None. The server has no database.
 
 ## 4. Test strategy
 
-- **Spike first (task 1):** against the live hc, start a scratch shell, write raw bytes through
-  `terminal.attach`, read them back with `terminal.read`, and remove the terminal. It proves the
-  attach framing before the adapter relies on it. If it fails, `typeText` and `sendKeys` fall back
-  to `terminal.keys`, and the plan notes the slower answers.
+- **Spike, done 2026-11-25 against hc 0.1.21:** raw DATA through `terminal.attach` typed text
+  into a shell without Enter in 0.02 s, a raw Enter submitted it, a raw arrow moved the choice of
+  Claude Code's folder-trust dialog, and the terminal kept its size. `terminal.keys` took effect
+  at once on a quiet terminal. `terminal.send` did not wait for text typed without Enter: it was
+  pasted after it and both were submitted. The app types without Enter only into a waiting dialog,
+  whose agent is `blocked`, and hc refuses a prompt to a blocked agent without `force`.
 - **Domain:** `statusOf` for every OSC 7501 state, `error`, `clear` and no record; the display
   name of each multiplexer.
 - **Adapter:** `hc/socket.spec.ts` against a scripted fake hc server (Unix socket, JSON-RPC,
