@@ -13,8 +13,14 @@ The one person whose coding agents these are and who uses the app.
 _Avoid_: user, operator
 
 **Agent**:
-In Pocket Comms, always a coding agent running in a workspace, known by its name or its pane.
-_Avoid_: session, process, pane (for the agent)
+In Pocket Comms, always a coding agent running in a workspace, known by its name or by the
+address the multiplexer gives it.
+_Avoid_: session, process, pane, terminal (for the agent)
+
+**Multiplexer**:
+The program that runs the agents in terminals that outlive the owner's window, such as Herdr or
+hc. The app works with one at a time.
+_Avoid_: runtime, terminal (for the program), host
 
 **Agent status**:
 What an agent is doing: **working**, **blocked**, **done**, **idle** or **unknown**.

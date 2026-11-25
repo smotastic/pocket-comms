@@ -5,7 +5,7 @@
 Each task is small and independently testable, a vertical slice where possible. Tick its checkbox
 in the task's own commit.
 
-- [ ] **T01** — Domain: `Multiplexer` (`herdr`, `hc`) with its display name, and `statusOf`, the
+- [x] **T01** — Domain: `Multiplexer` (`herdr`, `hc`) with its display name, and `statusOf`, the
       OSC 7501 status mapping (`error` as `blocked`, no record as `unknown`). Glossary:
       **multiplexer**, and the **agent** entry no longer names a pane.
   - Gate: `pnpm nx run comms-domain:test`
