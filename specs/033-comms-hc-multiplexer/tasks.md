@@ -43,7 +43,7 @@ in the task's own commit.
       start with the allowed values) and `HC_SOCKET`; the composition picks the adapter; README.
   - Gate: `pnpm nx run comms-server:test`
 
-- [ ] **T09** — Sessions and skills in hc: the Claude hook labels its hc terminal with
+- [x] **T09** — Sessions and skills in hc: the Claude hook labels its hc terminal with
       `comms.session` on `SessionStart` (never fails, never prints); a Pi extension does the same;
       the attach skill reads `HC_TERMINAL_ID` when `HERDR_PANE_ID` is not set; AGENTS.md rules and
       set-up.
