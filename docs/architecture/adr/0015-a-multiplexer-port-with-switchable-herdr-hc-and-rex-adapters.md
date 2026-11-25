@@ -69,9 +69,11 @@ server's configuration:
   closing workspaces. Its words come from the glossary (agent, workspace, screen), never from
   one program (pane, block, terminal). An agent is addressed by an opaque id that the adapter
   owns.
-- **Worktrees leave the port.** A new `WorktreesOutbound` port, with a git adapter, creates and
-  removes worktrees. The multiplexer only opens a workspace on a path and closes it. With Herdr,
-  this replaces Herdr's own worktree commands.
+- **Worktrees leave the port.** `ProjectsOutbound`, which already asks git the questions a new or
+  closing worktree needs, also adds and removes worktrees through its git adapter. The
+  multiplexer only opens a workspace on a path and closes it. With Herdr, this replaces Herdr's
+  own worktree commands. New worktrees stay where Herdr puts them today,
+  `~/.herdr/worktrees/<project>/<branch>` (with `/` in the branch as `-`), and `COMMS_WORKTREES_DIR` can move them.
 - **Workspaces.** Each adapter maps a workspace onto what its program has:
   - Herdr: a workspace.
   - hc: labels on each terminal (`comms.workspace`, `comms.project`), grouped by comms. hc has
