@@ -3,7 +3,7 @@ import {
   ActivityInbound,
   AgentsInbound,
   BrainstormInbound,
-  HerdrOutbound,
+  MultiplexerOutbound,
   ImagesInbound,
   IssuesInbound,
   PullRequestsInbound,
@@ -106,9 +106,9 @@ export const services = ({
   );
 
 /** Ready while Herdr answers. */
-export const herdrReadiness = HerdrOutbound.use((herdrOutbound) => herdrOutbound.snapshot).pipe(
-  Effect.asVoid,
-);
+export const herdrReadiness = MultiplexerOutbound.use(
+  (herdrOutbound) => herdrOutbound.snapshot,
+).pipe(Effect.asVoid);
 
 /** Every route of the server, with the use cases on the adapters. */
 export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>

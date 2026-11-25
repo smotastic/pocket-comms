@@ -3,7 +3,7 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import {
   AgentNotFoundError,
-  HerdrRejectedError,
+  MultiplexerRejectedError,
   NotAWorktreeError,
   WorktreeHasChangesError,
 } from '../errors.js';
@@ -169,7 +169,7 @@ describe('AgentsInbound.close', () => {
 
       const error = yield* close('kirk').pipe(Effect.flip);
 
-      expect(error).toBeInstanceOf(HerdrRejectedError);
+      expect(error).toBeInstanceOf(MultiplexerRejectedError);
     }).pipe(Effect.provide(layer())),
   );
 

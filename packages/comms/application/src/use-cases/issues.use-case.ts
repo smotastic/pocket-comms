@@ -13,7 +13,7 @@ import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import type { IssueDto, IssueListDto } from '../dto/issue.dto.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
 import { makeIssueProject } from './issue-project.js';
@@ -46,7 +46,7 @@ const toDto = (
 export const makeIssues = Effect.gen(function* () {
   const projectsOutbound = yield* ProjectsOutbound;
   const giteaOutbound = yield* GiteaOutbound;
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const taskStarts = yield* TaskStartsOutbound;
   const issueProject = yield* makeIssueProject;
 

@@ -15,7 +15,7 @@ import type {
   AgentNotFoundError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
-  HerdrUnavailableError,
+  MultiplexerUnavailableError,
   InvalidPullRequestError,
   NoConversationError,
   PullRequestNotFoundError,
@@ -26,7 +26,7 @@ import { makePullRequests } from '../use-cases/pull-requests.use-case.js';
 // The inbound port of an agent's attached pull requests (spec 031). `ref` is an agent's name, or
 // its pane id; the list belongs to the agent's conversation, by its session id.
 
-type Lookup = AgentNotFoundError | HerdrUnavailableError;
+type Lookup = AgentNotFoundError | MultiplexerUnavailableError;
 type Gitea = GiteaNotConfiguredError | GiteaUnavailableError;
 
 export class PullRequestsInbound extends Context.Service<

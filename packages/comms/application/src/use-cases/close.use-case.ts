@@ -1,12 +1,12 @@
 import * as Effect from 'effect/Effect';
 import { NotAWorktreeError, WorktreeHasChangesError } from '../errors.js';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
 import { makeLoadAgents } from './agents.js';
 
 export const makeClose = Effect.gen(function* () {
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const projectsOutbound = yield* ProjectsOutbound;
   const starts = yield* TaskStartsOutbound;
   const { find } = yield* makeLoadAgents;

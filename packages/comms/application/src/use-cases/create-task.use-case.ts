@@ -10,7 +10,7 @@ import * as Effect from 'effect/Effect';
 import * as Result from 'effect/Result';
 import type { CreateTaskInput, TaskCreatedDto } from '../dto/task.dto.js';
 import { BranchExistsError } from '../errors.js';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { makeAgentLaunch } from './agent-launch.js';
 import { makeImagePaths } from './image-paths.js';
@@ -24,7 +24,7 @@ const issuesOf = <A>(result: Result.Result<A, InvalidInputError>): InvalidInputE
 
 export const makeCreateTask = Effect.gen(function* () {
   const projectsOutbound = yield* ProjectsOutbound;
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const { imagePaths } = yield* makeImagePaths;
   const { launch } = yield* makeAgentLaunch;
 

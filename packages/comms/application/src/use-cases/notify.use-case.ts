@@ -14,7 +14,7 @@ import * as Effect from 'effect/Effect';
 import * as FiberMap from 'effect/FiberMap';
 import * as Option from 'effect/Option';
 import * as Stream from 'effect/Stream';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { SeenOutbound } from '../ports/memory.outbound.port.js';
 import { PushSenderOutbound, PushSubscriptionsOutbound } from '../ports/push.outbound.port.js';
 import { ConversationOutbound } from '../ports/conversation.outbound.port.js';
@@ -27,7 +27,7 @@ const HOLD = '10 seconds';
 // one starts to wait for the owner.
 
 export const makeNotify = Effect.gen(function* () {
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const seenOutbound = yield* SeenOutbound;
   const conversationOutbound = yield* ConversationOutbound;
   const pushSubscriptionsOutbound = yield* PushSubscriptionsOutbound;

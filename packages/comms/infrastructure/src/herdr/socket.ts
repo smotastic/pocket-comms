@@ -1,8 +1,8 @@
 import {
-  HerdrOutbound,
-  HerdrRejectedError,
-  HerdrUnavailableError,
-  type HerdrSnapshot,
+  MultiplexerOutbound,
+  MultiplexerRejectedError,
+  MultiplexerUnavailableError,
+  type MultiplexerSnapshot,
 } from '@pocket-comms/comms-application';
 import {
   AgentStatus,
@@ -141,8 +141,8 @@ const toStartedAgent = ({ agent }: typeof AgentStarted.Type) => ({
 // `worktree.create` just spawned gets there only after the shell has read its startup files,
 // which takes longer on a busy machine, so the start is tried again until then.
 const SHELL_PAUSE = Duration.millis(250);
-const isShellStarting = (error: HerdrUnavailableError | HerdrRejectedError): boolean =>
-  error._tag === 'HerdrRejectedError' && error.message.includes('is not an available shell');
+const isShellStarting = (error: MultiplexerUnavailableError | MultiplexerRejectedError): boolean =>
+  error._tag === 'MultiplexerRejectedError' && error.message.includes('is not an available shell');
 const orUndefined = <A>(value: A | null | undefined): A | undefined => value ?? undefined;
 
 const toAgent = (record: typeof AgentRecord.Type): Agent => ({
@@ -207,7 +207,7 @@ export const layerSocket = ({
   shellWait = '10 seconds',
   keyGap = '50 millis',
 }: SocketOptions) => {
-  const unavailable = (reason: string) => new HerdrUnavailableError({ reason });
+  const unavailable = (reason: string) => new MultiplexerUnavailableError({ reason });
   let nextId = 0;
 
   // Sends one request and reads its one answer line.
@@ -216,11 +216,11 @@ export const layerSocket = ({
     params: Record<string, unknown>,
     wait: Duration.Input = timeout,
   ) =>
-    Effect.callback<string, HerdrUnavailableError>((resume) => {
+    Effect.callback<string, MultiplexerUnavailableError>((resume) => {
       const socket = createConnection(path);
       let buffer = '';
       let settled = false;
-      const settle = (effect: Effect.Effect<string, HerdrUnavailableError>) => {
+      const settle = (effect: Effect.Effect<string, MultiplexerUnavailableError>) => {
         if (settled) return;
         settled = true;
         socket.destroy();
@@ -250,21 +250,21 @@ export const layerSocket = ({
       }),
     );
 
-  /** One request; an `error` answer becomes a `HerdrRejectedError` for `ref`. */
+  /** One request; an `error` answer becomes a `MultiplexerRejectedError` for `ref`. */
   const request = <A>(
     method: string,
     params: Record<string, unknown>,
     schema: Schema.Decoder<A>,
     ref: string,
     wait?: Duration.Input,
-  ): Effect.Effect<A, HerdrUnavailableError | HerdrRejectedError> =>
+  ): Effect.Effect<A, MultiplexerUnavailableError | MultiplexerRejectedError> =>
     Effect.gen(function* () {
       const line = yield* exchange(method, params, wait);
       const answer = yield* decodeAnswer(line).pipe(
         Effect.mapError(() => unavailable(`Herdr answered ${method} in an unknown shape.`)),
       );
       if ('error' in answer) {
-        return yield* new HerdrRejectedError({ ref, ...answer.error });
+        return yield* new MultiplexerRejectedError({ ref, ...answer.error });
       }
       return yield* Schema.decodeUnknownEffect(schema)(answer.result).pipe(
         Effect.mapError(() => unavailable(`Herdr answered ${method} in an unknown shape.`)),
@@ -275,9 +275,9 @@ export const layerSocket = ({
   const list = <A>(
     method: string,
     schema: Schema.Decoder<A>,
-  ): Effect.Effect<A, HerdrUnavailableError> =>
+  ): Effect.Effect<A, MultiplexerUnavailableError> =>
     request(method, {}, schema, '').pipe(
-      Effect.catchTag('HerdrRejectedError', (error) =>
+      Effect.catchTag('MultiplexerRejectedError', (error) =>
         Effect.fail(unavailable(`Herdr refused ${method}: ${error.message}`)),
       ),
     );
@@ -300,7 +300,7 @@ export const layerSocket = ({
     return shown;
   };
 
-  const snapshot: Effect.Effect<HerdrSnapshot, HerdrUnavailableError> = Effect.all([
+  const snapshot: Effect.Effect<MultiplexerSnapshot, MultiplexerUnavailableError> = Effect.all([
     list('agent.list', AgentList),
     list('workspace.list', WorkspaceList),
   ]).pipe(
@@ -322,7 +322,7 @@ export const layerSocket = ({
 
   // The events of one subscription, until Herdr closes it or answers with an error.
   const subscription = (panes: string) =>
-    Stream.callback<void, HerdrUnavailableError>((queue) =>
+    Stream.callback<void, MultiplexerUnavailableError>((queue) =>
       Effect.acquireRelease(
         Effect.sync(() => {
           const socket = createConnection(path);
@@ -396,7 +396,7 @@ export const layerSocket = ({
       ),
     ),
   ).pipe(
-    Stream.catchTag('HerdrUnavailableError', (error) =>
+    Stream.catchTag('MultiplexerUnavailableError', (error) =>
       Stream.concat(
         Stream.fromEffect(
           Effect.logDebug('Herdr events unavailable', { reason: error.reason }),
@@ -410,8 +410,8 @@ export const layerSocket = ({
   const changes: Stream.Stream<void> = Stream.merge(Stream.tick(relistInterval), events);
 
   return Layer.succeed(
-    HerdrOutbound,
-    HerdrOutbound.of({
+    MultiplexerOutbound,
+    MultiplexerOutbound.of({
       snapshot,
       readScreen: (target) =>
         request(

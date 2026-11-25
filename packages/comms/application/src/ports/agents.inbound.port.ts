@@ -14,8 +14,8 @@ import type {
 } from '../dto/agent.dto.js';
 import type {
   AgentNotFoundError,
-  HerdrRejectedError,
-  HerdrUnavailableError,
+  MultiplexerRejectedError,
+  MultiplexerUnavailableError,
   NotAWorktreeError,
   ProjectGitError,
   QuestionNotWaitingError,
@@ -32,12 +32,12 @@ import { makeConversation } from '../use-cases/conversation.use-case.js';
 // The one inbound port of the agents resource (ADR 0006). Each method is one use case, and the
 // `layer` joins the use cases of `use-cases/`. `ref` is an agent's name, or its pane id.
 
-type Lookup = AgentNotFoundError | HerdrUnavailableError;
+type Lookup = AgentNotFoundError | MultiplexerUnavailableError;
 
 export class AgentsInbound extends Context.Service<
   AgentsInbound,
   {
-    readonly overview: Effect.Effect<OverviewDto, HerdrUnavailableError>;
+    readonly overview: Effect.Effect<OverviewDto, MultiplexerUnavailableError>;
     /** The overview now and after every change; it reports Herdr's absence instead of failing. */
     readonly overviewChanges: Stream.Stream<OverviewStateDto>;
     readonly agent: (ref: string) => Effect.Effect<AgentDto, Lookup>;
@@ -55,22 +55,22 @@ export class AgentsInbound extends Context.Service<
       ref: string,
       id: string,
     ) => Effect.Effect<Stream.Stream<SubagentEventDto>, Lookup | SubagentNotFoundError>;
-    readonly screen: (ref: string) => Effect.Effect<string, Lookup | HerdrRejectedError>;
+    readonly screen: (ref: string) => Effect.Effect<string, Lookup | MultiplexerRejectedError>;
     /** Sends the text and the paths of the attached images; the text may be blank with images. */
     readonly prompt: (
       ref: string,
       text: string,
       imageIds?: ReadonlyArray<string>,
-    ) => Effect.Effect<void, Lookup | InvalidInputError | HerdrRejectedError>;
+    ) => Effect.Effect<void, Lookup | InvalidInputError | MultiplexerRejectedError>;
     /** Types the text into the agent's waiting dialog without submitting it. */
     readonly type: (
       ref: string,
       text: string,
-    ) => Effect.Effect<void, Lookup | InvalidInputError | HerdrRejectedError>;
+    ) => Effect.Effect<void, Lookup | InvalidInputError | MultiplexerRejectedError>;
     readonly sendKeys: (
       ref: string,
       keys: ReadonlyArray<string>,
-    ) => Effect.Effect<void, Lookup | InvalidInputError | HerdrRejectedError>;
+    ) => Effect.Effect<void, Lookup | InvalidInputError | MultiplexerRejectedError>;
     /**
      * Answers the waiting question call `call` with the chosen options' indexes, one list per
      * question, by pressing the dialog's keys.
@@ -81,7 +81,7 @@ export class AgentsInbound extends Context.Service<
       answers: ReadonlyArray<ReadonlyArray<number>>,
     ) => Effect.Effect<
       void,
-      Lookup | InvalidInputError | QuestionNotWaitingError | HerdrRejectedError
+      Lookup | InvalidInputError | QuestionNotWaitingError | MultiplexerRejectedError
     >;
     /** Removes the agent's worktree and closes its workspace; `force` drops its changes. */
     readonly close: (
@@ -89,7 +89,11 @@ export class AgentsInbound extends Context.Service<
       force: boolean,
     ) => Effect.Effect<
       void,
-      Lookup | NotAWorktreeError | WorktreeHasChangesError | ProjectGitError | HerdrRejectedError
+      | Lookup
+      | NotAWorktreeError
+      | WorktreeHasChangesError
+      | ProjectGitError
+      | MultiplexerRejectedError
     >;
   }
 >()('comms/application/AgentsInbound') {

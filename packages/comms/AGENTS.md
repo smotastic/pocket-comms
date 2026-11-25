@@ -73,11 +73,11 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
 
 ## Rules of this service
 
-- `HerdrOutbound` has no focus method on purpose: the app never moves the owner's Herdr focus
+- `MultiplexerOutbound` has no focus method on purpose: the app never moves the owner's Herdr focus
   (requirement 18). Do not add one. `worktree.create` always sends `focus: false`.
 - `git` and Herdr run with argument arrays, never through a shell. A project is only ever a folder
   the projects port lists; never accept a path from a request.
-- Typed text (spec 024) goes through `HerdrOutbound.typeText` (`pane.send_text`), which never
+- Typed text (spec 024) goes through `MultiplexerOutbound.typeText` (`pane.send_text`), which never
   presses Enter: the owner submits a waiting agent question with the `enter` key. Do not add Enter to it,
   and do not route it through `prompt`, which submits.
 - Answering an agent question from the conversation (spec 030) presses the keys of Claude's `AskUserQuestion`
