@@ -39,7 +39,7 @@ in the task's own commit.
       the application relies on, each against its own fake.
   - Gate: `pnpm nx run comms-infrastructure:test`
 
-- [ ] **T08** — Server: `COMMS_MULTIPLEXER` (`herdr` default, `hc`, any other value stops the
+- [x] **T08** — Server: `COMMS_MULTIPLEXER` (`herdr` default, `hc`, any other value stops the
       start with the allowed values) and `HC_SOCKET`; the composition picks the adapter; README.
   - Gate: `pnpm nx run comms-server:test`
 
