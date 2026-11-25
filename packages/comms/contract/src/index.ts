@@ -32,6 +32,7 @@ export {
   KeysRequest,
   TypeRequest,
   liftParameterDocs,
+  Multiplexer,
   Overview,
   OverviewState,
   Project,

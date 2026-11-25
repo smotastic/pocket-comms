@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { AttachedImages } from './AttachedImages.js';
 import { useAttachments } from './attachments.js';
 import { suggestBranch } from './branch.js';
+import { useMultiplexerName } from './live.js';
 import {
   RequestError,
   type AgentToStart,
@@ -158,18 +159,24 @@ const NewTaskForm = ({
  * The New task sheet (spec 005) of one project (spec 008): the task, its branch and optionally an
  * agent. A closed sheet forgets what was typed; a failed create keeps it.
  */
-export const NewTask = ({ client, project, open, onClose, onCreated }: NewTaskProps) => (
-  <Sheet
-    open={open}
-    label="New task"
-    bodyLabel="New task form"
-    onClose={onClose}
-    header={
-      <SheetHeader title="New task" subtitle={`${project} · a new worktree in Herdr`}>
-        <IconButton icon="close" label="Close" onClick={onClose} />
-      </SheetHeader>
-    }
-  >
-    <NewTaskForm client={client} project={project} onCreated={onCreated} />
-  </Sheet>
-);
+export const NewTask = ({ client, project, open, onClose, onCreated }: NewTaskProps) => {
+  const multiplexer = useMultiplexerName();
+  return (
+    <Sheet
+      open={open}
+      label="New task"
+      bodyLabel="New task form"
+      onClose={onClose}
+      header={
+        <SheetHeader
+          title="New task"
+          subtitle={`${project} · a new worktree${multiplexer === undefined ? '' : ` in ${multiplexer}`}`}
+        >
+          <IconButton icon="close" label="Close" onClick={onClose} />
+        </SheetHeader>
+      }
+    >
+      <NewTaskForm client={client} project={project} onCreated={onCreated} />
+    </Sheet>
+  );
+};

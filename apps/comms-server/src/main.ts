@@ -27,7 +27,8 @@ const main = Layer.unwrap(
     yield* Effect.logInfo('pocket-comms listens').pipe(
       Effect.annotateLogs({
         url: `http://${HOST}:${config.port}`,
-        herdr: config.socketPath,
+        multiplexer: config.multiplexer,
+        socket: config.multiplexer === 'hc' ? config.hcSocketPath : config.socketPath,
         gitea: config.giteaUrl,
         giteaToken: Option.isSome(config.giteaToken) ? 'set' : 'not set',
         brainstorm: Option.getOrElse(config.brainstormModel, () => 'not set up'),
@@ -38,7 +39,9 @@ const main = Layer.unwrap(
     return Observability.serve(
       server({
         allowedLogin: config.allowedLogin,
+        multiplexer: config.multiplexer,
         socketPath: config.socketPath,
+        hcSocketPath: config.hcSocketPath,
         home: homedir(),
         projectsRoot: config.projectsRoot,
         worktreesRoot: config.worktreesRoot,

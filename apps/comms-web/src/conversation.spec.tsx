@@ -767,6 +767,14 @@ describe('closing an agent', () => {
     expect(within(sheet).queryByText(/uhura/u)).toBeNull();
   });
 
+  it('closes the workspace without naming a multiplexer the app has not heard of yet', async () => {
+    openWorktree();
+    await userEvent.click(within(await openMore()).getByRole('button', { name: 'Close worktree' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Close kirk' });
+
+    expect(within(sheet).getByText(/and closes its workspace\./u)).toBeDefined();
+  });
+
   it('offers to discard the changes of a worktree that has some', async () => {
     const fake = openWorktree();
     fake.state.closeAgentFailures = [

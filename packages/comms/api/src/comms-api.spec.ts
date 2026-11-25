@@ -487,7 +487,7 @@ describe('the agents API', () => {
 
   it('streams the overview as server-sent events', async () => {
     const call = serve({
-      overviewChanges: Stream.make({ _tag: 'Available', overview } as const),
+      overviewChanges: Stream.make({ _tag: 'Available', multiplexer: 'herdr', overview } as const),
     });
 
     const response = await call('/api/v1/events');
@@ -497,6 +497,7 @@ describe('the agents API', () => {
     expect(text).toContain('data: ');
     expect(JSON.parse(text.slice(text.indexOf('data: ') + 6).split('\n')[0] ?? '')).toEqual({
       _tag: 'Available',
+      multiplexer: 'herdr',
       overview,
     });
   });

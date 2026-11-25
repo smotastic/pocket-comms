@@ -3,6 +3,7 @@ import type {
   DialogKey,
   AgentStatus,
   AgentToStart,
+  Multiplexer,
   Workspace,
 } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
@@ -39,6 +40,11 @@ export interface AgentStart {
   readonly kind: AgentToStart;
 }
 
+/** A started agent: as `StartedAgent`, and the pane it runs in, which may be a new one. */
+export interface AgentStarted extends StartedAgent {
+  readonly paneId: string;
+}
+
 /** An agent as the multiplexer reports it: its status, and whether it takes input. */
 export interface StartedAgent {
   readonly status: AgentStatus;
@@ -53,6 +59,8 @@ export interface StartedAgent {
 export class MultiplexerOutbound extends Context.Service<
   MultiplexerOutbound,
   {
+    /** Which multiplexer this is, so the app can name it to the owner. */
+    readonly multiplexer: Multiplexer;
     readonly snapshot: Effect.Effect<MultiplexerSnapshot, MultiplexerUnavailableError>;
     /** The visible screen of the agent's pane, with its ANSI escape sequences. */
     readonly readScreen: (
@@ -103,12 +111,13 @@ export class MultiplexerOutbound extends Context.Service<
       target: string,
     ) => Effect.Effect<StartedAgent, MultiplexerUnavailableError | MultiplexerRejectedError>;
     /**
-     * Starts an agent in a pane at its shell prompt. The multiplexer may answer before the agent
+     * Starts an agent in a pane at its shell prompt, and names the pane it runs in from then on:
+     * the same one in Herdr, a new terminal in hc. The multiplexer may answer before the agent
      * takes input; `readAgent` tells when it does.
      */
     readonly startAgent: (
       start: AgentStart,
-    ) => Effect.Effect<StartedAgent, MultiplexerUnavailableError | MultiplexerRejectedError>;
+    ) => Effect.Effect<AgentStarted, MultiplexerUnavailableError | MultiplexerRejectedError>;
     /**
      * Emits whenever the agents or workspaces may have changed, and at least every few seconds.
      * It never fails: while the multiplexer is unreachable it keeps emitting, so a reader learns

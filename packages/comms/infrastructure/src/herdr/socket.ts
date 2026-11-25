@@ -407,6 +407,7 @@ export const layerSocket = ({
   return Layer.succeed(
     MultiplexerOutbound,
     MultiplexerOutbound.of({
+      multiplexer: 'herdr',
       snapshot,
       readScreen: (target) =>
         request(
@@ -515,7 +516,7 @@ export const layerSocket = ({
             schedule: Schedule.spaced(SHELL_PAUSE),
             times: Math.ceil(Duration.toMillis(shellWait) / Duration.toMillis(SHELL_PAUSE)),
           }),
-          Effect.map(toStartedAgent),
+          Effect.map((answer) => ({ ...toStartedAgent(answer), paneId })),
           Effect.withSpan('Herdr.startAgent'),
         ),
       changes,

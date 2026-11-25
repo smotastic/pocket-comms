@@ -15,6 +15,7 @@ import {
   type OverviewView,
 } from './comms-client.js';
 import { overviewQuery } from './comms-queries.js';
+import { useMultiplexerName } from './live.js';
 
 export interface CloseAgentProps {
   readonly client: CommsClient;
@@ -50,6 +51,7 @@ const listed = (names: ReadonlyArray<string>) =>
  */
 export const CloseAgent = ({ client, agent, open, onCancel, onClosed }: CloseAgentProps) => {
   const overview = useQuery({ ...overviewQuery(client), enabled: open });
+  const multiplexer = useMultiplexerName();
   const close = useMutation({
     mutationFn: (force: boolean) => client.closeAgent(agent.ref, force),
     onSuccess: onClosed,
@@ -76,8 +78,8 @@ export const CloseAgent = ({ client, agent, open, onCancel, onClosed }: CloseAge
     >
       <Stack gap="md">
         <Text>
-          This removes the worktree {agent.worktree} and its checkout folder, and closes its Herdr
-          workspace. The branch stays.
+          This removes the worktree {agent.worktree} and its checkout folder, and closes its
+          {multiplexer === undefined ? '' : ` ${multiplexer}`} workspace. The branch stays.
         </Text>
         {others.length === 0 ? null : (
           <Text>

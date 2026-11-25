@@ -31,9 +31,19 @@ export const makeOverview = Effect.gen(function* () {
   });
 
   const state = overview().pipe(
-    Effect.map((value): OverviewStateDto => ({ _tag: 'Available', overview: value })),
+    Effect.map(
+      (value): OverviewStateDto => ({
+        _tag: 'Available',
+        multiplexer: herdrOutbound.multiplexer,
+        overview: value,
+      }),
+    ),
     Effect.catchTag('MultiplexerUnavailableError', (error) =>
-      Effect.succeed<OverviewStateDto>({ _tag: 'Unavailable', reason: error.reason }),
+      Effect.succeed<OverviewStateDto>({
+        _tag: 'Unavailable',
+        multiplexer: herdrOutbound.multiplexer,
+        reason: error.reason,
+      }),
     ),
   );
 

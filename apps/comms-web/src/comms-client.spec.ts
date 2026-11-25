@@ -40,7 +40,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const unavailable = JSON.stringify({ _tag: 'Unavailable', reason: 'Herdr is away' });
+const unavailable = JSON.stringify({
+  _tag: 'Unavailable',
+  multiplexer: 'herdr',
+  reason: 'Herdr is away',
+});
 
 describe('followOverview', () => {
   it('passes on each decoded event and whether the stream is open', () => {
@@ -57,7 +61,9 @@ describe('followOverview', () => {
     source?.listeners.get('overview')?.({ data: '{"not":"a state"}' });
 
     expect(source?.url).toBe('http://app/api/v1/events');
-    expect(states).toEqual([{ _tag: 'Unavailable', reason: 'Herdr is away' }]);
+    expect(states).toEqual([
+      { _tag: 'Unavailable', multiplexer: 'herdr', reason: 'Herdr is away' },
+    ]);
     expect(live).toEqual([true]);
   });
 

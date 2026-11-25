@@ -1,17 +1,20 @@
 import { emptyChat, foldChat, type ChatView } from '@smotastic/pocket-agent/chat';
-import { useQueryClient } from '@tanstack/react-query';
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MULTIPLEXER_NAMES } from './labels.js';
 import { useEffect, useRef, useState } from 'react';
 import type {
   AgentEventView,
   BrainstormEntryView,
   BrainstormEventView,
   CommsClient,
+  OverviewStateView,
   SubagentView,
   ConversationView,
 } from './comms-client.js';
 import {
   activityKey,
   agentKey,
+  multiplexerKey,
   brainstormKey,
   overviewKey,
   subagentKey,
@@ -41,8 +44,8 @@ export const mergeEntries = (
 };
 
 /**
- * Follows the overview stream into the query cache while the screen is shown. `unavailable` holds
- * why Herdr cannot be reached, while it cannot.
+ * Follows the overview stream into the query cache while the screen is shown, with the multiplexer
+ * it names. `unavailable` holds why the multiplexer cannot be reached, while it cannot.
  */
 export const useOverviewLive = (client: CommsClient) => {
   const queryClient = useQueryClient();
@@ -51,6 +54,7 @@ export const useOverviewLive = (client: CommsClient) => {
   useEffect(
     () =>
       client.followOverview((state) => {
+        queryClient.setQueryData(multiplexerKey, state.multiplexer);
         if (state._tag === 'Unavailable') {
           setUnavailable(state.reason);
           return;
@@ -61,6 +65,19 @@ export const useOverviewLive = (client: CommsClient) => {
     [client, queryClient],
   );
   return { live, unavailable };
+};
+
+/**
+ * The name of the multiplexer the overview stream last named, or `undefined` before the app heard
+ * of it; a text then leaves the name out.
+ */
+export const useMultiplexerName = (): string | undefined => {
+  const { data } = useQuery<OverviewStateView['multiplexer']>({
+    queryKey: multiplexerKey,
+    queryFn: skipToken,
+    staleTime: Infinity,
+  });
+  return data === undefined ? undefined : MULTIPLEXER_NAMES[data];
 };
 
 /** Follows the activity timeline's stream into the query cache while the page is shown. */
