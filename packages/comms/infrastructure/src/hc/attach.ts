@@ -73,8 +73,11 @@ export interface AttachOptions {
 interface Attached {
   readonly socket: Socket;
   readonly channel: number;
-  /** Resolves when the core answers the viewer's CLOSE: every byte before it has arrived. */
-  readonly closed: Promise<void>;
+  /**
+   * `answered` once the core answers the viewer's CLOSE, so every byte before it has arrived;
+   * `dropped` when the connection ends before that, so the bytes may be lost.
+   */
+  readonly closed: Promise<'answered' | 'dropped'>;
 }
 
 /**
@@ -101,11 +104,12 @@ export const writeRaw =
       let bytes = Buffer.alloc(0);
       let settled = false;
       let attached: number | undefined;
-      let answerClose: () => void = () => undefined;
-      const closed = new Promise<void>((resolve) => {
-        answerClose = resolve;
+      let endClose: (how: 'answered' | 'dropped') => void = () => undefined;
+      const closed = new Promise<'answered' | 'dropped'>((resolve) => {
+        endClose = resolve;
       });
       const fail = (error: MultiplexerUnavailableError | MultiplexerRejectedError) => {
+        if (attached !== undefined) endClose('dropped');
         if (settled) return;
         settled = true;
         socket.destroy();
@@ -120,7 +124,7 @@ export const writeRaw =
           const payload = bytes.subarray(9, 9 + length);
           bytes = bytes.subarray(9 + length);
           if (attached !== undefined) {
-            if (channel === attached && kind === CLOSE) answerClose();
+            if (channel === attached && kind === CLOSE) endClose('answered');
             continue;
           }
           if (channel !== 0 || kind !== DATA) continue;
@@ -189,27 +193,35 @@ export const writeRaw =
       }),
     );
 
+    const dropped = unavailable('hc ended the input stream before the input arrived.');
+
     return Effect.acquireUseRelease(
       attach,
-      ({ socket, channel, closed }) =>
-        Effect.forEach(
+      ({ socket, channel, closed }) => {
+        // A write to a connection hc ended would be lost without a word.
+        const send = (kind: number, payload: Buffer) =>
+          socket.destroyed
+            ? Effect.fail(dropped)
+            : Effect.sync(() => void socket.write(frame(channel, kind, payload)));
+        return Effect.forEach(
           chunks,
           (chunk, index) =>
             (index === 0 ? Effect.void : Effect.sleep(gap)).pipe(
-              Effect.andThen(
-                Effect.sync(() => socket.write(frame(channel, DATA, Buffer.from(chunk, 'utf8')))),
-              ),
+              Effect.andThen(send(DATA, Buffer.from(chunk, 'utf8'))),
             ),
           { discard: true },
         ).pipe(
-          Effect.andThen(Effect.sync(() => socket.write(frame(channel, CLOSE, Buffer.alloc(0))))),
-          // The core answers CLOSE once it has the bytes before it; an old core may not answer.
+          Effect.andThen(send(CLOSE, Buffer.alloc(0))),
+          // The core answers CLOSE once it has the bytes before it. A connection that ends first
+          // may have lost them; an open one whose old core does not answer is taken as delivered.
           Effect.andThen(
             Effect.promise(() => closed).pipe(
-              Effect.timeoutOrElse({ duration: timeout, orElse: () => Effect.void }),
+              Effect.timeoutOrElse({ duration: timeout, orElse: () => Effect.succeed('answered') }),
+              Effect.flatMap((how) => (how === 'dropped' ? Effect.fail(dropped) : Effect.void)),
             ),
           ),
-        ),
+        );
+      },
       ({ socket }) => Effect.sync(() => socket.destroy()),
     );
   };

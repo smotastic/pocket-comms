@@ -39,7 +39,17 @@ const ATTACH_CHANNEL = 1;
  * `reply`, keeps `events.subscribe` connections open so a test can `emit` events to them, and
  * speaks framed mode after `hello` with `framed: true`, where `terminal.attach` opens channel 1.
  */
-export const fakeHcServer = (reply: (request: HcRequest) => HcReply) =>
+export interface FakeHcOptions {
+  /** What `events.subscribe` answers before its events. Default no terminals. */
+  readonly subscribed?: unknown;
+  /** Drops the connection right after an attach, before the viewer's input. */
+  readonly dropAttach?: boolean;
+}
+
+export const fakeHcServer = (
+  reply: (request: HcRequest) => HcReply,
+  { subscribed = { seq: 1, terminals: [] }, dropAttach = false }: FakeHcOptions = {},
+) =>
   Effect.acquireRelease(
     Effect.callback<{
       readonly path: string;
@@ -126,6 +136,7 @@ export const fakeHcServer = (reply: (request: HcRequest) => HcReply) =>
               if (answered !== undefined) socket.write(frame(0, 0, answered));
               if (request.method === 'terminal.attach') {
                 socket.write(frame(ATTACH_CHANNEL, 0, 'first paint'));
+                if (dropAttach) socket.destroy();
               }
             }
             return;
@@ -141,7 +152,7 @@ export const fakeHcServer = (reply: (request: HcRequest) => HcReply) =>
             if (request.method === 'events.subscribe') {
               subscribers.add(socket);
               socket.write(
-                `${JSON.stringify({ jsonrpc: '2.0', id: request.id, result: { seq: 1, terminals: [] } })}\n`,
+                `${JSON.stringify({ jsonrpc: '2.0', id: request.id, result: subscribed })}\n`,
               );
               continue;
             }

@@ -80,7 +80,11 @@ const TerminalRecord = Schema.Struct({
   cwd: optional(Schema.String),
   created_ms: optional(Schema.Number),
   foreground: optional(
-    Schema.Struct({ name: optional(Schema.String), cwd: optional(Schema.String) }),
+    Schema.Struct({
+      name: optional(Schema.String),
+      cwd: optional(Schema.String),
+      argv: optional(Schema.Array(Schema.String)),
+    }),
   ),
   labels: optional(Schema.Record(Schema.String, Schema.String)),
   state: optional(Schema.String),
@@ -240,16 +244,22 @@ export const layerSocket = ({
                 error === null && checkout !== undefined && key !== undefined && key !== ''
                   ? { checkout, key, root: basename(key) === '.git' ? dirname(key) : key }
                   : undefined;
-              places.set(folder, place);
+              // Only a found place is kept: a slow or failed git is asked again next time.
+              if (place !== undefined) places.set(folder, place);
               resume(Effect.succeed(place));
             },
           );
           return Effect.sync(() => void child.kill());
         });
 
-  const isAgent = (terminal: TerminalRecord) =>
-    terminal.labels?.[LABELS.agent] !== undefined ||
-    AGENT_APPS[terminal.status?.app ?? ''] !== undefined;
+  // A terminal the app started stays an agent while its agent runs in the foreground; once a shell
+  // has taken the place of a lost agent (`keep`), it is a shell like any other.
+  const isAgent = (terminal: TerminalRecord) => {
+    if (AGENT_APPS[terminal.status?.app ?? ''] !== undefined) return true;
+    const started = terminal.labels?.[LABELS.agent];
+    const program = terminal.foreground?.argv?.[0];
+    return started !== undefined && program !== undefined && basename(program) === started;
+  };
 
   const kindOf = (terminal: TerminalRecord) =>
     AGENT_APPS[terminal.status?.app ?? ''] ??
@@ -364,7 +374,7 @@ export const layerSocket = ({
             end = buffer.indexOf('\n');
             if (!started) {
               started = true;
-              if (line.includes('"error"')) {
+              if (decodeLine(line)?.error !== undefined) {
                 Queue.failCauseUnsafe(
                   queue,
                   Cause.fail(unavailable(`hc refused the subscription: ${line}`)),
@@ -464,7 +474,7 @@ export const layerSocket = ({
     );
 
   // The agent program runs itself, from an argument array, never typed into a shell. With `keep`
-  // its terminal becomes a shell when the agent ends, as a Herdr pane does; the shell it replaces
+  // a lost agent leaves a shell in its terminal; one that exits finishes it. The shell it replaces
   // ends.
   const startAgent = ({
     paneId,
@@ -497,7 +507,17 @@ export const layerSocket = ({
         TerminalRecord,
         name,
       );
-      yield* end(paneId);
+      // The agent runs; a shell that does not end only stays open beside it.
+      yield* end(paneId).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning('hc did not end the shell of a started agent').pipe(
+            Effect.annotateLogs({
+              terminal: paneId,
+              reason: error._tag === 'MultiplexerRejectedError' ? error.message : error.reason,
+            }),
+          ),
+        ),
+      );
       const status: AgentStatus = statusOf(orUndefined(agent.status?.state));
       return {
         status,

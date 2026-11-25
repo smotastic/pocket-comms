@@ -36,7 +36,7 @@
   address as the pane. `alreadyOpen` is true when a live terminal already has that workspace.
 - **Starting.** `startAgent` starts the agent program itself with `terminal.run`: argv
   `[kind, ...COMMS_AGENT_ARGS]`, never a shell line; the pane's folder and labels plus
-  `comms.agent`; the agent's name; `keep`, so it becomes a shell when the agent ends; `no_parent`.
+  `comms.agent`; the agent's name; `keep`, so a lost agent (not one that exits) leaves a shell; `no_parent`.
   It then ends and removes the shell terminal it was given. `readAgent` is `terminal.get`: ready
   once a status is reported and it is not `blocked`.
 - **Input.** `prompt` is `terminal.send` without `force`. `typeText` and `sendKeys` write raw

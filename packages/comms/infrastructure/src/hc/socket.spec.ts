@@ -65,7 +65,7 @@ const claudeStarted = hcTerminal({
   name: 'feat-x',
   created_ms: 20,
   labels: { 'comms.agent': 'claude', 'comms.session': 'sess-1' },
-  foreground: { name: 'claude', cwd: '/work/app' },
+  foreground: { name: 'claude', cwd: '/work/app', argv: ['claude'] },
   status: { app: 'claude-code', state: 'working' },
   title: '✳ Fix the login',
   turn: 3,
@@ -137,7 +137,11 @@ describe('Hc.layerSocket', () => {
 
   it.live('reads an agent the app started that reports nothing yet as unknown', () =>
     Effect.gen(function* () {
-      const quiet = hcTerminal({ address: 't5', labels: { 'comms.agent': 'claude' } });
+      const quiet = hcTerminal({
+        address: 't5',
+        labels: { 'comms.agent': 'claude' },
+        foreground: { name: 'claude', cwd: '/work/app', argv: ['claude'] },
+      });
       const server = yield* fakeHcServer(listing([quiet]));
       const { agents } = yield* MultiplexerOutbound.use((hc) => hc.snapshot).pipe(
         provide(server.path),
@@ -158,6 +162,7 @@ describe('Hc.layerSocket', () => {
             address: 't1',
             created_ms: 5,
             cwd: worktree,
+            foreground: { name: 'claude', cwd: worktree, argv: ['claude'] },
             labels: {
               'comms.agent': 'claude',
               'comms.workspace': worktree,
@@ -565,6 +570,104 @@ describe('Hc.layerSocket raw input', () => {
         code: 'not_found',
       });
       expect(server.frames).toEqual([]);
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('Hc.layerSocket after review', () => {
+  it.live('stops counting a started agent once a shell has taken its place', () =>
+    Effect.gen(function* () {
+      const replaced = hcTerminal({
+        address: 't5',
+        labels: { 'comms.agent': 'pi' },
+        foreground: { name: 'zsh', cwd: '/work/app', argv: ['/bin/zsh', '-l'] },
+      });
+      const pi = hcTerminal({
+        address: 't6',
+        labels: { 'comms.agent': 'pi' },
+        foreground: { name: 'node', cwd: '/work/app', argv: ['pi', ''] },
+      });
+      const server = yield* fakeHcServer(listing([replaced, pi]));
+      const { agents } = yield* MultiplexerOutbound.use((hc) => hc.snapshot).pipe(
+        provide(server.path),
+      );
+
+      expect(agents.map((agent) => [agent.paneId, agent.kind])).toEqual([['t6', 'pi']]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('takes a subscription that lists a terminal titled error as started', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHcServer(listing([]), {
+        subscribed: {
+          seq: 1,
+          terminals: [hcTerminal({ title: 'error', status: { state: 'error' } })],
+        },
+      });
+      const fiber = yield* MultiplexerOutbound.use((hc) =>
+        hc.changes.pipe(Stream.take(2), Stream.runCollect),
+      ).pipe(
+        Effect.provide(layerSocket({ path: server.path, relistInterval: '1 hour' })),
+        Effect.forkChild,
+      );
+      yield* Effect.sleep('100 millis');
+      server.emit({ jsonrpc: '2.0', method: 'event', params: { type: 'status' } });
+
+      // The first comes from the interval's start, the second only from the event.
+      expect(yield* Fiber.join(fiber)).toHaveLength(2);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('reports a started agent as started when its old shell does not end', () =>
+    Effect.gen(function* () {
+      const shellOfTask = hcTerminal({ address: 't4', cwd: '/worktrees/app/feat-x' });
+      const server = yield* fakeHcServer((request) =>
+        request.method === 'terminal.kill'
+          ? { error: { kind: 'internal', message: 'could not signal' } }
+          : acting([shellOfTask])(request),
+      );
+
+      const started = yield* MultiplexerOutbound.use((hc) =>
+        hc.startAgent({ paneId: 't4', name: 'feat-x', kind: 'claude' }),
+      ).pipe(provide(server.path));
+
+      expect(started).toMatchObject({ paneId: 't9' });
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('fails raw input when hc drops the stream before the bytes arrive', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHcServer(listing([hcTerminal({ address: 't7' })]), {
+        dropAttach: true,
+      });
+      const error = yield* MultiplexerOutbound.use((hc) => hc.typeText('t7', 'hello')).pipe(
+        provide(server.path),
+        Effect.flip,
+      );
+
+      expect(error._tag).toBe('MultiplexerUnavailableError');
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('asks git again about a folder it could not place before', () =>
+    Effect.gen(function* () {
+      const base = realpathSync(mkdtempSync(join(tmpdir(), 'hc-later-')));
+      const later = join(base, 'later');
+      mkdirSync(later);
+      const server = yield* fakeHcServer(
+        listing([hcTerminal({ address: 't1', cwd: later, status: { app: 'pi', state: 'idle' } })]),
+      );
+      const groupOf = MultiplexerOutbound.use((hc) => hc.snapshot).pipe(
+        Effect.map((snapshot) => snapshot.workspaces[0]?.group.name),
+      );
+
+      const [before, after] = yield* Effect.gen(function* () {
+        const first = yield* groupOf;
+        git(later, 'init', '--quiet', '--initial-branch=main');
+        return [first, yield* groupOf];
+      }).pipe(provide(server.path));
+
+      expect([before, after]).toEqual(['Other', 'later']);
     }).pipe(Effect.scoped),
   );
 });
