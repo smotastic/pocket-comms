@@ -11,6 +11,8 @@ import { join } from 'node:path';
 export interface GitOptions {
   /** The folder whose direct child folders are the projects. */
   readonly root: string;
+  /** The folder that holds the new worktrees, one folder per project (ADR 0015). */
+  readonly worktreesRoot: string;
   /** How long a fetch may take. Default 60 seconds. */
   readonly fetchTimeoutMs?: number;
 }
@@ -88,7 +90,7 @@ const parseWorktrees = (porcelain: string): ReadonlyArray<Worktree> =>
     });
 
 /** The git repositories directly below `root`, and git run in them with argument arrays. */
-export const layerGit = ({ root, fetchTimeoutMs = 60_000 }: GitOptions) => {
+export const layerGit = ({ root, worktreesRoot, fetchTimeoutMs = 60_000 }: GitOptions) => {
   const quick = 10_000;
 
   const run = (project: Project, args: ReadonlyArray<string>, timeout = quick) =>
@@ -183,6 +185,42 @@ export const layerGit = ({ root, fetchTimeoutMs = 60_000 }: GitOptions) => {
       return status.stdout.trim() !== '';
     }).pipe(Effect.withSpan('Projects.hasChanges'));
 
+  // The folder is named as Herdr names it, the branch with `-` for `/`, so the worktrees of
+  // both live side by side.
+  const addWorktree = (
+    project: Project,
+    request: { readonly branch: string; readonly base: string },
+  ) =>
+    Effect.gen(function* () {
+      const path = join(worktreesRoot, project.name, request.branch.replaceAll('/', '-'));
+      const added = yield* run(project, [
+        'worktree',
+        'add',
+        '--quiet',
+        '-b',
+        request.branch,
+        path,
+        request.base,
+      ]);
+      if (added.code !== 0) {
+        return yield* failed(project, `git worktree add failed: ${lastLine(added.stderr)}`);
+      }
+      return { path, branch: request.branch };
+    }).pipe(Effect.withSpan('Projects.addWorktree'));
+
+  const removeWorktree = (project: Project, path: string, force: boolean) =>
+    Effect.gen(function* () {
+      const removed = yield* run(project, [
+        'worktree',
+        'remove',
+        ...(force ? ['--force'] : []),
+        path,
+      ]);
+      if (removed.code !== 0) {
+        return yield* failed(project, `git worktree remove failed: ${lastLine(removed.stderr)}`);
+      }
+    }).pipe(Effect.withSpan('Projects.removeWorktree'));
+
   // Only a regular file directly in the project folder: a symlink could point anywhere.
   const readDoc = (project: Project, doc: ProjectDoc) =>
     Effect.promise(async () => {
@@ -205,6 +243,8 @@ export const layerGit = ({ root, fetchTimeoutMs = 60_000 }: GitOptions) => {
       originUrl,
       worktrees,
       hasChanges,
+      addWorktree,
+      removeWorktree,
       readDoc,
     }),
   );

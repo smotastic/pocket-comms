@@ -27,6 +27,10 @@ export const serverConfig = Config.all({
   projectsRoot: Config.String('COMMS_PROJECTS_ROOT').pipe(
     Config.withDefault(join(homedir(), 'Development', 'projects')),
   ),
+  // Where git adds a new task's worktree, beside Herdr's own (ADR 0015).
+  worktreesRoot: Config.String('COMMS_WORKTREES_DIR').pipe(
+    Config.withDefault(join(homedir(), '.herdr', 'worktrees')),
+  ),
   // Split on whitespace only; the arguments never pass through a shell (spec 005, requirement 12).
   agentArgs: Config.String('COMMS_AGENT_ARGS').pipe(
     Config.withDefault(''),

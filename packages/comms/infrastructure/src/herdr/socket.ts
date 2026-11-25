@@ -111,11 +111,6 @@ const keyRequest = (paneId: string, key: DialogKey) => {
 const AgentList = Schema.Struct({ agents: Schema.Array(AgentRecord) });
 const WorkspaceList = Schema.Struct({ workspaces: Schema.Array(WorkspaceRecord) });
 const PaneRead = Schema.Struct({ read: Schema.Struct({ text: Schema.String }) });
-const WorktreeCreated = Schema.Struct({
-  workspace: Schema.Struct({ workspace_id: Schema.String }),
-  root_pane: Schema.Struct({ pane_id: Schema.String }),
-  worktree: Schema.Struct({ path: Schema.String, branch: optionalString }),
-});
 const WorktreeOpened = Schema.Struct({
   workspace: Schema.Struct({ workspace_id: Schema.String }),
   root_pane: Schema.Struct({ pane_id: Schema.String }),
@@ -138,7 +133,7 @@ const toStartedAgent = ({ agent }: typeof AgentStarted.Type) => ({
 });
 
 // Herdr refuses `agent.start` until the pane's shell sits at its prompt. A pane that
-// `worktree.create` just spawned gets there only after the shell has read its startup files,
+// `worktree.open` just spawned gets there only after the shell has read its startup files,
 // which takes longer on a busy machine, so the start is tried again until then.
 const SHELL_PAUSE = Duration.millis(250);
 const isShellStarting = (error: MultiplexerUnavailableError | MultiplexerRejectedError): boolean =>
@@ -471,29 +466,13 @@ export const layerSocket = ({
           ),
           Effect.withSpan('Herdr.sendKeys'),
         ),
-      // `focus: false` is sent although it is Herdr's default, so a changed default can never
-      // move the owner's focus (spec 005, requirement 11). `trust_repository` is never sent.
-      createWorktree: ({ cwd, branch, base, label }) =>
-        request(
-          'worktree.create',
-          { cwd, branch, base, label, focus: false },
-          WorktreeCreated,
-          branch,
-          '60 seconds',
-        ).pipe(
-          Effect.map((result) => ({
-            workspaceId: result.workspace.workspace_id,
-            paneId: result.root_pane.pane_id,
-            path: result.worktree.path,
-            branch: result.worktree.branch ?? branch,
-          })),
-          Effect.withSpan('Herdr.createWorktree'),
-        ),
-      // Opens a worktree git already has; `trust_repository` is never sent.
-      openWorktree: ({ cwd, path: checkout }) =>
+      // Opens a worktree git already has. `focus: false` is sent although it is Herdr's default,
+      // so a changed default can never move the owner's focus (spec 005, requirement 11).
+      // `trust_repository` is never sent.
+      openWorktree: ({ cwd, path: checkout, label }) =>
         request(
           'worktree.open',
-          { cwd, path: checkout, focus: false },
+          { cwd, path: checkout, ...(label === undefined ? {} : { label }), focus: false },
           WorktreeOpened,
           checkout,
           '60 seconds',
@@ -516,17 +495,12 @@ export const layerSocket = ({
           Effect.map((result) => ({ workspaceId, paneId: result.root_pane.pane_id })),
           Effect.withSpan('Herdr.openShell'),
         ),
-      // Herdr removes the checkout folder and closes the workspace; the branch stays.
-      // `trust_repository` is never sent: the owner decides
-      // whether a repository is trusted, never the app.
-      removeWorktree: ({ workspaceId, force }) =>
-        request(
-          'worktree.remove',
-          { workspace_id: workspaceId, force },
-          Schema.Unknown,
-          workspaceId,
-          '60 seconds',
-        ).pipe(Effect.asVoid, Effect.withSpan('Herdr.removeWorktree')),
+      // Closes the workspace and its panes; git removes the checkout (ADR 0015).
+      closeWorkspace: (workspaceId) =>
+        request('workspace.close', { workspace_id: workspaceId }, Schema.Unknown, workspaceId).pipe(
+          Effect.asVoid,
+          Effect.withSpan('Herdr.closeWorkspace'),
+        ),
       // Herdr waits up to `timeout_ms` for the agent to take input; the request waits longer.
       startAgent: ({ paneId, name, kind }) =>
         request(

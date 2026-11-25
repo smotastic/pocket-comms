@@ -31,6 +31,23 @@ export class ProjectsOutbound extends Context.Service<
     readonly worktrees: (
       project: Project,
     ) => Effect.Effect<ReadonlyArray<Worktree>, ProjectGitError>;
+    /**
+     * Adds a worktree on the new branch `branch`, started from `base`, in a folder of its own
+     * below the worktrees root (ADR 0015). The branch must not exist yet.
+     */
+    readonly addWorktree: (
+      project: Project,
+      request: { readonly branch: string; readonly base: string },
+    ) => Effect.Effect<{ readonly path: string; readonly branch: string }, ProjectGitError>;
+    /**
+     * Removes the linked worktree of `project` at `path` and its folder; the branch stays. Without
+     * `force`, git refuses one with changes.
+     */
+    readonly removeWorktree: (
+      project: Project,
+      path: string,
+      force: boolean,
+    ) => Effect.Effect<void, ProjectGitError>;
     /** Whether the worktree of `project` at `path` has uncommitted or untracked changes. */
     readonly hasChanges: (
       project: Project,

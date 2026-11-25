@@ -42,6 +42,7 @@ const serve = (
       socketPath: join(mkdtempSync(join(tmpdir(), 'no-herdr-')), 'herdr.sock'),
       home: mkdtempSync(join(tmpdir(), 'home-')),
       projectsRoot: projects,
+      worktreesRoot: mkdtempSync(join(tmpdir(), 'worktrees-')),
       agentArgs: [],
       gitea: { url: 'http://127.0.0.1:9', token: Option.none(), hosts: ['gitea'] },
       stateDir,

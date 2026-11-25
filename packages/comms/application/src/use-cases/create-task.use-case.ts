@@ -74,12 +74,14 @@ export const makeCreateTask = Effect.gen(function* () {
 
     const project = yield* findProject(input.project);
     const base = yield* checkBranch(project, branch.success);
-    const worktree = yield* herdrOutbound.createWorktree({
+    // git adds the worktree, then the multiplexer opens it as a workspace (ADR 0015).
+    const added = yield* projectsOutbound.addWorktree(project, { branch: branch.success, base });
+    const opened = yield* herdrOutbound.openWorktree({
       cwd: project.path,
-      branch: branch.success,
-      base,
+      path: added.path,
       label: task.success.title,
     });
+    const worktree = { ...added, ...opened };
     const agent =
       kind.success === undefined
         ? undefined

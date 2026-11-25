@@ -240,7 +240,7 @@ describe('IssuesInbound.implement', () => {
       const created = yield* implement();
 
       expect(created).toEqual({
-        workspace: 'w-feat/8-issue-list',
+        workspace: 'w-/worktrees/feat-8-issue-list',
         branch: 'feat/8-issue-list',
         path: '/worktrees/feat-8-issue-list',
         agent: { ref: 'feat-8-issue-list', started: true, prompted: true, note: undefined },
@@ -250,9 +250,9 @@ describe('IssuesInbound.implement', () => {
       expect(state.issues.get('owner/app')?.[0]?.labels).toEqual(['status/in-progress']);
       expect(state.calls).toEqual([
         expect.objectContaining({
-          method: 'createWorktree',
+          method: 'openWorktree',
           params: expect.objectContaining({
-            branch: 'feat/8-issue-list',
+            path: '/worktrees/feat-8-issue-list',
             label: 'feat: issue list',
           }),
         }),
@@ -261,7 +261,7 @@ describe('IssuesInbound.implement', () => {
           method: 'startAgent',
           params: expect.objectContaining({ kind: 'claude', name: 'feat-8-issue-list' }),
         }),
-        { method: 'prompt', target: 'w-feat/8-issue-list:p1', params: issueTask(issue) },
+        { method: 'prompt', target: 'w-/worktrees/feat-8-issue-list:p1', params: issueTask(issue) },
       ]);
     }).pipe(Effect.provide(layer())),
   );
@@ -374,7 +374,7 @@ describe('IssuesInbound.implement', () => {
 
       expect(state.calls.at(-1)).toEqual({
         method: 'prompt',
-        target: 'w-feat/8-issue-list:p1',
+        target: 'w-/worktrees/feat-8-issue-list:p1',
         params: issueTask(issue, 'Use the list.\n\nKeep it small.'),
       });
     }).pipe(Effect.provide(layer())),

@@ -77,13 +77,10 @@ export {
 export {
   MultiplexerOutbound,
   type AgentStart,
-  type CreatedWorktree,
   type MultiplexerSnapshot,
   type OpenedPane,
   type StartedAgent,
   type WorktreeOpening,
-  type WorktreeRemoval,
-  type WorktreeRequest,
 } from './ports/multiplexer.outbound.port.js';
 export {
   GiteaOutbound,
