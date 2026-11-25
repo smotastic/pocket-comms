@@ -20,7 +20,7 @@ in the task's own commit.
       multiplexer instead of Herdr.
   - Gate: `pnpm nx run comms-web:test`
 
-- [ ] **T04** — hc adapter, reading: socket client (`hello` generation check, JSON-RPC errors as
+- [x] **T04** — hc adapter, reading: socket client (`hello` generation check, JSON-RPC errors as
       rejected or unavailable), `snapshot` (which terminals are agents, their fields, workspaces
       and grouping through git), `readScreen`, `readAgent`, `changes` from `events.subscribe` and a
       relist; a scripted fake hc server.
