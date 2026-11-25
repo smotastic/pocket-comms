@@ -103,14 +103,15 @@ const lists = (request: HerdrRequest) => {
       result: { type: 'pane_read', read: { pane_id: 'wJ:p1', text: '\u001b[1mHi\u001b[0m' } },
     };
   }
-  if (request.method === 'worktree.create') {
+  if (request.method === 'worktree.open') {
     return {
       result: {
-        type: 'worktree_created',
-        workspace: { workspace_id: 'wK', label: 'New task', focused: false },
+        type: 'worktree_opened',
+        workspace: { workspace_id: 'wK', label: 'New task' },
         tab: { tab_id: 'wK:t1' },
         root_pane: { pane_id: 'wK:p1', workspace_id: 'wK' },
-        worktree: { path: '/worktrees/home/feat-new', branch: 'feat/new', label: 'New task' },
+        worktree: { path: '/worktrees/home/feat-new', branch: 'feat/new' },
+        already_open: false,
       },
     };
   }
@@ -123,17 +124,10 @@ const lists = (request: HerdrRequest) => {
       },
     };
   }
-  if (request.method === 'worktree.remove') {
-    return request.params['workspace_id'] === 'wDirty'
-      ? { error: { code: 'worktree_remove_failed', message: 'worktree contains modified files' } }
-      : {
-          result: {
-            type: 'worktree_removed',
-            workspace_id: request.params['workspace_id'],
-            path: '/worktrees/home/feat-ingestor-mvp',
-            forced: request.params['force'],
-          },
-        };
+  if (request.method === 'workspace.close') {
+    return request.params['workspace_id'] === 'wGone'
+      ? { error: { code: 'workspace_not_found', message: 'workspace wGone not found' } }
+      : { result: { type: 'ok' } };
   }
   if (request.method === 'pane.send_text' && request.params['text'] === 'refuse') {
     return { error: { code: 'pane_not_found', message: 'pane wJ:p1 not found' } };
@@ -260,7 +254,11 @@ describe('Herdr.layerSocket', () => {
       });
       const [opened, shell] = yield* MultiplexerOutbound.use((herdr) =>
         Effect.all([
-          herdr.openWorktree({ cwd: '/work/app', path: '/worktrees/fix-12-login' }),
+          herdr.openWorktree({
+            cwd: '/work/app',
+            path: '/worktrees/fix-12-login',
+            label: 'Fix login',
+          }),
           herdr.openShell('w3'),
         ]),
       ).pipe(Effect.provide(layerSocket({ path: server.path })));
@@ -268,7 +266,10 @@ describe('Herdr.layerSocket', () => {
       expect(opened).toEqual({ workspaceId: 'w3', paneId: 'w3:p1', alreadyOpen: true });
       expect(shell).toEqual({ workspaceId: 'w3', paneId: 'w3:p2' });
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
-        ['worktree.open', { cwd: '/work/app', path: '/worktrees/fix-12-login', focus: false }],
+        [
+          'worktree.open',
+          { cwd: '/work/app', path: '/worktrees/fix-12-login', label: 'Fix login', focus: false },
+        ],
         ['tab.create', { workspace_id: 'w3', focus: false }],
       ]);
     }).pipe(Effect.scoped),
@@ -461,67 +462,31 @@ describe('Herdr.layerSocket', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.live('creates a worktree without moving the focus', () =>
+  it.live('closes a workspace, never trusting the repository', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      const created = yield* MultiplexerOutbound.use((herdr) =>
-        herdr.createWorktree({
-          cwd: '/work/home',
-          branch: 'feat/new',
-          base: 'origin/master',
-          label: 'New task',
-        }),
-      ).pipe(Effect.provide(layerSocket({ path: server.path })));
+      yield* MultiplexerOutbound.use((herdr) => herdr.closeWorkspace('wJ')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+      );
 
-      expect(created).toEqual({
-        workspaceId: 'wK',
-        paneId: 'wK:p1',
-        path: '/worktrees/home/feat-new',
-        branch: 'feat/new',
-      });
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
-        [
-          'worktree.create',
-          {
-            cwd: '/work/home',
-            branch: 'feat/new',
-            base: 'origin/master',
-            label: 'New task',
-            focus: false,
-          },
-        ],
+        ['workspace.close', { workspace_id: 'wJ' }],
       ]);
     }).pipe(Effect.scoped),
   );
 
-  it.live('removes a worktree with the force asked for, never trusting the repository', () =>
+  it.live("reports Herdr's refusal to close a workspace", () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      yield* MultiplexerOutbound.use((herdr) =>
-        Effect.andThen(
-          herdr.removeWorktree({ workspaceId: 'wJ', force: false }),
-          herdr.removeWorktree({ workspaceId: 'wJ', force: true }),
-        ),
-      ).pipe(Effect.provide(layerSocket({ path: server.path })));
-
-      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
-        ['worktree.remove', { workspace_id: 'wJ', force: false }],
-        ['worktree.remove', { workspace_id: 'wJ', force: true }],
-      ]);
-    }).pipe(Effect.scoped),
-  );
-
-  it.live("reports Herdr's refusal to remove a worktree", () =>
-    Effect.gen(function* () {
-      const server = yield* fakeHerdrServer(lists);
-      const error = yield* MultiplexerOutbound.use((herdr) =>
-        herdr.removeWorktree({ workspaceId: 'wDirty', force: false }),
-      ).pipe(Effect.provide(layerSocket({ path: server.path })), Effect.flip);
+      const error = yield* MultiplexerOutbound.use((herdr) => herdr.closeWorkspace('wGone')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+        Effect.flip,
+      );
 
       expect(error).toMatchObject({
         _tag: 'MultiplexerRejectedError',
-        ref: 'wDirty',
-        code: 'worktree_remove_failed',
+        ref: 'wGone',
+        code: 'workspace_not_found',
       });
     }).pipe(Effect.scoped),
   );
@@ -758,9 +723,9 @@ describe('Herdr.layerSocket changes', () => {
           herdr.readScreen('wJ:p1'),
           herdr.prompt('wJ:p1', 'hi'),
           herdr.sendKeys('wJ:p1', ['esc']),
-          herdr.createWorktree({ cwd: '/work/home', branch: 'feat/new', base: 'b', label: 'l' }),
+          herdr.openWorktree({ cwd: '/work/home', path: '/worktrees/home/feat-new', label: 'l' }),
           herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind: 'claude' }),
-          herdr.removeWorktree({ workspaceId: 'wJ', force: false }),
+          herdr.closeWorkspace('wJ'),
           herdr.changes.pipe(Stream.take(1), Stream.runDrain),
         ]),
       ).pipe(Effect.provide(layerSocket({ path: server.path, relistInterval: '20 millis' })));

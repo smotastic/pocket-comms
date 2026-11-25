@@ -74,7 +74,7 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
 ## Rules of this service
 
 - `MultiplexerOutbound` has no focus method on purpose: the app never moves the owner's Herdr focus
-  (requirement 18). Do not add one. `worktree.create` always sends `focus: false`.
+  (requirement 18). Do not add one. `worktree.open` always sends `focus: false`.
 - `git` and Herdr run with argument arrays, never through a shell. A project is only ever a folder
   the projects port lists; never accept a path from a request.
 - Typed text (spec 024) goes through `MultiplexerOutbound.typeText` (`pane.send_text`), which never
@@ -132,8 +132,10 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   `ln -s ~/pocket-cloud-data/pocket-comms/current/apps/comms-server/skills/comms-attach-pull-request ~/.claude/skills/`
   and the same into `~/.pi/agent/skills/`.
 - Closing an agent removes only a workspace that both Herdr and git know as a linked worktree of
-  a project, through `worktree.remove`; never the primary checkout, never a path from a request.
-  Without `force`, the server asks git for changes first and removes nothing when there are any.
+  a project: git removes the checkout (`ProjectsOutbound.removeWorktree`), then the multiplexer
+  closes the workspace (`closeWorkspace`), so a refusal by git leaves the agents running. Never
+  the primary checkout, never a path from a request. Without `force`, the server asks git for
+  changes first and removes nothing when there are any.
   `force` comes only from the owner's explicit Discard changes and close.
 - Every agent the app starts goes through `makeAgentLaunch` (spec 005 and spec 032): it keeps the
   task start at each step and forgets it once Herdr accepts the prompt. Do not start an agent or
@@ -145,7 +147,7 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   the agent, or when git no longer lists the worktree); it never goes to Gitea.
 - Start an agent here (spec 032) takes the worktree only from the project's git worktree list,
   matched by the issue's branch, never the primary checkout, and never a path from a request; it
-  refuses a worktree with a live agent or a `pending` start, and never calls `worktree.create`.
+  refuses a worktree with a live agent or a `pending` start, and never adds a worktree.
   It opens a new shell with `tab.create`, or `worktree.open` when Herdr has no workspace for it.
 - Implementing an issue goes through the spec 005 `create` use case; do not copy its rules. It
   marks the issue in progress only after the task exists, and a failed mark never fails the start.

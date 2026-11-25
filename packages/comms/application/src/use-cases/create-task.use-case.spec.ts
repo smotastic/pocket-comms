@@ -52,27 +52,27 @@ describe('TasksInbound.create', () => {
       const created = yield* create();
 
       expect(created).toEqual({
-        workspace: 'w-feat/new-task-flow',
+        workspace: 'w-/worktrees/feat-new-task-flow',
         branch: 'feat/new-task-flow',
         path: '/worktrees/feat-new-task-flow',
         agent: undefined,
       });
-      expect(state.calls).toEqual([
-        {
-          method: 'createWorktree',
-          target: 'feat/new-task-flow',
-          params: {
-            cwd: '/work/app',
-            branch: 'feat/new-task-flow',
-            base: 'origin/master',
-            label: 'Add the new task flow',
-          },
-        },
-      ]);
       expect(state.gitCalls).toEqual([
         'isValidBranchName app feat/new-task-flow',
         'defaultBase app',
         'branchExists app feat/new-task-flow',
+        'addWorktree app feat/new-task-flow origin/master',
+      ]);
+      expect(state.calls).toEqual([
+        {
+          method: 'openWorktree',
+          target: '/worktrees/feat-new-task-flow',
+          params: {
+            cwd: '/work/app',
+            path: '/worktrees/feat-new-task-flow',
+            label: 'Add the new task flow',
+          },
+        },
       ]);
     }).pipe(Effect.provide(layer())),
   );
@@ -206,12 +206,16 @@ describe('TasksInbound.create', () => {
       expect(state.calls.slice(-2)).toEqual([
         {
           method: 'startAgent',
-          target: 'w-feat/new-task-flow:p1',
-          params: { paneId: 'w-feat/new-task-flow:p1', name: 'feat-new-task-flow', kind: 'claude' },
+          target: 'w-/worktrees/feat-new-task-flow:p1',
+          params: {
+            paneId: 'w-/worktrees/feat-new-task-flow:p1',
+            name: 'feat-new-task-flow',
+            kind: 'claude',
+          },
         },
         {
           method: 'prompt',
-          target: 'w-feat/new-task-flow:p1',
+          target: 'w-/worktrees/feat-new-task-flow:p1',
           params: 'Add the new task flow\nWith a sheet.',
         },
       ]);
@@ -251,7 +255,9 @@ describe('TasksInbound.create', () => {
       const fiber = yield* create({ agent: 'claude' }).pipe(Effect.forkChild);
       yield* TestClock.adjust('1 second');
       expect(herdrMethods(state)).not.toContain('prompt');
-      state.agents = [fakeAgent({ paneId: 'w-feat/new-task-flow:p1', name: 'feat-new-task-flow' })];
+      state.agents = [
+        fakeAgent({ paneId: 'w-/worktrees/feat-new-task-flow:p1', name: 'feat-new-task-flow' }),
+      ];
       yield* TestClock.adjust('1 second');
       const created = yield* Fiber.join(fiber);
 
@@ -263,7 +269,7 @@ describe('TasksInbound.create', () => {
   it.effect('waits until the idle agent also takes input, as a just-started Pi does', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
-      const paneId = 'w-feat/new-task-flow:p1';
+      const paneId = 'w-/worktrees/feat-new-task-flow:p1';
       state.started = { status: 'unknown', ready: false };
       state.agents = [fakeAgent({ paneId, name: 'feat-new-task-flow', kind: 'pi' })];
       state.unready.add(paneId);
@@ -285,7 +291,9 @@ describe('TasksInbound.create', () => {
     Effect.gen(function* () {
       const state = yield* FakeState;
       state.started = { status: 'unknown', ready: false };
-      state.agents = [fakeAgent({ paneId: 'w-feat/new-task-flow:p1', status: 'blocked' })];
+      state.agents = [
+        fakeAgent({ paneId: 'w-/worktrees/feat-new-task-flow:p1', status: 'blocked' }),
+      ];
 
       const fiber = yield* create({ agent: 'claude' }).pipe(Effect.forkChild);
       yield* TestClock.adjust('1 second');
@@ -313,11 +321,11 @@ describe('TasksInbound.create', () => {
   it.effect('keeps the worktree and notes why when the agent does not start', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
-      state.rejects.set('w-feat/new-task-flow:p1', 'agent_start_timeout');
+      state.rejects.set('w-/worktrees/feat-new-task-flow:p1', 'agent_start_timeout');
 
       const created = yield* create({ agent: 'claude' });
 
-      expect(created.workspace).toBe('w-feat/new-task-flow');
+      expect(created.workspace).toBe('w-/worktrees/feat-new-task-flow');
       expect(created.agent).toEqual({
         ref: 'feat-new-task-flow',
         started: false,
@@ -380,7 +388,7 @@ describe('TasksInbound.create keeps the task start', () => {
   it.effect('keeps the prompt of an agent that did not start', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
-      state.rejects.set('w-feat/new-task-flow:p1', 'agent_start_timeout');
+      state.rejects.set('w-/worktrees/feat-new-task-flow:p1', 'agent_start_timeout');
 
       yield* create({ agent: 'claude' });
 
@@ -395,7 +403,7 @@ describe('TasksInbound.create keeps the task start', () => {
   it.effect('reads a prompt Herdr did not answer as uncertain', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
-      state.unanswered.add('w-feat/new-task-flow:p1');
+      state.unanswered.add('w-/worktrees/feat-new-task-flow:p1');
 
       const created = yield* create({ agent: 'claude' });
 

@@ -245,7 +245,7 @@ describe('TaskStartsInbound.startInWorktree', () => {
         path: FOLDER,
         agent: { ref: 'fix-12-login', started: true, prompted: true },
       });
-      expect(state.calls.map((call) => call.method)).not.toContain('createWorktree');
+      expect(state.gitCalls.filter((call) => call.startsWith('addWorktree'))).toEqual([]);
       expect(state.calls.filter((call) => call.method !== 'snapshot')).toEqual([
         { method: 'openShell', target: 'w5' },
         {

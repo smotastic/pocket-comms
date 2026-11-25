@@ -16,39 +16,20 @@ export interface MultiplexerSnapshot {
   readonly workspaces: ReadonlyArray<Workspace>;
 }
 
-/** What `createWorktree` asks for: a new branch from `base` in the repository at `cwd`. */
-export interface WorktreeRequest {
-  readonly cwd: string;
-  readonly branch: string;
-  readonly base: string;
-  /** The label of the new workspace. */
-  readonly label: string;
-}
-
-/** The new worktree's workspace and its first pane. */
-export interface CreatedWorktree {
-  readonly workspaceId: string;
-  readonly paneId: string;
-  readonly path: string;
-  readonly branch: string;
-}
-
-/** What `openWorktree` asks for: the existing worktree at `path` of the repository at `cwd`. */
+/**
+ * What `openWorktree` asks for: the existing worktree at `path` of the repository at `cwd`, and
+ * the label of its workspace when the multiplexer opens a new one.
+ */
 export interface WorktreeOpening {
   readonly cwd: string;
   readonly path: string;
+  readonly label?: string;
 }
 
 /** A workspace and a pane in it. */
 export interface OpenedPane {
   readonly workspaceId: string;
   readonly paneId: string;
-}
-
-/** What `removeWorktree` asks for: the worktree workspace, and whether to drop its changes. */
-export interface WorktreeRemoval {
-  readonly workspaceId: string;
-  readonly force: boolean;
 }
 
 /** What `startAgent` asks for: an agent of `kind`, named `name`, in the shell of `paneId`. */
@@ -95,10 +76,6 @@ export class MultiplexerOutbound extends Context.Service<
       paneId: string,
       keys: ReadonlyArray<DialogKey>,
     ) => Effect.Effect<void, MultiplexerUnavailableError | MultiplexerRejectedError>;
-    /** Creates a git worktree and opens it as a workspace, without moving the focus. */
-    readonly createWorktree: (
-      request: WorktreeRequest,
-    ) => Effect.Effect<CreatedWorktree, MultiplexerUnavailableError | MultiplexerRejectedError>;
     /**
      * Opens an existing git worktree as a workspace, without moving the focus. When the
      * multiplexer already has one for it, that workspace and its first pane, which may hold an
@@ -114,12 +91,9 @@ export class MultiplexerOutbound extends Context.Service<
     readonly openShell: (
       workspaceId: string,
     ) => Effect.Effect<OpenedPane, MultiplexerUnavailableError | MultiplexerRejectedError>;
-    /**
-     * Removes the checkout of a worktree workspace and closes the workspace with all its panes.
-     * The branch stays.
-     */
-    readonly removeWorktree: (
-      removal: WorktreeRemoval,
+    /** Closes the workspace with every pane and agent in it; its folder stays. */
+    readonly closeWorkspace: (
+      workspaceId: string,
     ) => Effect.Effect<void, MultiplexerUnavailableError | MultiplexerRejectedError>;
     /**
      * One agent as the multiplexer reports it now. Herdr finishes an agent's start, and lets it

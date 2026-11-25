@@ -56,6 +56,8 @@ export interface ServerOptions {
   readonly home: string;
   /** The folder whose git repositories a task can start in (spec 005). */
   readonly projectsRoot: string;
+  /** The folder that holds the new tasks' worktrees, one folder per project (ADR 0015). */
+  readonly worktreesRoot: string;
   /** Extra arguments for every agent the app starts. */
   readonly agentArgs: ReadonlyArray<string>;
   /** The Gitea server whose issues the app reads (spec 006). */
@@ -80,6 +82,7 @@ export const services = ({
   socketPath,
   home,
   projectsRoot,
+  worktreesRoot,
   agentArgs,
   gitea,
   stateDir,
@@ -87,7 +90,7 @@ export const services = ({
 }: Omit<ServerOptions, 'allowedLogin' | 'webDist'>) =>
   Layer.mergeAll(
     Herdr.layerSocket({ path: socketPath, agentArgs }),
-    Projects.layerGit({ root: projectsRoot }),
+    Projects.layerGit({ root: projectsRoot, worktreesRoot }),
     Gitea.layerHttp(gitea),
     // The Claude hook (`claude-hook.ts`) keeps the waiting questions in the same state folder.
     Conversation.layerFiles({ home, questions: join(stateDir, 'questions') }),

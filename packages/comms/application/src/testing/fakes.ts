@@ -81,10 +81,9 @@ export interface MultiplexerCall {
     | 'prompt'
     | 'typeText'
     | 'sendKeys'
-    | 'createWorktree'
     | 'openWorktree'
     | 'openShell'
-    | 'removeWorktree'
+    | 'closeWorkspace'
     | 'startAgent';
   readonly target?: string;
   readonly params?: unknown;
@@ -145,6 +144,8 @@ export class FakeState extends Context.Service<
     readonly worktrees: Map<string, Array<Worktree>>;
     /** The worktree folders with uncommitted or untracked changes. */
     readonly changed: Set<string>;
+    /** The worktree folders git refuses to remove. */
+    readonly refusedRemovals: Set<string>;
     /** The issues and pull requests of every Gitea repository, by `<owner>/<name>`. */
     readonly issues: Map<string, Array<Issue>>;
     /** The fake Gitea has a token. */
@@ -324,14 +325,6 @@ const herdr = (state: FakeState['Service']) => {
       command({ method: 'typeText', target: paneId, params: text }, () => undefined),
     sendKeys: (target, keys) =>
       command({ method: 'sendKeys', target, params: keys }, () => undefined),
-    // A new worktree's workspace is `w-<branch>` and its root pane `w-<branch>:p1`.
-    createWorktree: (request) =>
-      command({ method: 'createWorktree', target: request.branch, params: request }, () => ({
-        workspaceId: `w-${request.branch}`,
-        paneId: `w-${request.branch}:p1`,
-        path: `/worktrees/${request.branch.replaceAll('/', '-')}`,
-        branch: request.branch,
-      })),
     // A worktree opens as the workspace that already has its checkout, else as `w-<folder>`.
     openWorktree: (opening) =>
       command({ method: 'openWorktree', target: opening.path, params: opening }, () => {
@@ -345,11 +338,8 @@ const herdr = (state: FakeState['Service']) => {
         workspaceId,
         paneId: `${workspaceId}:p9`,
       })),
-    removeWorktree: (removal) =>
-      command(
-        { method: 'removeWorktree', target: removal.workspaceId, params: removal },
-        () => undefined,
-      ),
+    closeWorkspace: (workspaceId) =>
+      command({ method: 'closeWorkspace', target: workspaceId }, () => undefined),
     startAgent: (start) =>
       command({ method: 'startAgent', target: start.paneId, params: start }, () => state.started),
     changes: Stream.fromPubSub(state.herdrChanges),
@@ -435,6 +425,27 @@ const projects = (state: FakeState['Service']) => {
       ),
     hasChanges: (project, path) =>
       Effect.as(ask(`hasChanges ${project.name} ${path}`), state.changed.has(path)),
+    // A new worktree is `/worktrees/<branch with - for />`, listed after the others.
+    addWorktree: (project, { branch, base }) =>
+      Effect.map(ask(`addWorktree ${project.name} ${branch} ${base}`), () => {
+        const path = `/worktrees/${branch.replaceAll('/', '-')}`;
+        state.worktrees.set(project.name, [
+          ...(state.worktrees.get(project.name) ?? []),
+          { path, branch },
+        ]);
+        return { path, branch };
+      }),
+    removeWorktree: (project, path, force) =>
+      Effect.flatMap(ask(`removeWorktree ${project.name} ${path} force=${force}`), () => {
+        if (state.refusedRemovals.has(path)) {
+          return Effect.fail(new ProjectGitError({ project: project.name, reason: 'refused' }));
+        }
+        state.worktrees.set(
+          project.name,
+          (state.worktrees.get(project.name) ?? []).filter((worktree) => worktree.path !== path),
+        );
+        return Effect.void;
+      }),
     branchExists: (project, branch) =>
       Effect.as(
         ask(`branchExists ${project.name} ${branch}`),
@@ -708,6 +719,7 @@ export const fakeLayer = () => {
         origins: new Map([['app', 'gitea:owner/app.git']]),
         worktrees: new Map([['app', [{ path: '/work/app', branch: 'master' }]]]),
         changed: new Set(),
+        refusedRemovals: new Set(),
         issues: new Map(),
         giteaConfigured: true,
         giteaFailure: undefined,

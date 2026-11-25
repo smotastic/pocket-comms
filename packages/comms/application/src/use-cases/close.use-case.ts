@@ -13,7 +13,7 @@ export const makeClose = Effect.gen(function* () {
 
   /**
    * Removes the worktree of the agent `ref` and closes its workspace, with every agent in it.
-   * Only a workspace that both Herdr and git know as a linked worktree of a project
+   * Only a workspace that both the multiplexer and git know as a linked worktree of a project
    * is removed; without `force`, one with changes is not.
    */
   const close = Effect.fn('Agent.close')(function* (ref: string, force: boolean) {
@@ -35,7 +35,9 @@ export const makeClose = Effect.gen(function* () {
     if (!force && (yield* projectsOutbound.hasChanges(project, checkout))) {
       return yield* new WorktreeHasChangesError({ ref });
     }
-    yield* herdrOutbound.removeWorktree({ workspaceId: workspace.id, force });
+    // git removes the checkout first, so a refusal leaves the workspace and its agents open.
+    yield* projectsOutbound.removeWorktree(project, checkout, force);
+    yield* herdrOutbound.closeWorkspace(workspace.id);
     // The closed agent's task start goes with it (spec 032); a file that fails is only logged.
     yield* starts
       .forget(checkout)

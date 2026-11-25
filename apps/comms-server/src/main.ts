@@ -41,6 +41,7 @@ const main = Layer.unwrap(
         socketPath: config.socketPath,
         home: homedir(),
         projectsRoot: config.projectsRoot,
+        worktreesRoot: config.worktreesRoot,
         agentArgs: config.agentArgs,
         gitea: { url: config.giteaUrl, token: config.giteaToken, hosts: config.giteaHosts },
         stateDir: config.stateDir,
