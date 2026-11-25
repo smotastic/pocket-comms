@@ -16,7 +16,7 @@ in the task's own commit.
   - Gate: `pnpm nx run-many -t test -p comms-domain comms-application comms-api comms-server` and
     `pnpm nx run comms-server:openapi` leaves no diff
 
-- [ ] **T03** — Web: "… is not running", **New task** and **Close** name the overview's
+- [x] **T03** — Web: "… is not running", **New task** and **Close** name the overview's
       multiplexer instead of Herdr.
   - Gate: `pnpm nx run comms-web:test`
 

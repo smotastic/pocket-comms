@@ -21,7 +21,7 @@ import type { AgentView, CommsClient } from './comms-client.js';
 import { RequestError } from './comms-client.js';
 import { overviewQuery, projectsQuery } from './comms-queries.js';
 import { activeFilter, agentsOf, ALL } from './everything-else.js';
-import { useNow, useOverviewLive } from './live.js';
+import { useMultiplexerName, useNow, useOverviewLive } from './live.js';
 import { ProjectsSheet } from './ProjectsSheet.js';
 import { projectHue } from './rows.js';
 import { startedNotice } from './started.js';
@@ -118,13 +118,14 @@ const Group = ({
  */
 export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
+  const multiplexer = useMultiplexerName();
   const overview = useQuery(overviewQuery(client));
   const projects = useQuery(projectsQuery(client));
   const now = useNow();
   const [chosen, setChosen] = useState(ALL);
   const [projectsOpen, setProjectsOpen] = useState(false);
 
-  const herdrAway =
+  const away =
     unavailable ??
     (overview.error instanceof RequestError && overview.error.status === 503
       ? overview.error.message
@@ -178,10 +179,12 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
         }
       >
         <Stack gap="lg">
-          {herdrAway === undefined ? null : (
-            <Alert>Herdr is not running. The app keeps trying. ({herdrAway})</Alert>
+          {away === undefined ? null : (
+            <Alert>
+              {multiplexer ?? 'The multiplexer'} is not running. The app keeps trying. ({away})
+            </Alert>
           )}
-          {overview.error !== null && herdrAway === undefined ? (
+          {overview.error !== null && away === undefined ? (
             <Alert>{overview.error.message}</Alert>
           ) : null}
           {projects.error === null ? null : <Alert>{projects.error.message}</Alert>}

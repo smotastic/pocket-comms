@@ -244,6 +244,18 @@ describe('the overview', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('Herdr is not running');
   });
 
+  it('names the multiplexer that is not running', async () => {
+    const fake = fakeClient({ overview });
+    renderApp({ client: fake.client });
+    await screen.findByRole('link', { name: /kirk/ });
+
+    act(() =>
+      fake.emitOverview({ _tag: 'Unavailable', multiplexer: 'hc', reason: 'connect ENOENT' }),
+    );
+
+    expect((await screen.findByRole('alert')).textContent).toContain('hc is not running');
+  });
+
   it('says when no agent runs', async () => {
     renderApp({ client: fakeClient().client });
 

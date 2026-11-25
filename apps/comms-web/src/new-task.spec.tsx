@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from '@testing-library/react';
+import { act, cleanup, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RequestError } from './comms-client.js';
@@ -24,8 +24,25 @@ describe('the New task sheet', () => {
 
     const sheet = await openSheet();
 
-    expect(within(sheet).getByText('pocket-home · a new worktree in Herdr')).toBeDefined();
+    expect(within(sheet).getByText('pocket-home · a new worktree')).toBeDefined();
     expect(within(sheet).queryByRole('combobox', { name: 'Project' })).toBeNull();
+  });
+
+  it('names the multiplexer the overview reports', async () => {
+    const fake = fakeClient();
+    renderApp({ client: fake.client, ...at });
+    await screen.findByRole('button', { name: 'New task' });
+    act(() =>
+      fake.emitOverview({
+        _tag: 'Available',
+        multiplexer: 'hc',
+        overview: { needsYou: [], groups: [] },
+      }),
+    );
+
+    const sheet = await openSheet();
+
+    expect(within(sheet).getByText('pocket-home · a new worktree in hc')).toBeDefined();
   });
 
   it('prefills the branch from the task until it is edited', async () => {
