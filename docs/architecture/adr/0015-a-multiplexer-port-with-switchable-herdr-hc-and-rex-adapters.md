@@ -73,7 +73,8 @@ server's configuration:
   closing worktree needs, also adds and removes worktrees through its git adapter. The
   multiplexer only opens a workspace on a path and closes it. With Herdr, this replaces Herdr's
   own worktree commands. New worktrees stay where Herdr puts them today,
-  `~/.herdr/worktrees/<project>/<branch>` (with `/` in the branch as `-`), and `COMMS_WORKTREES_DIR` can move them.
+  `~/.herdr/worktrees/<project>/<branch>` (with `/` in the branch as `-`), and
+  `COMMS_WORKTREES_DIR` can move them.
 - **Workspaces.** Each adapter maps a workspace onto what its program has:
   - Herdr: a workspace.
   - hc: labels on each terminal (`comms.workspace`, `comms.project`), grouped by comms. hc has
