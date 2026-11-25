@@ -49,7 +49,7 @@ in the task's own commit.
       set-up.
   - Gate: `pnpm nx run comms-server:test`
 
-- [ ] **T10** — Live check: a dev server with `COMMS_MULTIPLEXER=hc` starts a Claude task, shows
-      it under its project, answers a question, shows its conversation and closes it; `pnpm
-    verify:local`.
+- [x] **T10** — Live check: a dev server with `COMMS_MULTIPLEXER=hc` starts a Claude task, shows
+      it under its project, answers a question, shows its conversation and closes it; then the
+      local checks (`pnpm verify:local`).
   - Gate: the live check's notes in the pull request
