@@ -6,7 +6,7 @@ import { problems } from './problems.js';
 
 const lookup = {
   AgentNotFoundError: problems.agentNotFound,
-  HerdrUnavailableError: problems.herdrUnavailable,
+  MultiplexerUnavailableError: problems.herdrUnavailable,
   ProjectNotFoundError: problems.projectNotFound,
   TaskStartsStoreError: problems.taskStartsUnavailable,
 } as const;
@@ -59,8 +59,8 @@ export const taskStartsHandlers = HttpApiBuilder.group(
               WorktreeNotFoundError: problems.worktreeNotFound,
               WorktreeBusyError: problems.worktreeBusy,
               TaskStartsStoreError: problems.taskStartsUnavailable,
-              HerdrUnavailableError: problems.herdrUnavailable,
-              HerdrRejectedError: problems.worktreeRefused,
+              MultiplexerUnavailableError: problems.herdrUnavailable,
+              MultiplexerRejectedError: problems.worktreeRefused,
             }),
           ),
       );

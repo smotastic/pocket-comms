@@ -33,10 +33,10 @@ import * as Stream from 'effect/Stream';
 import {
   GiteaNotConfiguredError,
   GiteaUnavailableError,
-  HerdrRejectedError,
+  MultiplexerRejectedError,
   IssueNotFoundError,
   PullRequestNotFoundError,
-  HerdrUnavailableError,
+  MultiplexerUnavailableError,
   ProjectGitError,
   PushStoreError,
   QuickRepliesStoreError,
@@ -50,7 +50,7 @@ import {
   type StoredBrainstorm,
 } from '../ports/brainstorm-store.outbound.port.js';
 import { GiteaOutbound, type PullRequestInfo } from '../ports/gitea.outbound.port.js';
-import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound, type StartedAgent } from '../ports/multiplexer.outbound.port.js';
 import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
 import {
   SeenOutbound,
@@ -73,7 +73,7 @@ import {
 } from '../ports/conversation.outbound.port.js';
 
 /** One request the fake Herdr received, so a test can prove what was sent, and what was not. */
-export interface HerdrCall {
+export interface MultiplexerCall {
   readonly method:
     | 'snapshot'
     | 'readScreen'
@@ -114,7 +114,7 @@ export class FakeState extends Context.Service<
     /** Pane id to the Herdr error code that a command for it fails with. */
     readonly rejects: Map<string, string>;
     available: boolean;
-    readonly calls: Array<HerdrCall>;
+    readonly calls: Array<MultiplexerCall>;
     readonly herdrChanges: PubSub.PubSub<void>;
     readonly conversationAppends: PubSub.PubSub<{
       /** The session, or a subagent's conversation by `subagentKey`. */
@@ -264,17 +264,17 @@ export const fakeAgent = (overrides: Partial<Agent> & Pick<Agent, 'paneId'>): Ag
 
 const herdr = (state: FakeState['Service']) => {
   const command = <A>(
-    call: HerdrCall,
+    call: MultiplexerCall,
     result: () => A,
-  ): Effect.Effect<A, HerdrUnavailableError | HerdrRejectedError> =>
+  ): Effect.Effect<A, MultiplexerUnavailableError | MultiplexerRejectedError> =>
     Effect.gen(function* () {
       state.calls.push(call);
       if (!state.available) {
-        return yield* new HerdrUnavailableError({ reason: 'connect ENOENT herdr.sock' });
+        return yield* new MultiplexerUnavailableError({ reason: 'connect ENOENT herdr.sock' });
       }
       const code = call.target === undefined ? undefined : state.rejects.get(call.target);
       if (code !== undefined && call.target !== undefined) {
-        return yield* new HerdrRejectedError({
+        return yield* new MultiplexerRejectedError({
           ref: call.target,
           code,
           message: `Herdr said ${code}.`,
@@ -282,12 +282,12 @@ const herdr = (state: FakeState['Service']) => {
       }
       return result();
     });
-  return HerdrOutbound.of({
+  return MultiplexerOutbound.of({
     // A snapshot names no agent, so Herdr never refuses it.
     snapshot: command({ method: 'snapshot' }, () => ({
       agents: [...state.agents],
       workspaces: [...state.workspaces],
-    })).pipe(Effect.catchTag('HerdrRejectedError', Effect.die)),
+    })).pipe(Effect.catchTag('MultiplexerRejectedError', Effect.die)),
     readScreen: (target) =>
       command({ method: 'readScreen', target }, () => state.screens.get(target) ?? ''),
     // An agent of `agents`, by pane id or name; none answers as Herdr does.
@@ -298,7 +298,7 @@ const herdr = (state: FakeState['Service']) => {
         Effect.flatMap((agent) =>
           agent === undefined
             ? Effect.fail(
-                new HerdrRejectedError({
+                new MultiplexerRejectedError({
                   ref: target,
                   code: 'agent_not_found',
                   message: `agent ${target} not found`,
@@ -314,7 +314,9 @@ const herdr = (state: FakeState['Service']) => {
       command({ method: 'prompt', target, params: text }, () => undefined).pipe(
         Effect.andThen(
           state.unanswered.has(target)
-            ? Effect.fail(new HerdrUnavailableError({ reason: 'Herdr did not answer in time.' }))
+            ? Effect.fail(
+                new MultiplexerUnavailableError({ reason: 'Herdr did not answer in time.' }),
+              )
             : Effect.void,
         ),
       ),
@@ -745,7 +747,7 @@ export const fakeLayer = () => {
   const ports = Layer.effectContext(
     Effect.gen(function* () {
       const fake = yield* FakeState;
-      return Context.make(HerdrOutbound, herdr(fake)).pipe(
+      return Context.make(MultiplexerOutbound, herdr(fake)).pipe(
         Context.add(ConversationOutbound, conversations(fake)),
         Context.add(ProjectsOutbound, projects(fake)),
         Context.add(GiteaOutbound, gitea(fake)),

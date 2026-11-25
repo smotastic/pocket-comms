@@ -5,8 +5,8 @@ import * as Layer from 'effect/Layer';
 import type { CreateTaskInput, ProjectDto, TaskCreatedDto } from '../dto/task.dto.js';
 import type {
   BranchExistsError,
-  HerdrRejectedError,
-  HerdrUnavailableError,
+  MultiplexerRejectedError,
+  MultiplexerUnavailableError,
   ProjectGitError,
 } from '../errors.js';
 import { makeCreateTask } from '../use-cases/create-task.use-case.js';
@@ -19,7 +19,7 @@ import { makeProjects } from '../use-cases/projects.use-case.js';
 export class TasksInbound extends Context.Service<
   TasksInbound,
   {
-    readonly projects: Effect.Effect<ReadonlyArray<ProjectDto>, HerdrUnavailableError>;
+    readonly projects: Effect.Effect<ReadonlyArray<ProjectDto>, MultiplexerUnavailableError>;
     readonly create: (
       input: CreateTaskInput,
     ) => Effect.Effect<
@@ -27,8 +27,8 @@ export class TasksInbound extends Context.Service<
       | InvalidInputError
       | ProjectGitError
       | BranchExistsError
-      | HerdrUnavailableError
-      | HerdrRejectedError
+      | MultiplexerUnavailableError
+      | MultiplexerRejectedError
     >;
   }
 >()('comms/application/TasksInbound') {

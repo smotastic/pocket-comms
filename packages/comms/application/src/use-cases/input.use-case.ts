@@ -13,7 +13,7 @@ import {
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import { QuestionNotWaitingError } from '../errors.js';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { ConversationOutbound } from '../ports/conversation.outbound.port.js';
 import { makeRecordActivity } from './activity-log.js';
 import { makeLoadAgents, sourceOf } from './agents.js';
@@ -23,7 +23,7 @@ import { makeImagePaths } from './image-paths.js';
 // the command, the pane id does not. What Herdr took goes into the activity timeline.
 
 export const makeInput = Effect.gen(function* () {
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const conversationOutbound = yield* ConversationOutbound;
   const { find } = yield* makeLoadAgents;
   const { imagePaths } = yield* makeImagePaths;

@@ -15,8 +15,8 @@ import type {
   DeliveryUncertainError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
-  HerdrRejectedError,
-  HerdrUnavailableError,
+  MultiplexerRejectedError,
+  MultiplexerUnavailableError,
   IssueClosedError,
   IssueNotFoundError,
   NoGiteaRemoteError,
@@ -33,7 +33,7 @@ import { makeTaskStarts, settleTaskStartsAfterRestart } from '../use-cases/task-
 // was not delivered, sending or dismissing it, and starting an agent in an issue's existing
 // worktree. `ref` is an agent's name, or its pane id.
 
-type Lookup = AgentNotFoundError | HerdrUnavailableError | TaskStartsStoreError;
+type Lookup = AgentNotFoundError | MultiplexerUnavailableError | TaskStartsStoreError;
 
 export class TaskStartsInbound extends Context.Service<
   TaskStartsInbound,
@@ -63,8 +63,8 @@ export class TaskStartsInbound extends Context.Service<
       input: StartAgentInWorktreeInput,
     ) => Effect.Effect<
       TaskCreatedDto,
-      | HerdrUnavailableError
-      | HerdrRejectedError
+      | MultiplexerUnavailableError
+      | MultiplexerRejectedError
       | TaskStartsStoreError
       | ProjectNotFoundError
       | ProjectGitError

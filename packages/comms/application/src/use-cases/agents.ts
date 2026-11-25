@@ -11,7 +11,7 @@ import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import type { AgentDto } from '../dto/agent.dto.js';
 import { AgentNotFoundError } from '../errors.js';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { SeenOutbound, StatusHistoryOutbound } from '../ports/memory.outbound.port.js';
 import {
   ConversationOutbound,
@@ -54,7 +54,7 @@ export interface AgentView {
 }
 
 export const makeLoadAgents = Effect.gen(function* () {
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const conversationOutbound = yield* ConversationOutbound;
   const seenOutbound = yield* SeenOutbound;
   const statusHistoryOutbound = yield* StatusHistoryOutbound;

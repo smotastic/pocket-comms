@@ -15,7 +15,7 @@ import type {
   ConversationDto,
 } from '../dto/agent.dto.js';
 import { SubagentNotFoundError, ConversationUnavailableError } from '../errors.js';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { ImagesOutbound } from '../ports/images.outbound.port.js';
 import {
   ConversationOutbound,
@@ -31,7 +31,7 @@ interface Lookup {
 const sameJson = <A>(a: A, b: A): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 export const makeConversation = Effect.gen(function* () {
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const conversationOutbound = yield* ConversationOutbound;
   const { folder } = yield* ImagesOutbound;
   const { find } = yield* makeLoadAgents;
@@ -78,7 +78,9 @@ export const makeConversation = Effect.gen(function* () {
         find(ref).pipe(
           Effect.map((view): Lookup => ({ gone: false, view })),
           Effect.catchTag('AgentNotFoundError', () => Effect.succeed<Lookup>({ gone: true })),
-          Effect.catchTag('HerdrUnavailableError', () => Effect.succeed<Lookup>({ gone: false })),
+          Effect.catchTag('MultiplexerUnavailableError', () =>
+            Effect.succeed<Lookup>({ gone: false }),
+          ),
         ),
       ),
       Stream.takeWhile((lookup) => !lookup.gone),

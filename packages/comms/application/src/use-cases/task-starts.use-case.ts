@@ -34,7 +34,7 @@ import {
   WorktreeNotFoundError,
 } from '../errors.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
 import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
 import { makeRecordActivity } from './activity-log.js';
@@ -51,7 +51,7 @@ import { makeIssueProject } from './issue-project.js';
 const kindOf = (agent: Agent): AgentToStart => (agent.kind === 'pi' ? 'pi' : 'claude');
 
 export const makeTaskStarts = Effect.gen(function* () {
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const projectsOutbound = yield* ProjectsOutbound;
   const giteaOutbound = yield* GiteaOutbound;
   const starts = yield* TaskStartsOutbound;

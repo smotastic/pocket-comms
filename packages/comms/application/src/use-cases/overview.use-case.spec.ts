@@ -5,7 +5,7 @@ import * as PubSub from 'effect/PubSub';
 import * as Queue from 'effect/Queue';
 import { TestClock } from 'effect/testing';
 import type { OverviewStateDto } from '../dto/agent.dto.js';
-import { HerdrUnavailableError } from '../errors.js';
+import { MultiplexerUnavailableError } from '../errors.js';
 import { AgentsInbound } from '../ports/agents.inbound.port.js';
 import { fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
 import { collect, settle } from '../testing/streams.js';
@@ -191,7 +191,7 @@ describe('AgentsInbound.overview', () => {
 
       const error = yield* AgentsInbound.use((inbound) => inbound.overview).pipe(Effect.flip);
 
-      expect(error).toBeInstanceOf(HerdrUnavailableError);
+      expect(error).toBeInstanceOf(MultiplexerUnavailableError);
     }).pipe(Effect.provide(layer())),
   );
 });

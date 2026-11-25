@@ -11,13 +11,16 @@ import * as Effect from 'effect/Effect';
 import * as Stream from 'effect/Stream';
 import type { ActivityDto } from '../dto/activity.dto.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
-import { HerdrOutbound, type HerdrSnapshot } from '../ports/herdr.outbound.port.js';
+import {
+  MultiplexerOutbound,
+  type MultiplexerSnapshot,
+} from '../ports/multiplexer.outbound.port.js';
 import { makeRecordActivity } from './activity-log.js';
 
 // The activity timeline (spec 017). A recorder in the background compares each Herdr snapshot
 // with the one before, whether or not anyone has the app open.
 
-const observe = (snapshot: HerdrSnapshot): ReadonlyArray<Observed> => {
+const observe = (snapshot: MultiplexerSnapshot): ReadonlyArray<Observed> => {
   const workspaces = new Map(snapshot.workspaces.map((workspace) => [workspace.id, workspace]));
   return snapshot.agents.map((agent) => ({
     agent,
@@ -26,7 +29,7 @@ const observe = (snapshot: HerdrSnapshot): ReadonlyArray<Observed> => {
 };
 
 export const makeActivity = Effect.gen(function* () {
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const store = yield* ActivityStoreOutbound;
   const { record } = yield* makeRecordActivity;
 
@@ -40,7 +43,7 @@ export const makeActivity = Effect.gen(function* () {
       previous = current;
       return record(changes);
     }),
-    Effect.catchTag('HerdrUnavailableError', () => Effect.void),
+    Effect.catchTag('MultiplexerUnavailableError', () => Effect.void),
     Effect.withSpan('Activity.observe'),
   );
   yield* Stream.concat(Stream.succeed(undefined), herdrOutbound.changes).pipe(
@@ -53,7 +56,9 @@ export const makeActivity = Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis;
     const agents = yield* herdrOutbound.snapshot.pipe(
       Effect.map((snapshot) => snapshot.agents),
-      Effect.catchTag('HerdrUnavailableError', () => Effect.succeed<ReadonlyArray<Agent>>([])),
+      Effect.catchTag('MultiplexerUnavailableError', () =>
+        Effect.succeed<ReadonlyArray<Agent>>([]),
+      ),
     );
     return {
       events: [...keepActivity(events, now)]
