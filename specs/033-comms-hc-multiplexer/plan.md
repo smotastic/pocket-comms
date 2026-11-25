@@ -1,7 +1,7 @@
 # Plan 033 — pocket-comms: run the agents in herdr-core (hc)
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Draft` — spec and plan await one human approval
+- **Status:** `Approved` — approved by the owner (2026-11-25)
 
 ## 1. Affected projects
 

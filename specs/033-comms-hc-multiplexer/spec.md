@@ -1,6 +1,6 @@
 # Spec 033 — pocket-comms: run the agents in herdr-core (hc)
 
-- **Status:** `Draft` — not yet approved (human gate pending)
+- **Status:** `Approved` — approved by the owner (2026-11-25)
 - **Changes:** [spec 004](../004-pocket-comms-v1/spec.md) (the agents come from Herdr),
   [spec 005](../005-comms-new-task/spec.md) (a new task starts in Herdr)
 - **Decision:** [ADR 0015](../../docs/architecture/adr/0015-a-multiplexer-port-with-switchable-herdr-hc-and-rex-adapters.md)
