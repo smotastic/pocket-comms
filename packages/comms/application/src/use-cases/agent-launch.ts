@@ -133,12 +133,14 @@ export const makeAgentLaunch = Effect.gen(function* () {
       }),
     );
     yield* keep({ ...start, delivery: 'pending' });
-    const status = yield* settledStatus(paneId, started.success);
+    // From here on the agent is in the pane the multiplexer started it in.
+    const agentPane = started.success.paneId;
+    const status = yield* settledStatus(agentPane, started.success);
     if (status !== 'idle') {
       yield* keep({ ...start, delivery: 'not-sent', reason: NOTES[status] });
       return { ref, started: true, prompted: false, note: NOTES[status] } satisfies TaskAgentDto;
     }
-    const outcome = yield* deliver({ ...start, delivery: 'pending' }, paneId);
+    const outcome = yield* deliver({ ...start, delivery: 'pending' }, agentPane);
     return {
       ref,
       started: true,

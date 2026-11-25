@@ -26,7 +26,7 @@ in the task's own commit.
       relist; a scripted fake hc server.
   - Gate: `pnpm nx run comms-infrastructure:test -- src/hc`
 
-- [ ] **T05** — hc adapter, acting: `openWorktree` and `openShell` (labelled shell terminals),
+- [x] **T05** — hc adapter, acting: `openWorktree` and `openShell` (labelled shell terminals),
       `startAgent` (argv, labels, name, `keep`, `no_parent`, then the given shell ends),
       `prompt` (`terminal.send`, never `force`), `closeWorkspace` (kill, then remove each).
   - Gate: `pnpm nx run comms-infrastructure:test -- src/hc`

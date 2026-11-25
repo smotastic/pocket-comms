@@ -77,6 +77,7 @@ export {
 export {
   MultiplexerOutbound,
   type AgentStart,
+  type AgentStarted,
   type MultiplexerSnapshot,
   type OpenedPane,
   type StartedAgent,

@@ -309,3 +309,192 @@ describe('Hc.layerSocket', () => {
     }).pipe(Effect.scoped),
   );
 });
+
+// A fake hc that runs every new terminal as `t9`, named and labelled as asked, in its `cwd`.
+const acting =
+  (terminals: ReadonlyArray<Record<string, unknown>>) =>
+  (request: HcRequest): HcReply => {
+    if (request.method === 'terminal.run') {
+      return {
+        result: hcTerminal({
+          address: 't9',
+          name: request.params['name'] ?? null,
+          cwd: request.params['cwd'],
+          labels: request.params['labels'] ?? {},
+        }),
+      };
+    }
+    if (request.method === 'terminal.kill' || request.method === 'terminal.rm') {
+      return { result: { address: request.params['terminal'] } };
+    }
+    if (request.method === 'terminal.send') return { result: { sent: true } };
+    return listing(terminals)(request);
+  };
+
+const calls = (requests: ReadonlyArray<HcRequest>) =>
+  requests
+    .filter((request) => request.method !== 'hello')
+    .map((request) => [request.method, request.params]);
+
+describe('Hc.layerSocket acting', () => {
+  it.live('opens a worktree as a labelled shell, or finds the one already open', () =>
+    Effect.gen(function* () {
+      const open = hcTerminal({
+        address: 't4',
+        cwd: '/worktrees/app/fix-1',
+        labels: { 'comms.workspace': '/worktrees/app/fix-1', 'comms.label': 'Fix 1' },
+      });
+      const server = yield* fakeHcServer(acting([open]));
+
+      const [opened, again] = yield* MultiplexerOutbound.use((hc) =>
+        Effect.all([
+          hc.openWorktree({ cwd: '/work/app', path: '/worktrees/app/feat-x', label: 'Add x' }),
+          hc.openWorktree({ cwd: '/work/app', path: '/worktrees/app/fix-1' }),
+        ]),
+      ).pipe(provide(server.path));
+
+      expect(opened).toEqual({
+        workspaceId: '/worktrees/app/feat-x',
+        paneId: 't9',
+        alreadyOpen: false,
+      });
+      expect(again).toEqual({
+        workspaceId: '/worktrees/app/fix-1',
+        paneId: 't4',
+        alreadyOpen: true,
+      });
+      expect(calls(server.requests).filter(([method]) => method === 'terminal.run')).toEqual([
+        [
+          'terminal.run',
+          {
+            argv: [],
+            cwd: '/worktrees/app/feat-x',
+            labels: { 'comms.workspace': '/worktrees/app/feat-x', 'comms.label': 'Add x' },
+            no_parent: true,
+            no_notify: true,
+          },
+        ],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live("opens a new shell in a workspace with the workspace's label", () =>
+    Effect.gen(function* () {
+      const open = hcTerminal({
+        address: 't4',
+        cwd: '/worktrees/app/fix-1',
+        labels: { 'comms.workspace': '/worktrees/app/fix-1', 'comms.label': 'Fix 1' },
+      });
+      const server = yield* fakeHcServer(acting([open]));
+
+      const shell = yield* MultiplexerOutbound.use((hc) =>
+        hc.openShell('/worktrees/app/fix-1'),
+      ).pipe(provide(server.path));
+
+      expect(shell).toEqual({ workspaceId: '/worktrees/app/fix-1', paneId: 't9' });
+      expect(calls(server.requests).find(([method]) => method === 'terminal.run')?.[1]).toEqual({
+        argv: [],
+        cwd: '/worktrees/app/fix-1',
+        labels: { 'comms.workspace': '/worktrees/app/fix-1', 'comms.label': 'Fix 1' },
+        no_parent: true,
+        no_notify: true,
+      });
+    }).pipe(Effect.scoped),
+  );
+
+  it.live("starts the agent program itself in the shell's place, never through a shell", () =>
+    Effect.gen(function* () {
+      const shellOfTask = hcTerminal({
+        address: 't4',
+        cwd: '/worktrees/app/feat-x',
+        labels: { 'comms.workspace': '/worktrees/app/feat-x', 'comms.label': 'Add x' },
+      });
+      const server = yield* fakeHcServer(acting([shellOfTask]));
+
+      const started = yield* MultiplexerOutbound.use((hc) =>
+        hc.startAgent({ paneId: 't4', name: 'feat-x', kind: 'claude' }),
+      ).pipe(Effect.provide(layerSocket({ path: server.path, agentArgs: ['--model', 'opus'] })));
+
+      expect(started).toEqual({ status: 'unknown', ready: false, paneId: 't9' });
+      expect(calls(server.requests).filter(([method]) => method !== 'terminal.get')).toEqual([
+        [
+          'terminal.run',
+          {
+            argv: ['claude', '--model', 'opus'],
+            cwd: '/worktrees/app/feat-x',
+            name: 'feat-x',
+            labels: {
+              'comms.workspace': '/worktrees/app/feat-x',
+              'comms.label': 'Add x',
+              'comms.agent': 'claude',
+            },
+            keep: true,
+            no_parent: true,
+            no_notify: true,
+          },
+        ],
+        ['terminal.kill', { terminal: 't4' }],
+        ['terminal.rm', { terminal: 't4' }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('sends a prompt without forcing it past a waiting agent', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHcServer(acting([]));
+      yield* MultiplexerOutbound.use((hc) => hc.prompt('feat-x', 'Do it')).pipe(
+        provide(server.path),
+      );
+
+      expect(calls(server.requests)).toEqual([
+        ['terminal.send', { terminal: 'feat-x', text: 'Do it' }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('closes a workspace by ending and removing each of its terminals', () =>
+    Effect.gen(function* () {
+      const inside = (address: string) =>
+        hcTerminal({
+          address,
+          cwd: '/worktrees/app/feat-x',
+          labels: { 'comms.workspace': '/worktrees/app/feat-x' },
+        });
+      const server = yield* fakeHcServer(
+        acting([inside('t4'), inside('t5'), hcTerminal({ address: 't6' })]),
+      );
+
+      yield* MultiplexerOutbound.use((hc) => hc.closeWorkspace('/worktrees/app/feat-x')).pipe(
+        provide(server.path),
+      );
+
+      expect(calls(server.requests).filter(([method]) => method !== 'terminal.list')).toEqual([
+        ['terminal.kill', { terminal: 't4' }],
+        ['terminal.rm', { terminal: 't4' }],
+        ['terminal.kill', { terminal: 't5' }],
+        ['terminal.rm', { terminal: 't5' }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('never asks hc to focus, to run a shell line or to force a send', () =>
+    Effect.gen(function* () {
+      const shellOfTask = hcTerminal({ address: 't4', cwd: '/worktrees/app/feat-x' });
+      const server = yield* fakeHcServer(acting([shellOfTask]));
+      yield* MultiplexerOutbound.use((hc) =>
+        Effect.all([
+          hc.snapshot,
+          hc.openWorktree({ cwd: '/work/app', path: '/worktrees/app/feat-x', label: 'x' }),
+          hc.openShell('/worktrees/app/feat-x'),
+          hc.startAgent({ paneId: 't4', name: 'feat-x', kind: 'pi' }),
+          hc.prompt('feat-x', 'go'),
+          hc.closeWorkspace('/worktrees/app/feat-x'),
+        ]),
+      ).pipe(provide(server.path));
+
+      expect(server.requests.filter((request) => request.method.includes('focus'))).toEqual([]);
+      expect(server.requests.filter((request) => 'line' in request.params)).toEqual([]);
+      expect(server.requests.filter((request) => 'force' in request.params)).toEqual([]);
+    }).pipe(Effect.scoped),
+  );
+});

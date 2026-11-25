@@ -222,6 +222,28 @@ describe('TasksInbound.create', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('reads and prompts the agent in the pane it started in, which may be a new one', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.started = { status: 'unknown', ready: false, paneId: 't9' };
+      state.agents = [fakeAgent({ paneId: 't9', name: 'feat-new-task-flow', status: 'idle' })];
+
+      const fiber = yield* create({ agent: 'claude' }).pipe(Effect.forkChild);
+      yield* TestClock.adjust('1 second');
+      const created = yield* Fiber.join(fiber);
+
+      expect(created.agent).toMatchObject({ started: true, prompted: true });
+      expect(
+        state.calls
+          .filter((call) => call.method === 'readAgent' || call.method === 'prompt')
+          .map((call) => [call.method, call.target]),
+      ).toEqual([
+        ['readAgent', 't9'],
+        ['prompt', 't9'],
+      ]);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('numbers the agent when a live agent has its name', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

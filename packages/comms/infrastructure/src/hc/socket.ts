@@ -127,6 +127,7 @@ export const layerSocket = ({
   path,
   timeout = '3 seconds',
   relistInterval = '2 seconds',
+  agentArgs = [],
   generation = 1,
 }: SocketOptions) => {
   const unavailable = (reason: string) => new MultiplexerUnavailableError({ reason });
@@ -399,7 +400,127 @@ export const layerSocket = ({
 
   const changes: Stream.Stream<void> = Stream.merge(Stream.tick(relistInterval), events);
 
-  // The acting methods come with tasks T05 and T06 of spec 033.
+  // The live terminals of a workspace, oldest first.
+  const terminalsOf = (workspaceId: string) =>
+    terminals.pipe(
+      Effect.flatMap((live) =>
+        Effect.filter(live, (terminal) =>
+          Effect.map(workspaceIdOf(terminal), (id) => id === workspaceId),
+        ),
+      ),
+    );
+
+  // A login shell in `folder`, in no parent's care, labelled with its workspace.
+  const runShell = (folder: string, label: string | undefined) =>
+    request(
+      'terminal.run',
+      {
+        argv: [],
+        cwd: folder,
+        labels: {
+          [LABELS.workspace]: folder,
+          ...(label === undefined ? {} : { [LABELS.label]: label }),
+        },
+        no_parent: true,
+        no_notify: true,
+      },
+      TerminalRecord,
+      folder,
+    );
+
+  const openWorktree = ({
+    path: folder,
+    label,
+  }: {
+    readonly path: string;
+    readonly label?: string;
+  }) =>
+    Effect.gen(function* () {
+      const [open] = yield* terminalsOf(folder);
+      if (open !== undefined) {
+        return { workspaceId: folder, paneId: open.address, alreadyOpen: true };
+      }
+      const shell = yield* runShell(folder, label);
+      return { workspaceId: folder, paneId: shell.address, alreadyOpen: false };
+    }).pipe(Effect.withSpan('Hc.openWorktree'));
+
+  const openShell = (workspaceId: string) =>
+    Effect.gen(function* () {
+      const open = yield* terminalsOf(workspaceId);
+      const label = open
+        .map((terminal) => terminal.labels?.[LABELS.label])
+        .find((each) => each !== undefined);
+      const shell = yield* runShell(workspaceId, label);
+      return { workspaceId, paneId: shell.address };
+    }).pipe(Effect.withSpan('Hc.openShell'));
+
+  // Ends a terminal and removes it from hc's list.
+  const end = (address: string) =>
+    Effect.andThen(
+      request('terminal.kill', { terminal: address }, Schema.Unknown, address),
+      request('terminal.rm', { terminal: address }, Schema.Unknown, address),
+    );
+
+  // The agent program runs itself, from an argument array, never typed into a shell. With `keep`
+  // its terminal becomes a shell when the agent ends, as a Herdr pane does; the shell it replaces
+  // ends.
+  const startAgent = ({
+    paneId,
+    name,
+    kind,
+  }: {
+    readonly paneId: string;
+    readonly name: string;
+    readonly kind: string;
+  }) =>
+    Effect.gen(function* () {
+      const shell = yield* request('terminal.get', { terminal: paneId }, TerminalRecord, paneId);
+      const workspace = shell.labels?.[LABELS.workspace];
+      const label = shell.labels?.[LABELS.label];
+      const agent = yield* request(
+        'terminal.run',
+        {
+          argv: [kind, ...agentArgs],
+          cwd: workspace ?? orUndefined(shell.cwd),
+          name,
+          labels: {
+            ...(workspace === undefined ? {} : { [LABELS.workspace]: workspace }),
+            ...(label === undefined ? {} : { [LABELS.label]: label }),
+            [LABELS.agent]: kind,
+          },
+          keep: true,
+          no_parent: true,
+          no_notify: true,
+        },
+        TerminalRecord,
+        name,
+      );
+      yield* end(paneId);
+      const status: AgentStatus = statusOf(orUndefined(agent.status?.state));
+      return {
+        status,
+        ready: status !== 'unknown' && status !== 'blocked',
+        paneId: agent.address,
+      };
+    }).pipe(Effect.withSpan('Hc.startAgent'));
+
+  // hc pastes the text and presses Enter once the program is quiet; it refuses a waiting
+  // (`blocked`) program unless forced, and the app never forces.
+  const prompt = (target: string, text: string) =>
+    request('terminal.send', { terminal: target, text }, Schema.Unknown, target).pipe(
+      Effect.asVoid,
+      Effect.withSpan('Hc.prompt'),
+    );
+
+  const closeWorkspace = (workspaceId: string) =>
+    terminalsOf(workspaceId).pipe(
+      Effect.flatMap((open) =>
+        Effect.forEach(open, (terminal) => end(terminal.address), { discard: true }),
+      ),
+      Effect.withSpan('Hc.closeWorkspace'),
+    );
+
+  // Raw input comes with task T06 of spec 033.
   const notYet = (ref: string) =>
     Effect.fail(
       new MultiplexerRejectedError({ ref, code: 'not_implemented', message: 'Not yet in hc.' }),
@@ -416,13 +537,13 @@ export const layerSocket = ({
           Effect.withSpan('Hc.readScreen'),
         ),
       readAgent,
-      prompt: (target) => notYet(target),
+      prompt,
       typeText: (paneId) => notYet(paneId),
       sendKeys: (paneId) => notYet(paneId),
-      openWorktree: (opening) => notYet(opening.path),
-      openShell: (workspaceId) => notYet(workspaceId),
-      closeWorkspace: (workspaceId) => notYet(workspaceId),
-      startAgent: (start) => notYet(start.paneId),
+      openWorktree,
+      openShell,
+      closeWorkspace,
+      startAgent,
       changes,
     }),
   );

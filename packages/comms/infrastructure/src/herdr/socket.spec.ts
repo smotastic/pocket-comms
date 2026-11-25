@@ -516,7 +516,7 @@ describe('Herdr.layerSocket', () => {
         Effect.provide(layerSocket({ path: server.path, agentArgs: ['--model', 'x'] })),
       );
 
-      expect(started).toEqual({ status: 'idle', ready: true });
+      expect(started).toEqual({ status: 'idle', ready: true, paneId: 'wK:p1' });
       expect(server.requests.map((request) => request.params)).toEqual([
         { name: 'feat-new', kind: 'claude', pane_id: 'wK:p1', args: [], timeout_ms: 30_000 },
         {
@@ -549,7 +549,7 @@ describe('Herdr.layerSocket', () => {
         herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind: 'claude' }),
       ).pipe(Effect.provide(layerSocket({ path: server.path })));
 
-      expect(started).toEqual({ status: 'idle', ready: true });
+      expect(started).toEqual({ status: 'idle', ready: true, paneId: 'wK:p1' });
       expect(server.requests.filter((request) => request.method === 'agent.start')).toHaveLength(3);
     }).pipe(Effect.scoped),
   );

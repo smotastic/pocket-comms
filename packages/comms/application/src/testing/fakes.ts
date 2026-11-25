@@ -135,8 +135,8 @@ export class FakeState extends Context.Service<
     readonly branches: Set<string>;
     /** Branch names git refuses. */
     readonly badBranchNames: Set<string>;
-    /** What the next `startAgent` reports. */
-    started: StartedAgent;
+    /** What the next `startAgent` reports; without a pane, the agent stays in the given one. */
+    started: StartedAgent & { readonly paneId?: string };
     /** The panes whose prompt Herdr takes without answering, as a timeout. */
     readonly unanswered: Set<string>;
     /** The panes whose agent Herdr does not yet report ready for input. */
@@ -347,7 +347,10 @@ const herdr = (state: FakeState['Service']) => {
     closeWorkspace: (workspaceId) =>
       command({ method: 'closeWorkspace', target: workspaceId }, () => undefined),
     startAgent: (start) =>
-      command({ method: 'startAgent', target: start.paneId, params: start }, () => state.started),
+      command({ method: 'startAgent', target: start.paneId, params: start }, () => ({
+        ...state.started,
+        paneId: state.started.paneId ?? start.paneId,
+      })),
     changes: Stream.fromPubSub(state.herdrChanges),
   });
 };
