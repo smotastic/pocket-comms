@@ -498,3 +498,73 @@ describe('Hc.layerSocket acting', () => {
     }).pipe(Effect.scoped),
   );
 });
+
+describe('Hc.layerSocket raw input', () => {
+  const agent = hcTerminal({ address: 't7', cols: 132, rows: 40 });
+
+  it.live("types text through an attach stream at the terminal's own size, without Enter", () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHcServer(listing([agent]));
+      yield* MultiplexerOutbound.use((hc) => hc.typeText('t7', 'hello wörld')).pipe(
+        provide(server.path),
+      );
+
+      expect(
+        server.requests.find((request) => request.method === 'terminal.attach')?.params,
+      ).toEqual({ terminal: 't7', cols: 132, rows: 40 });
+      expect(server.frames.map((frame) => [frame.kind, frame.payload.toString('utf8')])).toEqual([
+        [0, 'hello wörld'],
+        [2, ''],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('presses each key as its own write, in order', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHcServer(listing([agent]));
+      yield* MultiplexerOutbound.use((hc) =>
+        hc.sendKeys('t7', [
+          'down',
+          '1',
+          'right',
+          'enter',
+          'esc',
+          'ctrl+c',
+          'pageup',
+          'pagedown',
+          '4',
+        ]),
+      ).pipe(Effect.provide(layerSocket({ path: server.path, keyGap: '1 millis' })));
+
+      expect(server.frames.map((frame) => [frame.kind, frame.payload.toString('utf8')])).toEqual([
+        [0, '\u001b[B'],
+        [0, '1'],
+        [0, '\u001b[C'],
+        [0, '\r'],
+        [0, '\u001b'],
+        [0, '\u0003'],
+        [0, '\u001b[5~'],
+        [0, '\u001b[6~'],
+        [0, '4'],
+        [2, ''],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('refuses input for a terminal hc does not have', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHcServer(listing([agent]));
+      const error = yield* MultiplexerOutbound.use((hc) => hc.typeText('t9', 'x')).pipe(
+        provide(server.path),
+        Effect.flip,
+      );
+
+      expect(error).toMatchObject({
+        _tag: 'MultiplexerRejectedError',
+        ref: 't9',
+        code: 'not_found',
+      });
+      expect(server.frames).toEqual([]);
+    }).pipe(Effect.scoped),
+  );
+});

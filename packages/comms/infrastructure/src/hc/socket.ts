@@ -25,6 +25,7 @@ import { createConnection } from 'node:net';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { gitEnvironment } from '../projects/git.js';
+import { KEY_SEQUENCES, writeRaw } from './attach.js';
 
 // hc's API (protocol generation 1): JSON-RPC 2.0, one message per line on a Unix socket. Every
 // request here opens its own connection and sends `hello` first, so a core that speaks another
@@ -128,6 +129,7 @@ export const layerSocket = ({
   timeout = '3 seconds',
   relistInterval = '2 seconds',
   agentArgs = [],
+  keyGap = '50 millis',
   generation = 1,
 }: SocketOptions) => {
   const unavailable = (reason: string) => new MultiplexerUnavailableError({ reason });
@@ -520,10 +522,20 @@ export const layerSocket = ({
       Effect.withSpan('Hc.closeWorkspace'),
     );
 
-  // Raw input comes with task T06 of spec 033.
-  const notYet = (ref: string) =>
-    Effect.fail(
-      new MultiplexerRejectedError({ ref, code: 'not_implemented', message: 'Not yet in hc.' }),
+  // Typed text and keys go to the program as raw bytes through an attach stream, at the
+  // terminal's own size: `terminal.keys` waits for quiet while the program prints, and
+  // `terminal.send` always presses Enter.
+  const raw = writeRaw({ path, generation, timeout });
+  const input = (target: string, chunks: ReadonlyArray<string>) =>
+    request('terminal.get', { terminal: target }, TerminalRecord, target).pipe(
+      Effect.flatMap((terminal) =>
+        raw(
+          terminal.address,
+          { cols: terminal.cols ?? 200, rows: terminal.rows ?? 120 },
+          chunks,
+          keyGap,
+        ),
+      ),
     );
 
   return Layer.succeed(
@@ -538,8 +550,12 @@ export const layerSocket = ({
         ),
       readAgent,
       prompt,
-      typeText: (paneId) => notYet(paneId),
-      sendKeys: (paneId) => notYet(paneId),
+      typeText: (paneId, text) => input(paneId, [text]).pipe(Effect.withSpan('Hc.typeText')),
+      sendKeys: (paneId, keys) =>
+        input(
+          paneId,
+          keys.map((key) => KEY_SEQUENCES[key]),
+        ).pipe(Effect.withSpan('Hc.sendKeys')),
       openWorktree,
       openShell,
       closeWorkspace,

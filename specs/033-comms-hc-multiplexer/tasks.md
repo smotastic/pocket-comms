@@ -31,7 +31,7 @@ in the task's own commit.
       `prompt` (`terminal.send`, never `force`), `closeWorkspace` (kill, then remove each).
   - Gate: `pnpm nx run comms-infrastructure:test -- src/hc`
 
-- [ ] **T06** — hc adapter, raw input: `typeText` and `sendKeys` as DATA frames through
+- [x] **T06** — hc adapter, raw input: `typeText` and `sendKeys` as DATA frames through
       `terminal.attach` at the terminal's own size, one key per write `keyGap` apart, then CLOSE.
   - Gate: `pnpm nx run comms-infrastructure:test -- src/hc`
 
