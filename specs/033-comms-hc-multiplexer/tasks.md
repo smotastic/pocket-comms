@@ -35,7 +35,7 @@ in the task's own commit.
       `terminal.attach` at the terminal's own size, one key per write `keyGap` apart, then CLOSE.
   - Gate: `pnpm nx run comms-infrastructure:test -- src/hc`
 
-- [ ] **T07** — Shared port cases: the Herdr and hc adapter tests run one set of cases for what
+- [x] **T07** — Shared port cases: the Herdr and hc adapter tests run one set of cases for what
       the application relies on, each against its own fake.
   - Gate: `pnpm nx run comms-infrastructure:test`
 
