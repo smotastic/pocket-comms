@@ -53,7 +53,7 @@ in the task's own commit. T01 is the first pull request; T02–T08 the second.
   - Serves: 5, 6, 11, 13, 14
   - Gate: web tests; a look at 390 px in the browser.
 
-- [ ] **T09** — Docs: `packages/comms/AGENTS.md` (the planets file, the preflight rules), spec
+- [x] **T09** — Docs: `packages/comms/AGENTS.md` (the planets file, the preflight rules), spec
       and plan to `Done`.
   - Serves: —
   - Gate: `pnpm format`; review.

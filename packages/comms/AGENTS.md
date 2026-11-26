@@ -26,14 +26,17 @@ pull requests agents attach to their conversation and reads their changes from G
 [spec 027](../../specs/027-comms-brainstorm-voice/spec.md),
 [spec 030](../../specs/030-comms-answer-questions-in-chat/spec.md),
 [spec 031](../../specs/031-comms-attached-pull-requests/spec.md) and
-[spec 032](../../specs/032-comms-recover-task-starts/spec.md).
+[spec 032](../../specs/032-comms-recover-task-starts/spec.md) and
+[spec 034](../../specs/034-comms-planets-and-preflight/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, the push devices and the
 VAPID key pair are two JSON files in its `push` folder, the owner's quick replies are
 `quick-replies.json` in the state folder, and the agents' attached pull requests are
 `pull-requests.json` there, by the session id of each agent's conversation, and the task starts
-whose first prompt is not yet delivered are `task-starts.json` there, by worktree folder.
+whose first prompt is not yet delivered are `task-starts.json` there, by worktree folder, and
+the planets the owner registered, with their settings, are `planets.json` there (ADR 0018).
+The older files still name a planet `project`, the word from before spec 034.
 
 ## Where each file type goes
 
@@ -51,6 +54,9 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
 | Pull request rules (pages, the list, the unified diff and its limits)          | `domain` (`src/pull-request.ts`)                            |
 | The attached pull requests file                                                | `infrastructure` (`src/pull-requests`)                      |
 | Task start rules (delivery, the start of an agent, an issue's recovery)        | `domain` (`src/task-start.ts`)                              |
+| Planet and preflight rules (seed, registry, checks, autonomy level)            | `domain` (`src/planet.ts`)                                  |
+| Which repositories are planets, the seed at start, preflight and its reuse     | `application` (`src/use-cases/planet*.ts`)                  |
+| The planets file                                                               | `infrastructure` (`src/planets`)                            |
 | Starting an agent and its first prompt, kept as a task start                   | `application` (`src/use-cases/agent-launch.ts`)             |
 | The task starts file                                                           | `infrastructure` (`src/task-starts`)                        |
 | The agent skill that attaches a pull request                                   | `apps/comms-server/skills/comms-attach-pull-request`        |
