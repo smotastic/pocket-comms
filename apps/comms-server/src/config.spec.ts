@@ -20,9 +20,12 @@ describe('serverConfig', () => {
       expect(config).toEqual({
         port: 4410,
         allowedLogin: 'smotastic@',
+        multiplexer: 'herdr',
         socketPath: `${homedir()}/.config/herdr/herdr.sock`,
+        hcSocketPath: `${homedir()}/.local/state/herdr-core/default/default.sock`,
         webDist: Option.none(),
         projectsRoot: `${homedir()}/Development/projects`,
+        worktreesRoot: `${homedir()}/.herdr/worktrees`,
         agentArgs: [],
         giteaUrl: 'http://localhost:3000',
         giteaHosts: ['gitea'],
@@ -42,9 +45,12 @@ describe('serverConfig', () => {
       expect(config).toEqual({
         port: 5000,
         allowedLogin: 'someone@github',
+        multiplexer: 'hc',
         socketPath: '/tmp/herdr.sock',
+        hcSocketPath: '/tmp/hc.sock',
         webDist: Option.some('/srv/web'),
         projectsRoot: '/srv/projects',
+        worktreesRoot: '/srv/worktrees',
         agentArgs: ['--model', 'opus'],
         giteaUrl: 'https://git.example.com',
         giteaHosts: ['gitea', 'git.example.com'],
@@ -57,9 +63,12 @@ describe('serverConfig', () => {
       withEnv({
         COMMS_PORT: '5000',
         COMMS_ALLOWED_LOGIN: 'someone@github',
+        COMMS_MULTIPLEXER: 'hc',
         HERDR_SOCKET_PATH: '/tmp/herdr.sock',
+        HC_SOCKET: '/tmp/hc.sock',
         COMMS_WEB_DIST: '/srv/web',
         COMMS_PROJECTS_ROOT: '/srv/projects',
+        COMMS_WORKTREES_DIR: '/srv/worktrees',
         COMMS_AGENT_ARGS: ' --model   opus ',
         COMMS_GITEA_URL: 'https://git.example.com',
         COMMS_GITEA_TOKEN: 'secret-token',
@@ -81,6 +90,18 @@ describe('serverConfig', () => {
       expect(String(set.giteaToken)).not.toContain('secret-token');
       expect(JSON.stringify(set)).not.toContain('secret-token');
     }),
+  );
+
+  it.effect.each(['rex', 'tmux', 'HC'])(
+    'refuses the multiplexer %s and names the ones it knows',
+    (multiplexer) =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(serverConfig);
+
+        expect(String(error)).toContain('COMMS_MULTIPLEXER');
+        expect(String(error)).toContain('"herdr"');
+        expect(String(error)).toContain('"hc"');
+      }).pipe(withEnv({ COMMS_MULTIPLEXER: multiplexer })),
   );
 
   it('listens on the loopback interface only', () => {

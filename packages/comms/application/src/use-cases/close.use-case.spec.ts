@@ -3,8 +3,9 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import {
   AgentNotFoundError,
-  HerdrRejectedError,
+  MultiplexerRejectedError,
   NotAWorktreeError,
+  ProjectGitError,
   WorktreeHasChangesError,
 } from '../errors.js';
 import { AgentsInbound } from '../ports/agents.inbound.port.js';
@@ -30,8 +31,11 @@ const arrange = Effect.gen(function* () {
   return state;
 });
 
-const removals = (state: FakeState['Service']) =>
-  state.calls.filter((call) => call.method === 'removeWorktree');
+// What closing did: git's removals of a worktree, then the multiplexer's closed workspaces.
+const removals = (state: FakeState['Service']) => [
+  ...state.gitCalls.filter((call) => call.startsWith('removeWorktree')),
+  ...state.calls.filter((call) => call.method === 'closeWorkspace'),
+];
 
 describe('AgentsInbound.close', () => {
   it.effect('removes a clean worktree without force', () =>
@@ -41,7 +45,8 @@ describe('AgentsInbound.close', () => {
       yield* close('kirk');
 
       expect(removals(state)).toEqual([
-        { method: 'removeWorktree', target: 'w2', params: { workspaceId: 'w2', force: false } },
+        'removeWorktree app /worktrees/feature force=false',
+        { method: 'closeWorkspace', target: 'w2' },
       ]);
       expect(state.gitCalls).toContain('hasChanges app /worktrees/feature');
     }).pipe(Effect.provide(layer())),
@@ -93,7 +98,8 @@ describe('AgentsInbound.close', () => {
       yield* close('kirk', true);
 
       expect(removals(state)).toEqual([
-        { method: 'removeWorktree', target: 'w2', params: { workspaceId: 'w2', force: true } },
+        'removeWorktree app /worktrees/feature force=true',
+        { method: 'closeWorkspace', target: 'w2' },
       ]);
       expect(state.gitCalls.some((call) => call.startsWith('hasChanges'))).toBe(false);
     }).pipe(Effect.provide(layer())),
@@ -162,14 +168,26 @@ describe('AgentsInbound.close', () => {
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect("passes on Herdr's refusal", () =>
+  it.effect("passes on git's refusal to remove, and keeps the workspace open", () =>
     Effect.gen(function* () {
       const state = yield* arrange;
-      state.rejects.set('w2', 'worktree_remove_failed');
+      state.refusedRemovals.add('/worktrees/feature');
+
+      const error = yield* close('kirk', true).pipe(Effect.flip);
+
+      expect(error).toBeInstanceOf(ProjectGitError);
+      expect(state.calls.filter((call) => call.method === 'closeWorkspace')).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect("passes on the multiplexer's refusal to close the workspace", () =>
+    Effect.gen(function* () {
+      const state = yield* arrange;
+      state.rejects.set('w2', 'workspace_not_found');
 
       const error = yield* close('kirk').pipe(Effect.flip);
 
-      expect(error).toBeInstanceOf(HerdrRejectedError);
+      expect(error).toBeInstanceOf(MultiplexerRejectedError);
     }).pipe(Effect.provide(layer())),
   );
 

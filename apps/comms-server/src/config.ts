@@ -1,6 +1,7 @@
 import * as Config from 'effect/Config';
 import * as Option from 'effect/Option';
 import * as Redacted from 'effect/Redacted';
+import * as Schema from 'effect/Schema';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,12 +21,23 @@ const optionalString = (name: string) =>
 export const serverConfig = Config.all({
   port: Config.Port('COMMS_PORT').pipe(Config.withDefault(4410)),
   allowedLogin: Config.String('COMMS_ALLOWED_LOGIN').pipe(Config.withDefault('smotastic@')),
+  // The program that runs the agents (ADR 0015, spec 033); any other value stops the start.
+  multiplexer: Config.schema(Schema.Literals(['herdr', 'hc']), 'COMMS_MULTIPLEXER').pipe(
+    Config.withDefault('herdr' as const),
+  ),
   socketPath: Config.String('HERDR_SOCKET_PATH').pipe(
     Config.withDefault(join(homedir(), '.config', 'herdr', 'herdr.sock')),
+  ),
+  hcSocketPath: Config.String('HC_SOCKET').pipe(
+    Config.withDefault(join(homedir(), '.local', 'state', 'herdr-core', 'default', 'default.sock')),
   ),
   webDist: Config.option(Config.String('COMMS_WEB_DIST')),
   projectsRoot: Config.String('COMMS_PROJECTS_ROOT').pipe(
     Config.withDefault(join(homedir(), 'Development', 'projects')),
+  ),
+  // Where git adds a new task's worktree, beside Herdr's own (ADR 0015).
+  worktreesRoot: Config.String('COMMS_WORKTREES_DIR').pipe(
+    Config.withDefault(join(homedir(), '.herdr', 'worktrees')),
   ),
   // Split on whitespace only; the arguments never pass through a shell (spec 005, requirement 12).
   agentArgs: Config.String('COMMS_AGENT_ARGS').pipe(

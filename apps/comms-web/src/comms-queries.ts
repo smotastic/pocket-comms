@@ -13,6 +13,8 @@ export const projectsKey = ['projects'] as const;
 export const issuesKey = (project: string) => ['issues', project] as const;
 export const brainstormKey = ['brainstorm'] as const;
 export const activityKey = ['activity'] as const;
+/** The multiplexer the overview stream last named; only that stream writes it. */
+export const multiplexerKey = ['multiplexer'] as const;
 export const quickRepliesKey = ['quick-replies'] as const;
 export const speechKey = ['speech'] as const;
 export const pullRequestsKey = (ref: string) => ['pull-requests', ref] as const;

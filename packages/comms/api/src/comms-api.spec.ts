@@ -9,8 +9,8 @@ import {
   BranchExistsError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
-  HerdrRejectedError,
-  HerdrUnavailableError,
+  MultiplexerRejectedError,
+  MultiplexerUnavailableError,
   ImageNotFoundError,
   ImageNotSavedError,
   ImagesInbound,
@@ -195,7 +195,7 @@ describe('the Tailscale identity check', () => {
 describe('the agents API', () => {
   it('answers 503 while Herdr is away', async () => {
     const call = serve({
-      overview: Effect.fail(new HerdrUnavailableError({ reason: 'connect ENOENT' })),
+      overview: Effect.fail(new MultiplexerUnavailableError({ reason: 'connect ENOENT' })),
     });
 
     const response = await call('/api/v1/agents');
@@ -278,7 +278,9 @@ describe('the agents API', () => {
   it('answers 409 when Herdr refuses the keys', async () => {
     const call = serve({
       sendKeys: (ref) =>
-        Effect.fail(new HerdrRejectedError({ ref, code: 'agent_not_ready', message: 'Not ready' })),
+        Effect.fail(
+          new MultiplexerRejectedError({ ref, code: 'agent_not_ready', message: 'Not ready' }),
+        ),
     });
 
     const response = await call('/api/v1/agents/kirk/keys', json({ keys: ['1'] }));
@@ -424,8 +426,12 @@ describe('the agents API', () => {
     [new NotAWorktreeError({ ref: 'kirk' }), 409, 'not-a-worktree'],
     [new WorktreeHasChangesError({ ref: 'kirk' }), 409, 'worktree-has-changes'],
     [new ProjectGitError({ project: 'app', reason: 'status failed' }), 409, 'project-git-failed'],
-    [new HerdrRejectedError({ ref: 'w2', code: 'c', message: 'm' }), 409, 'worktree-not-removed'],
-    [new HerdrUnavailableError({ reason: 'away' }), 503, 'herdr-unavailable'],
+    [
+      new MultiplexerRejectedError({ ref: 'w2', code: 'c', message: 'm' }),
+      409,
+      'worktree-not-removed',
+    ],
+    [new MultiplexerUnavailableError({ reason: 'away' }), 503, 'herdr-unavailable'],
   ] as const)('maps a close failing with %s to %i', async (error, status, slug) => {
     const call = serve({ close: () => Effect.fail(error) });
 
@@ -481,7 +487,7 @@ describe('the agents API', () => {
 
   it('streams the overview as server-sent events', async () => {
     const call = serve({
-      overviewChanges: Stream.make({ _tag: 'Available', overview } as const),
+      overviewChanges: Stream.make({ _tag: 'Available', multiplexer: 'herdr', overview } as const),
     });
 
     const response = await call('/api/v1/events');
@@ -491,6 +497,7 @@ describe('the agents API', () => {
     expect(text).toContain('data: ');
     expect(JSON.parse(text.slice(text.indexOf('data: ') + 6).split('\n')[0] ?? '')).toEqual({
       _tag: 'Available',
+      multiplexer: 'herdr',
       overview,
     });
   });
@@ -521,7 +528,7 @@ describe('the tasks API', () => {
 
   it('answers 503 for the projects while Herdr is away', async () => {
     const call = serve({}, undefined, {
-      projects: Effect.fail(new HerdrUnavailableError({ reason: 'connect ENOENT' })),
+      projects: Effect.fail(new MultiplexerUnavailableError({ reason: 'connect ENOENT' })),
     });
 
     expect((await call('/api/v1/projects')).status).toBe(503);
@@ -578,8 +585,12 @@ describe('the tasks API', () => {
     ],
     [new BranchExistsError({ branch: 'feat/x' }), 409, 'branch-exists'],
     [new ProjectGitError({ project: 'p', reason: 'fetch failed' }), 409, 'project-git-failed'],
-    [new HerdrRejectedError({ ref: 'feat/x', code: 'c', message: 'm' }), 409, 'worktree-refused'],
-    [new HerdrUnavailableError({ reason: 'away' }), 503, 'herdr-unavailable'],
+    [
+      new MultiplexerRejectedError({ ref: 'feat/x', code: 'c', message: 'm' }),
+      409,
+      'worktree-refused',
+    ],
+    [new MultiplexerUnavailableError({ reason: 'away' }), 503, 'herdr-unavailable'],
   ] as const)('maps %s to %i', async (error, status, slug) => {
     const call = serve({}, undefined, { create: () => Effect.fail(error) });
 
@@ -750,8 +761,12 @@ describe('the issues API', () => {
       'invalid-request',
     ],
     [new ProjectGitError({ project: 'p', reason: 'fetch failed' }), 409, 'project-git-failed'],
-    [new HerdrRejectedError({ ref: 'feat/x', code: 'c', message: 'm' }), 409, 'worktree-refused'],
-    [new HerdrUnavailableError({ reason: 'away' }), 503, 'herdr-unavailable'],
+    [
+      new MultiplexerRejectedError({ ref: 'feat/x', code: 'c', message: 'm' }),
+      409,
+      'worktree-refused',
+    ],
+    [new MultiplexerUnavailableError({ reason: 'away' }), 503, 'herdr-unavailable'],
   ] as const)('maps the implement failure %s to %i', async (error, status, slug) => {
     const call = issues({ implement: () => Effect.fail(error) });
 

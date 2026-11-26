@@ -15,13 +15,13 @@ export const agentsHandlers = HttpApiBuilder.group(
     // The failures every lookup of an agent can have.
     const lookup = {
       AgentNotFoundError: problems.agentNotFound,
-      HerdrUnavailableError: problems.herdrUnavailable,
+      MultiplexerUnavailableError: problems.herdrUnavailable,
     } as const;
 
     return handlers
       .handle('overview', () =>
         agentsInbound.overview.pipe(
-          Effect.catchTags({ HerdrUnavailableError: problems.herdrUnavailable }),
+          Effect.catchTags({ MultiplexerUnavailableError: problems.herdrUnavailable }),
         ),
       )
       .handle('overviewEvents', () =>
@@ -64,14 +64,14 @@ export const agentsHandlers = HttpApiBuilder.group(
       .handle('screen', ({ params }) =>
         agentsInbound.screen(params.agent).pipe(
           Effect.map((text) => ({ text })),
-          Effect.catchTags({ ...lookup, HerdrRejectedError: problems.herdrRejected }),
+          Effect.catchTags({ ...lookup, MultiplexerRejectedError: problems.herdrRejected }),
         ),
       )
       .handle('prompt', ({ params, payload }) =>
         agentsInbound.prompt(params.agent, payload.text, payload.imageIds ?? []).pipe(
           Effect.catchTags({
             ...lookup,
-            HerdrRejectedError: problems.herdrRejected,
+            MultiplexerRejectedError: problems.herdrRejected,
             InvalidInputError: problems.invalidInput,
           }),
         ),
@@ -80,7 +80,7 @@ export const agentsHandlers = HttpApiBuilder.group(
         agentsInbound.sendKeys(params.agent, payload.keys).pipe(
           Effect.catchTags({
             ...lookup,
-            HerdrRejectedError: problems.herdrRejected,
+            MultiplexerRejectedError: problems.herdrRejected,
             InvalidInputError: problems.invalidInput,
           }),
         ),
@@ -89,7 +89,7 @@ export const agentsHandlers = HttpApiBuilder.group(
         agentsInbound.type(params.agent, payload.text).pipe(
           Effect.catchTags({
             ...lookup,
-            HerdrRejectedError: problems.herdrRejected,
+            MultiplexerRejectedError: problems.herdrRejected,
             InvalidInputError: problems.invalidInput,
           }),
         ),
@@ -98,7 +98,7 @@ export const agentsHandlers = HttpApiBuilder.group(
         agentsInbound.answer(params.agent, payload.call, payload.answers).pipe(
           Effect.catchTags({
             ...lookup,
-            HerdrRejectedError: problems.herdrRejected,
+            MultiplexerRejectedError: problems.herdrRejected,
             InvalidInputError: problems.invalidInput,
             QuestionNotWaitingError: problems.questionNotWaiting,
           }),
@@ -114,7 +114,7 @@ export const agentsHandlers = HttpApiBuilder.group(
             NotAWorktreeError: problems.notAWorktree,
             WorktreeHasChangesError: problems.worktreeHasChanges,
             ProjectGitError: problems.projectGitFailed,
-            HerdrRejectedError: problems.worktreeNotRemoved,
+            MultiplexerRejectedError: problems.worktreeNotRemoved,
           }),
         ),
       );

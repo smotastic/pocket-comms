@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { HerdrOutbound } from '@pocket-comms/comms-application';
+import { MultiplexerOutbound } from '@pocket-comms/comms-application';
 import * as Effect from 'effect/Effect';
 import * as Fiber from 'effect/Fiber';
 import * as Stream from 'effect/Stream';
@@ -103,14 +103,15 @@ const lists = (request: HerdrRequest) => {
       result: { type: 'pane_read', read: { pane_id: 'wJ:p1', text: '\u001b[1mHi\u001b[0m' } },
     };
   }
-  if (request.method === 'worktree.create') {
+  if (request.method === 'worktree.open') {
     return {
       result: {
-        type: 'worktree_created',
-        workspace: { workspace_id: 'wK', label: 'New task', focused: false },
+        type: 'worktree_opened',
+        workspace: { workspace_id: 'wK', label: 'New task' },
         tab: { tab_id: 'wK:t1' },
         root_pane: { pane_id: 'wK:p1', workspace_id: 'wK' },
-        worktree: { path: '/worktrees/home/feat-new', branch: 'feat/new', label: 'New task' },
+        worktree: { path: '/worktrees/home/feat-new', branch: 'feat/new' },
+        already_open: false,
       },
     };
   }
@@ -123,17 +124,10 @@ const lists = (request: HerdrRequest) => {
       },
     };
   }
-  if (request.method === 'worktree.remove') {
-    return request.params['workspace_id'] === 'wDirty'
-      ? { error: { code: 'worktree_remove_failed', message: 'worktree contains modified files' } }
-      : {
-          result: {
-            type: 'worktree_removed',
-            workspace_id: request.params['workspace_id'],
-            path: '/worktrees/home/feat-ingestor-mvp',
-            forced: request.params['force'],
-          },
-        };
+  if (request.method === 'workspace.close') {
+    return request.params['workspace_id'] === 'wGone'
+      ? { error: { code: 'workspace_not_found', message: 'workspace wGone not found' } }
+      : { result: { type: 'ok' } };
   }
   if (request.method === 'pane.send_text' && request.params['text'] === 'refuse') {
     return { error: { code: 'pane_not_found', message: 'pane wJ:p1 not found' } };
@@ -145,10 +139,21 @@ const lists = (request: HerdrRequest) => {
 };
 
 describe('Herdr.layerSocket', () => {
+  it.live('names itself Herdr', () =>
+    Effect.gen(function* () {
+      const server = yield* fakeHerdrServer(lists);
+      const multiplexer = yield* MultiplexerOutbound.use((herdr) =>
+        Effect.succeed(herdr.multiplexer),
+      ).pipe(Effect.provide(layerSocket({ path: server.path })));
+
+      expect(multiplexer).toBe('herdr');
+    }).pipe(Effect.scoped),
+  );
+
   it.live('reads the agents and the workspaces', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      const snapshot = yield* HerdrOutbound.use((herdr) => herdr.snapshot).pipe(
+      const snapshot = yield* MultiplexerOutbound.use((herdr) => herdr.snapshot).pipe(
         Effect.provide(layerSocket({ path: server.path })),
       );
 
@@ -204,7 +209,7 @@ describe('Herdr.layerSocket', () => {
   it.live('reads the visible screen with its colours', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      const screen = yield* HerdrOutbound.use((herdr) => herdr.readScreen('wJ:p1')).pipe(
+      const screen = yield* MultiplexerOutbound.use((herdr) => herdr.readScreen('wJ:p1')).pipe(
         Effect.provide(layerSocket({ path: server.path })),
       );
 
@@ -219,7 +224,7 @@ describe('Herdr.layerSocket', () => {
   it.live('sends a prompt and keys to the target', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      yield* HerdrOutbound.use((herdr) =>
+      yield* MultiplexerOutbound.use((herdr) =>
         Effect.andThen(herdr.prompt('wJ:p1', 'hello'), herdr.sendKeys('wJ:p1', ['1', 'enter'])),
       ).pipe(Effect.provide(layerSocket({ path: server.path })));
 
@@ -258,9 +263,13 @@ describe('Herdr.layerSocket', () => {
         }
         return lists(request);
       });
-      const [opened, shell] = yield* HerdrOutbound.use((herdr) =>
+      const [opened, shell] = yield* MultiplexerOutbound.use((herdr) =>
         Effect.all([
-          herdr.openWorktree({ cwd: '/work/app', path: '/worktrees/fix-12-login' }),
+          herdr.openWorktree({
+            cwd: '/work/app',
+            path: '/worktrees/fix-12-login',
+            label: 'Fix login',
+          }),
           herdr.openShell('w3'),
         ]),
       ).pipe(Effect.provide(layerSocket({ path: server.path })));
@@ -268,7 +277,10 @@ describe('Herdr.layerSocket', () => {
       expect(opened).toEqual({ workspaceId: 'w3', paneId: 'w3:p1', alreadyOpen: true });
       expect(shell).toEqual({ workspaceId: 'w3', paneId: 'w3:p2' });
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
-        ['worktree.open', { cwd: '/work/app', path: '/worktrees/fix-12-login', focus: false }],
+        [
+          'worktree.open',
+          { cwd: '/work/app', path: '/worktrees/fix-12-login', label: 'Fix login', focus: false },
+        ],
         ['tab.create', { workspace_id: 'w3', focus: false }],
       ]);
     }).pipe(Effect.scoped),
@@ -286,7 +298,7 @@ describe('Herdr.layerSocket', () => {
             }
           : lists(request),
       );
-      const agent = yield* HerdrOutbound.use((herdr) => herdr.readAgent('wK:p1')).pipe(
+      const agent = yield* MultiplexerOutbound.use((herdr) => herdr.readAgent('wK:p1')).pipe(
         Effect.provide(layerSocket({ path: server.path })),
       );
 
@@ -309,7 +321,7 @@ describe('Herdr.layerSocket', () => {
             }
           : lists(request),
       );
-      const agent = yield* HerdrOutbound.use((herdr) => herdr.readAgent('wK:p1')).pipe(
+      const agent = yield* MultiplexerOutbound.use((herdr) => herdr.readAgent('wK:p1')).pipe(
         Effect.provide(layerSocket({ path: server.path })),
       );
 
@@ -324,7 +336,7 @@ describe('Herdr.layerSocket', () => {
           ? { error: { code: 'agent_not_found', message: 'agent wJ:p1 not found' } }
           : lists(request),
       );
-      yield* HerdrOutbound.use((herdr) => herdr.prompt('wJ:p1', 'hello')).pipe(
+      yield* MultiplexerOutbound.use((herdr) => herdr.prompt('wJ:p1', 'hello')).pipe(
         Effect.provide(layerSocket({ path: server.path })),
       );
 
@@ -338,7 +350,7 @@ describe('Herdr.layerSocket', () => {
   it.live("presses the fourth option's digit by its key name, as the others", () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['4', 'right', '1'])).pipe(
+      yield* MultiplexerOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['4', 'right', '1'])).pipe(
         Effect.provide(layerSocket({ path: server.path })),
       );
 
@@ -356,7 +368,7 @@ describe('Herdr.layerSocket', () => {
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
       const started = Date.now();
-      yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['2', '1', '1'])).pipe(
+      yield* MultiplexerOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['2', '1', '1'])).pipe(
         Effect.provide(layerSocket({ path: server.path, keyGap: '40 millis' })),
       );
 
@@ -372,7 +384,7 @@ describe('Herdr.layerSocket', () => {
   it.live('pages with the terminal sequences, which Herdr has no key names for, in order', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      yield* HerdrOutbound.use((herdr) =>
+      yield* MultiplexerOutbound.use((herdr) =>
         herdr.sendKeys('wJ:p1', ['pageup', 'pageup', 'down', 'pagedown']),
       ).pipe(Effect.provide(layerSocket({ path: server.path })));
 
@@ -391,12 +403,12 @@ describe('Herdr.layerSocket', () => {
       Effect.gen(function* () {
         let herdrStatus: object = { agent_status: 'blocked' };
         const server = yield* fakeHerdrServer(oneAgent(() => herdrStatus));
-        const statuses = HerdrOutbound.use((herdr) => herdr.snapshot).pipe(
+        const statuses = MultiplexerOutbound.use((herdr) => herdr.snapshot).pipe(
           Effect.map(({ agents }) => agents.map((agent) => [agent.status, agent.completion])),
         );
         yield* Effect.gen(function* () {
           expect(yield* statuses).toEqual([['blocked', undefined]]);
-          yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
+          yield* MultiplexerOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
           herdrStatus = { agent_status: 'done', completion_seq: 8 };
           expect(yield* statuses).toEqual([['blocked', undefined]]);
           herdrStatus = { agent_status: 'idle', completion_seq: 8 };
@@ -414,20 +426,20 @@ describe('Herdr.layerSocket', () => {
     Effect.gen(function* () {
       let herdrStatus: object = { agent_status: 'blocked' };
       const server = yield* fakeHerdrServer(oneAgent(() => herdrStatus));
-      const status = HerdrOutbound.use((herdr) => herdr.snapshot).pipe(
+      const status = MultiplexerOutbound.use((herdr) => herdr.snapshot).pipe(
         Effect.map(({ agents }) => agents.map((agent) => agent.status)),
       );
       yield* Effect.gen(function* () {
         yield* status;
-        yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
-        yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['esc']));
+        yield* MultiplexerOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
+        yield* MultiplexerOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['esc']));
         herdrStatus = { agent_status: 'idle', completion_seq: 8 };
         expect(yield* status).toEqual(['idle']);
 
         herdrStatus = { agent_status: 'blocked' };
         yield* status;
-        yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
-        yield* HerdrOutbound.use((herdr) => herdr.typeText('wJ:p1', 'Use SQLite'));
+        yield* MultiplexerOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
+        yield* MultiplexerOutbound.use((herdr) => herdr.typeText('wJ:p1', 'Use SQLite'));
         herdrStatus = { agent_status: 'done', completion_seq: 9 };
         expect(yield* status).toEqual(['done']);
       }).pipe(Effect.provide(layerSocket({ path: server.path })));
@@ -439,10 +451,10 @@ describe('Herdr.layerSocket', () => {
       let herdrStatus: object = { agent_status: 'idle' };
       const server = yield* fakeHerdrServer(oneAgent(() => herdrStatus));
       yield* Effect.gen(function* () {
-        yield* HerdrOutbound.use((herdr) => herdr.snapshot);
-        yield* HerdrOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
+        yield* MultiplexerOutbound.use((herdr) => herdr.snapshot);
+        yield* MultiplexerOutbound.use((herdr) => herdr.sendKeys('wJ:p1', ['pageup']));
         herdrStatus = { agent_status: 'done', completion_seq: 8 };
-        const { agents } = yield* HerdrOutbound.use((herdr) => herdr.snapshot);
+        const { agents } = yield* MultiplexerOutbound.use((herdr) => herdr.snapshot);
         expect(agents.map((agent) => agent.status)).toEqual(['done']);
       }).pipe(Effect.provide(layerSocket({ path: server.path })));
     }).pipe(Effect.scoped),
@@ -451,7 +463,7 @@ describe('Herdr.layerSocket', () => {
   it.live('types text into the pane without pressing Enter', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      yield* HerdrOutbound.use((herdr) => herdr.typeText('wJ:p1', 'Use SQLite')).pipe(
+      yield* MultiplexerOutbound.use((herdr) => herdr.typeText('wJ:p1', 'Use SQLite')).pipe(
         Effect.provide(layerSocket({ path: server.path })),
       );
 
@@ -461,67 +473,31 @@ describe('Herdr.layerSocket', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.live('creates a worktree without moving the focus', () =>
+  it.live('closes a workspace, never trusting the repository', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      const created = yield* HerdrOutbound.use((herdr) =>
-        herdr.createWorktree({
-          cwd: '/work/home',
-          branch: 'feat/new',
-          base: 'origin/master',
-          label: 'New task',
-        }),
-      ).pipe(Effect.provide(layerSocket({ path: server.path })));
+      yield* MultiplexerOutbound.use((herdr) => herdr.closeWorkspace('wJ')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+      );
 
-      expect(created).toEqual({
-        workspaceId: 'wK',
-        paneId: 'wK:p1',
-        path: '/worktrees/home/feat-new',
-        branch: 'feat/new',
-      });
       expect(server.requests.map((request) => [request.method, request.params])).toEqual([
-        [
-          'worktree.create',
-          {
-            cwd: '/work/home',
-            branch: 'feat/new',
-            base: 'origin/master',
-            label: 'New task',
-            focus: false,
-          },
-        ],
+        ['workspace.close', { workspace_id: 'wJ' }],
       ]);
     }).pipe(Effect.scoped),
   );
 
-  it.live('removes a worktree with the force asked for, never trusting the repository', () =>
+  it.live("reports Herdr's refusal to close a workspace", () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      yield* HerdrOutbound.use((herdr) =>
-        Effect.andThen(
-          herdr.removeWorktree({ workspaceId: 'wJ', force: false }),
-          herdr.removeWorktree({ workspaceId: 'wJ', force: true }),
-        ),
-      ).pipe(Effect.provide(layerSocket({ path: server.path })));
-
-      expect(server.requests.map((request) => [request.method, request.params])).toEqual([
-        ['worktree.remove', { workspace_id: 'wJ', force: false }],
-        ['worktree.remove', { workspace_id: 'wJ', force: true }],
-      ]);
-    }).pipe(Effect.scoped),
-  );
-
-  it.live("reports Herdr's refusal to remove a worktree", () =>
-    Effect.gen(function* () {
-      const server = yield* fakeHerdrServer(lists);
-      const error = yield* HerdrOutbound.use((herdr) =>
-        herdr.removeWorktree({ workspaceId: 'wDirty', force: false }),
-      ).pipe(Effect.provide(layerSocket({ path: server.path })), Effect.flip);
+      const error = yield* MultiplexerOutbound.use((herdr) => herdr.closeWorkspace('wGone')).pipe(
+        Effect.provide(layerSocket({ path: server.path })),
+        Effect.flip,
+      );
 
       expect(error).toMatchObject({
-        _tag: 'HerdrRejectedError',
-        ref: 'wDirty',
-        code: 'worktree_remove_failed',
+        _tag: 'MultiplexerRejectedError',
+        ref: 'wGone',
+        code: 'workspace_not_found',
       });
     }).pipe(Effect.scoped),
   );
@@ -530,7 +506,9 @@ describe('Herdr.layerSocket', () => {
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
       const start = (kind: 'claude' | 'pi') =>
-        HerdrOutbound.use((herdr) => herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind }));
+        MultiplexerOutbound.use((herdr) =>
+          herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind }),
+        );
       const started = yield* start('claude').pipe(
         Effect.provide(layerSocket({ path: server.path })),
       );
@@ -538,7 +516,7 @@ describe('Herdr.layerSocket', () => {
         Effect.provide(layerSocket({ path: server.path, agentArgs: ['--model', 'x'] })),
       );
 
-      expect(started).toEqual({ status: 'idle', ready: true });
+      expect(started).toEqual({ status: 'idle', ready: true, paneId: 'wK:p1' });
       expect(server.requests.map((request) => request.params)).toEqual([
         { name: 'feat-new', kind: 'claude', pane_id: 'wK:p1', args: [], timeout_ms: 30_000 },
         {
@@ -567,11 +545,11 @@ describe('Herdr.layerSocket', () => {
         }
         return lists(request);
       });
-      const started = yield* HerdrOutbound.use((herdr) =>
+      const started = yield* MultiplexerOutbound.use((herdr) =>
         herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind: 'claude' }),
       ).pipe(Effect.provide(layerSocket({ path: server.path })));
 
-      expect(started).toEqual({ status: 'idle', ready: true });
+      expect(started).toEqual({ status: 'idle', ready: true, paneId: 'wK:p1' });
       expect(server.requests.filter((request) => request.method === 'agent.start')).toHaveLength(3);
     }).pipe(Effect.scoped),
   );
@@ -588,7 +566,7 @@ describe('Herdr.layerSocket', () => {
             }
           : lists(request),
       );
-      const error = yield* HerdrOutbound.use((herdr) =>
+      const error = yield* MultiplexerOutbound.use((herdr) =>
         herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind: 'claude' }),
       ).pipe(
         Effect.provide(layerSocket({ path: server.path, shellWait: '500 millis' })),
@@ -596,7 +574,7 @@ describe('Herdr.layerSocket', () => {
       );
 
       expect(error).toMatchObject({
-        _tag: 'HerdrRejectedError',
+        _tag: 'MultiplexerRejectedError',
         message: 'agent target pane wK:p1 is not an available shell',
       });
       expect(
@@ -608,13 +586,13 @@ describe('Herdr.layerSocket', () => {
   it.live('reports an error answer as a refusal', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      const error = yield* HerdrOutbound.use((herdr) => herdr.prompt('wJ:p1', 'refuse')).pipe(
+      const error = yield* MultiplexerOutbound.use((herdr) => herdr.prompt('wJ:p1', 'refuse')).pipe(
         Effect.provide(layerSocket({ path: server.path })),
         Effect.flip,
       );
 
       expect(error).toMatchObject({
-        _tag: 'HerdrRejectedError',
+        _tag: 'MultiplexerRejectedError',
         ref: 'wJ:p1',
         code: 'agent_not_ready',
         message: 'agent wJ:p1 is not ready',
@@ -625,13 +603,12 @@ describe('Herdr.layerSocket', () => {
   it.live('reports a refused text as a refusal', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      const error = yield* HerdrOutbound.use((herdr) => herdr.typeText('wJ:p1', 'refuse')).pipe(
-        Effect.provide(layerSocket({ path: server.path })),
-        Effect.flip,
-      );
+      const error = yield* MultiplexerOutbound.use((herdr) =>
+        herdr.typeText('wJ:p1', 'refuse'),
+      ).pipe(Effect.provide(layerSocket({ path: server.path })), Effect.flip);
 
       expect(error).toMatchObject({
-        _tag: 'HerdrRejectedError',
+        _tag: 'MultiplexerRejectedError',
         ref: 'wJ:p1',
         code: 'pane_not_found',
       });
@@ -640,24 +617,24 @@ describe('Herdr.layerSocket', () => {
 
   it.live('reports a missing socket as unavailable', () =>
     Effect.gen(function* () {
-      const error = yield* HerdrOutbound.use((herdr) => herdr.snapshot).pipe(
+      const error = yield* MultiplexerOutbound.use((herdr) => herdr.snapshot).pipe(
         Effect.provide(layerSocket({ path: join(tmpdir(), 'no-herdr', 'herdr.sock') })),
         Effect.flip,
       );
 
-      expect(error._tag).toBe('HerdrUnavailableError');
+      expect(error._tag).toBe('MultiplexerUnavailableError');
     }),
   );
 
   it.live('reports a silent socket as unavailable after the timeout', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(() => 'silent');
-      const error = yield* HerdrOutbound.use((herdr) => herdr.snapshot).pipe(
+      const error = yield* MultiplexerOutbound.use((herdr) => herdr.snapshot).pipe(
         Effect.provide(layerSocket({ path: server.path, timeout: '50 millis' })),
         Effect.flip,
       );
 
-      expect(error._tag).toBe('HerdrUnavailableError');
+      expect(error._tag).toBe('MultiplexerUnavailableError');
     }).pipe(Effect.scoped),
   );
 });
@@ -666,7 +643,7 @@ describe('Herdr.layerSocket changes', () => {
   it.live('subscribes to the status of every pane and emits on an event', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(herdrLists(['w1:p1', 'w1:p2']));
-      const fiber = yield* HerdrOutbound.use((herdr) =>
+      const fiber = yield* MultiplexerOutbound.use((herdr) =>
         // The first item is the re-list tick at the start; the second is the event.
         herdr.changes.pipe(Stream.take(2), Stream.runCollect),
       ).pipe(
@@ -695,7 +672,7 @@ describe('Herdr.layerSocket changes', () => {
     Effect.gen(function* () {
       let panes = ['w1:p1'];
       const server = yield* fakeHerdrServer((request) => herdrLists(panes)(request));
-      yield* HerdrOutbound.use((herdr) => herdr.changes.pipe(Stream.runDrain)).pipe(
+      yield* MultiplexerOutbound.use((herdr) => herdr.changes.pipe(Stream.runDrain)).pipe(
         Effect.provide(layerSocket({ path: server.path, relistInterval: '30 millis' })),
         Effect.forkChild,
       );
@@ -716,7 +693,7 @@ describe('Herdr.layerSocket changes', () => {
       const server = yield* fakeHerdrServer(herdrLists(['w1:p1']));
       const subscribes = () =>
         server.requests.filter((request) => request.method === 'events.subscribe').length;
-      yield* HerdrOutbound.use((herdr) => herdr.changes.pipe(Stream.runDrain)).pipe(
+      yield* MultiplexerOutbound.use((herdr) => herdr.changes.pipe(Stream.runDrain)).pipe(
         Effect.provide(layerSocket({ path: server.path, relistInterval: '200 millis' })),
         Effect.forkChild,
       );
@@ -733,7 +710,7 @@ describe('Herdr.layerSocket changes', () => {
 
   it.live('emits at least once per re-list interval, also while Herdr is away', () =>
     Effect.gen(function* () {
-      const emitted = yield* HerdrOutbound.use((herdr) =>
+      const emitted = yield* MultiplexerOutbound.use((herdr) =>
         herdr.changes.pipe(Stream.take(3), Stream.runCollect),
       ).pipe(
         Effect.provide(
@@ -751,15 +728,15 @@ describe('Herdr.layerSocket changes', () => {
   it.live('never asks Herdr to focus anything', () =>
     Effect.gen(function* () {
       const server = yield* fakeHerdrServer(lists);
-      yield* HerdrOutbound.use((herdr) =>
+      yield* MultiplexerOutbound.use((herdr) =>
         Effect.all([
           herdr.snapshot,
           herdr.readScreen('wJ:p1'),
           herdr.prompt('wJ:p1', 'hi'),
           herdr.sendKeys('wJ:p1', ['esc']),
-          herdr.createWorktree({ cwd: '/work/home', branch: 'feat/new', base: 'b', label: 'l' }),
+          herdr.openWorktree({ cwd: '/work/home', path: '/worktrees/home/feat-new', label: 'l' }),
           herdr.startAgent({ paneId: 'wK:p1', name: 'feat-new', kind: 'claude' }),
-          herdr.removeWorktree({ workspaceId: 'wJ', force: false }),
+          herdr.closeWorkspace('wJ'),
           herdr.changes.pipe(Stream.take(1), Stream.runDrain),
         ]),
       ).pipe(Effect.provide(layerSocket({ path: server.path, relistInterval: '20 millis' })));

@@ -8,13 +8,13 @@ export class AgentNotFoundError extends Data.TaggedError('AgentNotFoundError')<{
   readonly ref: string;
 }> {}
 
-/** The Herdr socket cannot be reached, or it answered something the app cannot read. */
-export class HerdrUnavailableError extends Data.TaggedError('HerdrUnavailableError')<{
+/** The multiplexer cannot be reached, or it answered something the app cannot read. */
+export class MultiplexerUnavailableError extends Data.TaggedError('MultiplexerUnavailableError')<{
   readonly reason: string;
 }> {}
 
-/** Herdr refused a command for an agent, such as a prompt to an agent that is not ready. */
-export class HerdrRejectedError extends Data.TaggedError('HerdrRejectedError')<{
+/** The multiplexer refused a command for an agent, such as a prompt to one that is not ready. */
+export class MultiplexerRejectedError extends Data.TaggedError('MultiplexerRejectedError')<{
   readonly ref: string;
   readonly code: string;
   readonly message: string;

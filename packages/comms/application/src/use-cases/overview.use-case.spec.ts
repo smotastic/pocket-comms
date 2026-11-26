@@ -5,7 +5,7 @@ import * as PubSub from 'effect/PubSub';
 import * as Queue from 'effect/Queue';
 import { TestClock } from 'effect/testing';
 import type { OverviewStateDto } from '../dto/agent.dto.js';
-import { HerdrUnavailableError } from '../errors.js';
+import { MultiplexerUnavailableError } from '../errors.js';
 import { AgentsInbound } from '../ports/agents.inbound.port.js';
 import { fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
 import { collect, settle } from '../testing/streams.js';
@@ -191,7 +191,7 @@ describe('AgentsInbound.overview', () => {
 
       const error = yield* AgentsInbound.use((inbound) => inbound.overview).pipe(Effect.flip);
 
-      expect(error).toBeInstanceOf(HerdrUnavailableError);
+      expect(error).toBeInstanceOf(MultiplexerUnavailableError);
     }).pipe(Effect.provide(layer())),
   );
 });
@@ -253,6 +253,26 @@ describe('AgentsInbound.overviewChanges', () => {
       yield* PubSub.publish(state.herdrChanges, undefined);
 
       expect((yield* Queue.take(changes))._tag).toBe('Available');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('names the multiplexer in every state, available or not', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.multiplexer = 'hc';
+      state.available = false;
+      const changes = yield* collect(
+        yield* AgentsInbound.use((inbound) => Effect.succeed(inbound.overviewChanges)),
+      );
+
+      const away = yield* Queue.take(changes);
+      yield* settle;
+      state.available = true;
+      yield* PubSub.publish(state.herdrChanges, undefined);
+      const back = yield* Queue.take(changes);
+
+      expect([away._tag, away.multiplexer]).toEqual(['Unavailable', 'hc']);
+      expect([back._tag, back.multiplexer]).toEqual(['Available', 'hc']);
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 

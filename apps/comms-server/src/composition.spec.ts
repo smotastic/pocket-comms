@@ -35,13 +35,17 @@ const serve = (
   projects = mkdtempSync(join(tmpdir(), 'projects-')),
   stateDir = mkdtempSync(join(tmpdir(), 'state-')),
   speech?: { readonly url: string; readonly model: string },
+  multiplexer: 'herdr' | 'hc' = 'herdr',
 ) => {
   const web = HttpRouter.toWebHandler(
     server({
       allowedLogin: 'smotastic@',
+      multiplexer,
       socketPath: join(mkdtempSync(join(tmpdir(), 'no-herdr-')), 'herdr.sock'),
+      hcSocketPath: join(mkdtempSync(join(tmpdir(), 'no-hc-')), 'hc.sock'),
       home: mkdtempSync(join(tmpdir(), 'home-')),
       projectsRoot: projects,
+      worktreesRoot: mkdtempSync(join(tmpdir(), 'worktrees-')),
       agentArgs: [],
       gitea: { url: 'http://127.0.0.1:9', token: Option.none(), hosts: ['gitea'] },
       stateDir,
@@ -101,6 +105,20 @@ describe('the composed server', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ events: [] });
   });
+
+  it.each(['herdr', 'hc'] as const)(
+    'works with %s as its multiplexer and names it while it is away',
+    async (multiplexer) => {
+      const response = await serve(undefined, undefined, undefined, multiplexer)('/api/v1/events');
+      const reader = response.body?.getReader();
+      const first = await reader?.read();
+      await reader?.cancel();
+
+      expect(new TextDecoder().decode(first?.value)).toContain(
+        `"_tag":"Unavailable","multiplexer":"${multiplexer}"`,
+      );
+    },
+  );
 
   it('is not ready while Herdr is away', async () => {
     expect((await serve()('/health/ready')).status).toBe(503);

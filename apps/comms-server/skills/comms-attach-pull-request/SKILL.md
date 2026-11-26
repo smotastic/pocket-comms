@@ -1,6 +1,6 @@
 ---
 name: comms-attach-pull-request
-description: Attach a Gitea pull request to this agent's pocket-comms conversation, so the owner can read its changes on their phone. Use right after creating a pull request, or when the owner asks to attach an existing one. Needs to run inside Herdr.
+description: Attach a Gitea pull request to this agent's pocket-comms conversation, so the owner can read its changes on their phone. Use right after creating a pull request, or when the owner asks to attach an existing one. Needs to run inside Herdr or hc.
 ---
 
 # Attach a pull request to this agent's pocket-comms conversation
@@ -18,9 +18,11 @@ Run this once per pull request, with its Gitea page as `PR_URL`:
 
 ```sh
 PR_URL='http://localhost:3000/<owner>/<repo>/pulls/<number>'
-if [ -z "${HERDR_PANE_ID:-}" ]; then echo 'Not inside Herdr: nothing to attach to.'; else
+# The agent's pane in Herdr, or its terminal in hc.
+pane="${HERDR_PANE_ID:-${HC_TERMINAL_ID:-}}"
+if [ -z "$pane" ]; then echo 'Not inside Herdr or hc: nothing to attach to.'; else
   base="${COMMS_URL:-https://$(tailscale status --json | jq -r '.Self.DNSName | rtrimstr(".")')}"
-  agent="$(jq -rn --arg pane "$HERDR_PANE_ID" '$pane | @uri')"
+  agent="$(jq -rn --arg pane "$pane" '$pane | @uri')"
   # The answer stays in this shell, so agents attaching at once never read each other's.
   answer="$(curl -sS -w '\n%{http_code}' -X POST \
     "$base/api/v1/agents/$agent/pull-requests" \

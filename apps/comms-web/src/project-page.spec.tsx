@@ -52,6 +52,7 @@ describe('the project page', () => {
     act(() =>
       fake.emitOverview({
         _tag: 'Available',
+        multiplexer: 'herdr',
         overview: { needsYou: [], groups: [{ key: 'k', name: 'pocket-home', agents: [working] }] },
       }),
     );

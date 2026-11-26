@@ -3,6 +3,7 @@ import type {
   BackgroundItem,
   ConversationEntry,
   ConversationFormat,
+  Multiplexer,
 } from '@pocket-comms/comms-domain';
 
 /** An agent as the app shows it. */
@@ -80,6 +81,11 @@ export type SubagentEventDto =
   | Extract<AgentEventDto, { readonly type: 'entries' }>;
 
 /** The overview as a live stream sees it: available, or Herdr cannot be reached. */
+/** The overview, or why the multiplexer cannot be reached; both name the multiplexer. */
 export type OverviewStateDto =
-  | { readonly _tag: 'Available'; readonly overview: OverviewDto }
-  | { readonly _tag: 'Unavailable'; readonly reason: string };
+  | {
+      readonly _tag: 'Available';
+      readonly multiplexer: Multiplexer;
+      readonly overview: OverviewDto;
+    }
+  | { readonly _tag: 'Unavailable'; readonly multiplexer: Multiplexer; readonly reason: string };

@@ -10,16 +10,16 @@ import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Result from 'effect/Result';
 import type { TaskAgentDto } from '../dto/task.dto.js';
-import type { HerdrRejectedError, HerdrUnavailableError } from '../errors.js';
-import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
+import type { MultiplexerRejectedError, MultiplexerUnavailableError } from '../errors.js';
+import { MultiplexerOutbound, type StartedAgent } from '../ports/multiplexer.outbound.port.js';
 import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
 
 // Starts an agent in a shell pane and sends it its first prompt (spec 005), keeping the task
 // start at each step until the agent has the prompt (spec 032). New tasks and agents started in
 // an existing worktree share it, so both follow the same rules.
 
-const messageOf = (error: HerdrUnavailableError | HerdrRejectedError): string =>
-  error._tag === 'HerdrRejectedError' ? error.message : error.reason;
+const messageOf = (error: MultiplexerUnavailableError | MultiplexerRejectedError): string =>
+  error._tag === 'MultiplexerRejectedError' ? error.message : error.reason;
 
 // Herdr may report a just-started agent before it has detected its status. The launch asks
 // again this often, this many times, before it gives up on sending the prompt.
@@ -38,17 +38,17 @@ export type StartBase = Pick<TaskStart, 'folder' | 'project' | 'branch' | 'issue
 
 /** A refused prompt did not arrive; one Herdr did not answer may have. */
 export const promptOutcome = (
-  result: Result.Result<void, HerdrUnavailableError | HerdrRejectedError>,
+  result: Result.Result<void, MultiplexerUnavailableError | MultiplexerRejectedError>,
 ): PromptOutcome => {
   if (Result.isSuccess(result)) return { _tag: 'Accepted' };
   const reason = `The task was not sent: ${messageOf(result.failure)}`;
-  return result.failure._tag === 'HerdrRejectedError'
+  return result.failure._tag === 'MultiplexerRejectedError'
     ? { _tag: 'Refused', reason }
     : { _tag: 'Unanswered', reason: `The task may not have arrived: ${result.failure.reason}` };
 };
 
 export const makeAgentLaunch = Effect.gen(function* () {
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const starts = yield* TaskStartsOutbound;
 
   // The start is kept for the owner; a file that cannot be written never fails the launch.
@@ -133,12 +133,14 @@ export const makeAgentLaunch = Effect.gen(function* () {
       }),
     );
     yield* keep({ ...start, delivery: 'pending' });
-    const status = yield* settledStatus(paneId, started.success);
+    // From here on the agent is in the pane the multiplexer started it in.
+    const agentPane = started.success.paneId;
+    const status = yield* settledStatus(agentPane, started.success);
     if (status !== 'idle') {
       yield* keep({ ...start, delivery: 'not-sent', reason: NOTES[status] });
       return { ref, started: true, prompted: false, note: NOTES[status] } satisfies TaskAgentDto;
     }
-    const outcome = yield* deliver({ ...start, delivery: 'pending' }, paneId);
+    const outcome = yield* deliver({ ...start, delivery: 'pending' }, agentPane);
     return {
       ref,
       started: true,

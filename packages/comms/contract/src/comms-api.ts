@@ -152,27 +152,39 @@ export const Overview = Schema.Struct({
   }),
 }).annotate({ identifier: 'Overview', description: 'Every live agent, sorted for the owner.' });
 
+export const Multiplexer = Schema.Literals(['herdr', 'hc']).annotate({
+  identifier: 'Multiplexer',
+  description: 'The program that runs the agents: the Herdr TUI or herdr-core (`hc`).',
+  examples: ['herdr'],
+});
+
+const multiplexerField = Multiplexer.annotate({
+  description: 'The multiplexer the server works with, so the app can name it.',
+});
+
 export const OverviewState = Schema.Union([
   Schema.Struct({
     _tag: Schema.tag('Available').annotate({
-      description: 'Herdr answers.',
+      description: 'The multiplexer answers.',
       examples: ['Available'],
     }),
+    multiplexer: multiplexerField,
     overview: Overview,
   }),
   Schema.Struct({
     _tag: Schema.tag('Unavailable').annotate({
-      description: 'Herdr cannot be reached.',
+      description: 'The multiplexer cannot be reached.',
       examples: ['Unavailable'],
     }),
+    multiplexer: multiplexerField,
     reason: Schema.String.annotate({
-      description: 'Why Herdr cannot be reached.',
+      description: 'Why the multiplexer cannot be reached.',
       examples: ['connect ENOENT /Users/me/.config/herdr/herdr.sock'],
     }),
   }),
 ]).annotate({
   identifier: 'OverviewState',
-  description: 'The overview, or why Herdr cannot be reached.',
+  description: 'The overview, or why the multiplexer cannot be reached.',
 });
 
 export const ImageId = Schema.String.check(Schema.isPattern(/^[a-z2-7]{26}$/u)).annotate({
@@ -1280,7 +1292,7 @@ const group = HttpApiGroup.make('agents')
       success: eventStream(
         'overview',
         OverviewState,
-        '{"_tag":"Unavailable","reason":"Herdr is not running."}',
+        '{"_tag":"Unavailable","multiplexer":"herdr","reason":"Herdr is not running."}',
       ),
       error: Problems.ServiceUnavailable,
     }).annotateMerge(

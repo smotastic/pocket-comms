@@ -12,8 +12,8 @@ import type {
   BranchExistsError,
   GiteaNotConfiguredError,
   GiteaUnavailableError,
-  HerdrRejectedError,
-  HerdrUnavailableError,
+  MultiplexerRejectedError,
+  MultiplexerUnavailableError,
   IssueClosedError,
   IssueNotFoundError,
   NoGiteaRemoteError,
@@ -47,8 +47,8 @@ export class IssuesInbound extends Context.Service<
       | InvalidInputError
       | ProjectGitError
       | BranchExistsError
-      | HerdrUnavailableError
-      | HerdrRejectedError
+      | MultiplexerUnavailableError
+      | MultiplexerRejectedError
     >;
     readonly close: (
       input: CloseIssueInput,

@@ -73,11 +73,20 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
 
 ## Rules of this service
 
-- `HerdrOutbound` has no focus method on purpose: the app never moves the owner's Herdr focus
-  (requirement 18). Do not add one. `worktree.create` always sends `focus: false`.
-- `git` and Herdr run with argument arrays, never through a shell. A project is only ever a folder
+- `MultiplexerOutbound` has no focus method on purpose: the app never moves the owner's Herdr focus
+  (requirement 18). Do not add one. `worktree.open` always sends `focus: false`.
+- The multiplexer is Herdr or hc (`COMMS_MULTIPLEXER`, ADR 0015, spec 033). The hc adapter
+  (`infrastructure/src/hc`) takes an agent's status only from its OSC 7501 record (`statusOf`), never
+  from the screen; an agent is a terminal labelled `comms.agent` or one whose record is from
+  `claude-code` or `pi`. It starts the agent program from an argument array with `keep`, never as a
+  shell line, sends a prompt with `terminal.send` and never `force`, and types text and keys as raw
+  bytes through `terminal.attach` at the terminal's own size, never `terminal.keys`. An hc agent's
+  session is its terminal's `comms.session` label, set by the Claude hook on `SessionStart` and by
+  the Pi extension: set it up once per machine, from the deployed release,
+  `ln -s ~/pocket-cloud-data/pocket-comms/current/apps/comms-server/dist/pi-extension.js ~/.pi/agent/extensions/comms-session.js`.
+- `git`, Herdr and hc run with argument arrays, never through a shell. A project is only ever a folder
   the projects port lists; never accept a path from a request.
-- Typed text (spec 024) goes through `HerdrOutbound.typeText` (`pane.send_text`), which never
+- Typed text (spec 024) goes through `MultiplexerOutbound.typeText` (`pane.send_text`), which never
   presses Enter: the owner submits a waiting agent question with the `enter` key. Do not add Enter to it,
   and do not route it through `prompt`, which submits.
 - Answering an agent question from the conversation (spec 030) presses the keys of Claude's `AskUserQuestion`
@@ -132,8 +141,10 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   `ln -s ~/pocket-cloud-data/pocket-comms/current/apps/comms-server/skills/comms-attach-pull-request ~/.claude/skills/`
   and the same into `~/.pi/agent/skills/`.
 - Closing an agent removes only a workspace that both Herdr and git know as a linked worktree of
-  a project, through `worktree.remove`; never the primary checkout, never a path from a request.
-  Without `force`, the server asks git for changes first and removes nothing when there are any.
+  a project: git removes the checkout (`ProjectsOutbound.removeWorktree`), then the multiplexer
+  closes the workspace (`closeWorkspace`), so a refusal by git leaves the agents running. Never
+  the primary checkout, never a path from a request. Without `force`, the server asks git for
+  changes first and removes nothing when there are any.
   `force` comes only from the owner's explicit Discard changes and close.
 - Every agent the app starts goes through `makeAgentLaunch` (spec 005 and spec 032): it keeps the
   task start at each step and forgets it once Herdr accepts the prompt. Do not start an agent or
@@ -145,7 +156,7 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   the agent, or when git no longer lists the worktree); it never goes to Gitea.
 - Start an agent here (spec 032) takes the worktree only from the project's git worktree list,
   matched by the issue's branch, never the primary checkout, and never a path from a request; it
-  refuses a worktree with a live agent or a `pending` start, and never calls `worktree.create`.
+  refuses a worktree with a live agent or a `pending` start, and never adds a worktree.
   It opens a new shell with `tab.create`, or `worktree.open` when Herdr has no workspace for it.
 - Implementing an issue goes through the spec 005 `create` use case; do not copy its rules. It
   marks the issue in progress only after the task exists, and a failed mark never fails the start.
@@ -211,5 +222,5 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
 ## Run and test
 
 `pnpm dev` and `pnpm start` from the repository root; see the [README](../../README.md).
-`pnpm nx run-many -t test -p 'comms-*'` runs the service's tests. Herdr adapter tests start a fake
-Unix socket server; no test needs a running Herdr.
+`pnpm nx run-many -t test -p 'comms-*'` runs the service's tests. Herdr and hc adapter tests start
+a fake Unix socket server; no test needs a running Herdr or hc.

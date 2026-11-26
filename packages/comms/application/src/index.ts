@@ -58,8 +58,8 @@ export {
   PushStoreError,
   QuestionNotWaitingError,
   QuickRepliesStoreError,
-  HerdrRejectedError,
-  HerdrUnavailableError,
+  MultiplexerRejectedError,
+  MultiplexerUnavailableError,
   ImageNotFoundError,
   ImageNotSavedError,
   SubagentNotFoundError,
@@ -75,16 +75,14 @@ export {
   type StoredBrainstorm,
 } from './ports/brainstorm-store.outbound.port.js';
 export {
-  HerdrOutbound,
+  MultiplexerOutbound,
   type AgentStart,
-  type CreatedWorktree,
-  type HerdrSnapshot,
+  type AgentStarted,
+  type MultiplexerSnapshot,
   type OpenedPane,
   type StartedAgent,
   type WorktreeOpening,
-  type WorktreeRemoval,
-  type WorktreeRequest,
-} from './ports/herdr.outbound.port.js';
+} from './ports/multiplexer.outbound.port.js';
 export {
   GiteaOutbound,
   type CreatedIssue,

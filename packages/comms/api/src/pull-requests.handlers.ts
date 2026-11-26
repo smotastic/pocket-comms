@@ -6,7 +6,7 @@ import { problems } from './problems.js';
 
 const lookup = {
   AgentNotFoundError: problems.agentNotFound,
-  HerdrUnavailableError: problems.herdrUnavailable,
+  MultiplexerUnavailableError: problems.herdrUnavailable,
 } as const;
 
 const gitea = {

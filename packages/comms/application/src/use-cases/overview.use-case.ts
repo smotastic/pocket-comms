@@ -2,12 +2,12 @@ import { buildOverview } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Stream from 'effect/Stream';
 import type { OverviewDto, OverviewStateDto } from '../dto/agent.dto.js';
-import { HerdrOutbound } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { SeenOutbound } from '../ports/memory.outbound.port.js';
 import { makeLoadAgents, type AgentView } from './agents.js';
 
 export const makeOverview = Effect.gen(function* () {
-  const herdrOutbound = yield* HerdrOutbound;
+  const herdrOutbound = yield* MultiplexerOutbound;
   const seenOutbound = yield* SeenOutbound;
   const { load } = yield* makeLoadAgents;
 
@@ -31,9 +31,19 @@ export const makeOverview = Effect.gen(function* () {
   });
 
   const state = overview().pipe(
-    Effect.map((value): OverviewStateDto => ({ _tag: 'Available', overview: value })),
-    Effect.catchTag('HerdrUnavailableError', (error) =>
-      Effect.succeed<OverviewStateDto>({ _tag: 'Unavailable', reason: error.reason }),
+    Effect.map(
+      (value): OverviewStateDto => ({
+        _tag: 'Available',
+        multiplexer: herdrOutbound.multiplexer,
+        overview: value,
+      }),
+    ),
+    Effect.catchTag('MultiplexerUnavailableError', (error) =>
+      Effect.succeed<OverviewStateDto>({
+        _tag: 'Unavailable',
+        multiplexer: herdrOutbound.multiplexer,
+        reason: error.reason,
+      }),
     ),
   );
 

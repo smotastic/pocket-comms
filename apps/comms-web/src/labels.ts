@@ -1,4 +1,4 @@
-import type { AgentView } from './comms-client.js';
+import type { AgentView, OverviewStateView } from './comms-client.js';
 
 /** The wording of each status, as the pill shows it (spec 004, requirement 4). */
 export const STATUS_LABELS: Record<AgentView['status'], string> = {
@@ -7,6 +7,12 @@ export const STATUS_LABELS: Record<AgentView['status'], string> = {
   done: 'Done',
   idle: 'Idle',
   unknown: 'Unknown',
+};
+
+/** The multiplexer as the owner knows it (ADR 0015). */
+export const MULTIPLEXER_NAMES: Record<OverviewStateView['multiplexer'], string> = {
+  herdr: 'Herdr',
+  hc: 'hc',
 };
 
 /** The kind tile of an agent: Claude, Pi, or the raw kind Herdr reports. */

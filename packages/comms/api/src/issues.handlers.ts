@@ -39,8 +39,8 @@ export const issuesHandlers = HttpApiBuilder.group(
               InvalidInputError: problems.invalidInput,
               BranchExistsError: problems.branchExists,
               ProjectGitError: problems.projectGitFailed,
-              HerdrUnavailableError: problems.herdrUnavailable,
-              HerdrRejectedError: problems.worktreeRefused,
+              MultiplexerUnavailableError: problems.herdrUnavailable,
+              MultiplexerRejectedError: problems.worktreeRefused,
             }),
           ),
       )

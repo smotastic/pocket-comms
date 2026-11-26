@@ -2,7 +2,7 @@ import { describe, expect, it } from '@effect/vitest';
 import { InvalidInputError, type Agent, type ConversationEntry } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import { AgentNotFoundError, HerdrRejectedError } from '../errors.js';
+import { AgentNotFoundError, MultiplexerRejectedError } from '../errors.js';
 import { AgentsInbound } from '../ports/agents.inbound.port.js';
 import { FAKE_IMAGES_FOLDER, fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
 
@@ -117,7 +117,7 @@ describe('AgentsInbound.prompt', () => {
         Effect.flip,
       );
 
-      expect(error).toBeInstanceOf(HerdrRejectedError);
+      expect(error).toBeInstanceOf(MultiplexerRejectedError);
     }).pipe(Effect.provide(layer())),
   );
 });

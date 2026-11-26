@@ -1,8 +1,8 @@
 import {
-  HerdrOutbound,
-  HerdrRejectedError,
-  HerdrUnavailableError,
-  type HerdrSnapshot,
+  MultiplexerOutbound,
+  MultiplexerRejectedError,
+  MultiplexerUnavailableError,
+  type MultiplexerSnapshot,
 } from '@pocket-comms/comms-application';
 import {
   AgentStatus,
@@ -111,11 +111,6 @@ const keyRequest = (paneId: string, key: DialogKey) => {
 const AgentList = Schema.Struct({ agents: Schema.Array(AgentRecord) });
 const WorkspaceList = Schema.Struct({ workspaces: Schema.Array(WorkspaceRecord) });
 const PaneRead = Schema.Struct({ read: Schema.Struct({ text: Schema.String }) });
-const WorktreeCreated = Schema.Struct({
-  workspace: Schema.Struct({ workspace_id: Schema.String }),
-  root_pane: Schema.Struct({ pane_id: Schema.String }),
-  worktree: Schema.Struct({ path: Schema.String, branch: optionalString }),
-});
 const WorktreeOpened = Schema.Struct({
   workspace: Schema.Struct({ workspace_id: Schema.String }),
   root_pane: Schema.Struct({ pane_id: Schema.String }),
@@ -138,11 +133,11 @@ const toStartedAgent = ({ agent }: typeof AgentStarted.Type) => ({
 });
 
 // Herdr refuses `agent.start` until the pane's shell sits at its prompt. A pane that
-// `worktree.create` just spawned gets there only after the shell has read its startup files,
+// `worktree.open` just spawned gets there only after the shell has read its startup files,
 // which takes longer on a busy machine, so the start is tried again until then.
 const SHELL_PAUSE = Duration.millis(250);
-const isShellStarting = (error: HerdrUnavailableError | HerdrRejectedError): boolean =>
-  error._tag === 'HerdrRejectedError' && error.message.includes('is not an available shell');
+const isShellStarting = (error: MultiplexerUnavailableError | MultiplexerRejectedError): boolean =>
+  error._tag === 'MultiplexerRejectedError' && error.message.includes('is not an available shell');
 const orUndefined = <A>(value: A | null | undefined): A | undefined => value ?? undefined;
 
 const toAgent = (record: typeof AgentRecord.Type): Agent => ({
@@ -207,7 +202,7 @@ export const layerSocket = ({
   shellWait = '10 seconds',
   keyGap = '50 millis',
 }: SocketOptions) => {
-  const unavailable = (reason: string) => new HerdrUnavailableError({ reason });
+  const unavailable = (reason: string) => new MultiplexerUnavailableError({ reason });
   let nextId = 0;
 
   // Sends one request and reads its one answer line.
@@ -216,11 +211,11 @@ export const layerSocket = ({
     params: Record<string, unknown>,
     wait: Duration.Input = timeout,
   ) =>
-    Effect.callback<string, HerdrUnavailableError>((resume) => {
+    Effect.callback<string, MultiplexerUnavailableError>((resume) => {
       const socket = createConnection(path);
       let buffer = '';
       let settled = false;
-      const settle = (effect: Effect.Effect<string, HerdrUnavailableError>) => {
+      const settle = (effect: Effect.Effect<string, MultiplexerUnavailableError>) => {
         if (settled) return;
         settled = true;
         socket.destroy();
@@ -250,21 +245,21 @@ export const layerSocket = ({
       }),
     );
 
-  /** One request; an `error` answer becomes a `HerdrRejectedError` for `ref`. */
+  /** One request; an `error` answer becomes a `MultiplexerRejectedError` for `ref`. */
   const request = <A>(
     method: string,
     params: Record<string, unknown>,
     schema: Schema.Decoder<A>,
     ref: string,
     wait?: Duration.Input,
-  ): Effect.Effect<A, HerdrUnavailableError | HerdrRejectedError> =>
+  ): Effect.Effect<A, MultiplexerUnavailableError | MultiplexerRejectedError> =>
     Effect.gen(function* () {
       const line = yield* exchange(method, params, wait);
       const answer = yield* decodeAnswer(line).pipe(
         Effect.mapError(() => unavailable(`Herdr answered ${method} in an unknown shape.`)),
       );
       if ('error' in answer) {
-        return yield* new HerdrRejectedError({ ref, ...answer.error });
+        return yield* new MultiplexerRejectedError({ ref, ...answer.error });
       }
       return yield* Schema.decodeUnknownEffect(schema)(answer.result).pipe(
         Effect.mapError(() => unavailable(`Herdr answered ${method} in an unknown shape.`)),
@@ -275,9 +270,9 @@ export const layerSocket = ({
   const list = <A>(
     method: string,
     schema: Schema.Decoder<A>,
-  ): Effect.Effect<A, HerdrUnavailableError> =>
+  ): Effect.Effect<A, MultiplexerUnavailableError> =>
     request(method, {}, schema, '').pipe(
-      Effect.catchTag('HerdrRejectedError', (error) =>
+      Effect.catchTag('MultiplexerRejectedError', (error) =>
         Effect.fail(unavailable(`Herdr refused ${method}: ${error.message}`)),
       ),
     );
@@ -300,7 +295,7 @@ export const layerSocket = ({
     return shown;
   };
 
-  const snapshot: Effect.Effect<HerdrSnapshot, HerdrUnavailableError> = Effect.all([
+  const snapshot: Effect.Effect<MultiplexerSnapshot, MultiplexerUnavailableError> = Effect.all([
     list('agent.list', AgentList),
     list('workspace.list', WorkspaceList),
   ]).pipe(
@@ -322,7 +317,7 @@ export const layerSocket = ({
 
   // The events of one subscription, until Herdr closes it or answers with an error.
   const subscription = (panes: string) =>
-    Stream.callback<void, HerdrUnavailableError>((queue) =>
+    Stream.callback<void, MultiplexerUnavailableError>((queue) =>
       Effect.acquireRelease(
         Effect.sync(() => {
           const socket = createConnection(path);
@@ -396,7 +391,7 @@ export const layerSocket = ({
       ),
     ),
   ).pipe(
-    Stream.catchTag('HerdrUnavailableError', (error) =>
+    Stream.catchTag('MultiplexerUnavailableError', (error) =>
       Stream.concat(
         Stream.fromEffect(
           Effect.logDebug('Herdr events unavailable', { reason: error.reason }),
@@ -410,8 +405,9 @@ export const layerSocket = ({
   const changes: Stream.Stream<void> = Stream.merge(Stream.tick(relistInterval), events);
 
   return Layer.succeed(
-    HerdrOutbound,
-    HerdrOutbound.of({
+    MultiplexerOutbound,
+    MultiplexerOutbound.of({
+      multiplexer: 'herdr',
       snapshot,
       readScreen: (target) =>
         request(
@@ -471,29 +467,13 @@ export const layerSocket = ({
           ),
           Effect.withSpan('Herdr.sendKeys'),
         ),
-      // `focus: false` is sent although it is Herdr's default, so a changed default can never
-      // move the owner's focus (spec 005, requirement 11). `trust_repository` is never sent.
-      createWorktree: ({ cwd, branch, base, label }) =>
-        request(
-          'worktree.create',
-          { cwd, branch, base, label, focus: false },
-          WorktreeCreated,
-          branch,
-          '60 seconds',
-        ).pipe(
-          Effect.map((result) => ({
-            workspaceId: result.workspace.workspace_id,
-            paneId: result.root_pane.pane_id,
-            path: result.worktree.path,
-            branch: result.worktree.branch ?? branch,
-          })),
-          Effect.withSpan('Herdr.createWorktree'),
-        ),
-      // Opens a worktree git already has; `trust_repository` is never sent.
-      openWorktree: ({ cwd, path: checkout }) =>
+      // Opens a worktree git already has. `focus: false` is sent although it is Herdr's default,
+      // so a changed default can never move the owner's focus (spec 005, requirement 11).
+      // `trust_repository` is never sent.
+      openWorktree: ({ cwd, path: checkout, label }) =>
         request(
           'worktree.open',
-          { cwd, path: checkout, focus: false },
+          { cwd, path: checkout, ...(label === undefined ? {} : { label }), focus: false },
           WorktreeOpened,
           checkout,
           '60 seconds',
@@ -516,17 +496,12 @@ export const layerSocket = ({
           Effect.map((result) => ({ workspaceId, paneId: result.root_pane.pane_id })),
           Effect.withSpan('Herdr.openShell'),
         ),
-      // Herdr removes the checkout folder and closes the workspace; the branch stays.
-      // `trust_repository` is never sent: the owner decides
-      // whether a repository is trusted, never the app.
-      removeWorktree: ({ workspaceId, force }) =>
-        request(
-          'worktree.remove',
-          { workspace_id: workspaceId, force },
-          Schema.Unknown,
-          workspaceId,
-          '60 seconds',
-        ).pipe(Effect.asVoid, Effect.withSpan('Herdr.removeWorktree')),
+      // Closes the workspace and its panes; git removes the checkout (ADR 0015).
+      closeWorkspace: (workspaceId) =>
+        request('workspace.close', { workspace_id: workspaceId }, Schema.Unknown, workspaceId).pipe(
+          Effect.asVoid,
+          Effect.withSpan('Herdr.closeWorkspace'),
+        ),
       // Herdr waits up to `timeout_ms` for the agent to take input; the request waits longer.
       startAgent: ({ paneId, name, kind }) =>
         request(
@@ -541,7 +516,7 @@ export const layerSocket = ({
             schedule: Schedule.spaced(SHELL_PAUSE),
             times: Math.ceil(Duration.toMillis(shellWait) / Duration.toMillis(SHELL_PAUSE)),
           }),
-          Effect.map(toStartedAgent),
+          Effect.map((answer) => ({ ...toStartedAgent(answer), paneId })),
           Effect.withSpan('Herdr.startAgent'),
         ),
       changes,

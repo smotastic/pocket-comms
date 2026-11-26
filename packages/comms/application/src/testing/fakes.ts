@@ -15,6 +15,7 @@ import {
   type PushSubscription,
   type ConversationEntry,
   type Workspace,
+  type Multiplexer,
   type Worktree,
 } from '@pocket-comms/comms-domain';
 import { AgentRuntime, type Clip, type TurnInput } from '@smotastic/pocket-agent';
@@ -33,10 +34,10 @@ import * as Stream from 'effect/Stream';
 import {
   GiteaNotConfiguredError,
   GiteaUnavailableError,
-  HerdrRejectedError,
+  MultiplexerRejectedError,
   IssueNotFoundError,
   PullRequestNotFoundError,
-  HerdrUnavailableError,
+  MultiplexerUnavailableError,
   ProjectGitError,
   PushStoreError,
   QuickRepliesStoreError,
@@ -50,7 +51,7 @@ import {
   type StoredBrainstorm,
 } from '../ports/brainstorm-store.outbound.port.js';
 import { GiteaOutbound, type PullRequestInfo } from '../ports/gitea.outbound.port.js';
-import { HerdrOutbound, type StartedAgent } from '../ports/herdr.outbound.port.js';
+import { MultiplexerOutbound, type StartedAgent } from '../ports/multiplexer.outbound.port.js';
 import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
 import {
   SeenOutbound,
@@ -73,7 +74,7 @@ import {
 } from '../ports/conversation.outbound.port.js';
 
 /** One request the fake Herdr received, so a test can prove what was sent, and what was not. */
-export interface HerdrCall {
+export interface MultiplexerCall {
   readonly method:
     | 'snapshot'
     | 'readScreen'
@@ -81,10 +82,9 @@ export interface HerdrCall {
     | 'prompt'
     | 'typeText'
     | 'sendKeys'
-    | 'createWorktree'
     | 'openWorktree'
     | 'openShell'
-    | 'removeWorktree'
+    | 'closeWorkspace'
     | 'startAgent';
   readonly target?: string;
   readonly params?: unknown;
@@ -114,7 +114,9 @@ export class FakeState extends Context.Service<
     /** Pane id to the Herdr error code that a command for it fails with. */
     readonly rejects: Map<string, string>;
     available: boolean;
-    readonly calls: Array<HerdrCall>;
+    /** Which multiplexer the fake reports itself as. */
+    multiplexer: Multiplexer;
+    readonly calls: Array<MultiplexerCall>;
     readonly herdrChanges: PubSub.PubSub<void>;
     readonly conversationAppends: PubSub.PubSub<{
       /** The session, or a subagent's conversation by `subagentKey`. */
@@ -133,8 +135,8 @@ export class FakeState extends Context.Service<
     readonly branches: Set<string>;
     /** Branch names git refuses. */
     readonly badBranchNames: Set<string>;
-    /** What the next `startAgent` reports. */
-    started: StartedAgent;
+    /** What the next `startAgent` reports; without a pane, the agent stays in the given one. */
+    started: StartedAgent & { readonly paneId?: string };
     /** The panes whose prompt Herdr takes without answering, as a timeout. */
     readonly unanswered: Set<string>;
     /** The panes whose agent Herdr does not yet report ready for input. */
@@ -145,6 +147,8 @@ export class FakeState extends Context.Service<
     readonly worktrees: Map<string, Array<Worktree>>;
     /** The worktree folders with uncommitted or untracked changes. */
     readonly changed: Set<string>;
+    /** The worktree folders git refuses to remove. */
+    readonly refusedRemovals: Set<string>;
     /** The issues and pull requests of every Gitea repository, by `<owner>/<name>`. */
     readonly issues: Map<string, Array<Issue>>;
     /** The fake Gitea has a token. */
@@ -264,17 +268,17 @@ export const fakeAgent = (overrides: Partial<Agent> & Pick<Agent, 'paneId'>): Ag
 
 const herdr = (state: FakeState['Service']) => {
   const command = <A>(
-    call: HerdrCall,
+    call: MultiplexerCall,
     result: () => A,
-  ): Effect.Effect<A, HerdrUnavailableError | HerdrRejectedError> =>
+  ): Effect.Effect<A, MultiplexerUnavailableError | MultiplexerRejectedError> =>
     Effect.gen(function* () {
       state.calls.push(call);
       if (!state.available) {
-        return yield* new HerdrUnavailableError({ reason: 'connect ENOENT herdr.sock' });
+        return yield* new MultiplexerUnavailableError({ reason: 'connect ENOENT herdr.sock' });
       }
       const code = call.target === undefined ? undefined : state.rejects.get(call.target);
       if (code !== undefined && call.target !== undefined) {
-        return yield* new HerdrRejectedError({
+        return yield* new MultiplexerRejectedError({
           ref: call.target,
           code,
           message: `Herdr said ${code}.`,
@@ -282,12 +286,15 @@ const herdr = (state: FakeState['Service']) => {
       }
       return result();
     });
-  return HerdrOutbound.of({
+  return MultiplexerOutbound.of({
+    get multiplexer() {
+      return state.multiplexer;
+    },
     // A snapshot names no agent, so Herdr never refuses it.
     snapshot: command({ method: 'snapshot' }, () => ({
       agents: [...state.agents],
       workspaces: [...state.workspaces],
-    })).pipe(Effect.catchTag('HerdrRejectedError', Effect.die)),
+    })).pipe(Effect.catchTag('MultiplexerRejectedError', Effect.die)),
     readScreen: (target) =>
       command({ method: 'readScreen', target }, () => state.screens.get(target) ?? ''),
     // An agent of `agents`, by pane id or name; none answers as Herdr does.
@@ -298,7 +305,7 @@ const herdr = (state: FakeState['Service']) => {
         Effect.flatMap((agent) =>
           agent === undefined
             ? Effect.fail(
-                new HerdrRejectedError({
+                new MultiplexerRejectedError({
                   ref: target,
                   code: 'agent_not_found',
                   message: `agent ${target} not found`,
@@ -314,7 +321,9 @@ const herdr = (state: FakeState['Service']) => {
       command({ method: 'prompt', target, params: text }, () => undefined).pipe(
         Effect.andThen(
           state.unanswered.has(target)
-            ? Effect.fail(new HerdrUnavailableError({ reason: 'Herdr did not answer in time.' }))
+            ? Effect.fail(
+                new MultiplexerUnavailableError({ reason: 'Herdr did not answer in time.' }),
+              )
             : Effect.void,
         ),
       ),
@@ -322,14 +331,6 @@ const herdr = (state: FakeState['Service']) => {
       command({ method: 'typeText', target: paneId, params: text }, () => undefined),
     sendKeys: (target, keys) =>
       command({ method: 'sendKeys', target, params: keys }, () => undefined),
-    // A new worktree's workspace is `w-<branch>` and its root pane `w-<branch>:p1`.
-    createWorktree: (request) =>
-      command({ method: 'createWorktree', target: request.branch, params: request }, () => ({
-        workspaceId: `w-${request.branch}`,
-        paneId: `w-${request.branch}:p1`,
-        path: `/worktrees/${request.branch.replaceAll('/', '-')}`,
-        branch: request.branch,
-      })),
     // A worktree opens as the workspace that already has its checkout, else as `w-<folder>`.
     openWorktree: (opening) =>
       command({ method: 'openWorktree', target: opening.path, params: opening }, () => {
@@ -343,13 +344,13 @@ const herdr = (state: FakeState['Service']) => {
         workspaceId,
         paneId: `${workspaceId}:p9`,
       })),
-    removeWorktree: (removal) =>
-      command(
-        { method: 'removeWorktree', target: removal.workspaceId, params: removal },
-        () => undefined,
-      ),
+    closeWorkspace: (workspaceId) =>
+      command({ method: 'closeWorkspace', target: workspaceId }, () => undefined),
     startAgent: (start) =>
-      command({ method: 'startAgent', target: start.paneId, params: start }, () => state.started),
+      command({ method: 'startAgent', target: start.paneId, params: start }, () => ({
+        ...state.started,
+        paneId: state.started.paneId ?? start.paneId,
+      })),
     changes: Stream.fromPubSub(state.herdrChanges),
   });
 };
@@ -433,6 +434,27 @@ const projects = (state: FakeState['Service']) => {
       ),
     hasChanges: (project, path) =>
       Effect.as(ask(`hasChanges ${project.name} ${path}`), state.changed.has(path)),
+    // A new worktree is `/worktrees/<branch with - for />`, listed after the others.
+    addWorktree: (project, { branch, base }) =>
+      Effect.map(ask(`addWorktree ${project.name} ${branch} ${base}`), () => {
+        const path = `/worktrees/${branch.replaceAll('/', '-')}`;
+        state.worktrees.set(project.name, [
+          ...(state.worktrees.get(project.name) ?? []),
+          { path, branch },
+        ]);
+        return { path, branch };
+      }),
+    removeWorktree: (project, path, force) =>
+      Effect.flatMap(ask(`removeWorktree ${project.name} ${path} force=${force}`), () => {
+        if (state.refusedRemovals.has(path)) {
+          return Effect.fail(new ProjectGitError({ project: project.name, reason: 'refused' }));
+        }
+        state.worktrees.set(
+          project.name,
+          (state.worktrees.get(project.name) ?? []).filter((worktree) => worktree.path !== path),
+        );
+        return Effect.void;
+      }),
     branchExists: (project, branch) =>
       Effect.as(
         ask(`branchExists ${project.name} ${branch}`),
@@ -686,6 +708,7 @@ export const fakeLayer = () => {
         subagentMetas: new Map(),
         rejects: new Map(),
         available: true,
+        multiplexer: 'herdr',
         calls: [],
         herdrChanges: yield* PubSub.unbounded<void>(),
         conversationAppends: yield* PubSub.unbounded<{
@@ -706,6 +729,7 @@ export const fakeLayer = () => {
         origins: new Map([['app', 'gitea:owner/app.git']]),
         worktrees: new Map([['app', [{ path: '/work/app', branch: 'master' }]]]),
         changed: new Set(),
+        refusedRemovals: new Set(),
         issues: new Map(),
         giteaConfigured: true,
         giteaFailure: undefined,
@@ -745,7 +769,7 @@ export const fakeLayer = () => {
   const ports = Layer.effectContext(
     Effect.gen(function* () {
       const fake = yield* FakeState;
-      return Context.make(HerdrOutbound, herdr(fake)).pipe(
+      return Context.make(MultiplexerOutbound, herdr(fake)).pipe(
         Context.add(ConversationOutbound, conversations(fake)),
         Context.add(ProjectsOutbound, projects(fake)),
         Context.add(GiteaOutbound, gitea(fake)),
