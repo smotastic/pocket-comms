@@ -1,6 +1,6 @@
 # ADR 0001 — Adopt the template ruleset
 
-- **Status:** Accepted
+- **Status:** Accepted (amended by ADR 0017)
 - **Date:** 2026-10-19
 - **Related:** constitution principles 4–10
 

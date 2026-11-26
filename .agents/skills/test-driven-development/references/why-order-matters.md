@@ -24,7 +24,7 @@ Manual testing is ad-hoc. You think you tested everything but:
 - "It worked when I tried it" ≠ comprehensive
 
 Automated tests are systematic. They run the same way every time — and are what
-`nx affected:build` and CI actually check (constitution principle 5: "CI is the referee,
+`nx affected:build` and CI actually check (the flight rules: "CI is the referee,
 not trust").
 
 **"Deleting X hours of work is wasteful"**

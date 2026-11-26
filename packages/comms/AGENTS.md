@@ -139,9 +139,9 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   requests on the app's Gitea are accepted (`pullRequestOf`); the list keeps the repository,
   number, URL and time, never a title or state, which are read from Gitea each time. The diff is
   read up to `MAX_DIFF_BYTES` and parsed in the domain (`parseUnifiedDiff`); the browser never
-  gets Gitea's token. Set the skill up once per machine, from the deployed release:
-  `ln -s ~/pocket-cloud-data/pocket-comms/current/apps/comms-server/skills/comms-attach-pull-request ~/.claude/skills/`
-  and the same into `~/.pi/agent/skills/`.
+  gets Gitea's token. Every deploy links the skills
+  (this one and the flight skills) into `~/.claude/skills/` and `~/.pi/agent/skills/` with
+  `dist/link-skills.js`, through the release's `current` path.
 - Closing an agent removes only a workspace that both Herdr and git know as a linked worktree of
   a project: git removes the checkout (`ProjectsOutbound.removeWorktree`), then the multiplexer
   closes the workspace (`closeWorkspace`), so a refusal by git leaves the agents running. Never

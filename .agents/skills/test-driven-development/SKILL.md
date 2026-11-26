@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Use when implementing any task from a speckit tasks.md, or any other production code change, before writing implementation code. Enforced as a mandatory rule inside speckit-implement.
+description: Use when implementing any task from a tasks.md, or any other production code change, before writing implementation code. Enforced as a mandatory rule inside flight-implement.
 ---
 
 # Test-Driven Development (TDD)
@@ -13,7 +13,7 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 **Violating the letter of the rules is violating the spirit of the rules.**
 
-This skill is the concrete "how" behind `speckit-implement`'s rule: _"Every code change is
+This skill is the concrete "how" behind `flight-implement`'s rule: _"Every code change is
 accompanied by a test"_ means RED → GREEN → REFACTOR, not tests-after. See
 [ADR 0001](../../../docs/architecture/adr/0001-adopt-the-template-ruleset.md).
 
@@ -207,7 +207,7 @@ After green only:
 Keep tests green. Don't add behavior. Then run `pnpm nx run <project>:build`,
 `pnpm nx run <project>:test-typecheck` when the project owns tests, and
 `pnpm nx run <project>:lint` before moving on — those are the next steps in
-`speckit-implement`'s per-task loop.
+`flight-implement`'s per-task loop.
 
 ### Repeat
 
@@ -238,7 +238,7 @@ bug-fix walkthrough.
 
 ## Verification Checklist
 
-Before marking a task done in `speckit-implement`:
+Before marking a task done in `flight-implement`:
 
 - [ ] Every new function/method has a test
 - [ ] Watched each test fail before implementing

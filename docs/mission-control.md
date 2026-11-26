@@ -69,7 +69,8 @@ mission.
 Each step is its own ADR or spec.
 
 1. **The workflow move:** ADR 0016, the pocket-factory constitution amendment, flight rules and
-   process skills in Pocket Comms, the verify step. Manual agents gain from it at once.
+   process skills in Pocket Comms, the verify step. Manual agents gain from it at once. _Done:_
+   ADRs 0016 and 0017, pocket-factory ADR 0018.
 2. **Planets and preflight:** the registry, the rename from project to planet, the checklist in
    the cockpit.
 3. **Missions to merge:** sending on a mission, the lane labels and the brainstorm's lane picker,
