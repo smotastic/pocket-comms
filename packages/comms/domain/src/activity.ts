@@ -17,7 +17,7 @@ export interface ActivitySubject {
   readonly ref: string;
   readonly name: string | undefined;
   readonly workspace: string;
-  readonly project: string | undefined;
+  readonly planet: string | undefined;
   readonly worktree: string | undefined;
 }
 
@@ -58,7 +58,7 @@ export const activitySubject = (
   ref: agentRef(agent),
   name: agent.name,
   workspace: workspace?.label ?? agent.workspaceId,
-  project: workspace?.project,
+  planet: workspace?.planet,
   worktree: workspace?.worktree,
 });
 

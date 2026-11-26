@@ -14,9 +14,9 @@ import {
 import { useState } from 'react';
 import { ProposalAttachedImages, ImageChoice, type BrainstormImage } from './ProposalImages.js';
 
-/** An issue as the proposal proposes it: the project by its name, the title and the body. */
+/** An issue as the proposal proposes it: the planet by its name, the title and the body. */
 export type ProposedIssue = {
-  readonly project: string;
+  readonly planet: string;
   readonly title: string;
   readonly body: string;
 };
@@ -31,8 +31,8 @@ export type ProposalCardProps = ProposedIssue & {
     | { readonly _tag: 'created'; readonly number: number; readonly url: string }
     | { readonly _tag: 'discarded' }
     | { readonly _tag: 'attaching'; readonly number: number; readonly url: string };
-  /** The projects the owner may choose from, by name; the proposed one is offered too. */
-  readonly projects: ReadonlyArray<string>;
+  /** The planets the owner may choose from, by name; the proposed one is offered too. */
+  readonly planets: ReadonlyArray<string>;
   /** The images of the brainstorm the owner may choose from. */
   readonly images?: ReadonlyArray<BrainstormImage>;
   /** The chosen images by id: the ones Pi named while open, the owner's choice afterwards. */
@@ -54,15 +54,15 @@ export type ProposalCardProps = ProposedIssue & {
 };
 
 /**
- * An issue Pi proposes. While it is open the owner edits the project, the title and the body, and
+ * An issue Pi proposes. While it is open the owner edits the planet, the title and the body, and
  * creates or discards it; afterwards it shows the outcome.
  */
 export const ProposalCard = ({
-  project,
+  planet,
   title,
   body,
   state,
-  projects,
+  planets,
   images = [],
   chosen = [],
   attached = [],
@@ -72,7 +72,7 @@ export const ProposalCard = ({
   busy = false,
   error,
 }: ProposalCardProps) => {
-  const [issue, setIssue] = useState<ProposedIssue>({ project, title, body });
+  const [issue, setIssue] = useState<ProposedIssue>({ planet, title, body });
   // A image the app no longer keeps cannot go along (spec 023, requirement 10).
   const [choice, setChoice] = useState<ReadonlyArray<string>>(() =>
     chosen.filter((id) => images.some((image) => image.id === id && image.available)),
@@ -84,7 +84,7 @@ export const ProposalCard = ({
         <Card>
           <Stack gap="sm">
             <Inline gap="sm">
-              <Tag>{project}</Tag>
+              <Tag>{planet}</Tag>
               <Link href={state.url} external>
                 Issue #{state.number} created
               </Link>
@@ -99,7 +99,7 @@ export const ProposalCard = ({
               <Button variant="secondary" disabled={busy} onClick={onFinishWithout}>
                 Finish without them
               </Button>
-              <Button disabled={busy} onClick={() => onCreate({ project, title, body }, chosen)}>
+              <Button disabled={busy} onClick={() => onCreate({ planet, title, body }, chosen)}>
                 Retry
               </Button>
             </Inline>
@@ -115,7 +115,7 @@ export const ProposalCard = ({
         <Card>
           <Stack gap="xs">
             <Inline gap="sm">
-              <Tag>{project}</Tag>
+              <Tag>{planet}</Tag>
               {state._tag === 'created' ? (
                 <Link href={state.url} external>
                   Issue #{state.number}
@@ -134,7 +134,7 @@ export const ProposalCard = ({
     );
   }
 
-  const names = [...new Set([project, ...projects])];
+  const names = [...new Set([planet, ...planets])];
   return (
     <section aria-label={`Proposed issue: ${title}`}>
       <Card>
@@ -143,9 +143,9 @@ export const ProposalCard = ({
             Proposed issue
           </Text>
           <Select
-            label="Project"
-            value={issue.project}
-            onChange={(value) => setIssue({ ...issue, project: value })}
+            label="Planet"
+            value={issue.planet}
+            onChange={(value) => setIssue({ ...issue, planet: value })}
           >
             {names.map((name) => (
               <option key={name} value={name}>

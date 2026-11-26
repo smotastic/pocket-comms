@@ -9,10 +9,10 @@ export const Route = createFileRoute('/')({
     return (
       <Overview
         client={client}
-        onProject={(project, notice) =>
+        onPlanet={(planet, notice) =>
           void navigate({
-            to: '/projects/$project',
-            params: { project },
+            to: '/planets/$planet',
+            params: { planet },
             state: (previous) => ({ ...previous, notice }),
           })
         }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { ProjectGitError, ProjectsOutbound } from '@pocket-comms/comms-application';
+import { RepositoryGitError, RepositoriesOutbound } from '@pocket-comms/comms-application';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import { execFileSync } from 'node:child_process';
@@ -30,10 +30,10 @@ const run = (cwd: string, ...args: Array<string>) =>
     stdio: 'pipe',
   }).toString();
 
-// A projects root with `alpha` (cloned from a bare `origin` with `main` and `feat/taken`),
+// A repositories root with `alpha` (cloned from a bare `origin` with `main` and `feat/taken`),
 // `beta` (no remote), a plain folder, a file, and a linked worktree of `alpha`.
-const projectsRoot = () => {
-  const base = realpathSync(mkdtempSync(join(tmpdir(), 'projects-')));
+const repositoriesRoot = () => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'planets-')));
   const root = join(base, 'root');
   const origin = join(base, 'origin.git');
   mkdirSync(root);
@@ -52,7 +52,7 @@ const projectsRoot = () => {
   return { root, origin, seed };
 };
 
-// Where the tests' new worktrees go: beside the projects root, as `~/.herdr/worktrees` is.
+// Where the tests' new worktrees go: beside the repositories root, as `~/.herdr/worktrees` is.
 const worktreesOf = (root: string) => join(root, '..', 'worktrees');
 
 describe('gitEnvironment', () => {
@@ -69,12 +69,12 @@ describe('gitEnvironment', () => {
   });
 });
 
-describe('Projects.layerGit', () => {
+describe('Planets.layerGit', () => {
   it.live('lists the primary checkouts directly below the root', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
 
-      const listed = yield* ProjectsOutbound.use((outbound) => outbound.list).pipe(
+      const listed = yield* RepositoriesOutbound.use((outbound) => outbound.list).pipe(
         Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })),
       );
 
@@ -87,10 +87,10 @@ describe('Projects.layerGit', () => {
 
   it.live('lists nothing for a missing root', () =>
     Effect.gen(function* () {
-      const listed = yield* ProjectsOutbound.use((outbound) => outbound.list).pipe(
+      const listed = yield* RepositoriesOutbound.use((outbound) => outbound.list).pipe(
         Effect.provide(
           layerGit({
-            root: join(tmpdir(), 'no-such-projects-root'),
+            root: join(tmpdir(), 'no-such-planets-root'),
             worktreesRoot: join(tmpdir(), 'no-such-worktrees'),
           }),
         ),
@@ -102,11 +102,11 @@ describe('Projects.layerGit', () => {
 
   it.live('fetches origin and names its default branch', () =>
     Effect.gen(function* () {
-      const { root, seed } = projectsRoot();
+      const { root, seed } = repositoriesRoot();
       run(seed, 'push', '--quiet', 'origin', 'HEAD:feat/later');
       const alpha = { name: 'alpha', path: join(root, 'alpha') };
 
-      const base = yield* ProjectsOutbound.use((outbound) => outbound.defaultBase(alpha)).pipe(
+      const base = yield* RepositoriesOutbound.use((outbound) => outbound.defaultBase(alpha)).pipe(
         Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })),
       );
 
@@ -117,11 +117,11 @@ describe('Projects.layerGit', () => {
 
   it.live('asks the remote for its default branch when origin/HEAD is not set', () =>
     Effect.gen(function* () {
-      const { root, origin } = projectsRoot();
+      const { root, origin } = repositoriesRoot();
       const beta = { name: 'beta', path: join(root, 'beta') };
       run(beta.path, 'remote', 'add', 'origin', origin);
 
-      const base = yield* ProjectsOutbound.use((outbound) => outbound.defaultBase(beta)).pipe(
+      const base = yield* RepositoriesOutbound.use((outbound) => outbound.defaultBase(beta)).pipe(
         Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })),
       );
 
@@ -131,29 +131,29 @@ describe('Projects.layerGit', () => {
 
   it.live('fails when origin cannot be fetched', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
       const beta = { name: 'beta', path: join(root, 'beta') };
 
-      const error = yield* ProjectsOutbound.use((outbound) => outbound.defaultBase(beta)).pipe(
+      const error = yield* RepositoriesOutbound.use((outbound) => outbound.defaultBase(beta)).pipe(
         Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })),
         Effect.flip,
       );
 
-      expect(error).toBeInstanceOf(ProjectGitError);
+      expect(error).toBeInstanceOf(RepositoryGitError);
       expect(error.reason).toMatch(/^git fetch failed/u);
     }),
   );
 
-  it.live('works in the project, also when the environment names another repository', () =>
+  it.live('works in the planet, also when the environment names another repository', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
-      const other = projectsRoot();
+      const { root } = repositoriesRoot();
+      const other = repositoriesRoot();
       const alpha = { name: 'alpha', path: join(root, 'alpha') };
       run(join(other.root, 'alpha'), 'branch', 'feat/only-elsewhere');
       const saved = process.env['GIT_DIR'];
       process.env['GIT_DIR'] = join(other.root, 'alpha', '.git');
 
-      const found = yield* ProjectsOutbound.use((outbound) =>
+      const found = yield* RepositoriesOutbound.use((outbound) =>
         outbound.branchExists(alpha, 'feat/only-elsewhere'),
       ).pipe(
         Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })),
@@ -171,10 +171,10 @@ describe('Projects.layerGit', () => {
 
   it.live('finds a branch locally or on origin', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
       const alpha = { name: 'alpha', path: join(root, 'alpha') };
 
-      const found = yield* ProjectsOutbound.use((outbound) =>
+      const found = yield* RepositoriesOutbound.use((outbound) =>
         Effect.all([
           outbound.branchExists(alpha, 'feat/taken'),
           outbound.branchExists(alpha, 'feat/linked'),
@@ -188,10 +188,10 @@ describe('Projects.layerGit', () => {
 
   it.live("checks a branch name with git's rule", () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
       const alpha = { name: 'alpha', path: join(root, 'alpha') };
 
-      const valid = yield* ProjectsOutbound.use((outbound) =>
+      const valid = yield* RepositoriesOutbound.use((outbound) =>
         Effect.all([
           outbound.isValidBranchName(alpha, 'feat/ok'),
           outbound.isValidBranchName(alpha, 'feat/a.lock'),
@@ -204,17 +204,17 @@ describe('Projects.layerGit', () => {
   );
 });
 
-describe('Projects.layerGit for issues', () => {
-  const project = (root: string, name: string) => ({ name, path: join(root, name) });
+describe('Planets.layerGit for issues', () => {
+  const planet = (root: string, name: string) => ({ name, path: join(root, name) });
 
   it.live('reads the origin URL, and none without a remote', () =>
     Effect.gen(function* () {
-      const { root, origin } = projectsRoot();
+      const { root, origin } = repositoriesRoot();
 
-      const urls = yield* ProjectsOutbound.use((outbound) =>
+      const urls = yield* RepositoriesOutbound.use((outbound) =>
         Effect.all([
-          outbound.originUrl(project(root, 'alpha')),
-          outbound.originUrl(project(root, 'beta')),
+          outbound.originUrl(planet(root, 'alpha')),
+          outbound.originUrl(planet(root, 'beta')),
         ]),
       ).pipe(Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })));
 
@@ -224,11 +224,11 @@ describe('Projects.layerGit for issues', () => {
 
   it.live('lists the worktrees with their branches, the primary checkout first', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
       run(join(root, 'alpha'), 'worktree', 'add', '--quiet', '--detach', join(root, 'detached'));
 
-      const worktrees = yield* ProjectsOutbound.use((outbound) =>
-        outbound.worktrees(project(root, 'alpha')),
+      const worktrees = yield* RepositoriesOutbound.use((outbound) =>
+        outbound.worktrees(planet(root, 'alpha')),
       ).pipe(Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })));
 
       expect(worktrees).toEqual([
@@ -241,27 +241,27 @@ describe('Projects.layerGit for issues', () => {
 
   it.live('fails to list the worktrees of a folder that is no repository', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
 
-      const error = yield* ProjectsOutbound.use((outbound) =>
-        outbound.worktrees(project(root, 'notes')),
+      const error = yield* RepositoriesOutbound.use((outbound) =>
+        outbound.worktrees(planet(root, 'notes')),
       ).pipe(Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })), Effect.flip);
 
-      expect(error).toBeInstanceOf(ProjectGitError);
+      expect(error).toBeInstanceOf(RepositoryGitError);
     }),
   );
 });
 
-describe('Projects.layerGit for closing a worktree', () => {
+describe('Planets.layerGit for closing a worktree', () => {
   const alpha = (root: string) => ({ name: 'alpha', path: join(root, 'alpha') });
   const hasChanges = (root: string) =>
-    ProjectsOutbound.use((outbound) => outbound.hasChanges(alpha(root), join(root, 'linked'))).pipe(
-      Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })),
-    );
+    RepositoriesOutbound.use((outbound) =>
+      outbound.hasChanges(alpha(root), join(root, 'linked')),
+    ).pipe(Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })));
 
   it.live('sees no changes in a clean worktree', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
 
       expect(yield* hasChanges(root)).toBe(false);
     }),
@@ -269,7 +269,7 @@ describe('Projects.layerGit for closing a worktree', () => {
 
   it.live('sees a modified file and an untracked file as changes', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
       writeFileSync(join(root, 'linked', 'README.md'), 'changed\n');
       const modified = yield* hasChanges(root);
       run(join(root, 'linked'), 'checkout', '--quiet', '--', 'README.md');
@@ -282,28 +282,28 @@ describe('Projects.layerGit for closing a worktree', () => {
 
   it.live('fails for a folder that is no worktree', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
 
-      const error = yield* ProjectsOutbound.use((outbound) =>
+      const error = yield* RepositoriesOutbound.use((outbound) =>
         outbound.hasChanges(alpha(root), join(root, 'notes')),
       ).pipe(Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })), Effect.flip);
 
-      expect(error).toBeInstanceOf(ProjectGitError);
+      expect(error).toBeInstanceOf(RepositoryGitError);
     }),
   );
 });
 
-describe('Projects.layerGit for a worktree of its own', () => {
+describe('Planets.layerGit for a worktree of its own', () => {
   const alpha = (root: string) => ({ name: 'alpha', path: join(root, 'alpha') });
-  const projects = (root: string) => layerGit({ root, worktreesRoot: worktreesOf(root) });
+  const planets = (root: string) => layerGit({ root, worktreesRoot: worktreesOf(root) });
 
   it.live('adds a worktree on a new branch from the base, in a folder named by the branch', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
 
-      const added = yield* ProjectsOutbound.use((outbound) =>
+      const added = yield* RepositoriesOutbound.use((outbound) =>
         outbound.addWorktree(alpha(root), { branch: 'feat/new-thing', base: 'origin/main' }),
-      ).pipe(Effect.provide(projects(root)));
+      ).pipe(Effect.provide(planets(root)));
 
       const path = join(worktreesOf(root), 'alpha', 'feat-new-thing');
       expect(added).toEqual({ path, branch: 'feat/new-thing' });
@@ -316,23 +316,23 @@ describe('Projects.layerGit for a worktree of its own', () => {
 
   it.live('fails to add a worktree on a branch that exists', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
 
-      const error = yield* ProjectsOutbound.use((outbound) =>
+      const error = yield* RepositoriesOutbound.use((outbound) =>
         outbound.addWorktree(alpha(root), { branch: 'feat/linked', base: 'origin/main' }),
-      ).pipe(Effect.provide(projects(root)), Effect.flip);
+      ).pipe(Effect.provide(planets(root)), Effect.flip);
 
-      expect(error).toBeInstanceOf(ProjectGitError);
+      expect(error).toBeInstanceOf(RepositoryGitError);
     }),
   );
 
   it.live('removes a clean worktree and keeps its branch', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
 
-      yield* ProjectsOutbound.use((outbound) =>
+      yield* RepositoriesOutbound.use((outbound) =>
         outbound.removeWorktree(alpha(root), join(root, 'linked'), false),
-      ).pipe(Effect.provide(projects(root)));
+      ).pipe(Effect.provide(planets(root)));
 
       expect(existsSync(join(root, 'linked'))).toBe(false);
       expect(run(join(root, 'alpha'), 'branch', '--list', 'feat/linked')).toContain('feat/linked');
@@ -341,18 +341,18 @@ describe('Projects.layerGit for a worktree of its own', () => {
 
   it.live('removes a worktree with changes only with force', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
       writeFileSync(join(root, 'linked', 'new.txt'), 'new\n');
       const remove = (force: boolean) =>
-        ProjectsOutbound.use((outbound) =>
+        RepositoriesOutbound.use((outbound) =>
           outbound.removeWorktree(alpha(root), join(root, 'linked'), force),
-        ).pipe(Effect.provide(projects(root)));
+        ).pipe(Effect.provide(planets(root)));
 
       const refused = yield* Effect.flip(remove(false));
       const keptAfterRefusal = existsSync(join(root, 'linked'));
       yield* remove(true);
 
-      expect(refused).toBeInstanceOf(ProjectGitError);
+      expect(refused).toBeInstanceOf(RepositoryGitError);
       expect(keptAfterRefusal).toBe(true);
       expect(existsSync(join(root, 'linked'))).toBe(false);
     }),
@@ -360,7 +360,7 @@ describe('Projects.layerGit for a worktree of its own', () => {
 
   it.live('says so when removing the worktree takes longer than it may', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
       // A git that never finishes in time, found first on the PATH while the test runs.
       const slow = mkdtempSync(join(tmpdir(), 'slow-git-'));
       writeFileSync(join(slow, 'git'), '#!/bin/sh\nsleep 5\n', { mode: 0o755 });
@@ -375,7 +375,7 @@ describe('Projects.layerGit for a worktree of its own', () => {
           }),
       );
 
-      const error = yield* ProjectsOutbound.use((outbound) =>
+      const error = yield* RepositoriesOutbound.use((outbound) =>
         outbound.removeWorktree(alpha(root), join(root, 'linked'), true),
       ).pipe(
         Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root), removeTimeoutMs: 100 })),
@@ -387,15 +387,15 @@ describe('Projects.layerGit for a worktree of its own', () => {
   );
 });
 
-describe('Projects.layerGit for the brainstorm', () => {
+describe('Planets.layerGit for the brainstorm', () => {
   const readDoc = (root: string, name: string, doc: 'README.md' | 'AGENTS.md') =>
-    ProjectsOutbound.use((outbound) =>
+    RepositoriesOutbound.use((outbound) =>
       outbound.readDoc({ name, path: join(root, name) }, doc),
     ).pipe(Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })));
 
   it.live('reads a top-level doc, and none when it is missing', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
 
       expect(yield* readDoc(root, 'alpha', 'README.md')).toEqual(Option.some('seed\n'));
       expect(yield* readDoc(root, 'alpha', 'AGENTS.md')).toEqual(Option.none());
@@ -404,7 +404,7 @@ describe('Projects.layerGit for the brainstorm', () => {
 
   it.live('reads no symlink and no folder', () =>
     Effect.gen(function* () {
-      const { root } = projectsRoot();
+      const { root } = repositoriesRoot();
       writeFileSync(join(root, 'secret.txt'), 'secret\n');
       symlinkSync(join(root, 'secret.txt'), join(root, 'alpha', 'AGENTS.md'));
       mkdirSync(join(root, 'beta', 'README.md'));

@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Projects } from '@pocket-comms/comms-infrastructure';
+import { Repositories } from '@pocket-comms/comms-infrastructure';
 import { server } from './composition.js';
 
 let dispose: (() => Promise<void>) | undefined;
@@ -15,12 +15,12 @@ afterEach(async () => {
   await dispose?.();
 });
 
-// A projects root with `app`, whose origin is on the app's Gitea. Its git never sees the
+// A repositories root with `app`, whose origin is on the app's Gitea. Its git never sees the
 // variables a git hook sets.
-const projectsRoot = () => {
-  const root = mkdtempSync(join(tmpdir(), 'projects-'));
+const repositoriesRoot = () => {
+  const root = mkdtempSync(join(tmpdir(), 'planets-'));
   mkdirSync(join(root, 'app'));
-  const env = { ...Projects.gitEnvironment(process.env) };
+  const env = { ...Repositories.gitEnvironment(process.env) };
   execFileSync('git', ['init', '--quiet'], { cwd: join(root, 'app'), env, stdio: 'pipe' });
   execFileSync('git', ['remote', 'add', 'origin', 'gitea:owner/app.git'], {
     cwd: join(root, 'app'),
@@ -32,7 +32,7 @@ const projectsRoot = () => {
 
 // The server as `main.ts` composes it, served in process, with Herdr away and no Gitea token.
 const serve = (
-  projects = mkdtempSync(join(tmpdir(), 'projects-')),
+  planets = mkdtempSync(join(tmpdir(), 'planets-')),
   stateDir = mkdtempSync(join(tmpdir(), 'state-')),
   speech?: { readonly url: string; readonly model: string },
   multiplexer: 'herdr' | 'hc' = 'herdr',
@@ -44,7 +44,7 @@ const serve = (
       socketPath: join(mkdtempSync(join(tmpdir(), 'no-herdr-')), 'herdr.sock'),
       hcSocketPath: join(mkdtempSync(join(tmpdir(), 'no-hc-')), 'hc.sock'),
       home: mkdtempSync(join(tmpdir(), 'home-')),
-      projectsRoot: projects,
+      repositoriesRoot: planets,
       worktreesRoot: mkdtempSync(join(tmpdir(), 'worktrees-')),
       agentArgs: [],
       gitea: { url: 'http://127.0.0.1:9', token: Option.none(), hosts: ['gitea'] },
@@ -74,19 +74,19 @@ describe('the composed server', () => {
     expect(response.status).toBe(503);
   });
 
-  it('answers 503 for the projects while Herdr is away', async () => {
-    expect((await serve()('/api/v1/projects')).status).toBe(503);
+  it('answers 503 for the planets while Herdr is away', async () => {
+    expect((await serve()('/api/v1/planets')).status).toBe(503);
   });
 
-  it("shows a Gitea project's issues as not configured without a token", async () => {
-    const response = await serve(projectsRoot())('/api/v1/projects/app/issues');
+  it("shows a Gitea planet's issues as not configured without a token", async () => {
+    const response = await serve(repositoriesRoot())('/api/v1/planets/app/issues');
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ _tag: 'NotConfigured' });
   });
 
-  it('answers 404 for the issues of an unknown project', async () => {
-    expect((await serve()('/api/v1/projects/nope/issues')).status).toBe(404);
+  it('answers 404 for the issues of an unknown planet', async () => {
+    expect((await serve()('/api/v1/planets/nope/issues')).status).toBe(404);
   });
 
   it('says that the brainstorm is not set up without a model, and still serves', async () => {

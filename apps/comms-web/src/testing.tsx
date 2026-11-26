@@ -20,7 +20,7 @@ import {
   type NewTask,
   type OverviewStateView,
   type OverviewView,
-  type ProjectView,
+  type PlanetView,
   type ProposalDecision,
   type SubagentEventView,
   type SubagentView,
@@ -55,7 +55,7 @@ export const fakeAgent = (overrides: Partial<AgentView> = {}): AgentView => ({
   title: 'Fix the build',
   cwd: '/work/app',
   workspace: 'app',
-  project: 'app',
+  planet: 'app',
   changedAt: Date.now() - 60_000,
   needsYou: false,
   background: [],
@@ -93,14 +93,14 @@ export interface FakeState {
   promptGate?: Promise<void>;
   /** Holds a brainstorm message on its way until it resolves. */
   sendGate?: Promise<void>;
-  projects: ReadonlyArray<ProjectView>;
+  planets: ReadonlyArray<PlanetView>;
   /** What the next task creation answers: the created worktree, or a failure. */
   created: TaskCreatedView | RequestError;
-  /** Each project's issues, or a failure; a project without an entry has no Gitea remote. */
+  /** Each planet's issues, or a failure; a planet without an entry has no Gitea remote. */
   readonly issues: Map<string, IssueListView | RequestError>;
   /** What the next Implement with Claude answers. */
   implemented: IssueTaskCreatedView | RequestError;
-  /** A failure for the next close; without one the issue leaves its project's list. */
+  /** A failure for the next close; without one the issue leaves its planet's list. */
   closeFailure?: RequestError;
   /** The failures of the next agent closes, in order; a close without one succeeds. */
   closeAgentFailures: Array<RequestError>;
@@ -139,7 +139,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     conversations: new Map(),
     subagents: new Map(),
     screens: new Map(),
-    projects: [
+    planets: [
       { name: 'pocket-comms', open: true },
       { name: 'pocket-home', open: false },
     ],
@@ -288,22 +288,22 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     seen: async (ref) => {
       calls.seen.push(ref);
     },
-    projects: async () => state.projects,
+    planets: async () => state.planets,
     createTask: async (task) => {
       calls.tasks.push(task);
       if (state.created instanceof RequestError) throw state.created;
       return state.created;
     },
-    issues: async (project) => {
-      const list = state.issues.get(project) ?? { _tag: 'NoGiteaRemote' };
+    issues: async (planet) => {
+      const list = state.issues.get(planet) ?? { _tag: 'NoGiteaRemote' };
       if (list instanceof RequestError) throw list;
       return list;
     },
-    implementIssue: async (project, number, branch, additionalInformation) => {
+    implementIssue: async (planet, number, branch, additionalInformation) => {
       calls.implemented.push(
         additionalInformation === undefined
-          ? [project, number, branch]
-          : [project, number, branch, additionalInformation],
+          ? [planet, number, branch]
+          : [planet, number, branch, additionalInformation],
       );
       if (state.implemented instanceof RequestError) throw state.implemented;
       return state.implemented;
@@ -322,17 +322,17 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       calls.dismissedTaskStarts.push(ref);
       state.taskStarts.delete(ref);
     },
-    startAgentInWorktree: async (project, number, branch, kind) => {
-      calls.startedInWorktree.push([project, number, branch, kind]);
+    startAgentInWorktree: async (planet, number, branch, kind) => {
+      calls.startedInWorktree.push([planet, number, branch, kind]);
       if (state.startedInWorktree instanceof RequestError) throw state.startedInWorktree;
       return state.startedInWorktree;
     },
-    closeIssue: async (project, number) => {
-      calls.closed.push([project, number]);
+    closeIssue: async (planet, number) => {
+      calls.closed.push([planet, number]);
       if (state.closeFailure !== undefined) throw state.closeFailure;
-      const list = state.issues.get(project);
+      const list = state.issues.get(planet);
       if (list !== undefined && !(list instanceof RequestError) && list._tag === 'Listed') {
-        state.issues.set(project, {
+        state.issues.set(planet, {
           ...list,
           issues: list.issues.filter((issue) => issue.number !== number),
         });

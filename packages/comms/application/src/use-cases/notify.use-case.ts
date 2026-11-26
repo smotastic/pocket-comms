@@ -45,11 +45,11 @@ export const makeNotify = Effect.gen(function* () {
       );
   };
 
-  const send = Effect.fn('Push.send')(function* (change: Change, agent: Agent, project?: string) {
+  const send = Effect.fn('Push.send')(function* (change: Change, agent: Agent, planet?: string) {
     const notification = notificationOf({
       agent,
       reason: change.reason,
-      project,
+      planet,
       excerpt: yield* excerpt(agent, change.reason),
     });
     const subscriptions = yield* pushSubscriptionsOutbound.list;
@@ -73,7 +73,7 @@ export const makeNotify = Effect.gen(function* () {
     );
   });
 
-  // Waits, then reads Herdr again: the agent and its project while the change still holds.
+  // Waits, then reads Herdr again: the agent and its planet while the change still holds.
   const holding = (change: Change) =>
     Effect.gen(function* () {
       yield* Effect.sleep(HOLD);
@@ -83,8 +83,8 @@ export const makeNotify = Effect.gen(function* () {
       if (!stillHolds(change, agents, yield* seenOutbound.seen)) return undefined;
       const agent = agents.find((candidate) => candidate.paneId === change.paneId);
       if (agent === undefined) return undefined;
-      const project = workspaces.find((workspace) => workspace.id === agent.workspaceId)?.project;
-      return { agent, project };
+      const planet = workspaces.find((workspace) => workspace.id === agent.workspaceId)?.planet;
+      return { agent, planet };
     });
 
   const quiet = (agent: Agent) => Effect.map(backgroundOf(agent), (work) => work.length === 0);
@@ -104,7 +104,7 @@ export const makeNotify = Effect.gen(function* () {
         held = yield* holding(change);
       }
       if (held === undefined) return;
-      yield* send(change, held.agent, held.project).pipe(
+      yield* send(change, held.agent, held.planet).pipe(
         Effect.catchTag('PushStoreError', (error) =>
           Effect.logWarning('Push devices could not be read').pipe(
             Effect.annotateLogs({ reason: error.reason }),

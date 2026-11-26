@@ -16,3 +16,11 @@ GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/pictur
 GET /api/v1/brainstorm removed the required property `anyOf[subschema #1]/seesPictures` from the response with the `200` status
 POST /api/v1/brainstorm/proposals/{proposal}/decision removed `subschema #1, subschema #3, subschema #4` from the request body `anyOf` list
 GET /api/v1/brainstorm added `subschema #1, subschema #2` to the response body `anyOf` list for the response status `200`
+GET /api/v1/activity added `subschema #1, subschema #2, subschema #3, subschema #4, subschema #5, subschema #6, subschema #7` to the `events/items/` response property `anyOf` list for the response status `200`
+POST /api/v1/brainstorm/proposals/{proposal}/decision added the new required request property `anyOf[subschema #1]/issue/planet`
+GET /api/v1/projects api path removed without deprecation
+GET /api/v1/projects/{project}/issues api path removed without deprecation
+POST /api/v1/projects/{project}/issues/{number}/close api path removed without deprecation
+POST /api/v1/projects/{project}/issues/{number}/implement api path removed without deprecation
+POST /api/v1/projects/{project}/issues/{number}/start-agent api path removed without deprecation
+POST /api/v1/tasks added the new required request property `planet`

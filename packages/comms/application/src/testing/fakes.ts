@@ -11,7 +11,7 @@ import {
   type BackgroundItem,
   type Issue,
   type Notification,
-  type Project,
+  type Repository,
   type PushSubscription,
   type ConversationEntry,
   type Workspace,
@@ -38,7 +38,7 @@ import {
   IssueNotFoundError,
   PullRequestNotFoundError,
   MultiplexerUnavailableError,
-  ProjectGitError,
+  RepositoryGitError,
   PushStoreError,
   QuickRepliesStoreError,
   PullRequestsStoreError,
@@ -58,7 +58,7 @@ import {
   StatusHistoryOutbound,
   type StatusMark,
 } from '../ports/memory.outbound.port.js';
-import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
+import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 import { QuickRepliesOutbound } from '../ports/quick-replies.outbound.port.js';
 import { PullRequestsOutbound, type AttachedLists } from '../ports/pull-requests.outbound.port.js';
 import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
@@ -126,12 +126,12 @@ export class FakeState extends Context.Service<
     readonly seen: Set<string>;
     readonly seenChanges: PubSub.PubSub<void>;
     readonly history: Map<string, StatusMark>;
-    projects: Array<Project>;
-    /** Every git question the fake projects port was asked, as `<method> <project> [<branch>]`. */
+    planets: Array<Repository>;
+    /** Every git question the fake planets port was asked, as `<method> <planet> [<branch>]`. */
     readonly gitCalls: Array<string>;
-    /** The default branch of every project; a project without one fails `defaultBase`. */
+    /** The default branch of every planet; a planet without one fails `defaultBase`. */
     readonly bases: Map<string, string>;
-    /** Branches that exist, as `<project>:<branch>`. */
+    /** Branches that exist, as `<planet>:<branch>`. */
     readonly branches: Set<string>;
     /** Branch names git refuses. */
     readonly badBranchNames: Set<string>;
@@ -141,9 +141,9 @@ export class FakeState extends Context.Service<
     readonly unanswered: Set<string>;
     /** The panes whose agent Herdr does not yet report ready for input. */
     readonly unready: Set<string>;
-    /** The `origin` URL of every project that has one. */
+    /** The `origin` URL of every planet that has one. */
     readonly origins: Map<string, string>;
-    /** The worktrees of every project. */
+    /** The worktrees of every planet. */
     readonly worktrees: Map<string, Array<Worktree>>;
     /** The worktree folders with uncommitted or untracked changes. */
     readonly changed: Set<string>;
@@ -182,7 +182,7 @@ export class FakeState extends Context.Service<
     /** When set, only reading the attached pull requests file fails, until the next save. */
     attachedListsLoadFailure: string | undefined;
     readonly giteaCalls: Array<string>;
-    /** The top-level docs of every project, by `<project>/<file>`. */
+    /** The top-level docs of every planet, by `<planet>/<file>`. */
     readonly docs: Map<string, string>;
     /** Runs before a doc is read, so a test can hold Pi's tool open. */
     readDocWait: Effect.Effect<void> | undefined;
@@ -238,7 +238,7 @@ export const fakeWorkspaces: ReadonlyArray<Workspace> = [
     label: 'app',
     group: { key: '/work/app/.git', name: 'app' },
     root: '/work/app',
-    project: 'app',
+    planet: 'app',
     checkout: '/work/app',
   },
   {
@@ -246,7 +246,7 @@ export const fakeWorkspaces: ReadonlyArray<Workspace> = [
     label: 'feature',
     group: { key: '/work/app/.git', name: 'app' },
     root: '/work/app',
-    project: 'app',
+    planet: 'app',
     worktree: 'feature',
     checkout: '/worktrees/feature',
   },
@@ -405,60 +405,60 @@ const conversations = (state: FakeState['Service']) => {
   });
 };
 
-const projects = (state: FakeState['Service']) => {
+const planets = (state: FakeState['Service']) => {
   const ask = (call: string) => Effect.sync(() => void state.gitCalls.push(call));
-  return ProjectsOutbound.of({
-    list: Effect.sync(() => [...state.projects]),
-    isValidBranchName: (project, branch) =>
+  return RepositoriesOutbound.of({
+    list: Effect.sync(() => [...state.planets]),
+    isValidBranchName: (planet, branch) =>
       Effect.as(
-        ask(`isValidBranchName ${project.name} ${branch}`),
+        ask(`isValidBranchName ${planet.name} ${branch}`),
         !state.badBranchNames.has(branch),
       ),
-    defaultBase: (project) =>
-      Effect.flatMap(ask(`defaultBase ${project.name}`), () => {
-        const base = state.bases.get(project.name);
+    defaultBase: (planet) =>
+      Effect.flatMap(ask(`defaultBase ${planet.name}`), () => {
+        const base = state.bases.get(planet.name);
         return base === undefined
-          ? Effect.fail(new ProjectGitError({ project: project.name, reason: 'fetch failed' }))
+          ? Effect.fail(new RepositoryGitError({ planet: planet.name, reason: 'fetch failed' }))
           : Effect.succeed(base);
       }),
-    originUrl: (project) =>
+    originUrl: (planet) =>
       Effect.as(
-        ask(`originUrl ${project.name}`),
-        Option.fromNullishOr(state.origins.get(project.name)),
+        ask(`originUrl ${planet.name}`),
+        Option.fromNullishOr(state.origins.get(planet.name)),
       ),
-    worktrees: (project) =>
-      Effect.as(ask(`worktrees ${project.name}`), [...(state.worktrees.get(project.name) ?? [])]),
-    readDoc: (project, doc) =>
+    worktrees: (planet) =>
+      Effect.as(ask(`worktrees ${planet.name}`), [...(state.worktrees.get(planet.name) ?? [])]),
+    readDoc: (planet, doc) =>
       Effect.map(state.readDocWait ?? Effect.void, () =>
-        Option.fromNullishOr(state.docs.get(`${project.name}/${doc}`)),
+        Option.fromNullishOr(state.docs.get(`${planet.name}/${doc}`)),
       ),
-    hasChanges: (project, path) =>
-      Effect.as(ask(`hasChanges ${project.name} ${path}`), state.changed.has(path)),
+    hasChanges: (planet, path) =>
+      Effect.as(ask(`hasChanges ${planet.name} ${path}`), state.changed.has(path)),
     // A new worktree is `/worktrees/<branch with - for />`, listed after the others.
-    addWorktree: (project, { branch, base }) =>
-      Effect.map(ask(`addWorktree ${project.name} ${branch} ${base}`), () => {
+    addWorktree: (planet, { branch, base }) =>
+      Effect.map(ask(`addWorktree ${planet.name} ${branch} ${base}`), () => {
         const path = `/worktrees/${branch.replaceAll('/', '-')}`;
-        state.worktrees.set(project.name, [
-          ...(state.worktrees.get(project.name) ?? []),
+        state.worktrees.set(planet.name, [
+          ...(state.worktrees.get(planet.name) ?? []),
           { path, branch },
         ]);
         return { path, branch };
       }),
-    removeWorktree: (project, path, force) =>
-      Effect.flatMap(ask(`removeWorktree ${project.name} ${path} force=${force}`), () => {
+    removeWorktree: (planet, path, force) =>
+      Effect.flatMap(ask(`removeWorktree ${planet.name} ${path} force=${force}`), () => {
         if (state.refusedRemovals.has(path)) {
-          return Effect.fail(new ProjectGitError({ project: project.name, reason: 'refused' }));
+          return Effect.fail(new RepositoryGitError({ planet: planet.name, reason: 'refused' }));
         }
         state.worktrees.set(
-          project.name,
-          (state.worktrees.get(project.name) ?? []).filter((worktree) => worktree.path !== path),
+          planet.name,
+          (state.worktrees.get(planet.name) ?? []).filter((worktree) => worktree.path !== path),
         );
         return Effect.void;
       }),
-    branchExists: (project, branch) =>
+    branchExists: (planet, branch) =>
       Effect.as(
-        ask(`branchExists ${project.name} ${branch}`),
-        state.branches.has(`${project.name}:${branch}`),
+        ask(`branchExists ${planet.name} ${branch}`),
+        state.branches.has(`${planet.name}:${branch}`),
       ),
   });
 };
@@ -718,7 +718,7 @@ export const fakeLayer = () => {
         seen: new Set(),
         seenChanges: yield* PubSub.unbounded<void>(),
         history: new Map(),
-        projects: [{ name: 'app', path: '/work/app' }],
+        planets: [{ name: 'app', path: '/work/app' }],
         gitCalls: [],
         bases: new Map([['app', 'origin/master']]),
         branches: new Set(),
@@ -771,7 +771,7 @@ export const fakeLayer = () => {
       const fake = yield* FakeState;
       return Context.make(MultiplexerOutbound, herdr(fake)).pipe(
         Context.add(ConversationOutbound, conversations(fake)),
-        Context.add(ProjectsOutbound, projects(fake)),
+        Context.add(RepositoriesOutbound, planets(fake)),
         Context.add(GiteaOutbound, gitea(fake)),
         Context.add(AgentRuntime, {
           get notSetUp() {

@@ -29,7 +29,7 @@ import type {
   CommsClient,
   ProposalDecision,
 } from './comms-client.js';
-import { brainstormQuery, projectsQuery } from './comms-queries.js';
+import { brainstormQuery, planetsQuery } from './comms-queries.js';
 import { IssueEditCard } from './IssueEditCard.js';
 import { useBrainstormLive, type BrainstormView } from './live.js';
 import { ProposalCard } from './ProposalCard.js';
@@ -51,10 +51,10 @@ const PI = 'Pi';
 
 /** What a row says Pi does with each tool, while it runs and after. */
 const TOOL_VERBS: Readonly<Record<string, readonly [running: string, done: string]>> = {
-  list_projects: ['Listing projects', 'Listed projects'],
+  list_planets: ['Listing planets', 'Listed planets'],
   list_open_issues: ['Listing open issues', 'Listed open issues'],
   read_issue: ['Reading issue', 'Read issue'],
-  read_project_doc: ['Reading', 'Read'],
+  read_planet_doc: ['Reading', 'Read'],
   propose_issue: ['Proposing an issue', 'Proposed an issue'],
   propose_issue_edit: ['Proposing an edit', 'Proposed an edit'],
 };
@@ -107,13 +107,13 @@ export const shownItems = (view: BrainstormView): ReadonlyArray<Shown> => {
 
 const Proposal = ({
   proposal,
-  projects,
+  planets,
   images,
   busy,
   decide,
 }: {
   readonly proposal: ProposalView;
-  readonly projects: ReadonlyArray<string>;
+  readonly planets: ReadonlyArray<string>;
   readonly images: ReadonlyArray<BrainstormImage>;
   readonly busy: boolean;
   readonly decide: ReturnType<typeof useDecide>;
@@ -122,7 +122,7 @@ const Proposal = ({
   if (proposal.kind === 'edit') {
     return (
       <IssueEditCard
-        project={proposal.project}
+        planet={proposal.planet}
         number={proposal.number}
         url={proposal.url}
         title={proposal.title}
@@ -146,11 +146,11 @@ const Proposal = ({
   }
   return (
     <ProposalCard
-      project={proposal.project}
+      planet={proposal.planet}
       title={proposal.title}
       body={proposal.body}
       state={proposal.state}
-      projects={projects}
+      planets={planets}
       images={images}
       chosen={proposal.images}
       attached={proposal.attached}
@@ -186,9 +186,9 @@ const Thread = ({
   readonly state: Ready;
   readonly view: BrainstormView;
 }) => {
-  const projects = useQuery(projectsQuery(client));
+  const planets = useQuery(planetsQuery(client));
   const decide = useDecide(client);
-  const names = (projects.data ?? []).map((project) => project.name);
+  const names = (planets.data ?? []).map((planet) => planet.name);
   const images = state.images.map((image) => ({
     ...image,
     src: client.imageUrl(image.id),
@@ -262,7 +262,7 @@ const Thread = ({
               <Proposal
                 key={item.sequence}
                 proposal={item.proposal}
-                projects={names}
+                planets={names}
                 images={images}
                 busy={busy}
                 decide={decide}

@@ -127,7 +127,7 @@ describe('AgentsInbound.overview', () => {
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect('names the project and worktree of each agent', () =>
+  it.effect('names the planet and worktree of each agent', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
       state.agents = [
@@ -140,7 +140,7 @@ describe('AgentsInbound.overview', () => {
 
       expect(
         overview.groups.flatMap((group) =>
-          group.agents.map((agent) => [group.key, agent.ref, agent.project, agent.worktree]),
+          group.agents.map((agent) => [group.key, agent.ref, agent.planet, agent.worktree]),
         ),
       ).toEqual([
         ['/work/app/.git', 'kirk', 'app', undefined],

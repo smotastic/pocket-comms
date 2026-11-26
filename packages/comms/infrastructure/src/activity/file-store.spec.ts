@@ -16,7 +16,7 @@ const agent = {
   ref: 'kirk',
   name: 'kirk',
   workspace: 'feature',
-  project: 'app',
+  planet: 'app',
   worktree: 'feature',
 };
 
@@ -31,7 +31,7 @@ const events: ReadonlyArray<ActivityEvent> = [
     id: 'e5',
     at: 5,
     type: 'gone',
-    agent: { ...agent, name: undefined, ref: 'w1:p1', project: undefined, worktree: undefined },
+    agent: { ...agent, name: undefined, ref: 'w1:p1', planet: undefined, worktree: undefined },
   },
 ];
 
@@ -55,6 +55,17 @@ describe('the activity file store', () => {
       expect(yield* outbound.events).toEqual(events);
       expect(yield* (yield* store(path)).events).toEqual(events);
       expect(statSync(join(path, 'activity.json')).mode & 0o777).toBe(0o600);
+    }),
+  );
+
+  it.effect('names the planet project in the file, as before spec 034', () =>
+    Effect.gen(function* () {
+      const path = folder();
+      yield* (yield* store(path)).update(() => events);
+
+      const text = readFileSync(join(path, 'activity.json'), 'utf-8');
+      expect(text).toContain('"project":"app"');
+      expect(text).not.toContain('"planet"');
     }),
   );
 

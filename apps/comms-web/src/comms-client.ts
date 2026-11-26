@@ -15,7 +15,7 @@ import {
   type KEYS,
   OverviewState,
   type Overview,
-  type Project,
+  type Planet,
   type ProposalDecisionRequest,
   type AttachedPullRequest,
   type PullRequestChanges,
@@ -44,7 +44,7 @@ export type AgentEventView = typeof AgentEvent.Type;
 export type SubagentView = typeof Subagent.Type;
 export type SubagentEventView = typeof SubagentEvent.Type;
 export type Key = (typeof KEYS)[number];
-export type ProjectView = typeof Project.Type;
+export type PlanetView = typeof Planet.Type;
 export type NewTask = typeof CreateTaskRequest.Type;
 export type TaskCreatedView = typeof TaskCreated.Type;
 export type AgentToStart = (typeof AGENTS_TO_START)[number];
@@ -130,17 +130,17 @@ export interface CommsClient {
   readonly seen: (ref: string) => Promise<void>;
   /** Removes the agent's worktree and closes its workspace; `force` discards its changes. */
   readonly closeAgent: (ref: string, force: boolean) => Promise<void>;
-  readonly projects: () => Promise<ReadonlyArray<ProjectView>>;
+  readonly planets: () => Promise<ReadonlyArray<PlanetView>>;
   readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
-  readonly issues: (project: string) => Promise<IssueListView>;
+  readonly issues: (planet: string) => Promise<IssueListView>;
   /** `additionalInformation` goes into the agent's first prompt for this launch (spec 021). */
   readonly implementIssue: (
-    project: string,
+    planet: string,
     number: number,
     branch: string,
     additionalInformation?: string,
   ) => Promise<IssueTaskCreatedView>;
-  readonly closeIssue: (project: string, number: number) => Promise<void>;
+  readonly closeIssue: (planet: string, number: number) => Promise<void>;
   /**
    * The task start of the agent's worktree whose first prompt was not delivered (spec 032), or
    * with `fromIssue` its issue's task; none when there is nothing to recover.
@@ -152,7 +152,7 @@ export interface CommsClient {
   readonly dismissTaskStart: (ref: string) => Promise<void>;
   /** Starts an agent in the issue's existing worktree on `branch`. */
   readonly startAgentInWorktree: (
-    project: string,
+    planet: string,
     number: number,
     branch: string,
     agent: AgentToStart,
@@ -375,21 +375,21 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     seen: (ref) => run((api) => api.agents.seen(agent(ref))).then(() => undefined),
     closeAgent: (ref, force) =>
       run((api) => api.agents.close({ ...agent(ref), payload: { force } })).then(() => undefined),
-    projects: () => run((api) => api.tasks.projects()).then((result) => result.projects),
+    planets: () => run((api) => api.tasks.planets()).then((result) => result.planets),
     createTask: (task) => run((api) => api.tasks.create({ payload: task })),
-    issues: (project) => run((api) => api.issues.list({ params: { project } })),
-    implementIssue: (project, number, branch, additionalInformation) =>
+    issues: (planet) => run((api) => api.issues.list({ params: { planet } })),
+    implementIssue: (planet, number, branch, additionalInformation) =>
       run((api) =>
         api.issues.implement({
-          params: { project, number: String(number) },
+          params: { planet, number: String(number) },
           payload: {
             branch,
             ...(additionalInformation === undefined ? {} : { additionalInformation }),
           },
         }),
       ),
-    closeIssue: (project, number) =>
-      run((api) => api.issues.close({ params: { project, number: String(number) } })).then(
+    closeIssue: (planet, number) =>
+      run((api) => api.issues.close({ params: { planet, number: String(number) } })).then(
         () => undefined,
       ),
     taskStart: (ref, fromIssue) =>
@@ -409,10 +409,10 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
       ),
     dismissTaskStart: (ref) =>
       run((api) => api.taskStarts.dismiss(agent(ref))).then(() => undefined),
-    startAgentInWorktree: (project, number, branch, kind) =>
+    startAgentInWorktree: (planet, number, branch, kind) =>
       run((api) =>
         api.taskStarts.startAgent({
-          params: { project, number: String(number) },
+          params: { planet, number: String(number) },
           payload: { branch, agent: kind },
         }),
       ),

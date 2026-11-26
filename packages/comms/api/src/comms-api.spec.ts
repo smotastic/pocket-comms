@@ -21,8 +21,8 @@ import {
   IssuesInbound,
   NoGiteaRemoteError,
   NotAWorktreeError,
-  ProjectGitError,
-  ProjectNotFoundError,
+  RepositoryGitError,
+  PlanetNotFoundError,
   SubagentNotFoundError,
   ProposalDecidedError,
   ProposalNotFoundError,
@@ -72,7 +72,7 @@ const kirk: AgentDto = {
   title: 'Fix the build',
   cwd: '/work/app',
   workspace: 'feature',
-  project: 'app',
+  planet: 'app',
   worktree: 'feature',
   changedAt: 1_000,
   needsYou: true,
@@ -425,7 +425,7 @@ describe('the agents API', () => {
     [new AgentNotFoundError({ ref: 'kirk' }), 404, 'agent-not-found'],
     [new NotAWorktreeError({ ref: 'kirk' }), 409, 'not-a-worktree'],
     [new WorktreeHasChangesError({ ref: 'kirk' }), 409, 'worktree-has-changes'],
-    [new ProjectGitError({ project: 'app', reason: 'status failed' }), 409, 'project-git-failed'],
+    [new RepositoryGitError({ planet: 'app', reason: 'status failed' }), 409, 'planet-git-failed'],
     [
       new MultiplexerRejectedError({ ref: 'w2', code: 'c', message: 'm' }),
       409,
@@ -505,7 +505,7 @@ describe('the agents API', () => {
 
 describe('the tasks API', () => {
   const task = {
-    project: 'pocket-comms',
+    planet: 'pocket-comms',
     task: 'Add a dark mode toggle',
     branch: 'feat/dark-mode-toggle',
   };
@@ -516,22 +516,22 @@ describe('the tasks API', () => {
     agent: undefined,
   };
 
-  it('lists the projects', async () => {
+  it('lists the planets', async () => {
     const call = serve({}, undefined, {
-      projects: Effect.succeed([{ name: 'pocket-comms', open: true }]),
+      planets: Effect.succeed([{ name: 'pocket-comms', open: true }]),
     });
 
-    const response = await call('/api/v1/projects');
+    const response = await call('/api/v1/planets');
 
-    expect(await response.json()).toEqual({ projects: [{ name: 'pocket-comms', open: true }] });
+    expect(await response.json()).toEqual({ planets: [{ name: 'pocket-comms', open: true }] });
   });
 
-  it('answers 503 for the projects while Herdr is away', async () => {
+  it('answers 503 for the planets while Herdr is away', async () => {
     const call = serve({}, undefined, {
-      projects: Effect.fail(new MultiplexerUnavailableError({ reason: 'connect ENOENT' })),
+      planets: Effect.fail(new MultiplexerUnavailableError({ reason: 'connect ENOENT' })),
     });
 
-    expect((await call('/api/v1/projects')).status).toBe(503);
+    expect((await call('/api/v1/planets')).status).toBe(503);
   });
 
   it('creates a task with an agent and answers 201', async () => {
@@ -579,12 +579,12 @@ describe('the tasks API', () => {
 
   it.each([
     [
-      new InvalidInputError({ issues: [{ field: 'project', message: 'Unknown.' }] }),
+      new InvalidInputError({ issues: [{ field: 'planet', message: 'Unknown.' }] }),
       422,
       'invalid-request',
     ],
     [new BranchExistsError({ branch: 'feat/x' }), 409, 'branch-exists'],
-    [new ProjectGitError({ project: 'p', reason: 'fetch failed' }), 409, 'project-git-failed'],
+    [new RepositoryGitError({ planet: 'p', reason: 'fetch failed' }), 409, 'planet-git-failed'],
     [
       new MultiplexerRejectedError({ ref: 'feat/x', code: 'c', message: 'm' }),
       409,
@@ -644,12 +644,12 @@ describe('the issues API', () => {
   const issues = (inbound: Partial<IssuesInbound['Service']>) => serve({}, undefined, {}, inbound);
 
   it.each([listed, { _tag: 'NoGiteaRemote' }, { _tag: 'NotConfigured' }] as const)(
-    'lists the issues of a project as %j',
+    'lists the issues of a planet as %j',
     async (list) => {
       const asked: Array<string> = [];
-      const call = issues({ issues: (project) => Effect.sync(() => (asked.push(project), list)) });
+      const call = issues({ issues: (planet) => Effect.sync(() => (asked.push(planet), list)) });
 
-      const response = await call('/api/v1/projects/pocket-comms/issues');
+      const response = await call('/api/v1/planets/pocket-comms/issues');
 
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual(list);
@@ -658,7 +658,7 @@ describe('the issues API', () => {
   );
 
   it.each([
-    [new ProjectNotFoundError({ project: 'nope' }), 404, 'project-not-found'],
+    [new PlanetNotFoundError({ planet: 'nope' }), 404, 'planet-not-found'],
     [
       new GiteaUnavailableError({ reason: 'Gitea refused the token (401).' }),
       503,
@@ -667,7 +667,7 @@ describe('the issues API', () => {
   ] as const)('maps the list failure %s to %i', async (error, status, slug) => {
     const call = issues({ issues: () => Effect.fail(error) });
 
-    const response = await call('/api/v1/projects/nope/issues');
+    const response = await call('/api/v1/planets/nope/issues');
 
     expect(response.status).toBe(status);
     expect(await response.json()).toMatchObject({ type: `urn:pocket-comms:problem:${slug}` });
@@ -680,7 +680,7 @@ describe('the issues API', () => {
     });
 
     const response = await call(
-      '/api/v1/projects/pocket-comms/issues/8/implement',
+      '/api/v1/planets/pocket-comms/issues/8/implement',
       json({ branch: 'feat/8-issue-list' }),
     );
 
@@ -691,7 +691,7 @@ describe('the issues API', () => {
       path: created.path,
       agent: { prompted: true },
     });
-    expect(asked).toEqual([{ project: 'pocket-comms', number: 8, branch: 'feat/8-issue-list' }]);
+    expect(asked).toEqual([{ planet: 'pocket-comms', number: 8, branch: 'feat/8-issue-list' }]);
   });
 
   it('passes the additional information on', async () => {
@@ -701,7 +701,7 @@ describe('the issues API', () => {
     });
 
     const response = await call(
-      '/api/v1/projects/pocket-comms/issues/8/implement',
+      '/api/v1/planets/pocket-comms/issues/8/implement',
       json({
         branch: 'feat/8-issue-list',
         additionalInformation: 'Use the list.\n\nKeep it small.',
@@ -711,7 +711,7 @@ describe('the issues API', () => {
     expect(response.status).toBe(201);
     expect(asked).toEqual([
       {
-        project: 'pocket-comms',
+        planet: 'pocket-comms',
         number: 8,
         branch: 'feat/8-issue-list',
         additionalInformation: 'Use the list.\n\nKeep it small.',
@@ -724,7 +724,7 @@ describe('the issues API', () => {
     const call = issues({ implement: () => Effect.succeed({ ...created, markNote }) });
 
     const response = await call(
-      '/api/v1/projects/pocket-comms/issues/8/implement',
+      '/api/v1/planets/pocket-comms/issues/8/implement',
       json({ branch: 'feat/8-issue-list' }),
     );
 
@@ -733,12 +733,12 @@ describe('the issues API', () => {
   });
 
   it.each([
-    ['/api/v1/projects/pocket-comms/issues/0/implement', { branch: 'feat/x' }],
-    ['/api/v1/projects/pocket-comms/issues/x/implement', { branch: 'feat/x' }],
-    ['/api/v1/projects/pocket-comms/issues/8/implement', { branch: '' }],
-    ['/api/v1/projects/pocket-comms/issues/8/implement', { branch: 'feat/x', agent: 'pi' }],
+    ['/api/v1/planets/pocket-comms/issues/0/implement', { branch: 'feat/x' }],
+    ['/api/v1/planets/pocket-comms/issues/x/implement', { branch: 'feat/x' }],
+    ['/api/v1/planets/pocket-comms/issues/8/implement', { branch: '' }],
+    ['/api/v1/planets/pocket-comms/issues/8/implement', { branch: 'feat/x', agent: 'pi' }],
     [
-      '/api/v1/projects/pocket-comms/issues/8/implement',
+      '/api/v1/planets/pocket-comms/issues/8/implement',
       { branch: 'feat/x', additionalInformation: 'a'.repeat(4001) },
     ],
   ])('answers 422 for %s with %j', async (path, body) => {
@@ -748,10 +748,10 @@ describe('the issues API', () => {
   });
 
   it.each([
-    [new ProjectNotFoundError({ project: 'p' }), 404, 'project-not-found'],
+    [new PlanetNotFoundError({ planet: 'p' }), 404, 'planet-not-found'],
     [new IssueNotFoundError({ number: 8 }), 404, 'issue-not-found'],
     [new IssueClosedError({ number: 8 }), 409, 'issue-closed'],
-    [new NoGiteaRemoteError({ project: 'p' }), 409, 'no-gitea-remote'],
+    [new NoGiteaRemoteError({ planet: 'p' }), 409, 'no-gitea-remote'],
     [new GiteaNotConfiguredError(), 409, 'gitea-not-configured'],
     [new GiteaUnavailableError({ reason: 'away' }), 503, 'gitea-unavailable'],
     [new BranchExistsError({ branch: 'feat/8-x' }), 409, 'branch-exists'],
@@ -760,7 +760,7 @@ describe('the issues API', () => {
       422,
       'invalid-request',
     ],
-    [new ProjectGitError({ project: 'p', reason: 'fetch failed' }), 409, 'project-git-failed'],
+    [new RepositoryGitError({ planet: 'p', reason: 'fetch failed' }), 409, 'planet-git-failed'],
     [
       new MultiplexerRejectedError({ ref: 'feat/x', code: 'c', message: 'm' }),
       409,
@@ -771,7 +771,7 @@ describe('the issues API', () => {
     const call = issues({ implement: () => Effect.fail(error) });
 
     const response = await call(
-      '/api/v1/projects/pocket-comms/issues/8/implement',
+      '/api/v1/planets/pocket-comms/issues/8/implement',
       json({ branch: 'feat/8-x' }),
     );
 
@@ -783,18 +783,18 @@ describe('the issues API', () => {
     const asked: Array<CloseIssueInput> = [];
     const call = issues({ close: (input) => Effect.sync(() => void asked.push(input)) });
 
-    const response = await call('/api/v1/projects/pocket-comms/issues/8/close', {
+    const response = await call('/api/v1/planets/pocket-comms/issues/8/close', {
       method: 'POST',
     });
 
     expect(response.status).toBe(204);
-    expect(asked).toEqual([{ project: 'pocket-comms', number: 8 }]);
+    expect(asked).toEqual([{ planet: 'pocket-comms', number: 8 }]);
   });
 
   it('answers 422 for an issue number that is not one', async () => {
     const call = issues({ close: () => Effect.void });
 
-    const response = await call('/api/v1/projects/pocket-comms/issues/0/close', {
+    const response = await call('/api/v1/planets/pocket-comms/issues/0/close', {
       method: 'POST',
     });
 
@@ -802,9 +802,9 @@ describe('the issues API', () => {
   });
 
   it.each([
-    [new ProjectNotFoundError({ project: 'p' }), 404, 'project-not-found'],
+    [new PlanetNotFoundError({ planet: 'p' }), 404, 'planet-not-found'],
     [new IssueNotFoundError({ number: 8 }), 404, 'issue-not-found'],
-    [new NoGiteaRemoteError({ project: 'p' }), 409, 'no-gitea-remote'],
+    [new NoGiteaRemoteError({ planet: 'p' }), 409, 'no-gitea-remote'],
     [new GiteaNotConfiguredError(), 409, 'gitea-not-configured'],
     [
       new GiteaUnavailableError({ reason: 'Gitea refused the token (403).' }),
@@ -814,7 +814,7 @@ describe('the issues API', () => {
   ] as const)('maps the close failure %s to %i', async (error, status, slug) => {
     const call = issues({ close: () => Effect.fail(error) });
 
-    const response = await call('/api/v1/projects/pocket-comms/issues/8/close', {
+    const response = await call('/api/v1/planets/pocket-comms/issues/8/close', {
       method: 'POST',
     });
 
@@ -825,9 +825,9 @@ describe('the issues API', () => {
   it('rejects a request without the allowed login', async () => {
     const call = issues({ issues: () => Effect.succeed(listed), close: () => Effect.void });
 
-    expect((await call('/api/v1/projects/pocket-comms/issues', { login: null })).status).toBe(403);
+    expect((await call('/api/v1/planets/pocket-comms/issues', { login: null })).status).toBe(403);
     expect(
-      (await call('/api/v1/projects/pocket-comms/issues/8/close', { method: 'POST', login: null }))
+      (await call('/api/v1/planets/pocket-comms/issues/8/close', { method: 'POST', login: null }))
         .status,
     ).toBe(403);
   });
@@ -847,7 +847,7 @@ describe('the activity API', () => {
           ref: 'kirk',
           name: 'kirk',
           workspace: 'feature',
-          project: 'app',
+          planet: 'app',
           worktree: 'feature',
         },
         live: true,
@@ -861,7 +861,7 @@ describe('the activity API', () => {
           ref: 'w3:p1',
           name: undefined,
           workspace: 'notes',
-          project: undefined,
+          planet: undefined,
           worktree: undefined,
         },
         live: false,
@@ -880,7 +880,7 @@ describe('the activity API', () => {
           ref: 'w3:p1',
           workspace: 'notes',
           name: null,
-          project: null,
+          planet: null,
           worktree: null,
         },
       },
@@ -985,7 +985,7 @@ describe('the brainstorm API', () => {
     );
     const decided = await call(
       '/api/v1/brainstorm/proposals/p-1/decision',
-      json({ _tag: 'Create', issue: { project: 'app', title: 'Dark mode', body: '' } }),
+      json({ _tag: 'Create', issue: { planet: 'app', title: 'Dark mode', body: '' } }),
     );
     const reset = await call('/api/v1/brainstorm/reset', { method: 'POST' });
 
@@ -995,11 +995,7 @@ describe('the brainstorm API', () => {
     expect(asked).toEqual([
       ['send', 'Idea', undefined],
       ['send', '', [IMAGE]],
-      [
-        'decide',
-        'p-1',
-        { _tag: 'Create', issue: { project: 'app', title: 'Dark mode', body: '' } },
-      ],
+      ['decide', 'p-1', { _tag: 'Create', issue: { planet: 'app', title: 'Dark mode', body: '' } }],
       ['reset'],
     ]);
   });
@@ -1020,7 +1016,7 @@ describe('the brainstorm API', () => {
     [new ProposalNotFoundError({ id: 'p-1' }), 404, 'proposal-not-found'],
     [new ProposalDecidedError({ id: 'p-1' }), 409, 'proposal-decided'],
     [new BrainstormBusyError(), 409, 'brainstorm-busy'],
-    [new NoGiteaRemoteError({ project: 'p' }), 409, 'no-gitea-remote'],
+    [new NoGiteaRemoteError({ planet: 'p' }), 409, 'no-gitea-remote'],
     [new GiteaNotConfiguredError(), 409, 'gitea-not-configured'],
     [new GiteaUnavailableError({ reason: 'Gitea answered 500.' }), 503, 'gitea-unavailable'],
     [new IssueChangedError({ number: 11 }), 409, 'issue-changed'],
@@ -1755,14 +1751,14 @@ describe('the task starts routes', () => {
     const asked: Array<unknown> = [];
     const ok = await only({
       startInWorktree: (input) => Effect.sync(() => (asked.push(input), created)),
-    })('/api/v1/projects/app/issues/12/start-agent', json({ branch: 'fix/12-login', agent: 'pi' }));
+    })('/api/v1/planets/app/issues/12/start-agent', json({ branch: 'fix/12-login', agent: 'pi' }));
     expect(ok.status).toBe(201);
-    expect(asked).toEqual([{ project: 'app', number: 12, branch: 'fix/12-login', agent: 'pi' }]);
+    expect(asked).toEqual([{ planet: 'app', number: 12, branch: 'fix/12-login', agent: 'pi' }]);
 
     const failing = async (error: unknown) =>
       (
         await only({ startInWorktree: () => Effect.fail(error as never) })(
-          '/api/v1/projects/app/issues/12/start-agent',
+          '/api/v1/planets/app/issues/12/start-agent',
           json({ branch: 'fix/12-login', agent: 'claude' }),
         )
       ).status;
@@ -1770,7 +1766,7 @@ describe('the task starts routes', () => {
     expect(await failing(new WorktreeBusyError({ branch: 'fix/12-login' }))).toBe(409);
 
     const invalid = await only({})(
-      '/api/v1/projects/app/issues/12/start-agent',
+      '/api/v1/planets/app/issues/12/start-agent',
       json({ branch: 'fix/12-login', agent: 'codex' }),
     );
     expect(invalid.status).toBe(422);

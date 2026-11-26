@@ -29,7 +29,7 @@ const listed = (...issues: ReadonlyArray<IssueView>): IssueListView => ({
 
 const open = (list: IssueListView | RequestError, extra: Parameters<typeof fakeClient>[0] = {}) => {
   const fake = fakeClient({ issues: new Map([['pocket-comms', list]]), ...extra });
-  const rendered = renderApp({ client: fake.client, path: '/projects/pocket-comms' });
+  const rendered = renderApp({ client: fake.client, path: '/planets/pocket-comms' });
   return { ...fake, ...rendered };
 };
 
@@ -41,7 +41,7 @@ const rowOf = async (number: number) => {
   return row;
 };
 
-describe('the project screen', () => {
+describe('the planet screen', () => {
   it('lists the open issues with their labels, age and Gitea link', async () => {
     open(
       listed(

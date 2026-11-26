@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { OverviewView } from './comms-client.js';
-import { filterOverview } from './project-agents.js';
+import { filterOverview } from './planet-agents.js';
 import { fakeAgent } from './testing.js';
 
-const home = fakeAgent({ ref: 'kirk', project: 'pocket-home' });
-const comms = fakeAgent({ ref: 'spock', project: 'pocket-comms' });
-const loose = fakeAgent({ ref: 'burnham', project: undefined, workspace: 'notes' });
-const waitingHome = fakeAgent({ ref: 'uhura', project: 'pocket-home', status: 'blocked' });
-const waitingLearning = fakeAgent({ ref: 'data', project: 'pocket-learning', status: 'done' });
-const waitingLoose = fakeAgent({ ref: 'pike', project: undefined, status: 'blocked' });
+const home = fakeAgent({ ref: 'kirk', planet: 'pocket-home' });
+const comms = fakeAgent({ ref: 'spock', planet: 'pocket-comms' });
+const loose = fakeAgent({ ref: 'burnham', planet: undefined, workspace: 'notes' });
+const waitingHome = fakeAgent({ ref: 'uhura', planet: 'pocket-home', status: 'blocked' });
+const waitingLearning = fakeAgent({ ref: 'data', planet: 'pocket-learning', status: 'done' });
+const waitingLoose = fakeAgent({ ref: 'pike', planet: undefined, status: 'blocked' });
 
 const overview: OverviewView = {
   needsYou: [waitingHome, waitingLearning, waitingLoose],
@@ -25,7 +25,7 @@ const refs = (filtered: OverviewView) => ({
 });
 
 describe('filterOverview', () => {
-  it("keeps only a project's card and its agents in Needs you", () => {
+  it("keeps only a planet's card and its agents in Needs you", () => {
     expect(refs(filterOverview(overview, 'pocket-home'))).toEqual({
       needsYou: ['uhura'],
       groups: ['pocket-home'],
@@ -36,7 +36,7 @@ describe('filterOverview', () => {
     expect(refs(filterOverview(overview, 'Other'))).toEqual({ needsYou: [], groups: [] });
   });
 
-  it('keeps Needs you alone for a project whose only agents wait', () => {
+  it('keeps Needs you alone for a planet whose only agents wait', () => {
     expect(refs(filterOverview(overview, 'pocket-learning'))).toEqual({
       needsYou: ['data'],
       groups: [],

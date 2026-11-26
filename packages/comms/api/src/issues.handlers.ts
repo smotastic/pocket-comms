@@ -13,9 +13,9 @@ export const issuesHandlers = HttpApiBuilder.group(
 
     return handlers
       .handle('list', ({ params }) =>
-        issuesInbound.issues(params.project).pipe(
+        issuesInbound.issues(params.planet).pipe(
           Effect.catchTags({
-            ProjectNotFoundError: problems.projectNotFound,
+            PlanetNotFoundError: problems.planetNotFound,
             GiteaUnavailableError: problems.giteaUnavailable,
           }),
         ),
@@ -23,14 +23,14 @@ export const issuesHandlers = HttpApiBuilder.group(
       .handle('implement', ({ params, payload }) =>
         issuesInbound
           .implement({
-            project: params.project,
+            planet: params.planet,
             number: Number(params.number),
             branch: payload.branch,
             additionalInformation: payload.additionalInformation,
           })
           .pipe(
             Effect.catchTags({
-              ProjectNotFoundError: problems.projectNotFound,
+              PlanetNotFoundError: problems.planetNotFound,
               NoGiteaRemoteError: problems.noGiteaRemote,
               GiteaNotConfiguredError: problems.giteaNotConfigured,
               GiteaUnavailableError: problems.giteaUnavailable,
@@ -38,16 +38,16 @@ export const issuesHandlers = HttpApiBuilder.group(
               IssueClosedError: problems.issueClosed,
               InvalidInputError: problems.invalidInput,
               BranchExistsError: problems.branchExists,
-              ProjectGitError: problems.projectGitFailed,
+              RepositoryGitError: problems.planetGitFailed,
               MultiplexerUnavailableError: problems.herdrUnavailable,
               MultiplexerRejectedError: problems.worktreeRefused,
             }),
           ),
       )
       .handle('close', ({ params }) =>
-        issuesInbound.close({ project: params.project, number: Number(params.number) }).pipe(
+        issuesInbound.close({ planet: params.planet, number: Number(params.number) }).pipe(
           Effect.catchTags({
-            ProjectNotFoundError: problems.projectNotFound,
+            PlanetNotFoundError: problems.planetNotFound,
             NoGiteaRemoteError: problems.noGiteaRemote,
             GiteaNotConfiguredError: problems.giteaNotConfigured,
             GiteaUnavailableError: problems.giteaUnavailable,

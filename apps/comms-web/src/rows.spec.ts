@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { projectLabel, rowName, rowWorktree } from './rows.js';
+import { planetLabel, rowName, rowWorktree } from './rows.js';
 import { fakeAgent } from './testing.js';
 
-const main = fakeAgent({ name: 'kirk', workspace: 'pocket-home', project: 'pocket-home' });
+const main = fakeAgent({ name: 'kirk', workspace: 'pocket-home', planet: 'pocket-home' });
 const linked = fakeAgent({
   name: 'kirk',
   workspace: 'ingestor-mvp',
-  project: 'pocket-home',
+  planet: 'pocket-home',
   worktree: 'ingestor-mvp',
 });
-const loose = fakeAgent({ name: 'burnham', workspace: 'G registry cleanup', project: undefined });
+const loose = fakeAgent({ name: 'burnham', workspace: 'G registry cleanup', planet: undefined });
 
 describe('rowName', () => {
   it('is the Herdr name of a named agent', () => {
@@ -39,12 +39,12 @@ describe('rowWorktree', () => {
   });
 });
 
-describe('projectLabel', () => {
-  it('is the project of an agent', () => {
-    expect(projectLabel(linked)).toBe('pocket-home');
+describe('planetLabel', () => {
+  it('is the planet of an agent', () => {
+    expect(planetLabel(linked)).toBe('pocket-home');
   });
 
-  it('is the workspace of an agent without a project', () => {
-    expect(projectLabel(loose)).toBe('G registry cleanup');
+  it('is the workspace of an agent without a planet', () => {
+    expect(planetLabel(loose)).toBe('G registry cleanup');
   });
 });

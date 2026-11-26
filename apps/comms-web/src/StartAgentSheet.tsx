@@ -20,7 +20,7 @@ export interface WorktreeToStart {
 
 export interface StartAgentSheetProps {
   readonly client: CommsClient;
-  readonly project: string;
+  readonly planet: string;
   /** The worktree to start an agent in; none closes the sheet. */
   readonly worktree: WorktreeToStart | undefined;
   readonly onClose: () => void;
@@ -34,14 +34,14 @@ const KINDS: ReadonlyArray<{ readonly id: AgentToStart; readonly label: string }
 
 const StartForm = ({
   client,
-  project,
+  planet,
   worktree,
   onStarted,
 }: Omit<StartAgentSheetProps, 'worktree' | 'onClose'> & { readonly worktree: WorktreeToStart }) => {
   const [kind, setKind] = useState<AgentToStart>('claude');
   const start = useMutation({
     mutationFn: () =>
-      client.startAgentInWorktree(project, worktree.issue.number, worktree.branch, kind),
+      client.startAgentInWorktree(planet, worktree.issue.number, worktree.branch, kind),
     onSuccess: onStarted,
   });
   const name = kind === 'pi' ? 'Pi' : 'Claude';
@@ -60,7 +60,7 @@ const StartForm = ({
       }
     >
       <Text tone="muted">
-        {name} starts in the existing worktree on {worktree.branch} of {project}. No new worktree or
+        {name} starts in the existing worktree on {worktree.branch} of {planet}. No new worktree or
         branch is made; the agent gets the task once it is ready.
       </Text>
       <SegmentedControl label="Agent" options={KINDS} selected={kind} onSelect={setKind} />
@@ -75,7 +75,7 @@ const StartForm = ({
  */
 export const StartAgentSheet = ({
   client,
-  project,
+  planet,
   worktree,
   onClose,
   onStarted,
@@ -100,7 +100,7 @@ export const StartAgentSheet = ({
       <StartForm
         key={`${worktree.issue.number}/${worktree.branch}`}
         client={client}
-        project={project}
+        planet={planet}
         worktree={worktree}
         onStarted={onStarted}
       />

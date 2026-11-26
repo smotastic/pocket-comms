@@ -34,7 +34,7 @@ const othersOf = (overview: OverviewView | undefined, agent: AgentView): Readonl
       .filter(
         (each) =>
           each.ref !== agent.ref &&
-          each.project === agent.project &&
+          each.planet === agent.planet &&
           each.worktree === agent.worktree,
       )
       .map((each) => each.ref),

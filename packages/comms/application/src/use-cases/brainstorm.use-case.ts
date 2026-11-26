@@ -67,7 +67,7 @@ import {
   makeBrainstormTools,
   type ProposedEdit,
 } from '../tools/brainstorm-tools.js';
-import { makeIssueProject } from './issue-project.js';
+import { makeIssuePlanet } from './issue-planet.js';
 
 // The brainstorm (spec 013): one conversation with Pi, kept in the store after every change.
 // One turn runs at a time, in the background of the server, on the agent package's turn engine
@@ -77,9 +77,9 @@ import { makeIssueProject } from './issue-project.js';
 /** What Pi is told it is for (requirement 9). */
 export const BRAINSTORM_INSTRUCTIONS = `You are Pi, the owner's brainstorm partner inside pocket-comms, an app on their phone. The owner writes or dictates ideas on the go, often in a few rough words. Help them think an idea through: ask a short question when it is unclear, suggest angles they may have missed, and keep answers brief, because they read on a phone.
 
-You can look at the owner's projects (list_projects), a project's open issues (list_open_issues), one issue in full (read_issue) and a project's README.md or AGENTS.md (read_project_doc). You cannot read other files or run commands.
+You can look at the owner's planets (list_planets), a planet's open issues (list_open_issues), one issue in full (read_issue) and a planet's README.md or AGENTS.md (read_planet_doc). You cannot read other files or run commands.
 
-When an idea is clear enough to keep, propose it as a Gitea issue in the project it belongs to with propose_issue: a short title, and a Markdown body with the idea, why it matters and a rough shape. Check the open issues first so nothing is filed twice.
+When an idea is clear enough to keep, propose it as a Gitea issue in the planet it belongs to with propose_issue: a short title, and a Markdown body with the idea, why it matters and a rough shape. Check the open issues first so nothing is filed twice.
 
 When an idea belongs to an issue that exists, read it with read_issue and propose an edit with propose_issue_edit instead of a new issue. Send the whole new title and body, and keep every part of the body the edit is not about.
 
@@ -152,12 +152,12 @@ const decisionNote = (decided: ProposalEntry, numbers: ReadonlyMap<string, numbe
       : `; ${left.length === 1 ? 'image' : 'images'} ${listed(left)} ${left.length === 1 ? 'was' : 'were'} left out`);
   if (decided.kind === 'edit') {
     return decided.state._tag === 'updated'
-      ? `The owner updated the issue #${decided.number} in ${decided.project}: it is now "${decided.title}" with the body you proposed or the owner edited (${decided.state.url})${images}.`
-      : `The owner discarded your edit of the issue #${decided.number} in ${decided.project}.`;
+      ? `The owner updated the issue #${decided.number} in ${decided.planet}: it is now "${decided.title}" with the body you proposed or the owner edited (${decided.state.url})${images}.`
+      : `The owner discarded your edit of the issue #${decided.number} in ${decided.planet}.`;
   }
   return decided.state._tag === 'created'
-    ? `The owner created the issue #${decided.state.number} in ${decided.project}: "${decided.title}" (${decided.state.url})${images}.`
-    : `The owner discarded the proposal "${decided.title}" for ${decided.project}.`;
+    ? `The owner created the issue #${decided.state.number} in ${decided.planet}: "${decided.title}" (${decided.state.url})${images}.`
+    : `The owner discarded the proposal "${decided.title}" for ${decided.planet}.`;
 };
 
 /** What Pi reads about the images of a message, after its text. */
@@ -172,7 +172,7 @@ export const makeBrainstorm = Effect.gen(function* () {
   const giteaOutbound = yield* GiteaOutbound;
   const imagesOutbound = yield* ImagesOutbound;
   const transcriber = yield* Transcriber;
-  const issueProject = yield* makeIssueProject;
+  const issuePlanet = yield* makeIssuePlanet;
   const toolsFor = yield* makeBrainstormTools;
   // Turns run in the scope of the layer, so they outlive the request that started them.
   const engine = yield* makeTurnEngine({ deadline: TURN_DEADLINE, reasonOf });
@@ -266,7 +266,7 @@ export const makeBrainstorm = Effect.gen(function* () {
         kind: 'edit',
         id,
         at,
-        project: read.project,
+        planet: read.planet,
         number: read.number,
         url: read.url,
         title,
@@ -282,9 +282,9 @@ export const makeBrainstorm = Effect.gen(function* () {
           ? change({ ...ongoing, reads: rememberRead(ongoing.reads, read) })
           : Effect.void,
       ),
-    readOf: (project: string, number: number) =>
+    readOf: (planet: string, number: number) =>
       Effect.sync(() =>
-        ongoing.id === brainstormId ? readOf(ongoing.reads, project, number) : undefined,
+        ongoing.id === brainstormId ? readOf(ongoing.reads, planet, number) : undefined,
       ),
     images: (numbers: ReadonlyArray<number>) =>
       Effect.sync(() => imagesByNumber(ownEntries(ongoing), numbers)),
@@ -358,18 +358,18 @@ export const makeBrainstorm = Effect.gen(function* () {
         .pipe(Effect.orDie);
     });
 
-  const repositoryOf = (project: string) =>
+  const repositoryOf = (planet: string) =>
     Effect.gen(function* () {
-      const { repository } = yield* issueProject(project).pipe(
-        Effect.catchTag('ProjectNotFoundError', (error) =>
+      const { repository } = yield* issuePlanet(planet).pipe(
+        Effect.catchTag('PlanetNotFoundError', (error) =>
           Effect.fail(
             new InvalidInputError({
-              issues: [{ field: 'project', message: `There is no project ${error.project}.` }],
+              issues: [{ field: 'planet', message: `There is no planet ${error.planet}.` }],
             }),
           ),
         ),
       );
-      if (Option.isNone(repository)) return yield* new NoGiteaRemoteError({ project });
+      if (Option.isNone(repository)) return yield* new NoGiteaRemoteError({ planet });
       return repository.value;
     });
 
@@ -467,7 +467,7 @@ export const makeBrainstorm = Effect.gen(function* () {
   /** Uploads the missing images of a created issue, then links them; the proposal as created. */
   const finishImages = (proposal: IssueProposal, created: { number: number; url: string }) =>
     Effect.gen(function* () {
-      const repository = yield* repositoryOf(proposal.project);
+      const repository = yield* repositoryOf(proposal.planet);
       const attached = yield* attachImages(proposal, repository, created.number);
       return yield* linkImages(attached, repository, created);
     });
@@ -486,13 +486,13 @@ export const makeBrainstorm = Effect.gen(function* () {
       const proposed = parseProposedIssue(edited);
       if (Result.isFailure(proposed)) return yield* proposed.failure;
       const images = yield* chooseImages(chosen);
-      const repository = yield* repositoryOf(proposed.success.project);
+      const repository = yield* repositoryOf(proposed.success.planet);
       const created = yield* giteaOutbound.createIssue(repository, {
         title: proposed.success.title,
         body: proposed.success.body,
       });
       yield* Effect.logInfo('Issue created').pipe(
-        Effect.annotateLogs({ project: proposed.success.project, number: created.number }),
+        Effect.annotateLogs({ planet: proposed.success.planet, number: created.number }),
       );
       const withIssue = { ...proposal, ...proposed.success, images } satisfies IssueProposal;
       if (images.length === 0) {
@@ -523,7 +523,7 @@ export const makeBrainstorm = Effect.gen(function* () {
       const text = parseIssueEdit(edited);
       if (Result.isFailure(text)) return yield* text.failure;
       const images = yield* chooseImages(chosen);
-      const repository = yield* repositoryOf(proposal.project);
+      const repository = yield* repositoryOf(proposal.planet);
       const current = yield* giteaOutbound.issue(repository, proposal.number);
       if (current.pull) return yield* new IssueNotFoundError({ number: proposal.number });
       if (baseChanged(proposal.base, current)) {
@@ -538,7 +538,7 @@ export const makeBrainstorm = Effect.gen(function* () {
         body: bodyWithImages(text.success.body, withImages.attached, images),
       });
       yield* Effect.logInfo('Issue updated').pipe(
-        Effect.annotateLogs({ project: proposal.project, number: proposal.number }),
+        Effect.annotateLogs({ planet: proposal.planet, number: proposal.number }),
       );
       return {
         ...withImages,
@@ -561,7 +561,7 @@ export const makeBrainstorm = Effect.gen(function* () {
     if (state._tag === 'attaching') {
       if (decision._tag === 'Create') return finishImages(proposal, state);
       return decision._tag === 'FinishWithout'
-        ? Effect.flatMap(repositoryOf(proposal.project), (repository) =>
+        ? Effect.flatMap(repositoryOf(proposal.planet), (repository) =>
             linkImages(proposal, repository, state),
           )
         : Effect.fail(mismatch(proposal));
@@ -641,7 +641,7 @@ export const makeBrainstorm = Effect.gen(function* () {
       reads:
         settled.kind === 'edit' && settled.state._tag === 'updated'
           ? rememberRead(ongoing.reads, {
-              project: settled.project,
+              planet: settled.planet,
               number: settled.number,
               url: settled.url,
               title: settled.title,

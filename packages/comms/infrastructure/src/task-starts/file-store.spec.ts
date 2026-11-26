@@ -14,7 +14,7 @@ const store = (path: string) =>
 
 const start = (overrides: Partial<TaskStart> = {}): TaskStart => ({
   folder: '/worktrees/fix-12-login',
-  project: 'app',
+  planet: 'app',
   branch: 'fix/12-login',
   issue: 12,
   kind: 'pi',
@@ -52,6 +52,17 @@ describe('the task starts file store', () => {
         '/worktrees/feat-x',
       ]);
       expect(statSync(join(path, 'task-starts.json')).mode & 0o777).toBe(0o600);
+    }),
+  );
+
+  it.effect('names the planet project in the file, as before spec 034', () =>
+    Effect.gen(function* () {
+      const path = folder();
+      yield* (yield* store(path)).put(start());
+
+      const text = readFileSync(join(path, 'task-starts.json'), 'utf-8');
+      expect(text).toContain('"project":"app"');
+      expect(text).not.toContain('"planet"');
     }),
   );
 

@@ -29,7 +29,7 @@ const feature: Workspace = {
   id: 'w2',
   label: 'feature',
   group: { key: '/work/app/.git', name: 'app' },
-  project: 'app',
+  planet: 'app',
   worktree: 'feature',
 };
 
@@ -48,33 +48,33 @@ const event = (at: number, overrides: Partial<ActivityEvent> = {}): ActivityEven
   }) as ActivityEvent;
 
 describe('activitySubject', () => {
-  it('names the agent with its workspace, project and worktree', () => {
+  it('names the agent with its workspace, planet and worktree', () => {
     expect(activitySubject(agent({ paneId: 'w2:p1', name: 'kirk' }), feature)).toEqual({
       paneId: 'w2:p1',
       ref: 'kirk',
       name: 'kirk',
       workspace: 'feature',
-      project: 'app',
+      planet: 'app',
       worktree: 'feature',
     });
   });
 
-  it('falls back to the workspace id and no project without a workspace', () => {
+  it('falls back to the workspace id and no planet without a workspace', () => {
     expect(activitySubject(agent({ paneId: 'w3:p1', workspaceId: 'w3' }), undefined)).toEqual({
       paneId: 'w3:p1',
       ref: 'w3:p1',
       name: undefined,
       workspace: 'w3',
-      project: undefined,
+      planet: undefined,
       worktree: undefined,
     });
   });
 
-  it('has no project for a workspace without one', () => {
+  it('has no planet for a workspace without one', () => {
     const notes: Workspace = { id: 'w3', label: 'notes', group: OTHER_GROUP };
     expect(activitySubject(agent({ paneId: 'w3:p1' }), notes)).toMatchObject({
       workspace: 'notes',
-      project: undefined,
+      planet: undefined,
     });
   });
 });
@@ -105,7 +105,7 @@ describe('activityBetween', () => {
     const [gone] = activityBetween([observed({ paneId: 'w2:p1', name: 'kirk' })], []);
     expect(gone).toEqual({
       type: 'gone',
-      agent: expect.objectContaining({ ref: 'kirk', project: 'app' }),
+      agent: expect.objectContaining({ ref: 'kirk', planet: 'app' }),
     });
   });
 

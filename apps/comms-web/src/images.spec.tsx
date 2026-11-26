@@ -173,7 +173,7 @@ describe('images in the conversation', () => {
 });
 
 describe('images in the New task form', () => {
-  const at = { path: '/projects/pocket-home' };
+  const at = { path: '/planets/pocket-home' };
 
   const openSheet = async () => {
     await userEvent.click(await screen.findByRole('button', { name: 'New task' }));
@@ -193,7 +193,7 @@ describe('images in the New task form', () => {
     await waitFor(() =>
       expect(fake.calls.tasks).toEqual([
         {
-          project: 'pocket-home',
+          planet: 'pocket-home',
           task: 'Fix the header',
           branch: 'fix/the-header',
           agent: { kind: 'claude' },

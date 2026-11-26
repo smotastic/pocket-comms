@@ -11,7 +11,7 @@ import { join } from 'node:path';
 
 /**
  * One multiplexer as a fake serves it: one idle Claude agent named `kirk` in its own workspace, at
- * the worktree folder `/worktrees/app/feat-x` of the project `/work/app`.
+ * the worktree folder `/worktrees/app/feat-x` of the planet `/work/app`.
  */
 export interface MultiplexerWorld {
   readonly layer: Layer.Layer<MultiplexerOutbound>;

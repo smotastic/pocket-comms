@@ -9,7 +9,7 @@ import {
   startFor,
   type Agent,
   type AgentToStart,
-  type Project,
+  type Repository,
   type TaskStart,
   type Workspace,
   type Worktree,
@@ -35,48 +35,48 @@ import {
 } from '../errors.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
-import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
+import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
 import { makeRecordActivity } from './activity-log.js';
 import { makeAgentLaunch } from './agent-launch.js';
 import { makeLoadAgents } from './agents.js';
-import { makeIssueProject } from './issue-project.js';
+import { makeIssuePlanet } from './issue-planet.js';
 
 // Recovering a task start (spec 032): the card in an agent's conversation reads the start of the
 // agent's worktree and sends its prompt only when the owner says so; an issue's worktree without
 // an agent gets one, with the kept prompt or the issue's task. Worktrees come only from git's
-// list of a project, workspaces only from Herdr, never a path from a request.
+// list of a planet, workspaces only from Herdr, never a path from a request.
 
 /** An agent kind the app can start, from one Herdr names; any other is shown as Claude. */
 const kindOf = (agent: Agent): AgentToStart => (agent.kind === 'pi' ? 'pi' : 'claude');
 
 export const makeTaskStarts = Effect.gen(function* () {
   const herdrOutbound = yield* MultiplexerOutbound;
-  const projectsOutbound = yield* ProjectsOutbound;
+  const planetsOutbound = yield* RepositoriesOutbound;
   const giteaOutbound = yield* GiteaOutbound;
   const starts = yield* TaskStartsOutbound;
-  const issueProject = yield* makeIssueProject;
+  const issuePlanet = yield* makeIssuePlanet;
   const { load, find } = yield* makeLoadAgents;
   const { launch, deliver } = yield* makeAgentLaunch;
   const { record } = yield* makeRecordActivity;
 
-  /** The linked worktree that holds `folder`'s checkout, and its project. */
+  /** The linked worktree that holds `folder`'s checkout, and its planet. */
   const linkedWorktree = Effect.fnUntraced(function* (workspace: Workspace | undefined) {
     if (workspace?.checkout === undefined || workspace.root === undefined) return undefined;
-    const project = (yield* projectsOutbound.list).find((each) => each.path === workspace.root);
-    if (project === undefined) return undefined;
+    const planet = (yield* planetsOutbound.list).find((each) => each.path === workspace.root);
+    if (planet === undefined) return undefined;
     // git lists the primary checkout first; only the linked worktrees after it count.
-    const linked = (yield* projectsOutbound.worktrees(project).pipe(Effect.orElseSucceed(() => [])))
+    const linked = (yield* planetsOutbound.worktrees(planet).pipe(Effect.orElseSucceed(() => [])))
       .slice(1)
       .find((worktree) => worktree.path === workspace.checkout);
-    return linked === undefined ? undefined : { project, worktree: linked };
+    return linked === undefined ? undefined : { planet, worktree: linked };
   });
 
   /** The open issue a worktree's branch works on, read from Gitea now. */
-  const issueOf = Effect.fnUntraced(function* (project: Project, worktree: Worktree) {
+  const issueOf = Effect.fnUntraced(function* (planet: Repository, worktree: Worktree) {
     const number = worktree.branch === undefined ? undefined : issueNumberOf(worktree.branch);
     if (number === undefined) return undefined;
-    const { repository } = yield* issueProject(project.name);
+    const { repository } = yield* issuePlanet(planet.name);
     if (Option.isNone(repository)) return undefined;
     const issue = yield* giteaOutbound.issue(repository.value, number);
     return issue.pull || issue.state !== 'open' ? undefined : issue;
@@ -101,7 +101,7 @@ export const makeTaskStarts = Effect.gen(function* () {
     if (linked === undefined || linked.worktree.branch === undefined) {
       return { agent, workspace, start: undefined, source: 'issue' } as const;
     }
-    const issue = yield* issueOf(linked.project, linked.worktree).pipe(
+    const issue = yield* issueOf(linked.planet, linked.worktree).pipe(
       Effect.orElseSucceed(() => undefined),
     );
     const start: TaskStart | undefined =
@@ -109,7 +109,7 @@ export const makeTaskStarts = Effect.gen(function* () {
         ? undefined
         : {
             folder: linked.worktree.path,
-            project: linked.project.name,
+            planet: linked.planet.name,
             branch: linked.worktree.branch,
             issue: issue.number,
             kind: kindOf(agent),
@@ -190,8 +190,8 @@ export const makeTaskStarts = Effect.gen(function* () {
   const startInWorktree = Effect.fn('TaskStarts.startInWorktree')(function* (
     input: StartAgentInWorktreeInput,
   ) {
-    const { project, repository } = yield* issueProject(input.project);
-    const worktree = (yield* projectsOutbound.worktrees(project))
+    const { planet, repository } = yield* issuePlanet(input.planet);
+    const worktree = (yield* planetsOutbound.worktrees(planet))
       .slice(1)
       .find(
         (each) =>
@@ -211,7 +211,7 @@ export const makeTaskStarts = Effect.gen(function* () {
     let prompt = kept?.prompt;
     if (prompt === undefined) {
       if (Option.isNone(repository)) {
-        return yield* new NoGiteaRemoteError({ project: project.name });
+        return yield* new NoGiteaRemoteError({ planet: planet.name });
       }
       const issue = yield* giteaOutbound.issue(repository.value, input.number);
       if (issue.pull) return yield* new IssueNotFoundError({ number: input.number });
@@ -221,7 +221,7 @@ export const makeTaskStarts = Effect.gen(function* () {
     const workspace = snapshot.workspaces.find((each) => each.checkout === worktree.path);
     let pane: { readonly workspaceId: string; readonly paneId: string };
     if (workspace === undefined) {
-      const opened = yield* herdrOutbound.openWorktree({ cwd: project.path, path: worktree.path });
+      const opened = yield* herdrOutbound.openWorktree({ cwd: planet.path, path: worktree.path });
       // An open workspace's first pane may hold something else, so the agent gets a new shell.
       pane = opened.alreadyOpen ? yield* herdrOutbound.openShell(opened.workspaceId) : opened;
     } else {
@@ -230,7 +230,7 @@ export const makeTaskStarts = Effect.gen(function* () {
     const agent = yield* launch(
       {
         folder: worktree.path,
-        project: project.name,
+        planet: planet.name,
         branch: input.branch,
         issue: input.number,
       },

@@ -28,32 +28,32 @@ import { groupIssues, shownLabels } from './issue-groups.js';
 import { NewTask } from './NewTask.js';
 import { NotificationsRow } from './NotificationsRow.js';
 
-export interface ProjectsSheetProps {
+export interface PlanetsSheetProps {
   readonly client: CommsClient;
   readonly open: boolean;
   readonly onClose: () => void;
   readonly overview: OverviewView | undefined;
-  /** Every project's name, in their order; none while they load. */
-  readonly projects: ReadonlyArray<string> | undefined;
-  /** Why the projects could not be read. */
-  readonly projectsError: string | undefined;
-  /** Called once Implement or New task started work in a project. */
-  readonly onStarted: (project: string, created: TaskCreatedView) => void;
+  /** Every planet's name, in their order; none while they load. */
+  readonly planets: ReadonlyArray<string> | undefined;
+  /** Why the planets could not be read. */
+  readonly planetsError: string | undefined;
+  /** Called once Implement or New task started work in a planet. */
+  readonly onStarted: (planet: string, created: TaskCreatedView) => void;
 }
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-/** The line under a project's name: its agents, those in Needs you, and its open issues. */
+/** The line under a planet's name: its agents, those in Needs you, and its open issues. */
 const detailOf = (
-  project: string,
+  planet: string,
   overview: OverviewView | undefined,
   issues: IssueListView | undefined,
 ) => {
   const agents = [
     ...(overview?.needsYou ?? []),
     ...(overview?.groups ?? []).flatMap((group) => group.agents),
-  ].filter((agent) => agent.project === project);
-  const waiting = (overview?.needsYou ?? []).filter((agent) => agent.project === project).length;
+  ].filter((agent) => agent.planet === planet);
+  const waiting = (overview?.needsYou ?? []).filter((agent) => agent.planet === planet).length;
   return [
     agents.length === 0 ? 'No agents' : plural(agents.length, 'agent', 'agents'),
     ...(waiting === 0 ? [] : [`${waiting} ${waiting === 1 ? 'needs' : 'need'} you`]),
@@ -68,7 +68,7 @@ const agentsOn = (issue: IssueView) =>
 /** One issue as a card whose Close asks in place before it closes the issue. */
 const IssueItem = ({
   client,
-  project,
+  planet,
   issue,
   asking,
   onAsk,
@@ -76,7 +76,7 @@ const IssueItem = ({
   onClosed,
 }: {
   readonly client: CommsClient;
-  readonly project: string;
+  readonly planet: string;
   readonly issue: IssueView;
   /** Whether the card asks to close the issue. */
   readonly asking: boolean;
@@ -85,7 +85,7 @@ const IssueItem = ({
   readonly onImplement: () => void;
   readonly onClosed: (number: number) => void;
 }) => {
-  const close = useCloseIssue(client, project, issue.number, onClosed);
+  const close = useCloseIssue(client, planet, issue.number, onClosed);
   const busy = agentsOn(issue);
   const working = stillWorking(issue);
   return (
@@ -167,13 +167,13 @@ const IssueItem = ({
 
 const IssueList = ({
   client,
-  project,
+  planet,
   issues,
   onImplement,
   onClosed,
 }: {
   readonly client: CommsClient;
-  readonly project: string;
+  readonly planet: string;
   readonly issues: UseQueryResult<IssueListView>;
   readonly onImplement: (issue: IssueView) => void;
   readonly onClosed: (number: number) => void;
@@ -188,7 +188,7 @@ const IssueList = ({
     );
   }
   if (list._tag === 'NoGiteaRemote') {
-    return <Text tone="muted">This project has no Gitea remote, so it has no issues to show.</Text>;
+    return <Text tone="muted">This planet has no Gitea remote, so it has no issues to show.</Text>;
   }
   if (list.issues.length === 0) return <Text tone="muted">No open issues.</Text>;
   const { inProgress, open } = groupIssues(list.issues);
@@ -201,7 +201,7 @@ const IssueList = ({
             <IssueItem
               key={issue.number}
               client={client}
-              project={project}
+              planet={planet}
               issue={issue}
               asking={asking === issue.number}
               onAsk={(ask) => setAsking(ask ? issue.number : undefined)}
@@ -225,45 +225,45 @@ const IssueList = ({
 };
 
 /** The sheet's content; it mounts with the sheet, so every opening starts collapsed. */
-const ProjectList = ({
+const PlanetList = ({
   client,
   overview,
-  projects,
+  planets,
   onStarted,
-}: Omit<ProjectsSheetProps, 'open' | 'onClose' | 'projects' | 'projectsError'> & {
-  readonly projects: ReadonlyArray<string>;
+}: Omit<PlanetsSheetProps, 'open' | 'onClose' | 'planets' | 'planetsError'> & {
+  readonly planets: ReadonlyArray<string>;
 }) => {
   const queryClient = useQueryClient();
-  const issues = useQueries({ queries: projects.map((project) => issuesQuery(client, project)) });
+  const issues = useQueries({ queries: planets.map((planet) => issuesQuery(client, planet)) });
   const [expanded, setExpanded] = useState<string | undefined>(undefined);
   const [implementing, setImplementing] = useState<
-    { readonly project: string; readonly issue: IssueView } | undefined
+    { readonly planet: string; readonly issue: IssueView } | undefined
   >(undefined);
   const [creating, setCreating] = useState<string | undefined>(undefined);
-  // Tied to its project, so a close that finishes after the owner moved on says so only there.
+  // Tied to its planet, so a close that finishes after the owner moved on says so only there.
   const [notice, setNotice] = useState<
-    { readonly project: string; readonly text: string } | undefined
+    { readonly planet: string; readonly text: string } | undefined
   >(undefined);
 
   return (
     <>
-      {projects.map((project, index) => {
+      {planets.map((planet, index) => {
         const list = issues[index];
         return (
           <Disclosure
-            key={project}
-            title={project}
-            detail={detailOf(project, overview, list?.data)}
-            expanded={expanded === project}
+            key={planet}
+            title={planet}
+            detail={detailOf(planet, overview, list?.data)}
+            expanded={expanded === planet}
             onExpandedChange={(open) => {
-              setExpanded(open ? project : undefined);
+              setExpanded(open ? planet : undefined);
               setNotice(undefined);
             }}
           >
-            {/* Mounted only while open, so a collapsed project forgets an open question. */}
-            {expanded !== project ? null : (
+            {/* Mounted only while open, so a collapsed planet forgets an open question. */}
+            {expanded !== planet ? null : (
               <Stack gap="md">
-                {notice?.project !== project ? null : (
+                {notice?.planet !== planet ? null : (
                   <div role="status">
                     <Text size="sm">{notice.text}</Text>
                   </div>
@@ -271,20 +271,20 @@ const ProjectList = ({
                 {list === undefined ? null : (
                   <IssueList
                     client={client}
-                    project={project}
+                    planet={planet}
                     issues={list}
-                    onImplement={(issue) => setImplementing({ project, issue })}
+                    onImplement={(issue) => setImplementing({ planet, issue })}
                     onClosed={(number) => {
-                      setNotice({ project, text: `#${number} closed.` });
-                      void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
+                      setNotice({ planet, text: `#${number} closed.` });
+                      void queryClient.invalidateQueries({ queryKey: issuesKey(planet) });
                     }}
                   />
                 )}
                 <Inline gap="md">
-                  <Button size="sm" variant="secondary" onClick={() => setCreating(project)}>
+                  <Button size="sm" variant="secondary" onClick={() => setCreating(planet)}>
                     New task
                   </Button>
-                  <Link href={`/projects/${encodeURIComponent(project)}`}>Project page</Link>
+                  <Link href={`/planets/${encodeURIComponent(planet)}`}>Planet page</Link>
                 </Inline>
               </Stack>
             )}
@@ -293,26 +293,26 @@ const ProjectList = ({
       })}
       <ImplementIssue
         client={client}
-        project={implementing?.project ?? ''}
+        planet={implementing?.planet ?? ''}
         issue={implementing?.issue}
         onClose={() => setImplementing(undefined)}
         onStarted={(created) => {
-          const project = implementing?.project;
+          const planet = implementing?.planet;
           setImplementing(undefined);
-          if (project === undefined) return;
-          void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
-          onStarted(project, created);
+          if (planet === undefined) return;
+          void queryClient.invalidateQueries({ queryKey: issuesKey(planet) });
+          onStarted(planet, created);
         }}
       />
       <NewTask
         client={client}
-        project={creating ?? ''}
+        planet={creating ?? ''}
         open={creating !== undefined}
         onClose={() => setCreating(undefined)}
         onCreated={(created) => {
-          const project = creating;
+          const planet = creating;
           setCreating(undefined);
-          if (project !== undefined) onStarted(project, created);
+          if (planet !== undefined) onStarted(planet, created);
         }}
       />
     </>
@@ -320,25 +320,25 @@ const ProjectList = ({
 };
 
 /**
- * Every project, sliding in from the side, after a link to the activity timeline. A project opens in place to its open
+ * Every planet, sliding in from the side, after a link to the activity timeline. A planet opens in place to its open
  * issues, with Implement, New task and a link to its page. This device's notifications sit at the
  * bottom.
  */
-export const ProjectsSheet = ({
+export const PlanetsSheet = ({
   open,
   onClose,
-  projects,
-  projectsError,
+  planets,
+  planetsError,
   ...props
-}: ProjectsSheetProps) => (
+}: PlanetsSheetProps) => (
   <Sheet
     open={open}
     side="end"
-    label="Projects"
-    bodyLabel="Project list"
+    label="Planets"
+    bodyLabel="Planet list"
     onClose={onClose}
     header={
-      <SheetHeader title="Projects">
+      <SheetHeader title="Planets">
         <IconButton icon="close" label="Close" onClick={onClose} />
       </SheetHeader>
     }
@@ -346,12 +346,12 @@ export const ProjectsSheet = ({
     <Stack gap="md">
       <Link href="/activity">Activity</Link>
       <div>
-        {projectsError !== undefined ? (
-          <Alert>{projectsError}</Alert>
-        ) : projects === undefined ? (
-          <Text tone="muted">Loading the projects…</Text>
+        {planetsError !== undefined ? (
+          <Alert>{planetsError}</Alert>
+        ) : planets === undefined ? (
+          <Text tone="muted">Loading the planets…</Text>
         ) : (
-          <ProjectList projects={projects} {...props} />
+          <PlanetList planets={planets} {...props} />
         )}
       </div>
       <NotificationsRow client={props.client} />

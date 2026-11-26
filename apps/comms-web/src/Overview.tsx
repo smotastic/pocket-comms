@@ -19,18 +19,18 @@ import { AgentItem } from './AgentItem.js';
 import { BrainstormAction } from './Brainstorm.js';
 import type { AgentView, CommsClient } from './comms-client.js';
 import { RequestError } from './comms-client.js';
-import { overviewQuery, projectsQuery } from './comms-queries.js';
+import { overviewQuery, planetsQuery } from './comms-queries.js';
 import { activeFilter, agentsOf, ALL } from './everything-else.js';
 import { useMultiplexerName, useNow, useOverviewLive } from './live.js';
-import { ProjectsSheet } from './ProjectsSheet.js';
-import { projectHue } from './rows.js';
+import { PlanetsSheet } from './PlanetsSheet.js';
+import { planetHue } from './rows.js';
 import { startedNotice } from './started.js';
 
 export interface OverviewProps {
   readonly client: CommsClient;
-  /** Opens a project's page, with a notice to show there. */
-  readonly onProject: (project: string, notice?: string) => void;
-  /** Opens the conversation of an agent the projects sheet started, with its note. */
+  /** Opens a planet's page, with a notice to show there. */
+  readonly onPlanet: (planet: string, notice?: string) => void;
+  /** Opens the conversation of an agent the planets sheet started, with its note. */
   readonly onStarted: (ref: string, note: string | undefined) => void;
   /** Opens the Settings page. */
   readonly onSettings: () => void;
@@ -39,13 +39,13 @@ export interface OverviewProps {
 const Rows = ({
   label,
   agents,
-  projects,
+  planets,
   now,
 }: {
   readonly label: string;
   readonly agents: ReadonlyArray<AgentView>;
-  /** Every project's name, in the order that gives each its colour. */
-  readonly projects: ReadonlyArray<string>;
+  /** Every planet's name, in the order that gives each its colour. */
+  readonly planets: ReadonlyArray<string>;
   readonly now: number;
 }) => (
   <AgentList label={label}>
@@ -53,8 +53,8 @@ const Rows = ({
       <AgentItem
         key={agent.paneId}
         agent={agent}
-        hue={projectHue(agent.project, projects)}
-        withProject
+        hue={planetHue(agent.planet, planets)}
+        withPlanet
         now={now}
       />
     ))}
@@ -68,12 +68,12 @@ const Rows = ({
 const NeedsYou = ({
   agents,
   running,
-  projects,
+  planets,
   now,
 }: {
   readonly agents: ReadonlyArray<AgentView>;
   readonly running: number;
-  readonly projects: ReadonlyArray<string>;
+  readonly planets: ReadonlyArray<string>;
   readonly now: number;
 }) =>
   agents.length === 0 ? (
@@ -82,7 +82,7 @@ const NeedsYou = ({
     <section aria-label="Needs you">
       <Stack gap="lg">
         <Figure value={agents.length} unit={agents.length === 1 ? 'needs you' : 'need you'} />
-        <Rows label="Needs you" agents={agents} projects={projects} now={now} />
+        <Rows label="Needs you" agents={agents} planets={planets} now={now} />
       </Stack>
     </section>
   );
@@ -90,40 +90,40 @@ const NeedsYou = ({
 const Group = ({
   title,
   agents,
-  projects,
+  planets,
   now,
   filter,
 }: {
   readonly title: string;
   readonly agents: ReadonlyArray<AgentView>;
-  /** Every project's name, in the order that gives each its colour. */
-  readonly projects: ReadonlyArray<string>;
+  /** Every planet's name, in the order that gives each its colour. */
+  readonly planets: ReadonlyArray<string>;
   readonly now: number;
-  /** Shown under the heading, such as the project filter. */
+  /** Shown under the heading, such as the planet filter. */
   readonly filter?: ReactNode;
 }) => (
   <section aria-label={title}>
     <Stack gap="xs">
       <SectionHeader title={title} count={agents.length} />
       {filter}
-      <Rows label={title} agents={agents} projects={projects} now={now} />
+      <Rows label={title} agents={agents} planets={planets} now={now} />
     </Stack>
   </section>
 );
 
 /**
  * `/`: every live agent on a stage (spec 024 of the kit): how many need the reader and every one
- * of them on the sky, then Everything else by project, narrowed by a project filter. Its Projects action opens every project and the activity
+ * of them on the sky, then Everything else by planet, narrowed by a planet filter. Its Planets action opens every planet and the activity
  * timeline in a side sheet, and its Settings action opens the Settings page. It updates live.
  */
-export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewProps) => {
+export const Overview = ({ client, onPlanet, onStarted, onSettings }: OverviewProps) => {
   const { live, unavailable } = useOverviewLive(client);
   const multiplexer = useMultiplexerName();
   const overview = useQuery(overviewQuery(client));
-  const projects = useQuery(projectsQuery(client));
+  const planets = useQuery(planetsQuery(client));
   const now = useNow();
   const [chosen, setChosen] = useState(ALL);
-  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [planetsOpen, setPlanetsOpen] = useState(false);
 
   const away =
     unavailable ??
@@ -131,11 +131,11 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
       ? overview.error.message
       : undefined);
   const data = overview.data;
-  const names = projects.data?.map(({ name }) => name) ?? [];
+  const names = planets.data?.map(({ name }) => name) ?? [];
   const groups = data?.groups ?? [];
   const filter = activeFilter(groups, chosen);
   const running = data === undefined ? undefined : data.needsYou.length + agentsOf(groups).length;
-  // A project that leaves the list is forgotten, so it is not chosen again when it comes back.
+  // A planet that leaves the list is forgotten, so it is not chosen again when it comes back.
   useEffect(() => {
     if (filter !== chosen) setChosen(filter);
   }, [filter, chosen]);
@@ -148,23 +148,23 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
         end={
           <>
             <BrainstormAction />
-            <IconButton icon="cards" label="Projects" onClick={() => setProjectsOpen(true)} />
+            <IconButton icon="cards" label="Planets" onClick={() => setPlanetsOpen(true)} />
             <IconButton icon="settings" label="Settings" onClick={onSettings} />
           </>
         }
       />
-      <ProjectsSheet
+      <PlanetsSheet
         client={client}
-        open={projectsOpen}
-        onClose={() => setProjectsOpen(false)}
+        open={planetsOpen}
+        onClose={() => setPlanetsOpen(false)}
         overview={data}
-        projects={projects.data?.map(({ name }) => name)}
-        projectsError={projects.error?.message}
-        onStarted={(project, created) => {
-          setProjectsOpen(false);
-          // A start without a running agent says so on the project's page.
+        planets={planets.data?.map(({ name }) => name)}
+        planetsError={planets.error?.message}
+        onStarted={(planet, created) => {
+          setPlanetsOpen(false);
+          // A start without a running agent says so on the planet's page.
           if (created.agent?.started === true) onStarted(created.agent.ref, created.agent.note);
-          else onProject(project, startedNotice(created));
+          else onPlanet(planet, startedNotice(created));
         }}
       />
       <Page
@@ -187,24 +187,24 @@ export const Overview = ({ client, onProject, onStarted, onSettings }: OverviewP
           {overview.error !== null && away === undefined ? (
             <Alert>{overview.error.message}</Alert>
           ) : null}
-          {projects.error === null ? null : <Alert>{projects.error.message}</Alert>}
+          {planets.error === null ? null : <Alert>{planets.error.message}</Alert>}
           {data === undefined ? (
             overview.isPending ? (
               <Text tone="muted">Loading the agents…</Text>
             ) : null
           ) : (
             <>
-              <NeedsYou agents={data.needsYou} running={running ?? 0} projects={names} now={now} />
+              <NeedsYou agents={data.needsYou} running={running ?? 0} planets={names} now={now} />
               {groups.length === 0 ? null : (
                 <Group
                   title="Everything else"
                   agents={agentsOf(groups, filter)}
-                  projects={names}
+                  planets={names}
                   now={now}
                   filter={
                     groups.length < 2 ? undefined : (
                       <ChipGroup
-                        label="Project"
+                        label="Planet"
                         selectionMode="single"
                         layout="row"
                         selected={filter}

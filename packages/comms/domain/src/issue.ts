@@ -3,7 +3,7 @@ import type { Agent } from './agent.js';
 import { InvalidInputError } from './errors.js';
 import { BRANCH_TYPES, MAX_TASK_LENGTH } from './task.js';
 
-// The rules of a project's Gitea issues (spec 006): which repository a remote names, the order
+// The rules of a planet's Gitea issues (spec 006): which repository a remote names, the order
 // of the list, the branch and the task an issue suggests, which worktrees work on an issue, and
 // when an issue is in progress (spec 015).
 
@@ -33,7 +33,7 @@ export interface RemoteRepository extends GiteaRepository {
   readonly host: string;
 }
 
-/** A worktree of a project and its branch; a detached worktree has none. */
+/** A worktree of a planet and its branch; a detached worktree has none. */
 export interface Worktree {
   readonly path: string;
   readonly branch: string | undefined;

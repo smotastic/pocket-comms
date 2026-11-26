@@ -4,7 +4,7 @@ import { afterRestart, deliveryOf, recoveryOf, startFor, type TaskStart } from '
 
 const start = (overrides: Partial<TaskStart> = {}): TaskStart => ({
   folder: '/worktrees/fix-12-login',
-  project: 'app',
+  planet: 'app',
   branch: 'fix/12-login',
   issue: 12,
   kind: 'claude',

@@ -13,8 +13,8 @@ import { Route as IndexRouteImport } from './routes/index';
 import { Route as ActivityRouteImport } from './routes/activity';
 import { Route as SettingsRouteImport } from './routes/settings';
 import { Route as AgentsAgentRouteImport } from './routes/agents.$agent';
-import { Route as ProjectsIndexRouteImport } from './routes/projects.index';
-import { Route as ProjectsProjectRouteImport } from './routes/projects.$project';
+import { Route as PlanetsIndexRouteImport } from './routes/planets.index';
+import { Route as PlanetsPlanetRouteImport } from './routes/planets.$planet';
 import { Route as AgentsAgentSubagentsSubagentRouteImport } from './routes/agents.$agent_.subagents.$subagent';
 
 const IndexRoute = IndexRouteImport.update({
@@ -37,14 +37,14 @@ const AgentsAgentRoute = AgentsAgentRouteImport.update({
   path: '/agents/$agent',
   getParentRoute: () => rootRouteImport,
 } as any);
-const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
-  id: '/projects/',
-  path: '/projects/',
+const PlanetsIndexRoute = PlanetsIndexRouteImport.update({
+  id: '/planets/',
+  path: '/planets/',
   getParentRoute: () => rootRouteImport,
 } as any);
-const ProjectsProjectRoute = ProjectsProjectRouteImport.update({
-  id: '/projects/$project',
-  path: '/projects/$project',
+const PlanetsPlanetRoute = PlanetsPlanetRouteImport.update({
+  id: '/planets/$planet',
+  path: '/planets/$planet',
   getParentRoute: () => rootRouteImport,
 } as any);
 const AgentsAgentSubagentsSubagentRoute =
@@ -59,8 +59,8 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute;
   '/settings': typeof SettingsRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
-  '/projects/$project': typeof ProjectsProjectRoute;
-  '/projects/': typeof ProjectsIndexRoute;
+  '/planets/$planet': typeof PlanetsPlanetRoute;
+  '/planets/': typeof PlanetsIndexRoute;
   '/agents/$agent/subagents/$subagent': typeof AgentsAgentSubagentsSubagentRoute;
 }
 export interface FileRoutesByTo {
@@ -68,8 +68,8 @@ export interface FileRoutesByTo {
   '/activity': typeof ActivityRoute;
   '/settings': typeof SettingsRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
-  '/projects/$project': typeof ProjectsProjectRoute;
-  '/projects': typeof ProjectsIndexRoute;
+  '/planets/$planet': typeof PlanetsPlanetRoute;
+  '/planets': typeof PlanetsIndexRoute;
   '/agents/$agent/subagents/$subagent': typeof AgentsAgentSubagentsSubagentRoute;
 }
 export interface FileRoutesById {
@@ -78,8 +78,8 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute;
   '/settings': typeof SettingsRoute;
   '/agents/$agent': typeof AgentsAgentRoute;
-  '/projects/$project': typeof ProjectsProjectRoute;
-  '/projects/': typeof ProjectsIndexRoute;
+  '/planets/$planet': typeof PlanetsPlanetRoute;
+  '/planets/': typeof PlanetsIndexRoute;
   '/agents/$agent_/subagents/$subagent': typeof AgentsAgentSubagentsSubagentRoute;
 }
 export interface FileRouteTypes {
@@ -89,8 +89,8 @@ export interface FileRouteTypes {
     | '/activity'
     | '/settings'
     | '/agents/$agent'
-    | '/projects/$project'
-    | '/projects/'
+    | '/planets/$planet'
+    | '/planets/'
     | '/agents/$agent/subagents/$subagent';
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -98,8 +98,8 @@ export interface FileRouteTypes {
     | '/activity'
     | '/settings'
     | '/agents/$agent'
-    | '/projects/$project'
-    | '/projects'
+    | '/planets/$planet'
+    | '/planets'
     | '/agents/$agent/subagents/$subagent';
   id:
     | '__root__'
@@ -107,8 +107,8 @@ export interface FileRouteTypes {
     | '/activity'
     | '/settings'
     | '/agents/$agent'
-    | '/projects/$project'
-    | '/projects/'
+    | '/planets/$planet'
+    | '/planets/'
     | '/agents/$agent_/subagents/$subagent';
   fileRoutesById: FileRoutesById;
 }
@@ -117,8 +117,8 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute;
   SettingsRoute: typeof SettingsRoute;
   AgentsAgentRoute: typeof AgentsAgentRoute;
-  ProjectsProjectRoute: typeof ProjectsProjectRoute;
-  ProjectsIndexRoute: typeof ProjectsIndexRoute;
+  PlanetsPlanetRoute: typeof PlanetsPlanetRoute;
+  PlanetsIndexRoute: typeof PlanetsIndexRoute;
   AgentsAgentSubagentsSubagentRoute: typeof AgentsAgentSubagentsSubagentRoute;
 }
 
@@ -152,18 +152,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentsAgentRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    '/projects/': {
-      id: '/projects/';
-      path: '/projects';
-      fullPath: '/projects/';
-      preLoaderRoute: typeof ProjectsIndexRouteImport;
+    '/planets/': {
+      id: '/planets/';
+      path: '/planets';
+      fullPath: '/planets/';
+      preLoaderRoute: typeof PlanetsIndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    '/projects/$project': {
-      id: '/projects/$project';
-      path: '/projects/$project';
-      fullPath: '/projects/$project';
-      preLoaderRoute: typeof ProjectsProjectRouteImport;
+    '/planets/$planet': {
+      id: '/planets/$planet';
+      path: '/planets/$planet';
+      fullPath: '/planets/$planet';
+      preLoaderRoute: typeof PlanetsPlanetRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     '/agents/$agent_/subagents/$subagent': {
@@ -181,8 +181,8 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   SettingsRoute: SettingsRoute,
   AgentsAgentRoute: AgentsAgentRoute,
-  ProjectsProjectRoute: ProjectsProjectRoute,
-  ProjectsIndexRoute: ProjectsIndexRoute,
+  PlanetsPlanetRoute: PlanetsPlanetRoute,
+  PlanetsIndexRoute: PlanetsIndexRoute,
   AgentsAgentSubagentsSubagentRoute: AgentsAgentSubagentsSubagentRoute,
 };
 export const routeTree = rootRouteImport

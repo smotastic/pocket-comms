@@ -152,7 +152,7 @@ const toAgent = (record: typeof AgentRecord.Type): Agent => ({
   completion: orUndefined(record.completion_seq),
 });
 
-// A workspace's project is its repository; a workspace without one belongs to the Other group.
+// A workspace's planet is its repository; a workspace without one belongs to the Other group.
 const toWorkspace = (record: typeof WorkspaceRecord.Type): Workspace => {
   const label = record.label ?? record.workspace_id;
   const key = record.worktree?.repo_key;
@@ -164,11 +164,11 @@ const toWorkspace = (record: typeof WorkspaceRecord.Type): Workspace => {
     ...(root === undefined || root === null ? {} : { root }),
   };
   if (key === undefined || key === null) return { ...base, group: OTHER_GROUP };
-  const project = record.worktree?.repo_name ?? label;
+  const planet = record.worktree?.repo_name ?? label;
   return {
     ...base,
-    group: { key, name: project },
-    project,
+    group: { key, name: planet },
+    planet,
     ...(record.worktree?.is_linked_worktree === true ? { worktree: label } : {}),
     ...(checkout === undefined || checkout === null ? {} : { checkout }),
   };

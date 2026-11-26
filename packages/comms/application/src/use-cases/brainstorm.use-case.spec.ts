@@ -118,11 +118,11 @@ const run = (
   }).pipe(Effect.scoped, Effect.provide(fakeLayer()));
 
 const propose = (input: Record<string, string>) => ({ tool: 'propose_issue', input });
-const readIssue = (project: string, number: number) => ({
+const readIssue = (planet: string, number: number) => ({
   tool: 'read_issue',
-  input: { project, number },
+  input: { planet, number },
 });
-const proposeEdit = (input: { project: string; number: number; title: string; body: string }) => ({
+const proposeEdit = (input: { planet: string; number: number; title: string; body: string }) => ({
   tool: 'propose_issue_edit',
   input,
 });
@@ -131,14 +131,14 @@ describe('the brainstorm', () => {
   it.effect('adds the message, streams Pi’s answer and saves the brainstorm', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
-        state.script.push([{ text: 'Nice idea. Which project?' }]);
+        state.script.push([{ text: 'Nice idea. Which planet?' }]);
 
         yield* brainstorm.send('  Idea: dark mode  ');
         yield* idle(brainstorm);
 
         expect((yield* entries(brainstorm)).map(strip)).toEqual([
           { kind: 'said', text: 'Idea: dark mode', images: [] },
-          { kind: 'agentMessage', text: 'Nice idea. Which project?' },
+          { kind: 'agentMessage', text: 'Nice idea. Which planet?' },
         ]);
         expect(state.turns[0]).toMatchObject({
           instructions: BRAINSTORM_INSTRUCTIONS,
@@ -146,9 +146,9 @@ describe('the brainstorm', () => {
           state: Option.none(),
         });
         expect(state.turns[0]?.tools.map((tool) => tool.name)).toEqual([
-          'list_projects',
+          'list_planets',
           'list_open_issues',
-          'read_project_doc',
+          'read_planet_doc',
           'read_issue',
           'propose_issue',
           'propose_issue_edit',
@@ -315,7 +315,7 @@ describe('the brainstorm', () => {
 
         // Pi's tools run outside the turn and may finish after it was stopped.
         const propose = state.turns[0]?.tools.find((tool) => tool.name === 'propose_issue');
-        yield* propose?.run({ project: 'app', title: 'Late', body: '' }) ?? Effect.void;
+        yield* propose?.run({ planet: 'app', title: 'Late', body: '' }) ?? Effect.void;
 
         expect(yield* entries(brainstorm)).toEqual([]);
       }),
@@ -414,22 +414,22 @@ describe('the brainstorm', () => {
       (brainstorm, state) =>
         Effect.gen(function* () {
           state.script.push([
-            { tool: 'list_projects', input: {} },
+            { tool: 'list_planets', input: {} },
             readIssue('app', 3),
-            { tool: 'read_project_doc', input: { project: 'app', file: 'README.md' } },
+            { tool: 'read_planet_doc', input: { planet: 'app', file: 'README.md' } },
             { text: 'Read it.' },
           ]);
           yield* brainstorm.send('What is in app?');
           yield* idle(brainstorm);
 
           expect(yield* tools(brainstorm)).toEqual([
-            { tool: 'list_projects', target: undefined, detail: undefined, state: 'done' },
+            { tool: 'list_planets', target: undefined, detail: undefined, state: 'done' },
             { tool: 'read_issue', target: 'app #3', detail: undefined, state: 'failed' },
-            { tool: 'read_project_doc', target: 'app/README.md', detail: undefined, state: 'done' },
+            { tool: 'read_planet_doc', target: 'app/README.md', detail: undefined, state: 'done' },
           ]);
         }),
       (state) => {
-        state.projects = [{ name: 'app', path: '/work/app' }];
+        state.planets = [{ name: 'app', path: '/work/app' }];
         state.docs.set('app/README.md', '# App');
       },
     ),
@@ -440,7 +440,7 @@ describe('the brainstorm', () => {
       Effect.gen(function* () {
         state.readDocWait = Effect.never;
         state.script.push([
-          { tool: 'read_project_doc', input: { project: 'app', file: 'README.md' } },
+          { tool: 'read_planet_doc', input: { planet: 'app', file: 'README.md' } },
         ]);
         yield* brainstorm.send('Hold on');
         yield* settle;
@@ -499,7 +499,7 @@ describe('the brainstorm', () => {
 
 describe('the brainstorm tools', () => {
   const arrange = (state: FakeState['Service']) => {
-    state.projects = [
+    state.planets = [
       { name: 'app', path: '/work/app' },
       { name: 'notes', path: '/work/notes' },
     ];
@@ -520,7 +520,7 @@ describe('the brainstorm tools', () => {
       });
     });
 
-  it.effect('read the projects, open issues and top-level docs, and nothing else', () =>
+  it.effect('read the planets, open issues and top-level docs, and nothing else', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
@@ -528,13 +528,13 @@ describe('the brainstorm tools', () => {
           yield* idle(brainstorm);
 
           const outcomes = yield* outputsOf(state, [
-            { tool: 'list_projects', input: {} },
-            { tool: 'list_open_issues', input: { project: 'app' } },
-            { tool: 'read_project_doc', input: { project: 'app', file: 'AGENTS.md' } },
-            { tool: 'read_project_doc', input: { project: 'app', file: '../secrets' } },
-            { tool: 'read_project_doc', input: { project: 'app', file: 'README.md' } },
-            { tool: 'list_open_issues', input: { project: 'notes' } },
-            { tool: 'list_open_issues', input: { project: '../etc' } },
+            { tool: 'list_planets', input: {} },
+            { tool: 'list_open_issues', input: { planet: 'app' } },
+            { tool: 'read_planet_doc', input: { planet: 'app', file: 'AGENTS.md' } },
+            { tool: 'read_planet_doc', input: { planet: 'app', file: '../secrets' } },
+            { tool: 'read_planet_doc', input: { planet: 'app', file: 'README.md' } },
+            { tool: 'list_open_issues', input: { planet: 'notes' } },
+            { tool: 'list_open_issues', input: { planet: '../etc' } },
           ]);
 
           expect(outcomes.slice(0, 3)).toEqual([
@@ -566,7 +566,7 @@ describe('the brainstorm tools', () => {
         Effect.gen(function* () {
           state.script.push([
             { text: 'Let me file that.' },
-            propose({ project: 'app', title: ' Dark mode ', body: 'A toggle.' }),
+            propose({ planet: 'app', title: ' Dark mode ', body: 'A toggle.' }),
             { text: 'Never said.' },
           ]);
 
@@ -579,7 +579,7 @@ describe('the brainstorm tools', () => {
             {
               type: 'proposal',
               kind: 'issue',
-              project: 'app',
+              planet: 'app',
               title: 'Dark mode',
               body: 'A toggle.',
               images: [],
@@ -593,15 +593,15 @@ describe('the brainstorm tools', () => {
     ),
   );
 
-  it.effect('refuse a proposal for a project without Gitea or without a title', () =>
+  it.effect('refuse a proposal for a planet without Gitea or without a title', () =>
     run(
       (brainstorm, state) =>
         Effect.gen(function* () {
           yield* brainstorm.send('Hi');
           yield* idle(brainstorm);
           const outcomes = yield* outputsOf(state, [
-            propose({ project: 'notes', title: 'X', body: '' }),
-            propose({ project: 'app', title: ' ', body: '' }),
+            propose({ planet: 'notes', title: 'X', body: '' }),
+            propose({ planet: 'app', title: ' ', body: '' }),
           ]);
           expect(outcomes.map((outcome) => outcome.isError)).toEqual([true, true]);
           expect(proposalIn(yield* entries(brainstorm))).toBeUndefined();
@@ -672,7 +672,7 @@ describe('the brainstorm tools', () => {
 
           const [read, edit] = yield* outputsOf(state, [
             readIssue('app', 7),
-            proposeEdit({ project: 'app', number: 7, title: 'Long', body: 'Short' }),
+            proposeEdit({ planet: 'app', number: 7, title: 'Long', body: 'Short' }),
           ]);
           expect(read?.isError).toBe(false);
           expect(read?.output).toMatchObject({
@@ -694,7 +694,7 @@ describe('the brainstorm tools', () => {
           Effect.gen(function* () {
             state.script.push([
               readIssue('app', 3),
-              proposeEdit({ project: 'app', number: 3, title: ' Login v2 ', body: 'New body.' }),
+              proposeEdit({ planet: 'app', number: 3, title: ' Login v2 ', body: 'New body.' }),
               { text: 'Never said.' },
             ]);
             yield* brainstorm.send('Update login');
@@ -703,7 +703,7 @@ describe('the brainstorm tools', () => {
             expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
               type: 'proposal',
               kind: 'edit',
-              project: 'app',
+              planet: 'app',
               number: 3,
               url: 'http://gitea.test/owner/app/issues/3',
               title: 'Login v2',
@@ -714,8 +714,8 @@ describe('the brainstorm tools', () => {
             expect(state.giteaCalls.filter((call) => call.startsWith('updateIssue'))).toEqual([]);
 
             const [unread, blank] = yield* outputsOf(state, [
-              proposeEdit({ project: 'app', number: 5, title: 'X', body: '' }),
-              proposeEdit({ project: 'app', number: 3, title: ' ', body: '' }),
+              proposeEdit({ planet: 'app', number: 5, title: 'X', body: '' }),
+              proposeEdit({ planet: 'app', number: 3, title: ' ', body: '' }),
             ]);
             expect([unread?.isError, blank?.isError]).toEqual([true, true]);
           }),
@@ -728,7 +728,7 @@ describe('a decision on a proposal', () => {
   // Pi proposes "Dark mode" for `app` in the first turn.
   const proposed = (brainstorm: Brainstorm, state: FakeState['Service']) =>
     Effect.gen(function* () {
-      state.script.push([propose({ project: 'app', title: 'Dark mode', body: 'A toggle.' })]);
+      state.script.push([propose({ planet: 'app', title: 'Dark mode', body: 'A toggle.' })]);
       yield* brainstorm.send('Dark mode');
       yield* idle(brainstorm);
       const proposal = proposalIn(yield* entries(brainstorm));
@@ -746,7 +746,7 @@ describe('a decision on a proposal', () => {
 
         yield* brainstorm.decide(proposal.id, {
           _tag: 'Create',
-          issue: { project: 'app', title: ' Dark mode toggle ', body: 'Edited.' },
+          issue: { planet: 'app', title: ' Dark mode toggle ', body: 'Edited.' },
         });
         yield* idle(brainstorm);
 
@@ -791,7 +791,7 @@ describe('a decision on a proposal', () => {
           yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              issue: { project: 'app', title: 'X', body: '' },
+              issue: { planet: 'app', title: 'X', body: '' },
             })
             .pipe(Effect.flip),
         ).toEqual(new ProposalDecidedError({ id: proposal.id }));
@@ -817,27 +817,27 @@ describe('a decision on a proposal', () => {
     ),
   );
 
-  it.effect('keeps the card open when the project has no Gitea remote or Gitea fails', () =>
+  it.effect('keeps the card open when the planet has no Gitea remote or Gitea fails', () =>
     run((brainstorm, state) =>
       Effect.gen(function* () {
         const proposal = yield* proposed(brainstorm, state);
-        state.projects = [...state.projects, { name: 'notes', path: '/work/notes' }];
+        state.planets = [...state.planets, { name: 'notes', path: '/work/notes' }];
 
         expect(
           yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              issue: { project: 'notes', title: 'Dark mode', body: '' },
+              issue: { planet: 'notes', title: 'Dark mode', body: '' },
             })
             .pipe(Effect.flip),
-        ).toEqual(new NoGiteaRemoteError({ project: 'notes' }));
+        ).toEqual(new NoGiteaRemoteError({ planet: 'notes' }));
 
         state.giteaFailure = 'Gitea answered 403.';
         expect(
           yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              issue: { project: 'app', title: 'Dark mode', body: '' },
+              issue: { planet: 'app', title: 'Dark mode', body: '' },
             })
             .pipe(Effect.flip),
         ).toEqual(new GiteaUnavailableError({ reason: 'Gitea answered 403.' }));
@@ -853,7 +853,7 @@ describe('a decision on a proposal', () => {
       Effect.gen(function* () {
         const proposal = yield* proposed(brainstorm, state);
         const error = yield* brainstorm
-          .decide(proposal.id, { _tag: 'Create', issue: { project: 'app', title: '', body: '' } })
+          .decide(proposal.id, { _tag: 'Create', issue: { planet: 'app', title: '', body: '' } })
           .pipe(Effect.flip);
         expect(error._tag).toBe('InvalidInputError');
         expect(created(state)).toEqual([]);
@@ -875,7 +875,7 @@ describe('a decision on an edit', () => {
       state.script.push([
         readIssue('app', 11),
         proposeEdit({
-          project: 'app',
+          planet: 'app',
           number: 11,
           title: 'Orchestrator',
           body: '## Idea\n\nRun agents from the brainstorm.',
@@ -923,7 +923,7 @@ describe('a decision on an edit', () => {
           expect(turnInputs(state)[1]).toContain('The owner updated the issue #11 in app');
           expect(state.storedBrainstorm?.reads).toEqual([
             {
-              project: 'app',
+              planet: 'app',
               number: 11,
               url: 'http://gitea.test/owner/app/issues/11',
               title: 'Orchestrator mode',
@@ -1003,12 +1003,12 @@ describe('a decision on an edit', () => {
           const error = yield* brainstorm
             .decide(proposal.id, {
               _tag: 'Create',
-              issue: { project: 'app', title: 'X', body: '' },
+              issue: { planet: 'app', title: 'X', body: '' },
             })
             .pipe(Effect.flip);
           expect(error._tag).toBe('InvalidInputError');
 
-          state.script.push([propose({ project: 'app', title: 'New', body: '' })]);
+          state.script.push([propose({ planet: 'app', title: 'New', body: '' })]);
           yield* brainstorm.send('And a new one');
           yield* idle(brainstorm);
           const issue = (yield* entries(brainstorm)).find(
@@ -1078,11 +1078,11 @@ describe('a decision on an edit', () => {
 
           // Pi's tools run outside the turn and may finish after it was stopped.
           const read = state.turns[0]?.tools.find((tool) => tool.name === 'read_issue');
-          yield* read?.run({ project: 'app', number: 11 }) ?? Effect.void;
+          yield* read?.run({ planet: 'app', number: 11 }) ?? Effect.void;
           expect(state.storedBrainstorm?.reads).toEqual([]);
 
           state.script.push([
-            proposeEdit({ project: 'app', number: 11, title: 'Orchestrator', body: 'Late.' }),
+            proposeEdit({ planet: 'app', number: 11, title: 'Orchestrator', body: 'Late.' }),
           ]);
           yield* brainstorm.send('Edit #11');
           yield* idle(brainstorm);
@@ -1121,7 +1121,7 @@ describe('images in the brainstorm', () => {
   const proposed = (brainstorm: Brainstorm, state: FakeState['Service']) =>
     Effect.gen(function* () {
       state.script.push([
-        withImages({ project: 'app', title: 'Blue door', body: 'Paint it.' }, [2]),
+        withImages({ planet: 'app', title: 'Blue door', body: 'Paint it.' }, [2]),
       ]);
       yield* brainstorm.send('Like these?', [IMAGE_A, IMAGE_B]);
       yield* idle(brainstorm);
@@ -1242,7 +1242,7 @@ describe('images in the brainstorm', () => {
           expect(proposal).toMatchObject({ images: [IMAGE_B], attached: [] });
 
           state.script.push([
-            withImages({ project: 'app', title: 'Other', body: 'x' }, [7]),
+            withImages({ planet: 'app', title: 'Other', body: 'x' }, [7]),
             { text: 'Sorry.' },
           ]);
           yield* brainstorm.send('Another');
@@ -1261,7 +1261,7 @@ describe('images in the brainstorm', () => {
 
           yield* brainstorm.decide(proposal.id, {
             _tag: 'Create',
-            issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+            issue: { planet: 'app', title: 'Blue door', body: 'Paint it.' },
             images: [IMAGE_B, IMAGE_A],
           });
           yield* idle(brainstorm);
@@ -1300,7 +1300,7 @@ describe('images in the brainstorm', () => {
 
           yield* brainstorm.decide(proposal.id, {
             _tag: 'Create',
-            issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+            issue: { planet: 'app', title: 'Blue door', body: 'Paint it.' },
             images: [],
           });
 
@@ -1320,7 +1320,7 @@ describe('images in the brainstorm', () => {
           state.giteaRefusedImages.add('image-2.jpg');
           const create = {
             _tag: 'Create',
-            issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+            issue: { planet: 'app', title: 'Blue door', body: 'Paint it.' },
             images: [IMAGE_A, IMAGE_B],
           } as const;
 
@@ -1369,7 +1369,7 @@ describe('images in the brainstorm', () => {
           yield* Effect.flip(
             brainstorm.decide(proposal.id, {
               _tag: 'Create',
-              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              issue: { planet: 'app', title: 'Blue door', body: 'Paint it.' },
               images: [IMAGE_A, IMAGE_B],
             }),
           );
@@ -1401,7 +1401,7 @@ describe('images in the brainstorm', () => {
           yield* Effect.flip(
             brainstorm.decide(proposal.id, {
               _tag: 'Create',
-              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              issue: { planet: 'app', title: 'Blue door', body: 'Paint it.' },
               images: [IMAGE_A, IMAGE_B],
             }),
           );
@@ -1439,7 +1439,7 @@ describe('images in the brainstorm', () => {
           yield* Effect.flip(
             brainstorm.decide(proposal.id, {
               _tag: 'Create',
-              issue: { project: 'app', title: 'Blue door', body: 'Paint it.' },
+              issue: { planet: 'app', title: 'Blue door', body: 'Paint it.' },
               images: [IMAGE_B],
             }),
           );
@@ -1456,7 +1456,7 @@ describe('images in the brainstorm', () => {
         Effect.gen(function* () {
           const proposal = yield* proposed(brainstorm, state);
           state.images.delete(IMAGE_B);
-          const issue = { project: 'app', title: 'Blue door', body: 'Paint it.' };
+          const issue = { planet: 'app', title: 'Blue door', body: 'Paint it.' };
 
           const removed = yield* Effect.flip(
             brainstorm.decide(proposal.id, { _tag: 'Create', issue, images: [IMAGE_B] }),
@@ -1494,7 +1494,7 @@ describe('images in the brainstorm', () => {
           {
             tool: 'propose_issue_edit',
             input: {
-              project: 'app',
+              planet: 'app',
               number: 11,
               title: 'Orchestrator',
               body: 'Run agents.',

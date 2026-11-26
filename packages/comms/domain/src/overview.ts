@@ -13,7 +13,7 @@ export interface Overview<A extends Agent = Agent> {
   readonly needsYou: ReadonlyArray<A>;
   /**
    * Every other agent, by repository group in Herdr's workspace order, then the Other group of
-   * every workspace without a project; no group is empty.
+   * every workspace without a planet; no group is empty.
    */
   readonly groups: ReadonlyArray<OverviewGroup<A>>;
 }

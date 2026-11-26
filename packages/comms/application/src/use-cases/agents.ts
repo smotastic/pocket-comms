@@ -107,7 +107,7 @@ export const makeLoadAgents = Effect.gen(function* () {
               title: agent.title,
               cwd: agent.cwd,
               workspace: workspace?.label ?? agent.workspaceId,
-              project: workspace?.project,
+              planet: workspace?.planet,
               worktree: workspace?.worktree,
               changedAt: at,
               needsYou: needsYou(agent, seen, background.length),

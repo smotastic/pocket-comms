@@ -48,14 +48,14 @@ export const activityText = (event: ActivityEventView): string => {
 export const activityTone = (event: ActivityEventView) =>
   event.type === 'status' ? event.status : event.type === 'gone' ? 'unknown' : 'idle';
 
-/** Where an event leads: the live agent's conversation, else its project's page, else nowhere. */
+/** Where an event leads: the live agent's conversation, else its planet's page, else nowhere. */
 export const activityTarget = (
   event: ActivityEventView,
 ):
   | { readonly to: 'agent'; readonly ref: string }
-  | { readonly to: 'project'; readonly project: string }
+  | { readonly to: 'planet'; readonly planet: string }
   | undefined => {
   if (event.live) return { to: 'agent', ref: event.agent.ref };
-  if (event.agent.project !== undefined) return { to: 'project', project: event.agent.project };
+  if (event.agent.planet !== undefined) return { to: 'planet', planet: event.agent.planet };
   return undefined;
 };

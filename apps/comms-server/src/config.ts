@@ -32,8 +32,8 @@ export const serverConfig = Config.all({
     Config.withDefault(join(homedir(), '.local', 'state', 'herdr-core', 'default', 'default.sock')),
   ),
   webDist: Config.option(Config.String('COMMS_WEB_DIST')),
-  projectsRoot: Config.String('COMMS_PROJECTS_ROOT').pipe(
-    Config.withDefault(join(homedir(), 'Development', 'projects')),
+  repositoriesRoot: Config.String('COMMS_PROJECTS_ROOT').pipe(
+    Config.withDefault(join(homedir(), 'Development', 'planets')),
   ),
   // Where git adds a new task's worktree, beside Herdr's own (ADR 0015).
   worktreesRoot: Config.String('COMMS_WORKTREES_DIR').pipe(

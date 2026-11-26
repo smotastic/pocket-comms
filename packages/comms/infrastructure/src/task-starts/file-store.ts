@@ -16,7 +16,7 @@ import { join } from 'node:path';
 const FILE = 'task-starts.json';
 
 const Stored = Schema.Struct({
-  project: Schema.String,
+  planet: Schema.String,
   branch: Schema.String,
   issue: Schema.optional(Schema.Int),
   kind: AgentToStart,
@@ -25,7 +25,8 @@ const Stored = Schema.Struct({
   delivery: Schema.Literals(['pending', 'not-started', 'not-sent', 'uncertain', 'delivered']),
   reason: Schema.optional(Schema.String),
   at: Schema.Number,
-});
+  // The file names the planet `project`, the word from before spec 034.
+}).pipe(Schema.encodeKeys({ planet: 'project' }));
 
 const StoredFile = Schema.Struct({
   version: Schema.Literal(1),
@@ -41,7 +42,7 @@ const failure = (reason: string) => new TaskStartsStoreError({ reason });
 
 const toStart = (folder: string, stored: typeof Stored.Type): TaskStart => ({
   folder,
-  project: stored.project,
+  planet: stored.planet,
   branch: stored.branch,
   issue: stored.issue,
   kind: stored.kind,
@@ -53,7 +54,7 @@ const toStart = (folder: string, stored: typeof Stored.Type): TaskStart => ({
 });
 
 const toStored = ({ folder: _folder, ...start }: TaskStart): typeof Stored.Encoded => ({
-  project: start.project,
+  project: start.planet,
   branch: start.branch,
   kind: start.kind,
   prompt: start.prompt,
@@ -109,8 +110,16 @@ export const layerFile = ({ folder }: FileStoreOptions) =>
       ) =>
         changing.withPermit(
           read.pipe(
+            Effect.map((starts) =>
+              Object.fromEntries(
+                Object.entries(starts).map(([key, stored]) => [
+                  key,
+                  toStored(toStart(key, stored)),
+                ]),
+              ),
+            ),
             Effect.orElseSucceed(() => ({})),
-            Effect.flatMap((starts) => write(update({ ...starts }))),
+            Effect.flatMap((starts) => write(update(starts))),
           ),
         );
 

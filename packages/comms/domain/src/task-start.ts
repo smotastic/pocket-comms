@@ -11,7 +11,7 @@ export type Delivery = 'pending' | 'not-started' | 'not-sent' | 'uncertain' | 'd
 export interface TaskStart {
   /** The worktree folder; an agent whose `cwd` is in it belongs to the start. */
   readonly folder: string;
-  readonly project: string;
+  readonly planet: string;
   readonly branch: string;
   readonly issue: number | undefined;
   readonly kind: AgentToStart;

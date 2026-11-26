@@ -54,7 +54,7 @@ describe('parseRemote', () => {
     expect(parseRemote(url)).toEqual({ host, owner, name });
   });
 
-  it.each(['', '/Users/me/projects/app', '../app.git', 'file:///srv/app.git', 'gitea:onlyrepo'])(
+  it.each(['', '/Users/me/code/app', '../app.git', 'file:///srv/app.git', 'gitea:onlyrepo'])(
     'reads no repository from %j',
     (url) => {
       expect(parseRemote(url)).toBeUndefined();
@@ -77,8 +77,8 @@ describe('orderIssues', () => {
 
 describe('issueBranch', () => {
   it('takes the type of a conventional title and leaves its prefix out', () => {
-    expect(issueBranch(issue({ number: 8, title: 'feat: per-project Gitea issue list' }))).toBe(
-      'feat/8-per-project-gitea-issue-list',
+    expect(issueBranch(issue({ number: 8, title: 'feat: per-planet Gitea issue list' }))).toBe(
+      'feat/8-per-planet-gitea-issue-list',
     );
     expect(issueBranch(issue({ number: 9, title: 'docs(comms): explain the token' }))).toBe(
       'docs/9-explain-the-token',
@@ -104,7 +104,7 @@ describe('issueBranch', () => {
     const branch = issueBranch(
       issue({
         number: 1234,
-        title: 'Show the open issues of every project with their labels and age',
+        title: 'Show the open issues of every planet with their labels and age',
       }),
     );
 
@@ -128,7 +128,7 @@ describe('issueBranch', () => {
 
 describe('issueNumberOf', () => {
   it.each([
-    ['feat/8-per-project-gitea-issue-list', 8],
+    ['feat/8-per-planet-gitea-issue-list', 8],
     ['fix/12-login', 12],
     ['chore/3-x', 3],
   ])('reads the issue of %s', (branch, number) => {

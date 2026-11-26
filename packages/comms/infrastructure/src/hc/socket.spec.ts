@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gitEnvironment } from '../projects/git.js';
+import { gitEnvironment } from '../repositories/git.js';
 import { fakeHcServer, hcTerminal, type HcReply, type HcRequest } from '../testing/hc-server.js';
 import { layerSocket } from './socket.js';
 
@@ -25,7 +25,7 @@ const git = (cwd: string, ...args: Array<string>) =>
     stdio: 'pipe',
   }).toString();
 
-// A project `app` with a linked worktree `feat-x` beside it, and a folder outside git.
+// A planet `app` with a linked worktree `feat-x` beside it, and a folder outside git.
 const folders = () => {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'hc-folders-')));
   const app = join(base, 'app');
@@ -153,7 +153,7 @@ describe('Hc.layerSocket', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.live('groups workspaces by their project through git, and others under Other', () =>
+  it.live('groups workspaces by their planet through git, and others under Other', () =>
     Effect.gen(function* () {
       const { app, worktree, notes } = folders();
       const server = yield* fakeHcServer(
@@ -196,7 +196,7 @@ describe('Hc.layerSocket', () => {
           label: 'Fix x',
           group: { key, name: 'app' },
           root: app,
-          project: 'app',
+          planet: 'app',
           worktree: 'Fix x',
           checkout: worktree,
         },
@@ -205,7 +205,7 @@ describe('Hc.layerSocket', () => {
           label: 'app',
           group: { key, name: 'app' },
           root: app,
-          project: 'app',
+          planet: 'app',
           checkout: app,
         },
         { id: notes, label: 'notes', group: OTHER_GROUP },

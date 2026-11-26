@@ -2,7 +2,7 @@
 
 The backend of pocket-comms: it reads Herdr's agents and the agents' session files and serves
 them over `CommsApi`, it starts new tasks in Herdr worktrees and closes them, it reads,
-closes and marks in progress the projects' Gitea issues, it runs the brainstorm with Pi, which proposes new issues and edits of existing ones, it keeps the images
+closes and marks in progress the planets' Gitea issues, it runs the brainstorm with Pi, which proposes new issues and edits of existing ones, it keeps the images
 the owner attaches to a prompt or a brainstorm message and attaches the chosen ones to approved issues in Gitea, it pushes a notification to the owner's devices when an agent
 needs them, it follows the background work and the subagents of Claude agents, and it keeps the
 pull requests agents attach to their conversation and reads their changes from Gitea. Its behaviour is [spec 004](../../specs/004-pocket-comms-v1/spec.md),
@@ -41,7 +41,7 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
 | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
 | `CommsApi`, wire schemas (shared by server and web)                            | `contract`                                                  |
 | Agents, the overview rules, prompt and key rules, conversation entries, access | `domain`                                                    |
-| New task rules (projects order, branch, task, agent name)                      | `domain` (`src/task.ts`)                                    |
+| New task rules (planets order, branch, task, agent name)                       | `domain` (`src/task.ts`)                                    |
 | Issue rules (remote, order, branch, task text, work per issue)                 | `domain` (`src/issue.ts`)                                   |
 | Brainstorm entries, issue and edit proposals, issue reads, brainstorm images   | `domain` (`src/brainstorm.ts`)                              |
 | Image rules (kinds, ids, limits, paths in a prompt)                            | `domain` (`src/image.ts`)                                   |
@@ -86,8 +86,8 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   session is its terminal's `comms.session` label, set by the Claude hook on `SessionStart` and by
   the Pi extension: set it up once per machine, from the deployed release,
   `ln -s ~/pocket-cloud-data/pocket-comms/current/apps/comms-server/dist/pi-extension.js ~/.pi/agent/extensions/comms-session.js`.
-- `git`, Herdr and hc run with argument arrays, never through a shell. A project is only ever a folder
-  the projects port lists; never accept a path from a request.
+- `git`, Herdr and hc run with argument arrays, never through a shell. A planet is only ever a folder
+  the repositories port lists; never accept a path from a request.
 - Typed text (spec 024) goes through `MultiplexerOutbound.typeText` (`pane.send_text`), which never
   presses Enter: the owner submits a waiting agent question with the `enter` key. Do not add Enter to it,
   and do not route it through `prompt`, which submits.
@@ -143,7 +143,7 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   (this one and the flight skills) into `~/.claude/skills/` and `~/.pi/agent/skills/` with
   `dist/link-skills.js`, through the release's `current` path.
 - Closing an agent removes only a workspace that both Herdr and git know as a linked worktree of
-  a project: git removes the checkout (`ProjectsOutbound.removeWorktree`), then the multiplexer
+  a planet: git removes the checkout (`RepositoriesOutbound.removeWorktree`), then the multiplexer
   closes the workspace (`closeWorkspace`), so a refusal by git leaves the agents running. Never
   the primary checkout, never a path from a request. Without `force`, the server asks git for
   changes first and removes nothing when there are any.
@@ -156,7 +156,7 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   A failing `task-starts.json` is logged and never fails a start. The kept prompt holds the
   additional information of spec 021 until the start is forgotten (on delivery, Dismiss, closing
   the agent, or when git no longer lists the worktree); it never goes to Gitea.
-- Start an agent here (spec 032) takes the worktree only from the project's git worktree list,
+- Start an agent here (spec 032) takes the worktree only from the planet's git worktree list,
   matched by the issue's branch, never the primary checkout, and never a path from a request; it
   refuses a worktree with a live agent or a `pending` start, and never adds a worktree.
   It opens a new shell with `tab.create`, or `worktree.open` when Herdr has no workspace for it.
@@ -169,7 +169,7 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   application imports `@smotastic/pocket-agent` and `./chat` only, the server `./pi`, tests
   `./testing`; the contract, the brainstorm file and the web app take the chat stream's `./chat`; no
   code here imports `@earendil-works/*`. A runtime change goes into pocket-factory's package and
-  comes here as a catalog bump. Pi's tools only read (projects, open issues, one
+  comes here as a catalog bump. Pi's tools only read (planets, open issues, one
   issue, `README.md` and `AGENTS.md`), none takes a path, and `propose_issue` and
   `propose_issue_edit` end the turn. Only the owner's decision on a proposal creates or changes an
   issue. Do not give Pi a tool that writes.
@@ -216,7 +216,7 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
   store and the sender (`Push.layer` puts out the three ports only); never log it, put it in an
   error or send it to the browser. A device's endpoint is its address: keep it out of logs too.
   A broken `push/` file is reported, never replaced, because new keys end every subscription.
-- A notification carries only the agent's name, its project and at most 120 characters of its question
+- A notification carries only the agent's name, its planet and at most 120 characters of its question
   or last message. Every Web Push message must show a notification on the device (the service worker in
   `apps/comms-web/public/sw.js` never skips one), or the browser drops the subscription.
 - After a contract change run `pnpm nx run comms-server:openapi` and commit the document.

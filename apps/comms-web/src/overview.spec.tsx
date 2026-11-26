@@ -31,7 +31,7 @@ const other = fakeAgent({
   format: undefined,
   title: 'codex',
   workspace: 'notes',
-  project: undefined,
+  planet: undefined,
 });
 
 const overview = {
@@ -50,7 +50,7 @@ const rowOf = (link: HTMLElement) => {
 };
 
 describe('the overview', () => {
-  it('lists Needs you first, then every other agent by project', async () => {
+  it('lists Needs you first, then every other agent by planet', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
     const needsYou = await screen.findByRole('region', { name: 'Needs you' });
@@ -106,7 +106,7 @@ describe('the overview', () => {
     ).toBeDefined();
   });
 
-  it('shows the two groups, each with its count, and no project cards or projects list', async () => {
+  it('shows the two groups, each with its count, and no planet cards or planets list', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
     await screen.findByRole('region', { name: 'Everything else' });
@@ -135,13 +135,13 @@ describe('the overview', () => {
     expect(screen.queryByText('w4:p1')).toBeNull();
   });
 
-  it("shows each row's worktree and project", async () => {
+  it("shows each row's worktree and planet", async () => {
     const linked = fakeAgent({
       ref: 'spock',
       paneId: 'w2:p2',
       name: 'spock',
       workspace: 'ingestor-mvp',
-      project: 'pocket-home',
+      planet: 'pocket-home',
       worktree: 'ingestor-mvp',
     });
     const loose = fakeAgent({
@@ -149,7 +149,7 @@ describe('the overview', () => {
       paneId: 'w5:p1',
       name: 'burnham',
       workspace: 'G registry cleanup',
-      project: undefined,
+      planet: undefined,
     });
     renderApp({
       client: fakeClient({
@@ -168,7 +168,7 @@ describe('the overview', () => {
             {
               key: '/work/home/.git',
               name: 'pocket-home',
-              agents: [linked, fakeAgent({ project: 'pocket-home' })],
+              agents: [linked, fakeAgent({ planet: 'pocket-home' })],
             },
             { key: 'other', name: 'Other', agents: [loose] },
           ],
@@ -270,48 +270,48 @@ describe('the overview', () => {
   });
 });
 
-describe('the projects on the overview', () => {
-  it('has only the Brainstorm, Projects and Settings actions in the top bar, in that order', async () => {
+describe('the planets on the overview', () => {
+  it('has only the Brainstorm, Planets and Settings actions in the top bar, in that order', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
     const banner = await screen.findByRole('banner');
     expect(within(banner).getAllByRole('button')).toEqual([
       within(banner).getByRole('button', { name: 'Brainstorm' }),
-      within(banner).getByRole('button', { name: 'Projects' }),
+      within(banner).getByRole('button', { name: 'Planets' }),
       within(banner).getByRole('button', { name: 'Settings' }),
     ]);
   });
 
-  it('leads the old projects address to the overview', async () => {
-    const { router } = renderApp({ client: fakeClient({ overview }).client, path: '/projects' });
+  it('leads the old planets address to the overview', async () => {
+    const { router } = renderApp({ client: fakeClient({ overview }).client, path: '/planets' });
 
     await screen.findByRole('region', { name: 'Needs you' });
     expect(router.state.location.pathname).toBe('/');
   });
 });
 
-describe('the project filter', () => {
-  const comms = fakeAgent({ ref: 'kirk', project: 'pocket-comms', workspace: 'comms' });
-  const home = fakeAgent({ ref: 'spock', name: 'spock', paneId: 'w2:p1', project: 'pocket-home' });
+describe('the planet filter', () => {
+  const comms = fakeAgent({ ref: 'kirk', planet: 'pocket-comms', workspace: 'comms' });
+  const home = fakeAgent({ ref: 'spock', name: 'spock', paneId: 'w2:p1', planet: 'pocket-home' });
   const waiting = fakeAgent({
     ref: 'uhura',
     name: 'uhura',
     paneId: 'w3:p1',
-    project: 'pocket-comms',
+    planet: 'pocket-comms',
     status: 'blocked',
     needsYou: true,
   });
   const commsGroup = { key: '/comms/.git', name: 'pocket-comms', agents: [comms] };
   const homeGroup = { key: '/home/.git', name: 'pocket-home', agents: [home] };
-  const twoProjects = {
+  const twoPlanets = {
     needsYou: [waiting],
     groups: [commsGroup, homeGroup],
   };
 
-  it('offers All and each project, with All selected', async () => {
-    renderApp({ client: fakeClient({ overview: twoProjects }).client });
+  it('offers All and each planet, with All selected', async () => {
+    renderApp({ client: fakeClient({ overview: twoPlanets }).client });
 
-    const filter = await screen.findByRole('grid', { name: 'Project' });
+    const filter = await screen.findByRole('grid', { name: 'Planet' });
     expect(
       within(filter)
         .getAllByRole('row')
@@ -323,8 +323,8 @@ describe('the project filter', () => {
     ]);
   });
 
-  it('narrows Everything else to a project, and never Needs you', async () => {
-    renderApp({ client: fakeClient({ overview: twoProjects }).client });
+  it('narrows Everything else to a planet, and never Needs you', async () => {
+    renderApp({ client: fakeClient({ overview: twoPlanets }).client });
 
     await userEvent.click(await screen.findByRole('row', { name: 'pocket-home' }));
 
@@ -342,7 +342,7 @@ describe('the project filter', () => {
     ).toBeDefined();
   });
 
-  it('is not shown for agents of one project', async () => {
+  it('is not shown for agents of one planet', async () => {
     renderApp({
       client: fakeClient({
         overview: {
@@ -353,11 +353,11 @@ describe('the project filter', () => {
     });
 
     await screen.findByRole('region', { name: 'Everything else' });
-    expect(screen.queryByRole('grid', { name: 'Project' })).toBeNull();
+    expect(screen.queryByRole('grid', { name: 'Planet' })).toBeNull();
   });
 
-  it('returns to All when the chosen project has no agent left', async () => {
-    const fake = fakeClient({ overview: twoProjects });
+  it('returns to All when the chosen planet has no agent left', async () => {
+    const fake = fakeClient({ overview: twoPlanets });
     renderApp({ client: fake.client });
     await userEvent.click(await screen.findByRole('row', { name: 'pocket-home' }));
 
@@ -366,14 +366,14 @@ describe('the project filter', () => {
         _tag: 'Available',
         multiplexer: 'herdr',
         overview: {
-          ...twoProjects,
+          ...twoPlanets,
           groups: [
             commsGroup,
             {
               key: 'other',
               name: 'Other',
               agents: [
-                fakeAgent({ ref: 'w9:p1', paneId: 'w9:p1', name: 'scratch', project: undefined }),
+                fakeAgent({ ref: 'w9:p1', paneId: 'w9:p1', name: 'scratch', planet: undefined }),
               ],
             },
           ],
@@ -385,7 +385,7 @@ describe('the project filter', () => {
       'true',
     );
     act(() =>
-      fake.emitOverview({ _tag: 'Available', multiplexer: 'herdr', overview: twoProjects }),
+      fake.emitOverview({ _tag: 'Available', multiplexer: 'herdr', overview: twoPlanets }),
     );
     expect(screen.getByRole('row', { name: 'All' }).getAttribute('aria-selected')).toBe('true');
   });

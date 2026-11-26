@@ -28,7 +28,7 @@ export type { ImageDto } from './dto/image.dto.js';
 export type { PushKeyDto, PushSubscriptionDto } from './dto/push.dto.js';
 export type { QuickRepliesDto } from './dto/quick-replies.dto.js';
 export type { SpeechDto } from './dto/speech.dto.js';
-export type { CreateTaskInput, ProjectDto, TaskAgentDto, TaskCreatedDto } from './dto/task.dto.js';
+export type { CreateTaskInput, PlanetDto, TaskAgentDto, TaskCreatedDto } from './dto/task.dto.js';
 export {
   AgentNotFoundError,
   BrainstormBusyError,
@@ -51,8 +51,8 @@ export {
   PullRequestsStoreError,
   TaskStartsStoreError,
   NotAWorktreeError,
-  ProjectGitError,
-  ProjectNotFoundError,
+  RepositoryGitError,
+  PlanetNotFoundError,
   ProposalDecidedError,
   ProposalNotFoundError,
   PushStoreError,
@@ -110,7 +110,7 @@ export type {
 export { QuickRepliesInbound } from './ports/quick-replies.inbound.port.js';
 export { QuickRepliesOutbound } from './ports/quick-replies.outbound.port.js';
 export { PullRequestsOutbound, type AttachedLists } from './ports/pull-requests.outbound.port.js';
-export { ProjectsOutbound } from './ports/projects.outbound.port.js';
+export { RepositoriesOutbound } from './ports/repositories.outbound.port.js';
 export { SpeechInbound } from './ports/speech.inbound.port.js';
 export { TasksInbound } from './ports/tasks.inbound.port.js';
 export { TaskStartsInbound } from './ports/task-starts.inbound.port.js';

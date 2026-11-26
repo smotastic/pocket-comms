@@ -2,7 +2,7 @@ import { AgentRow, type Hue } from '@smotastic/pocket-design';
 import { backgroundMarker } from './background.js';
 import type { AgentView } from './comms-client.js';
 import { STATUS_LABELS } from './labels.js';
-import { projectLabel, rowName, rowWorktree } from './rows.js';
+import { planetLabel, rowName, rowWorktree } from './rows.js';
 import { since } from './since.js';
 import { statusDot } from './StatusBadge.js';
 
@@ -17,13 +17,13 @@ const needsYouToneOf = (agent: AgentView) =>
 export const AgentItem = ({
   agent,
   hue,
-  withProject,
+  withPlanet,
   now,
 }: {
   readonly agent: AgentView;
   readonly hue: Hue;
-  /** Shows the project before the title; a list of one project's agents leaves it out. */
-  readonly withProject: boolean;
+  /** Shows the planet before the title; a list of one planet's agents leaves it out. */
+  readonly withPlanet: boolean;
   readonly now: number;
 }) => {
   const worktree = rowWorktree(agent);
@@ -33,7 +33,7 @@ export const AgentItem = ({
       status={statusDot(agent.status, STATUS_LABELS[agent.status])}
       name={rowName(agent)}
       {...(worktree === undefined ? {} : { worktree })}
-      {...(withProject ? { project: projectLabel(agent) } : {})}
+      {...(withPlanet ? { project: planetLabel(agent) } : {})}
       hue={hue}
       title={agent.title}
       since={since(agent.changedAt, now)}

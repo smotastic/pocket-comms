@@ -7,7 +7,7 @@ import { problems } from './problems.js';
 const lookup = {
   AgentNotFoundError: problems.agentNotFound,
   MultiplexerUnavailableError: problems.herdrUnavailable,
-  ProjectNotFoundError: problems.projectNotFound,
+  PlanetNotFoundError: problems.planetNotFound,
   TaskStartsStoreError: problems.taskStartsUnavailable,
 } as const;
 
@@ -42,15 +42,15 @@ export const taskStartsHandlers = HttpApiBuilder.group(
       .handle('startAgent', ({ params, payload }) =>
         taskStartsInbound
           .startInWorktree({
-            project: params.project,
+            planet: params.planet,
             number: Number(params.number),
             branch: payload.branch,
             agent: payload.agent,
           })
           .pipe(
             Effect.catchTags({
-              ProjectNotFoundError: problems.projectNotFound,
-              ProjectGitError: problems.projectGitFailed,
+              PlanetNotFoundError: problems.planetNotFound,
+              RepositoryGitError: problems.planetGitFailed,
               NoGiteaRemoteError: problems.noGiteaRemote,
               GiteaNotConfiguredError: problems.giteaNotConfigured,
               GiteaUnavailableError: problems.giteaUnavailable,

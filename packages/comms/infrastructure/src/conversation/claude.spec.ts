@@ -139,8 +139,8 @@ describe('createClaudeParser with AskUserQuestion', () => {
       multiSelect: false,
     },
     {
-      question: 'Which projects?',
-      header: 'Projects',
+      question: 'Which planets?',
+      header: 'Planets',
       options: [{ label: 'Backend' }, { label: 'Web' }],
       multiSelect: true,
     },
@@ -169,10 +169,10 @@ describe('createClaudeParser with AskUserQuestion', () => {
     { label: 'Keep Effect', description: 'The stack stays.' },
     { label: 'Drop it' },
   ];
-  const projectOptions = [{ label: 'Backend' }, { label: 'Web' }];
+  const planetOptions = [{ label: 'Backend' }, { label: 'Web' }];
   const waiting = [
     { header: 'Stack', text: 'Keep Effect?', options: stackOptions, multiple: false },
-    { header: 'Projects', text: 'Which projects?', options: projectOptions, multiple: true },
+    { header: 'Planets', text: 'Which planets?', options: planetOptions, multiple: true },
   ];
 
   it('carries the questions while the owner has not answered', () => {
@@ -200,7 +200,7 @@ describe('createClaudeParser with AskUserQuestion', () => {
         { content: 'The user answered: …' },
         {
           questions,
-          answers: { 'Keep Effect?': 'my own idea', 'Which projects?': 'Backend, Web' },
+          answers: { 'Keep Effect?': 'my own idea', 'Which planets?': 'Backend, Web' },
         },
       ),
     );
@@ -674,9 +674,9 @@ describe('createClaudeParser for a subagent', () => {
 });
 
 describe('claudeSessionPath', () => {
-  it('names the session file under the project folder of the working directory', () => {
+  it('names the session file under the planet folder of the working directory', () => {
     expect(claudeSessionPath('/home/me', '/Users/me/.herdr/worktrees/app', 'abc')).toBe(
-      '/home/me/.claude/projects/-Users-me--herdr-worktrees-app/abc.jsonl',
+      '/home/me/.claude/planets/-Users-me--herdr-worktrees-app/abc.jsonl',
     );
   });
 });

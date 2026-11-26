@@ -45,7 +45,7 @@ const MaybePictures = { pictures: Ids, attached: Schema.optional(Attached) };
 const IssueFields = {
   type: Schema.tag('proposal'),
   ...Text,
-  project: Schema.String,
+  planet: Schema.String,
   title: Schema.String,
   body: Schema.String,
   state: ProposalState,
@@ -60,14 +60,19 @@ const User = Schema.Struct({
 const Assistant = Schema.Struct({ type: Schema.tag('assistant'), ...Text, text: Schema.String });
 const Failed = Schema.Struct({ type: Schema.tag('failed'), ...Text, reason: Schema.String });
 
+// The files name a proposal's and a read's planet `project`, the word from before spec 034.
+const PLANET_KEY = { planet: 'project' } as const;
+
 const issueProposal = <P extends Schema.Struct.Fields>(images: P) =>
-  Schema.Struct({ ...IssueFields, ...images, kind: Schema.tag('issue') });
+  Schema.Struct({ ...IssueFields, ...images, kind: Schema.tag('issue') }).pipe(
+    Schema.encodeKeys(PLANET_KEY),
+  );
 const editProposal = <P extends Schema.Struct.Fields>(images: P) =>
   Schema.Struct({
     type: Schema.tag('proposal'),
     kind: Schema.tag('edit'),
     ...Text,
-    project: Schema.String,
+    planet: Schema.String,
     number: Schema.Int,
     url: Schema.String,
     title: Schema.String,
@@ -75,7 +80,7 @@ const editProposal = <P extends Schema.Struct.Fields>(images: P) =>
     base: Schema.Struct({ title: Schema.String, body: Schema.String }),
     ...images,
     state: EditState,
-  });
+  }).pipe(Schema.encodeKeys(PLANET_KEY));
 
 /** An entry of a brainstorm before the log (versions 2 and 3). */
 const Entry = Schema.Union([
@@ -87,13 +92,13 @@ const Entry = Schema.Union([
 ]);
 
 const Read = Schema.Struct({
-  project: Schema.String,
+  planet: Schema.String,
   number: Schema.Int,
   url: Schema.String,
   title: Schema.String,
   body: Schema.String,
   cut: Schema.Boolean,
-});
+}).pipe(Schema.encodeKeys(PLANET_KEY));
 
 const Runtime = Schema.NullOr(Schema.Struct({ adapter: Schema.String, state: Schema.Json }));
 
@@ -156,13 +161,22 @@ const StoredFile = Schema.Struct({
 const StoredFileV1 = Schema.Struct({
   version: Schema.Literal(1),
   id: Schema.String,
-  entries: Schema.Array(Schema.Union([User, Assistant, Schema.Struct(IssueFields), Failed])),
+  entries: Schema.Array(
+    Schema.Union([
+      User,
+      Assistant,
+      Schema.Struct(IssueFields).pipe(Schema.encodeKeys(PLANET_KEY)),
+      Failed,
+    ]),
+  ),
   runtime: Runtime,
 });
 
 const decode = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Union([StoredFileV5, StoredFileV4, StoredFile, StoredFileV1])),
 );
+
+const encodeV5 = Schema.encodeSync(StoredFileV5);
 
 type StoredEntry = (typeof StoredFile.Type)['entries'][number];
 type LogEntry = StoredChatEntry<BrainstormEntry>['entry'];
@@ -270,13 +284,13 @@ export const layerFile = ({ folder }: FileStoreOptions) => {
   const save = (brainstorm: StoredBrainstorm) =>
     Effect.tryPromise(async () => {
       await mkdir(folder, { recursive: true, mode: 0o700 });
-      const file: typeof StoredFileV5.Encoded = {
+      const file = encodeV5({
         version: 5,
         id: brainstorm.id,
         log: brainstorm.log,
         reads: brainstorm.reads,
         runtime: Option.getOrNull(brainstorm.runtime),
-      };
+      });
       // A name of its own per save, so a slower earlier save never renames over a later one's file.
       const temporary = `${path}.${randomUUID()}.tmp`;
       await writeFile(temporary, JSON.stringify(file), { encoding: 'utf-8', mode: 0o600 });

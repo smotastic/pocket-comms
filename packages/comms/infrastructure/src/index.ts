@@ -5,7 +5,7 @@ export * as Hc from './hc/index.js';
 export * as Herdr from './herdr/index.js';
 export * as Images from './images/index.js';
 export * as Push from './push/index.js';
-export * as Projects from './projects/index.js';
+export * as Repositories from './repositories/index.js';
 export * as QuickReplies from './quick-replies/index.js';
 export * as Seen from './memory/seen.js';
 export * as StatusHistory from './memory/status-history.js';

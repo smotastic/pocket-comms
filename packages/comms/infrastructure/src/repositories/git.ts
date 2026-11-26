@@ -1,5 +1,5 @@
-import { ProjectGitError, ProjectsOutbound } from '@pocket-comms/comms-application';
-import type { Project, ProjectDoc, Worktree } from '@pocket-comms/comms-domain';
+import { RepositoryGitError, RepositoriesOutbound } from '@pocket-comms/comms-application';
+import type { Repository, RepositoryDoc, Worktree } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
@@ -9,9 +9,9 @@ import { lstat, readdir, readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export interface GitOptions {
-  /** The folder whose direct child folders are the projects. */
+  /** The folder whose direct child folders are the planets. */
   readonly root: string;
-  /** The folder that holds the new worktrees, one folder per project (ADR 0015). */
+  /** The folder that holds the new worktrees, one folder per planet (ADR 0015). */
   readonly worktreesRoot: string;
   /** How long a fetch may take. Default 60 seconds. */
   readonly fetchTimeoutMs?: number;
@@ -106,13 +106,13 @@ export const layerGit = ({
 }: GitOptions) => {
   const quick = 10_000;
 
-  const run = (project: Project, args: ReadonlyArray<string>, timeout = quick) =>
-    git(project.path, args, timeout);
+  const run = (planet: Repository, args: ReadonlyArray<string>, timeout = quick) =>
+    git(planet.path, args, timeout);
 
-  const failed = (project: Project, reason: string) =>
-    new ProjectGitError({ project: project.name, reason });
+  const failed = (planet: Repository, reason: string) =>
+    new RepositoryGitError({ planet: planet.name, reason });
 
-  const list = Effect.promise(async (): Promise<ReadonlyArray<Project>> => {
+  const list = Effect.promise(async (): Promise<ReadonlyArray<Repository>> => {
     const resolved = await realpath(root).catch(() => undefined);
     if (resolved === undefined) return [];
     const entries = await readdir(resolved, { withFileTypes: true }).catch(() => []);
@@ -120,93 +120,93 @@ export const layerGit = ({
       .filter((entry) => entry.isDirectory() && isDirectory(join(resolved, entry.name, '.git')))
       .map((entry) => ({ name: entry.name, path: join(resolved, entry.name) }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }).pipe(Effect.withSpan('Projects.list'));
+  }).pipe(Effect.withSpan('Planets.list'));
 
-  const isValidBranchName = (project: Project, branch: string) =>
-    run(project, ['check-ref-format', '--branch', branch]).pipe(
+  const isValidBranchName = (planet: Repository, branch: string) =>
+    run(planet, ['check-ref-format', '--branch', branch]).pipe(
       Effect.map((result) => result.code === 0),
-      Effect.withSpan('Projects.isValidBranchName'),
+      Effect.withSpan('Planets.isValidBranchName'),
     );
 
-  const exists = (project: Project, ref: string) =>
-    run(project, ['show-ref', '--verify', '--quiet', ref]).pipe(
+  const exists = (planet: Repository, ref: string) =>
+    run(planet, ['show-ref', '--verify', '--quiet', ref]).pipe(
       Effect.map((result) => result.code === 0),
     );
 
   // `origin/HEAD` names the default branch; a clone has it, other repositories may not, so the
   // remote is asked then.
-  const remoteHead = (project: Project) =>
+  const remoteHead = (planet: Repository) =>
     Effect.gen(function* () {
-      const local = yield* run(project, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']);
+      const local = yield* run(planet, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']);
       if (local.code === 0 && local.stdout.trim() !== '') return local.stdout.trim();
       const remote = yield* run(
-        project,
+        planet,
         ['ls-remote', '--symref', 'origin', 'HEAD'],
         fetchTimeoutMs,
       );
       const match = /^ref: refs\/heads\/(\S+)\s+HEAD$/mu.exec(remote.stdout);
       if (remote.code !== 0 || match?.[1] === undefined) return undefined;
       const base = `origin/${match[1]}`;
-      return (yield* exists(project, `refs/remotes/${base}`)) ? base : undefined;
+      return (yield* exists(planet, `refs/remotes/${base}`)) ? base : undefined;
     });
 
-  const defaultBase = (project: Project) =>
+  const defaultBase = (planet: Repository) =>
     Effect.gen(function* () {
-      const fetched = yield* run(project, ['fetch', '--prune', 'origin'], fetchTimeoutMs);
+      const fetched = yield* run(planet, ['fetch', '--prune', 'origin'], fetchTimeoutMs);
       if (fetched.code !== 0) {
-        return yield* failed(project, `git fetch failed: ${lastLine(fetched.stderr)}`);
+        return yield* failed(planet, `git fetch failed: ${lastLine(fetched.stderr)}`);
       }
-      const base = yield* remoteHead(project);
+      const base = yield* remoteHead(planet);
       if (base === undefined) {
-        return yield* failed(project, 'origin has no default branch.');
+        return yield* failed(planet, 'origin has no default branch.');
       }
       return base;
-    }).pipe(Effect.withSpan('Projects.defaultBase'));
+    }).pipe(Effect.withSpan('Planets.defaultBase'));
 
-  const branchExists = (project: Project, branch: string) =>
+  const branchExists = (planet: Repository, branch: string) =>
     Effect.gen(function* () {
-      if (yield* exists(project, `refs/heads/${branch}`)) return true;
-      return yield* exists(project, `refs/remotes/origin/${branch}`);
-    }).pipe(Effect.withSpan('Projects.branchExists'));
+      if (yield* exists(planet, `refs/heads/${branch}`)) return true;
+      return yield* exists(planet, `refs/remotes/origin/${branch}`);
+    }).pipe(Effect.withSpan('Planets.branchExists'));
 
-  const originUrl = (project: Project) =>
-    run(project, ['remote', 'get-url', 'origin']).pipe(
+  const originUrl = (planet: Repository) =>
+    run(planet, ['remote', 'get-url', 'origin']).pipe(
       Effect.map((result) =>
         result.code === 0 && result.stdout.trim() !== ''
           ? Option.some(result.stdout.trim())
           : Option.none(),
       ),
-      Effect.withSpan('Projects.originUrl'),
+      Effect.withSpan('Planets.originUrl'),
     );
 
-  const worktrees = (project: Project) =>
+  const worktrees = (planet: Repository) =>
     Effect.gen(function* () {
-      const listed = yield* run(project, ['worktree', 'list', '--porcelain']);
+      const listed = yield* run(planet, ['worktree', 'list', '--porcelain']);
       if (listed.code !== 0) {
-        return yield* failed(project, `git worktree list failed: ${lastLine(listed.stderr)}`);
+        return yield* failed(planet, `git worktree list failed: ${lastLine(listed.stderr)}`);
       }
       return parseWorktrees(listed.stdout);
-    }).pipe(Effect.withSpan('Projects.worktrees'));
+    }).pipe(Effect.withSpan('Planets.worktrees'));
 
   // Untracked files count: removing the worktree would delete them too.
-  const hasChanges = (project: Project, path: string) =>
+  const hasChanges = (planet: Repository, path: string) =>
     Effect.gen(function* () {
       const status = yield* git(path, ['status', '--porcelain', '--untracked-files=all'], quick);
       if (status.code !== 0) {
-        return yield* failed(project, `git status failed: ${lastLine(status.stderr)}`);
+        return yield* failed(planet, `git status failed: ${lastLine(status.stderr)}`);
       }
       return status.stdout.trim() !== '';
-    }).pipe(Effect.withSpan('Projects.hasChanges'));
+    }).pipe(Effect.withSpan('Planets.hasChanges'));
 
   // The folder is named as Herdr names it, the branch with `-` for `/`, so the worktrees of
   // both live side by side.
   const addWorktree = (
-    project: Project,
+    planet: Repository,
     request: { readonly branch: string; readonly base: string },
   ) =>
     Effect.gen(function* () {
-      const path = join(worktreesRoot, project.name, request.branch.replaceAll('/', '-'));
-      const added = yield* run(project, [
+      const path = join(worktreesRoot, planet.name, request.branch.replaceAll('/', '-'));
+      const added = yield* run(planet, [
         'worktree',
         'add',
         '--quiet',
@@ -216,38 +216,38 @@ export const layerGit = ({
         request.base,
       ]);
       if (added.code !== 0) {
-        return yield* failed(project, `git worktree add failed: ${lastLine(added.stderr)}`);
+        return yield* failed(planet, `git worktree add failed: ${lastLine(added.stderr)}`);
       }
       return { path, branch: request.branch };
-    }).pipe(Effect.withSpan('Projects.addWorktree'));
+    }).pipe(Effect.withSpan('Planets.addWorktree'));
 
-  const removeWorktree = (project: Project, path: string, force: boolean) =>
+  const removeWorktree = (planet: Repository, path: string, force: boolean) =>
     Effect.gen(function* () {
       // A removal stopped halfway leaves a half-deleted folder, so a caller that stops waiting,
       // such as a phone that drops the request, does not stop it.
       const removed = yield* Effect.uninterruptible(
-        run(project, ['worktree', 'remove', ...(force ? ['--force'] : []), path], removeTimeoutMs),
+        run(planet, ['worktree', 'remove', ...(force ? ['--force'] : []), path], removeTimeoutMs),
       );
       if (removed.code !== 0) {
-        return yield* failed(project, `git worktree remove failed: ${lastLine(removed.stderr)}`);
+        return yield* failed(planet, `git worktree remove failed: ${lastLine(removed.stderr)}`);
       }
-    }).pipe(Effect.withSpan('Projects.removeWorktree'));
+    }).pipe(Effect.withSpan('Planets.removeWorktree'));
 
-  // Only a regular file directly in the project folder: a symlink could point anywhere.
-  const readDoc = (project: Project, doc: ProjectDoc) =>
+  // Only a regular file directly in the planet folder: a symlink could point anywhere.
+  const readDoc = (planet: Repository, doc: RepositoryDoc) =>
     Effect.promise(async () => {
-      const path = join(project.path, doc);
+      const path = join(planet.path, doc);
       try {
         const stats = await lstat(path);
         return stats.isFile() ? Option.some(await readFile(path, 'utf-8')) : Option.none();
       } catch {
         return Option.none<string>();
       }
-    }).pipe(Effect.withSpan('Projects.readDoc'));
+    }).pipe(Effect.withSpan('Planets.readDoc'));
 
   return Layer.succeed(
-    ProjectsOutbound,
-    ProjectsOutbound.of({
+    RepositoriesOutbound,
+    RepositoriesOutbound.of({
       list,
       isValidBranchName,
       defaultBase,

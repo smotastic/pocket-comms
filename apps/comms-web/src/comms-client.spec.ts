@@ -131,12 +131,12 @@ describe('the tasks requests', () => {
     vi.stubGlobal('fetch', fetch);
   });
 
-  it('lists the projects', async () => {
+  it('lists the planets', async () => {
     fetch.mockImplementation(async () =>
-      answer(200, { projects: [{ name: 'pocket-comms', open: true }] }),
+      answer(200, { planets: [{ name: 'pocket-comms', open: true }] }),
     );
 
-    expect(await makeCommsClient('http://app').projects()).toEqual([
+    expect(await makeCommsClient('http://app').planets()).toEqual([
       { name: 'pocket-comms', open: true },
     ]);
   });
@@ -147,7 +147,7 @@ describe('the tasks requests', () => {
     );
 
     const created = await makeCommsClient('http://app').createTask({
-      project: 'pocket-comms',
+      planet: 'pocket-comms',
       task: 'X',
       branch: 'feat/x',
       agent: { kind: 'claude' },
@@ -158,7 +158,7 @@ describe('the tasks requests', () => {
     expect(String(input instanceof Request ? input.url : input)).toBe('http://app/api/v1/tasks');
     const body = input instanceof Request ? await input.text() : init?.body;
     expect(JSON.parse(String(body))).toEqual({
-      project: 'pocket-comms',
+      planet: 'pocket-comms',
       task: 'X',
       branch: 'feat/x',
       agent: { kind: 'claude' },
@@ -176,7 +176,7 @@ describe('the tasks requests', () => {
     );
 
     const error = await makeCommsClient('http://app')
-      .createTask({ project: 'p', task: 'X', branch: 'Feature/X' })
+      .createTask({ planet: 'p', task: 'X', branch: 'Feature/X' })
       .catch((failure: unknown) => failure);
 
     expect(error).toBeInstanceOf(RequestError);
@@ -210,7 +210,7 @@ describe('the tasks requests', () => {
     expect(error).toMatchObject({ status: 409, problem: 'worktree-has-changes' });
   });
 
-  it("reads a project's issues", async () => {
+  it("reads a planet's issues", async () => {
     fetch.mockImplementation(async () => answer(200, { _tag: 'NotConfigured' }));
 
     expect(await makeCommsClient('http://app').issues('pocket comms')).toEqual({
@@ -218,7 +218,7 @@ describe('the tasks requests', () => {
     });
     const [input] = fetch.mock.calls[0] ?? [];
     expect(String(input instanceof Request ? input.url : input)).toBe(
-      'http://app/api/v1/projects/pocket%20comms/issues',
+      'http://app/api/v1/planets/pocket%20comms/issues',
     );
   });
 
@@ -236,7 +236,7 @@ describe('the tasks requests', () => {
     expect(created).toEqual({ workspace: 'wK', branch: 'feat/8-x', path: '/w/feat-8-x' });
     const [input, init] = fetch.mock.calls[0] ?? [];
     expect(String(input instanceof Request ? input.url : input)).toBe(
-      'http://app/api/v1/projects/pocket-comms/issues/8/implement',
+      'http://app/api/v1/planets/pocket-comms/issues/8/implement',
     );
     const body = input instanceof Request ? await input.text() : init?.body;
     expect(JSON.parse(String(body))).toEqual({ branch: 'feat/8-x' });
@@ -264,7 +264,7 @@ describe('the tasks requests', () => {
 
     const [input, init] = fetch.mock.calls[0] ?? [];
     expect(String(input instanceof Request ? input.url : input)).toBe(
-      'http://app/api/v1/projects/pocket-comms/issues/8/close',
+      'http://app/api/v1/planets/pocket-comms/issues/8/close',
     );
     expect(input instanceof Request ? input.method : init?.method).toBe('POST');
   });

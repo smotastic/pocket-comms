@@ -5,7 +5,7 @@ import {
   AgentNotFoundError,
   MultiplexerRejectedError,
   NotAWorktreeError,
-  ProjectGitError,
+  RepositoryGitError,
   WorktreeHasChangesError,
 } from '../errors.js';
 import { AgentsInbound } from '../ports/agents.inbound.port.js';
@@ -57,7 +57,7 @@ describe('AgentsInbound.close', () => {
       const state = yield* arrange;
       const start = {
         folder: '/worktrees/feature',
-        project: 'app',
+        planet: 'app',
         branch: 'feat/feature',
         issue: undefined,
         kind: 'claude' as const,
@@ -144,10 +144,10 @@ describe('AgentsInbound.close', () => {
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect('refuses a worktree whose project is not below the projects root', () =>
+  it.effect('refuses a worktree whose planet is not below the repositories root', () =>
     Effect.gen(function* () {
       const state = yield* arrange;
-      state.projects = [];
+      state.planets = [];
 
       const error = yield* close('kirk', true).pipe(Effect.flip);
 
@@ -175,7 +175,7 @@ describe('AgentsInbound.close', () => {
 
       const error = yield* close('kirk', true).pipe(Effect.flip);
 
-      expect(error).toBeInstanceOf(ProjectGitError);
+      expect(error).toBeInstanceOf(RepositoryGitError);
       expect(state.calls.filter((call) => call.method === 'closeWorkspace')).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );

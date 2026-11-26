@@ -20,7 +20,7 @@ import {
   Hc,
   Herdr,
   Images,
-  Projects,
+  Repositories,
   PullRequests,
   TaskStarts,
   Push,
@@ -61,8 +61,8 @@ export interface ServerOptions {
   /** The home folder that holds the agents' session files. */
   readonly home: string;
   /** The folder whose git repositories a task can start in (spec 005). */
-  readonly projectsRoot: string;
-  /** The folder that holds the new tasks' worktrees, one folder per project (ADR 0015). */
+  readonly repositoriesRoot: string;
+  /** The folder that holds the new tasks' worktrees, one folder per planet (ADR 0015). */
   readonly worktreesRoot: string;
   /** Extra arguments for every agent the app starts. */
   readonly agentArgs: ReadonlyArray<string>;
@@ -79,7 +79,7 @@ export interface ServerOptions {
 }
 
 /**
- * The adapters: Herdr or hc over its socket, session files below `home`, git below `projectsRoot`,
+ * The adapters: Herdr or hc over its socket, session files below `home`, git below `repositoriesRoot`,
  * Gitea over HTTP, Pi in process with the `COMMS_BRAINSTORM_*` settings (spec 013, ADR 0014), the brainstorm, the images, the activity timeline, the
  * push devices and the quick replies in `stateDir`, Web Push to the devices, the speech service of
  * voice messages when set up, and memory for the rest.
@@ -89,7 +89,7 @@ export const services = ({
   socketPath,
   hcSocketPath,
   home,
-  projectsRoot,
+  repositoriesRoot,
   worktreesRoot,
   agentArgs,
   gitea,
@@ -100,7 +100,7 @@ export const services = ({
     multiplexer === 'hc'
       ? Hc.layerSocket({ path: hcSocketPath, agentArgs })
       : Herdr.layerSocket({ path: socketPath, agentArgs }),
-    Projects.layerGit({ root: projectsRoot, worktreesRoot }),
+    Repositories.layerGit({ root: repositoriesRoot, worktreesRoot }),
     Gitea.layerHttp(gitea),
     // The Claude hook (`claude-hook.ts`) keeps the waiting questions in the same state folder.
     Conversation.layerFiles({ home, questions: join(stateDir, 'questions') }),

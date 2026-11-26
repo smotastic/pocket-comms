@@ -34,7 +34,7 @@ const NOTES = {
 } as const;
 
 /** The task start a launch keeps, without what the launch decides. */
-export type StartBase = Pick<TaskStart, 'folder' | 'project' | 'branch' | 'issue'>;
+export type StartBase = Pick<TaskStart, 'folder' | 'planet' | 'branch' | 'issue'>;
 
 /** A refused prompt did not arrive; one Herdr did not answer may have. */
 export const promptOutcome = (

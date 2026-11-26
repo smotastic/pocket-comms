@@ -1,26 +1,26 @@
-import type { Project } from '@pocket-comms/comms-domain';
+import type { Repository } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
-import { ProjectNotFoundError } from '../errors.js';
+import { PlanetNotFoundError } from '../errors.js';
 import { GiteaOutbound, type LinkedRepository } from '../ports/gitea.outbound.port.js';
-import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
+import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 
 /**
- * A project by its name, and the Gitea repository its `origin` names. The project is only ever
- * one the projects port lists, and the repository only ever the one its remote names.
+ * A planet by its name, and the Gitea repository its `origin` names. The planet is only ever
+ * one the repositories port lists, and the repository only ever the one its remote names.
  */
-export const makeIssueProject = Effect.gen(function* () {
-  const projectsOutbound = yield* ProjectsOutbound;
+export const makeIssuePlanet = Effect.gen(function* () {
+  const planetsOutbound = yield* RepositoriesOutbound;
   const giteaOutbound = yield* GiteaOutbound;
 
   return Effect.fnUntraced(function* (name: string) {
-    const projects = yield* projectsOutbound.list;
-    const project = projects.find((candidate) => candidate.name === name);
-    if (project === undefined) return yield* new ProjectNotFoundError({ project: name });
-    const origin = yield* projectsOutbound.originUrl(project);
+    const planets = yield* planetsOutbound.list;
+    const planet = planets.find((candidate) => candidate.name === name);
+    if (planet === undefined) return yield* new PlanetNotFoundError({ planet: name });
+    const origin = yield* planetsOutbound.originUrl(planet);
     const repository = Option.flatMap(origin, giteaOutbound.repositoryOf);
-    return { project, repository } satisfies {
-      readonly project: Project;
+    return { planet, repository } satisfies {
+      readonly planet: Repository;
       readonly repository: Option.Option<LinkedRepository>;
     };
   });

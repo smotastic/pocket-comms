@@ -14,7 +14,7 @@ import {
   IssueNumberParam,
   KEYS,
   OverviewState,
-  ProjectParam,
+  PlanetParam,
   ProposalDecisionRequest,
   ProposalParam,
   PushSubscription,
@@ -81,11 +81,11 @@ describe('CommsApi', () => {
       '/api/v1/events',
       '/api/v1/images',
       '/api/v1/images/{image}',
-      '/api/v1/projects',
-      '/api/v1/projects/{project}/issues',
-      '/api/v1/projects/{project}/issues/{number}/close',
-      '/api/v1/projects/{project}/issues/{number}/implement',
-      '/api/v1/projects/{project}/issues/{number}/start-agent',
+      '/api/v1/planets',
+      '/api/v1/planets/{planet}/issues',
+      '/api/v1/planets/{planet}/issues/{number}/close',
+      '/api/v1/planets/{planet}/issues/{number}/implement',
+      '/api/v1/planets/{planet}/issues/{number}/start-agent',
       '/api/v1/push/key',
       '/api/v1/push/subscriptions',
       '/api/v1/push/subscriptions/remove',
@@ -96,13 +96,13 @@ describe('CommsApi', () => {
     ]);
   });
 
-  it('reads only issue numbers and project names without a slash from the path', () => {
+  it('reads only issue numbers and planet names without a slash from the path', () => {
     const number = Schema.is(IssueNumberParam);
-    const project = Schema.is(ProjectParam);
+    const planet = Schema.is(PlanetParam);
 
     expect(['8', '1234'].map(number)).toEqual([true, true]);
     expect(['0', '08', '-1', '1.5', 'x'].map(number)).toEqual([false, false, false, false, false]);
-    expect(['pocket-comms', '..', 'a/b', ''].map(project)).toEqual([true, true, false, false]);
+    expect(['pocket-comms', '..', 'a/b', ''].map(planet)).toEqual([true, true, false, false]);
   });
 
   it('tells the three states of an issue list apart', () => {
@@ -271,7 +271,7 @@ describe('wire schemas', () => {
           { header: 'Stack', text: 'Keep Effect?', answer: 'Keep Effect' },
           { text: 'Keep Nx?' },
           {
-            text: 'Which projects?',
+            text: 'Which planets?',
             options: [{ label: 'Backend', description: 'The API.' }, { label: 'Web' }],
             multiple: true,
           },
@@ -331,7 +331,7 @@ describe('brainstorm wire schemas', () => {
       kind: 'issue',
       id: 'p1',
       at: 3,
-      project: 'pocket-home',
+      planet: 'pocket-home',
       title: 'Dark mode',
       body: 'A toggle.',
       images: [IMAGE],
@@ -343,7 +343,7 @@ describe('brainstorm wire schemas', () => {
       kind: 'edit',
       id: 'e1',
       at: 4,
-      project: 'pocket-comms',
+      planet: 'pocket-comms',
       number: 11,
       url: 'http://gitea/i/11',
       title: 'Orchestrator',
@@ -421,7 +421,7 @@ describe('brainstorm wire schemas', () => {
       images: [IMAGE],
     });
     expect(
-      decode({ _tag: 'Create', issue: { project: 'a', title: 'T', body: '' }, images: [] }),
+      decode({ _tag: 'Create', issue: { planet: 'a', title: 'T', body: '' }, images: [] }),
     ).toMatchObject({ images: [] });
     expect(() =>
       decode({ _tag: 'Apply', title: 'T', body: 'B', images: Array(6).fill(IMAGE) }),
@@ -430,7 +430,7 @@ describe('brainstorm wire schemas', () => {
     expect(() => decode({ _tag: 'Create' })).toThrow();
     expect(() => decode({ _tag: 'Apply', title: 'x'.repeat(256), body: '' })).toThrow();
     expect(() =>
-      decode({ _tag: 'Create', issue: { project: 'a', title: 'x'.repeat(256), body: '' } }),
+      decode({ _tag: 'Create', issue: { planet: 'a', title: 'x'.repeat(256), body: '' } }),
     ).toThrow();
   });
 });

@@ -103,7 +103,7 @@ export const Agent = Schema.Struct({
     description: "The label of the agent's Herdr workspace.",
     examples: ['ingestor-mvp'],
   }),
-  project: optional(Schema.String, {
+  planet: optional(Schema.String, {
     description: "The repository of the agent's workspace; missing puts the agent under Other.",
     examples: ['pocket-home'],
   }),
@@ -137,8 +137,8 @@ export const Overview = Schema.Struct({
   groups: Schema.Array(
     Schema.Struct({
       key: Schema.String.annotate({
-        description: "The repository's key, or `other` for every workspace without a project.",
-        examples: ['/Users/me/projects/pocket-home/.git'],
+        description: "The repository's key, or `other` for every workspace without a planet.",
+        examples: ['/Users/me/code/pocket-home/.git'],
       }),
       name: Schema.String.annotate({
         description: 'The repository or workspace name.',
@@ -472,7 +472,7 @@ export const ActivityAgent = Schema.Struct({
     description: "The label of the agent's Herdr workspace.",
     examples: ['ingestor-mvp'],
   }),
-  project: optional(Schema.String, {
+  planet: optional(Schema.String, {
     description: "The repository of the agent's workspace.",
     examples: ['pocket-home'],
   }),
@@ -489,7 +489,7 @@ export const ActivityAgent = Schema.Struct({
       paneId: 'wJ:p1',
       name: 'kirk',
       workspace: 'ingestor-mvp',
-      project: 'pocket-home',
+      planet: 'pocket-home',
       worktree: 'ingestor-mvp',
     },
   ],
@@ -575,30 +575,30 @@ export const CloseRequest = Schema.Struct({
   }),
 }).annotate({ identifier: 'CloseRequest', description: 'How to close the agent.' });
 
-export const Project = Schema.Struct({
+export const Planet = Schema.Struct({
   name: Schema.String.annotate({
-    description: "The project's folder name below the projects root.",
+    description: "The planet's folder name below the repositories root.",
     examples: ['pocket-comms'],
   }),
   open: Schema.Boolean.annotate({
-    description: 'Herdr has a workspace for the project.',
+    description: 'Herdr has a workspace for the planet.',
     examples: [true],
   }),
-}).annotate({ identifier: 'Project', description: 'A git repository a task can start in.' });
+}).annotate({ identifier: 'Planet', description: 'A git repository a task can start in.' });
 
-export const Projects = Schema.Struct({
-  projects: Schema.Array(Project).annotate({
-    description: 'The projects open in Herdr first, in workspace order, then the others by name.',
+export const Planets = Schema.Struct({
+  planets: Schema.Array(Planet).annotate({
+    description: 'The planets open in Herdr first, in workspace order, then the others by name.',
     examples: [[{ name: 'pocket-comms', open: true }]],
   }),
-}).annotate({ identifier: 'Projects', description: 'The projects a task can start in.' });
+}).annotate({ identifier: 'Planets', description: 'The planets a task can start in.' });
 
 /** The agents the app can start in a new worktree. */
 export const AGENTS_TO_START = ['claude', 'pi'] as const;
 
 export const CreateTaskRequest = Schema.Struct({
-  project: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200)).annotate({
-    description: 'The name of a project of `GET /projects`.',
+  planet: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200)).annotate({
+    description: 'The name of a planet of `GET /planets`.',
     examples: ['pocket-comms'],
   }),
   task: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(20_000)).annotate({
@@ -666,8 +666,8 @@ export const TaskCreated = Schema.Struct({
   }),
 }).annotate({ identifier: 'TaskCreated', description: 'The new worktree, and its agent.' });
 
-export const ProjectParam = Schema.String.check(Schema.isPattern(/^[^/]{1,200}$/u)).annotate({
-  description: "The project's folder name below the projects root.",
+export const PlanetParam = Schema.String.check(Schema.isPattern(/^[^/]{1,200}$/u)).annotate({
+  description: "The planet's folder name below the repositories root.",
   examples: ['pocket-comms'],
 });
 
@@ -678,7 +678,7 @@ export const IssueNumberParam = Schema.String.check(
 export const IssueWork = Schema.Struct({
   branch: Schema.String.annotate({
     description: "The worktree's branch, `<type>/<number>-<description>`.",
-    examples: ['feat/8-per-project-gitea-issue-list'],
+    examples: ['feat/8-per-planet-gitea-issue-list'],
   }),
   agents: Schema.Array(
     Schema.Struct({ ref: AgentParam, status: AgentStatus }).annotate({
@@ -700,7 +700,7 @@ export const Issue = Schema.Struct({
   number: Schema.Int.annotate({ description: "The issue's number.", examples: [8] }),
   title: Schema.String.annotate({
     description: "The issue's title.",
-    examples: ['feat: per-project Gitea issue list'],
+    examples: ['feat: per-planet Gitea issue list'],
   }),
   labels: Schema.Array(Schema.String).annotate({
     description: 'The label names.',
@@ -715,10 +715,10 @@ export const Issue = Schema.Struct({
   }),
   branch: Schema.String.annotate({
     description: 'The branch the issue suggests for a new worktree.',
-    examples: ['feat/8-per-project-gitea-issue-list'],
+    examples: ['feat/8-per-planet-gitea-issue-list'],
   }),
   work: Schema.Array(IssueWork).annotate({
-    description: "The project's worktrees on a branch of this issue.",
+    description: "The planet's worktrees on a branch of this issue.",
     examples: [[]],
   }),
   inProgress: Schema.Boolean.annotate({
@@ -726,12 +726,12 @@ export const Issue = Schema.Struct({
       'The issue has the `status/in-progress` label or a worktree on one of its branches.',
     examples: [false],
   }),
-}).annotate({ identifier: 'Issue', description: 'An open issue of the project.' });
+}).annotate({ identifier: 'Issue', description: 'An open issue of the planet.' });
 
 export const IssueList = Schema.Union([
   Schema.Struct({
     _tag: Schema.tag('Listed').annotate({
-      description: 'The project is on Gitea and the app can read it.',
+      description: 'The planet is on Gitea and the app can read it.',
       examples: ['Listed'],
     }),
     repository: Schema.Struct({
@@ -749,7 +749,7 @@ export const IssueList = Schema.Union([
       }),
     }).annotate({
       identifier: 'IssueRepository',
-      description: "The project's Gitea repository.",
+      description: "The planet's Gitea repository.",
       examples: [
         {
           owner: 'smotastic',
@@ -765,7 +765,7 @@ export const IssueList = Schema.Union([
   }),
   Schema.Struct({
     _tag: Schema.tag('NoGiteaRemote').annotate({
-      description: "The project's `origin` is not on the app's Gitea.",
+      description: "The planet's `origin` is not on the app's Gitea.",
       examples: ['NoGiteaRemote'],
     }),
   }),
@@ -777,13 +777,13 @@ export const IssueList = Schema.Union([
   }),
 ]).annotate({
   identifier: 'IssueList',
-  description: "The project's open issues, or why it has none to show.",
+  description: "The planet's open issues, or why it has none to show.",
 });
 
 export const ImplementIssueRequest = Schema.Struct({
   branch: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(80)).annotate({
     description: 'The new branch, `<type>/<kebab-description>`; it must not exist yet.',
-    examples: ['feat/8-per-project-gitea-issue-list'],
+    examples: ['feat/8-per-planet-gitea-issue-list'],
   }),
   additionalInformation: optional(Schema.String.check(Schema.isMaxLength(4_000)), {
     description:
@@ -927,8 +927,8 @@ const entryAt = Millis.annotate({
 });
 
 const ProposedIssueFields = {
-  project: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(100)).annotate({
-    description: 'The project the issue is for, by name.',
+  planet: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(100)).annotate({
+    description: 'The planet the issue is for, by name.',
     examples: ['pocket-home'],
   }),
   title: Schema.String.check(Schema.isMaxLength(255)).annotate({
@@ -987,7 +987,7 @@ const choice = optional(brainstormImageIds, {
 export const ProposedIssue = Schema.Struct(ProposedIssueFields).annotate({
   identifier: 'ProposedIssue',
   description: 'An issue as the owner edited it: exactly what is created.',
-  examples: [{ project: 'pocket-home', title: 'Dark mode toggle', body: 'A toggle in settings.' }],
+  examples: [{ planet: 'pocket-home', title: 'Dark mode toggle', body: 'A toggle in settings.' }],
 });
 
 export const ProposalState = Schema.Union([
@@ -1089,7 +1089,7 @@ export const BrainstormProposal = Schema.Union([
     }),
     id: entryId,
     at: entryAt,
-    project: ProposedIssueFields.project,
+    planet: ProposedIssueFields.planet,
     number: Schema.Int.annotate({ description: "The issue's number.", examples: [11] }),
     url: Schema.String.annotate({
       description: "The issue's page in Gitea.",
@@ -1452,13 +1452,13 @@ const group = HttpApiGroup.make('agents')
 
 const tasks = HttpApiGroup.make('tasks')
   .add(
-    HttpApiEndpoint.get('projects', '/projects', {
-      success: Projects,
+    HttpApiEndpoint.get('planets', '/planets', {
+      success: Planets,
       error: Problems.ServiceUnavailable,
     }).annotateMerge(
       OpenApi.annotations({
-        summary: 'List the projects',
-        description: 'The git repositories below the projects root that a task can start in.',
+        summary: 'List the planets',
+        description: 'The git repositories below the repositories root that a task can start in.',
       }),
     ),
     HttpApiEndpoint.post('create', '/tasks', {
@@ -1469,7 +1469,7 @@ const tasks = HttpApiGroup.make('tasks')
       OpenApi.annotations({
         summary: 'Start a task',
         description:
-          "Creates a Herdr worktree on a new branch from the project's default remote branch, without moving the focus, and optionally starts an agent in it with the task as its first prompt.",
+          "Creates a Herdr worktree on a new branch from the planet's default remote branch, without moving the focus, and optionally starts an agent in it with the task as its first prompt.",
       }),
     ),
   )
@@ -1483,23 +1483,23 @@ const tasks = HttpApiGroup.make('tasks')
     }),
   );
 
-const project = { project: ProjectParam };
+const planet = { planet: PlanetParam };
 
 const issues = HttpApiGroup.make('issues')
   .add(
-    HttpApiEndpoint.get('list', '/projects/:project/issues', {
-      params: project,
+    HttpApiEndpoint.get('list', '/planets/:planet/issues', {
+      params: planet,
       success: IssueList,
       error: [Problems.NotFound, Problems.ServiceUnavailable],
     }).annotateMerge(
       OpenApi.annotations({
-        summary: "List a project's issues",
+        summary: "List a planet's issues",
         description:
-          "The open Gitea issues of the project's `origin` repository, each with its suggested branch, the worktrees and agents that work on it, and whether it is in progress.",
+          "The open Gitea issues of the planet's `origin` repository, each with its suggested branch, the worktrees and agents that work on it, and whether it is in progress.",
       }),
     ),
-    HttpApiEndpoint.post('implement', '/projects/:project/issues/:number/implement', {
-      params: { ...project, number: IssueNumberParam },
+    HttpApiEndpoint.post('implement', '/planets/:planet/issues/:number/implement', {
+      params: { ...planet, number: IssueNumberParam },
       payload: ImplementIssueRequest,
       success: IssueTaskCreated.pipe(HttpApiSchema.status(201)),
       error: [
@@ -1515,15 +1515,15 @@ const issues = HttpApiGroup.make('issues')
           'Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt. Then it adds the `status/in-progress` label to the issue, creating the label when the repository has none; a failed label write leaves the task started and is reported in `markNote`.',
       }),
     ),
-    HttpApiEndpoint.post('close', '/projects/:project/issues/:number/close', {
-      params: { ...project, number: IssueNumberParam },
+    HttpApiEndpoint.post('close', '/planets/:planet/issues/:number/close', {
+      params: { ...planet, number: IssueNumberParam },
       success: HttpApiSchema.NoContent,
       error: [Problems.NotFound, Problems.Conflict, Problems.ServiceUnavailable],
     }).annotateMerge(
       OpenApi.annotations({
         summary: 'Close an issue',
         description:
-          "Reads the issue from Gitea again and sets its state to closed; nothing else of the issue changes. An issue that is closed already answers 204 without a write. The project's worktrees and agents stay as they are.",
+          "Reads the issue from Gitea again and sets its state to closed; nothing else of the issue changes. An issue that is closed already answers 204 without a write. The planet's worktrees and agents stay as they are.",
       }),
     ),
   )
@@ -1533,7 +1533,7 @@ const issues = HttpApiGroup.make('issues')
   .annotateMerge(
     OpenApi.annotations({
       title: 'Issues',
-      description: "Read a project's Gitea issues, implement one or close one.",
+      description: "Read a planet's Gitea issues, implement one or close one.",
     }),
   );
 
@@ -1594,7 +1594,7 @@ const brainstorm = HttpApiGroup.make('brainstorm')
       OpenApi.annotations({
         summary: 'Decide on a proposal',
         description:
-          "Creates the proposed issue as shown, with only its title and body, in the project's Gitea repository; or applies a proposed edit, setting only the issue's title and body, when they are unchanged since Pi read them; or discards either. Then tells Pi. A proposal is decided once.",
+          "Creates the proposed issue as shown, with only its title and body, in the planet's Gitea repository; or applies a proposed edit, setting only the issue's title and body, when they are unchanged since Pi read them; or discards either. Then tells Pi. A proposal is decided once.",
       }),
     ),
     HttpApiEndpoint.post('reset', '/brainstorm/reset', {
@@ -2184,8 +2184,8 @@ const taskStarts = HttpApiGroup.make('taskStarts')
         description: 'Forgets the task start without sending anything.',
       }),
     ),
-    HttpApiEndpoint.post('startAgent', '/projects/:project/issues/:number/start-agent', {
-      params: { project: ProjectParam, number: IssueNumberParam },
+    HttpApiEndpoint.post('startAgent', '/planets/:planet/issues/:number/start-agent', {
+      params: { planet: PlanetParam, number: IssueNumberParam },
       payload: StartAgentInWorktreeRequest,
       success: TaskCreated.pipe(HttpApiSchema.status(201)),
       error: [
