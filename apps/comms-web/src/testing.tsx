@@ -21,6 +21,7 @@ import {
   type OverviewStateView,
   type OverviewView,
   type PlanetView,
+  type PreflightView,
   type ProposalDecision,
   type SubagentEventView,
   type SubagentView,
@@ -96,6 +97,8 @@ export interface FakeState {
   planets: ReadonlyArray<PlanetView>;
   /** The repositories below the root that are not planets. */
   others: ReadonlyArray<string>;
+  /** Each planet's preflight, or a failure; a planet without an entry is never done checking. */
+  readonly preflights: Map<string, PreflightView | RequestError>;
   /** What the next task creation answers: the created worktree, or a failure. */
   created: TaskCreatedView | RequestError;
   /** Each planet's issues, or a failure; a planet without an entry has no Gitea remote. */
@@ -146,6 +149,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       { name: 'pocket-home', open: false },
     ],
     others: [],
+    preflights: new Map(),
     created: { workspace: 'wK', branch: 'feat/x', path: '/worktrees/feat-x' },
     issues: new Map(),
     implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
@@ -298,6 +302,13 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       calls.registered.push(name);
       state.others = state.others.filter((other) => other !== name);
       state.planets = [...state.planets, { name, open: false }];
+    },
+    preflight: async (planet) => {
+      const preflight = state.preflights.get(planet);
+      // A planet without an entry is still being checked, so it shows no result.
+      if (preflight === undefined) return new Promise<never>(() => undefined);
+      if (preflight instanceof RequestError) throw preflight;
+      return preflight;
     },
     unregisterPlanet: async (planet) => {
       calls.unregistered.push(planet);

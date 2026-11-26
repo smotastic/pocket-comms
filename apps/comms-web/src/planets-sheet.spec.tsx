@@ -395,3 +395,37 @@ describe('closing an issue from the planets sheet', () => {
     expect(within(again).queryByText('Close #8 in Gitea?')).toBeNull();
   });
 });
+
+describe("the planets sheet's planets and other repositories", () => {
+  const preflight = (result: 'go' | 'no-go') => ({
+    result,
+    checks: [],
+    autonomy: { chosen: 'manual' as const, effective: 'manual' as const },
+    checkedAt: 1,
+  });
+
+  it('tags each planet go or no-go once its preflight is known', async () => {
+    open({
+      preflights: new Map([
+        ['alpha', preflight('go')],
+        ['beta', preflight('no-go')],
+      ]),
+    });
+    const sheet = await openSheet();
+
+    await waitFor(() => expect(entry(sheet, 'alpha').textContent).toContain('Go'));
+    await waitFor(() => expect(entry(sheet, 'beta').textContent).toContain('No-go'));
+  });
+
+  it('lists the other repositories and registers one', async () => {
+    const fake = open({ others: ['setup'] });
+    const sheet = await openSheet();
+
+    const others = await within(sheet).findByRole('region', { name: 'Other repositories' });
+    await userEvent.click(within(others).getByRole('button', { name: 'Register setup' }));
+
+    expect(fake.calls.registered).toEqual(['setup']);
+    await waitFor(() => expect(entry(sheet, 'setup')).toBeDefined());
+    expect(within(sheet).queryByRole('region', { name: 'Other repositories' })).toBeNull();
+  });
+});

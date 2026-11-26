@@ -35,6 +35,7 @@ import { groupIssues, shownLabels } from './issue-groups.js';
 import { STATUS_LABELS } from './labels.js';
 import { useNow, useOverviewLive } from './live.js';
 import { NewTask } from './NewTask.js';
+import { PreflightCard } from './PreflightCard.js';
 import { filterOverview } from './planet-agents.js';
 import { planetHue } from './rows.js';
 import { since } from './since.js';
@@ -236,8 +237,7 @@ export const PlanetPage = ({
   const [notice, setNotice] = useState(initialNotice);
   const now = useNow();
   const repository = issues.data?._tag === 'Listed' ? issues.data.repository : undefined;
-  const unknown =
-    planets.data !== undefined && !planets.data.some(({ name }) => name === planet);
+  const unknown = planets.data !== undefined && !planets.data.some(({ name }) => name === planet);
   const back = <IconButton icon="back" label="Back to all agents" onClick={onBack} />;
   // A start without a running agent says so here; a running one opens its conversation.
   const started = (created: TaskCreatedView) => {
@@ -340,6 +340,7 @@ export const PlanetPage = ({
               now={now}
             />
           )}
+          <PreflightCard client={client} planet={planet} onUnregistered={onBack} />
           <section aria-label="Issues">
             <Stack gap="xs">
               <SectionHeader title="Issues" />

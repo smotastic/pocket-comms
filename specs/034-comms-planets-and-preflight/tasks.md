@@ -47,7 +47,7 @@ in the task's own commit. T01 is the first pull request; T02–T08 the second.
   - Serves: 3, 5, 6, 7–12
   - Gate: `comms-api.spec.ts`; `openapi:diff`.
 
-- [ ] **T08** — Web: the planets sheet's go/no-go tags and **Other repositories** with
+- [x] **T08** — Web: the planets sheet's go/no-go tags and **Other repositories** with
       **Register**; the planet page's **Preflight** card with the checks, the levels (missions and
       autopilot as coming) and **Unregister** asking in place.
   - Serves: 5, 6, 11, 13, 14

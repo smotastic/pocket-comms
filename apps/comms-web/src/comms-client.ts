@@ -17,6 +17,7 @@ import {
   type Overview,
   type Planet,
   type Planets,
+  type Preflight,
   type ProposalDecisionRequest,
   type AttachedPullRequest,
   type PullRequestChanges,
@@ -47,6 +48,7 @@ export type SubagentEventView = typeof SubagentEvent.Type;
 export type Key = (typeof KEYS)[number];
 export type PlanetView = typeof Planet.Type;
 export type PlanetsView = typeof Planets.Type;
+export type PreflightView = typeof Preflight.Type;
 export type NewTask = typeof CreateTaskRequest.Type;
 export type TaskCreatedView = typeof TaskCreated.Type;
 export type AgentToStart = (typeof AGENTS_TO_START)[number];
@@ -138,6 +140,8 @@ export interface CommsClient {
   readonly registerPlanet: (name: string) => Promise<void>;
   /** Removes the planet and its settings; its agents keep running. */
   readonly unregisterPlanet: (planet: string) => Promise<void>;
+  /** Whether the planet is ready for missions: its checks, go or no-go and the levels. */
+  readonly preflight: (planet: string) => Promise<PreflightView>;
   readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
   readonly issues: (planet: string) => Promise<IssueListView>;
   /** `additionalInformation` goes into the agent's first prompt for this launch (spec 021). */
@@ -387,6 +391,7 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
       run((api) => api.planets.register({ payload: { name } })).then(() => undefined),
     unregisterPlanet: (planet) =>
       run((api) => api.planets.unregister({ params: { planet } })).then(() => undefined),
+    preflight: (planet) => run((api) => api.planets.preflight({ params: { planet } })),
     createTask: (task) => run((api) => api.tasks.create({ payload: task })),
     issues: (planet) => run((api) => api.issues.list({ params: { planet } })),
     implementIssue: (planet, number, branch, additionalInformation) =>

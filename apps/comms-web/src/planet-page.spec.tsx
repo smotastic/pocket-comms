@@ -1,7 +1,7 @@
 import { act, cleanup, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { OverviewView } from './comms-client.js';
+import { RequestError, type OverviewView } from './comms-client.js';
 import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
@@ -99,5 +99,86 @@ describe('the planet page', () => {
     await userEvent.click(within(banner).getByRole('button', { name: 'Brainstorm' }));
 
     expect(await screen.findByRole('dialog', { name: 'Brainstorm' })).toBeDefined();
+  });
+});
+
+describe("the planet page's preflight", () => {
+  const noGo = {
+    result: 'no-go' as const,
+    checks: [
+      { check: 'gitea' as const, passed: true, reason: "The repository is on the app's Gitea." },
+      { check: 'agents-md' as const, passed: true, reason: 'master has an AGENTS.md.' },
+      { check: 'ci-workflow' as const, passed: true, reason: 'master has a CI workflow.' },
+      {
+        check: 'ci-green' as const,
+        passed: false,
+        reason: 'The newest finished run on master ended as failure.',
+      },
+      {
+        check: 'verify-script' as const,
+        passed: true,
+        reason: 'package.json on master has a verify script.',
+      },
+    ],
+    autonomy: { chosen: 'manual' as const, effective: 'manual' as const },
+    checkedAt: Date.now(),
+  };
+
+  const preflightCard = () => screen.findByRole('region', { name: 'Preflight' });
+
+  it('shows the result, every check with its reason, and the autonomy levels', async () => {
+    renderApp({
+      client: fakeClient({ overview, preflights: new Map([['pocket-home', noGo]]) }).client,
+      path: '/planets/pocket-home',
+    });
+
+    const card = await preflightCard();
+    expect(await within(card).findByText('No-go')).toBeDefined();
+    expect(within(card).getByText('CI green')).toBeDefined();
+    expect(
+      within(card).getByText('Failed: The newest finished run on master ended as failure.'),
+    ).toBeDefined();
+    expect(within(card).getByText('Passed: master has an AGENTS.md.')).toBeDefined();
+    const levels = within(card).getByRole('radiogroup', { name: 'Autonomy level' });
+    const manual = within(levels).getByRole('radio', { name: 'Manual' });
+    const missions = within(levels).getByRole('radio', { name: 'Missions (coming)' });
+    expect(manual.getAttribute('aria-checked')).toBe('true');
+    expect(
+      missions.hasAttribute('disabled') || missions.getAttribute('aria-disabled') === 'true',
+    ).toBe(true);
+    expect(within(card).getByText('In effect: manual.')).toBeDefined();
+  });
+
+  it('unregisters the planet only once the owner confirms, then goes back', async () => {
+    const fake = fakeClient({ overview, preflights: new Map([['pocket-home', noGo]]) });
+    renderApp({ client: fake.client, path: '/planets/pocket-home' });
+    const card = await preflightCard();
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Unregister' }));
+    expect(fake.calls.unregistered).toEqual([]);
+    expect(
+      within(card).getByText('Unregister pocket-home? Its agents keep running, under Other.'),
+    ).toBeDefined();
+    await userEvent.click(within(card).getByRole('button', { name: 'Keep it' }));
+    expect(within(card).getByRole('button', { name: 'Unregister' })).toBeDefined();
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Unregister' }));
+    await userEvent.click(within(card).getByRole('button', { name: 'Unregister pocket-home' }));
+
+    expect(fake.calls.unregistered).toEqual(['pocket-home']);
+    expect(await screen.findByRole('button', { name: 'Planets' })).toBeDefined();
+  });
+
+  it('says why the preflight cannot be shown', async () => {
+    renderApp({
+      client: fakeClient({
+        overview,
+        preflights: new Map([['pocket-home', new RequestError('Gitea is away.', 503)]]),
+      }).client,
+      path: '/planets/pocket-home',
+    });
+
+    const card = await preflightCard();
+    expect(await within(card).findByText('Gitea is away.')).toBeDefined();
   });
 });

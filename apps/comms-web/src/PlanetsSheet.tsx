@@ -4,6 +4,7 @@ import {
   Disclosure,
   IconButton,
   Inline,
+  ItemRow,
   Link,
   SectionHeader,
   Sheet,
@@ -11,16 +12,29 @@ import {
   Stack,
   Text,
 } from '@smotastic/pocket-design';
-import { useQueries, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { useState } from 'react';
 import type {
   CommsClient,
   IssueListView,
   IssueView,
   OverviewView,
+  PreflightView,
   TaskCreatedView,
 } from './comms-client.js';
-import { issuesKey, issuesQuery } from './comms-queries.js';
+import {
+  issuesKey,
+  issuesQuery,
+  otherRepositoriesQuery,
+  planetsKey,
+  preflightQuery,
+} from './comms-queries.js';
 import { stillWorking, useCloseIssue } from './CloseIssue.js';
 import { ImplementIssue } from './ImplementIssue.js';
 import { IssueCard } from './IssueCard.js';
@@ -43,11 +57,15 @@ export interface PlanetsSheetProps {
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-/** The line under a planet's name: its agents, those in Needs you, and its open issues. */
+/**
+ * The line under a planet's name: its agents, those in Needs you, its open issues and, once
+ * known, its preflight (spec 034).
+ */
 const detailOf = (
   planet: string,
   overview: OverviewView | undefined,
   issues: IssueListView | undefined,
+  preflight: PreflightView | undefined,
 ) => {
   const agents = [
     ...(overview?.needsYou ?? []),
@@ -58,6 +76,7 @@ const detailOf = (
     agents.length === 0 ? 'No agents' : plural(agents.length, 'agent', 'agents'),
     ...(waiting === 0 ? [] : [`${waiting} ${waiting === 1 ? 'needs' : 'need'} you`]),
     ...(issues?._tag === 'Listed' ? [plural(issues.issues.length, 'issue', 'issues')] : []),
+    ...(preflight === undefined ? [] : [preflight.result === 'go' ? 'Go' : 'No-go']),
   ].join(' · ');
 };
 
@@ -235,6 +254,9 @@ const PlanetList = ({
 }) => {
   const queryClient = useQueryClient();
   const issues = useQueries({ queries: planets.map((planet) => issuesQuery(client, planet)) });
+  const preflights = useQueries({
+    queries: planets.map((planet) => preflightQuery(client, planet)),
+  });
   const [expanded, setExpanded] = useState<string | undefined>(undefined);
   const [implementing, setImplementing] = useState<
     { readonly planet: string; readonly issue: IssueView } | undefined
@@ -253,7 +275,7 @@ const PlanetList = ({
           <Disclosure
             key={planet}
             title={planet}
-            detail={detailOf(planet, overview, list?.data)}
+            detail={detailOf(planet, overview, list?.data, preflights[index]?.data)}
             expanded={expanded === planet}
             onExpandedChange={(open) => {
               setExpanded(open ? planet : undefined);
@@ -319,6 +341,46 @@ const PlanetList = ({
   );
 };
 
+/** The repositories below the root that are not planets, each with Register (spec 034). */
+const OtherRepositories = ({ client }: { readonly client: CommsClient }) => {
+  const queryClient = useQueryClient();
+  const others = useQuery(otherRepositoriesQuery(client));
+  const [failure, setFailure] = useState<string | undefined>(undefined);
+  const register = useMutation({
+    mutationFn: (name: string) => client.registerPlanet(name),
+    onMutate: () => setFailure(undefined),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: planetsKey }),
+    onError: (error) => setFailure(error.message),
+  });
+  if (others.data === undefined || others.data.length === 0) return null;
+  return (
+    <section aria-label="Other repositories">
+      <Stack gap="xs">
+        <SectionHeader title="Other repositories" count={others.data.length} />
+        {failure === undefined ? null : <Alert>{failure}</Alert>}
+        {others.data.map((name) => (
+          <ItemRow
+            key={name}
+            actions={
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-label={`Register ${name}`}
+                disabled={register.isPending}
+                onClick={() => register.mutate(name)}
+              >
+                Register
+              </Button>
+            }
+          >
+            <Text>{name}</Text>
+          </ItemRow>
+        ))}
+      </Stack>
+    </section>
+  );
+};
+
 /**
  * Every planet, sliding in from the side, after a link to the activity timeline. A planet opens in place to its open
  * issues, with Implement, New task and a link to its page. This device's notifications sit at the
@@ -354,6 +416,7 @@ export const PlanetsSheet = ({
           <PlanetList planets={planets} {...props} />
         )}
       </div>
+      <OtherRepositories client={props.client} />
       <NotificationsRow client={props.client} />
     </Stack>
   </Sheet>
