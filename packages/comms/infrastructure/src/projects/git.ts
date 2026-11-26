@@ -15,6 +15,11 @@ export interface GitOptions {
   readonly worktreesRoot: string;
   /** How long a fetch may take. Default 60 seconds. */
   readonly fetchTimeoutMs?: number;
+  /**
+   * How long removing a worktree may take. It deletes the whole folder, `node_modules` too, so
+   * the default is 5 minutes.
+   */
+  readonly removeTimeoutMs?: number;
 }
 
 interface GitResult {
@@ -60,7 +65,10 @@ const git = (cwd: string, args: ReadonlyArray<string>, timeout: number) =>
       { cwd, timeout, env: gitEnvironment(process.env) },
       (error, stdout, stderr) => {
         const code = error === null ? 0 : typeof error.code === 'number' ? error.code : Number.NaN;
-        resume(Effect.succeed({ code, stdout, stderr: stderr || (error?.message ?? '') }));
+        // A git stopped for its time limit may have written nothing to say why.
+        const reason =
+          error?.killed === true ? `git ran out of time after ${timeout} ms.` : error?.message;
+        resume(Effect.succeed({ code, stdout, stderr: stderr || (reason ?? '') }));
       },
     );
     return Effect.sync(() => void child.kill());
@@ -90,7 +98,12 @@ const parseWorktrees = (porcelain: string): ReadonlyArray<Worktree> =>
     });
 
 /** The git repositories directly below `root`, and git run in them with argument arrays. */
-export const layerGit = ({ root, worktreesRoot, fetchTimeoutMs = 60_000 }: GitOptions) => {
+export const layerGit = ({
+  root,
+  worktreesRoot,
+  fetchTimeoutMs = 60_000,
+  removeTimeoutMs = 300_000,
+}: GitOptions) => {
   const quick = 10_000;
 
   const run = (project: Project, args: ReadonlyArray<string>, timeout = quick) =>
@@ -210,12 +223,11 @@ export const layerGit = ({ root, worktreesRoot, fetchTimeoutMs = 60_000 }: GitOp
 
   const removeWorktree = (project: Project, path: string, force: boolean) =>
     Effect.gen(function* () {
-      const removed = yield* run(project, [
-        'worktree',
-        'remove',
-        ...(force ? ['--force'] : []),
-        path,
-      ]);
+      // A removal stopped halfway leaves a half-deleted folder, so a caller that stops waiting,
+      // such as a phone that drops the request, does not stop it.
+      const removed = yield* Effect.uninterruptible(
+        run(project, ['worktree', 'remove', ...(force ? ['--force'] : []), path], removeTimeoutMs),
+      );
       if (removed.code !== 0) {
         return yield* failed(project, `git worktree remove failed: ${lastLine(removed.stderr)}`);
       }

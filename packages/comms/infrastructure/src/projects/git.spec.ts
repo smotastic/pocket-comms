@@ -357,6 +357,21 @@ describe('Projects.layerGit for a worktree of its own', () => {
       expect(existsSync(join(root, 'linked'))).toBe(false);
     }),
   );
+
+  it.live('says so when removing the worktree takes longer than it may', () =>
+    Effect.gen(function* () {
+      const { root } = projectsRoot();
+
+      const error = yield* ProjectsOutbound.use((outbound) =>
+        outbound.removeWorktree(alpha(root), join(root, 'linked'), true),
+      ).pipe(
+        Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root), removeTimeoutMs: 1 })),
+        Effect.flip,
+      );
+
+      expect(error.reason).toBe('git worktree remove failed: git ran out of time after 1 ms.');
+    }),
+  );
 });
 
 describe('Projects.layerGit for the brainstorm', () => {
