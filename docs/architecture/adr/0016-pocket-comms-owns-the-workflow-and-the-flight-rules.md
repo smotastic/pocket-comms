@@ -1,6 +1,6 @@
 # ADR 0016 — Pocket Comms owns the workflow and the flight rules
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-26
 - **Related:** constitution principles 4, 5, 8, 9; ADR 0001; [Mission Control](../../mission-control.md)
 
