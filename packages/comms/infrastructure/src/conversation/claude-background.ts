@@ -172,12 +172,12 @@ export const backgroundLog = () => {
     notification: (text: string, at: number) => {
       if (!STATUS_TAG.test(text)) return;
       if (WAITING.test(text)) {
-        // Claude records one notice up to three times; the latest says when it was last seen.
+        // Claude records one notice up to three times, the last maybe well after the subagent
+        // resumed by itself, so the earliest says when it stopped. One without a time says nothing.
         const task = TASK_TAG.exec(text)?.[1];
         const item = running.get(callOfTask.get(task ?? '') ?? '');
-        if (item?.subagent !== undefined) {
-          const since = waitingSince.get(item.subagent) ?? 0;
-          waitingSince.set(item.subagent, Number.isFinite(at) ? Math.max(at, since) : since);
+        if (item?.subagent !== undefined && Number.isFinite(at)) {
+          waitingSince.set(item.subagent, Math.min(at, waitingSince.get(item.subagent) ?? at));
         }
         return;
       }

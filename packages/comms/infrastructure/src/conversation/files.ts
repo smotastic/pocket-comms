@@ -309,8 +309,13 @@ export const layerFiles = ({
       for (const [key, state] of tracked) {
         if (now - state.usedAt > TRACKED_FOR_MS) tracked.delete(key);
       }
-      // A file's parser, given every line appended since the last read of that file.
-      const parsedFrom = (file: string, parserOf: () => ConversationParser) =>
+      // What `take` reads from a file's parser once it has every line appended since the last
+      // read of that file, within the same turn.
+      const parsedFrom = <A>(
+        file: string,
+        parserOf: () => ConversationParser,
+        take: (parser: ConversationParser) => A,
+      ) =>
         inTurn(file, async () => {
           const fresh = () => ({ parser: parserOf(), offset: 0, usedAt: now });
           let state = tracked.get(file) ?? fresh();
@@ -323,7 +328,7 @@ export const layerFiles = ({
           }
           for (const line of appended.lines) state.parser.push(line);
           tracked.set(file, { ...state, offset: appended.offset, usedAt: now });
-          return state.parser;
+          return take(state.parser);
         });
       // A subagent that stopped while its own work goes on still runs while its own file shows
       // that work, or once the file goes on after it stopped: then it resumed by itself.
@@ -332,24 +337,29 @@ export const layerFiles = ({
         const info = await stat(file).catch(() => undefined);
         if (info === undefined) return false;
         if (info.mtimeMs > since) return true;
-        const own = await parsedFrom(file, () =>
-          createClaudeParser(source.cwd, { sidechain: true }),
+        const own = await parsedFrom(
+          file,
+          () => createClaudeParser(source.cwd, { sidechain: true }),
+          (parser) => parser.background(),
         );
-        return runningAt(own.background(), now).length > 0;
+        return runningAt(own, now).length > 0;
       };
       const items = yield* Effect.tryPromise({
         try: async (): Promise<ReadonlyArray<BackgroundItem>> => {
-          const parser = await parsedFrom(path, () => parserFor(source));
-          const waiting = parser.waiting();
+          const { background, waiting } = await parsedFrom(
+            path,
+            () => parserFor(source),
+            (parser) => ({ background: parser.background(), waiting: parser.waiting() }),
+          );
           const ended = new Set<string>();
           for (const [subagent, since] of waiting) {
             if (SUBAGENT_ID.test(subagent) && !(await stillRuns(subagent, since))) {
               ended.add(subagent);
             }
           }
-          const items = parser
-            .background()
-            .filter((item) => item.subagent === undefined || !ended.has(item.subagent));
+          const items = background.filter(
+            (item) => item.subagent === undefined || !ended.has(item.subagent),
+          );
           if (items.every((item) => item.kind !== 'subagent' || item.subagent !== undefined)) {
             return items;
           }

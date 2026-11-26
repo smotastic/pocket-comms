@@ -637,6 +637,33 @@ describe('createClaudeParser background work', () => {
       ]);
     });
 
+    it('takes the earliest record of a waiting notice, and none without a time', () => {
+      const parser = stoppedAtItsLimit();
+      resume(SUBAGENT, resumed).forEach((line) => parser.push(line));
+      const waitingAt = (timestamp: string | undefined, uuid: string) =>
+        JSON.stringify({
+          type: 'user',
+          uuid,
+          ...(timestamp === undefined ? {} : { timestamp }),
+          origin: { kind: 'task-notification' },
+          message: {
+            role: 'user',
+            content: `<task-notification>\n<task-id>${SUBAGENT}</task-id>\n<status>completed</status>\n<summary>Agent "Fly step 2" is waiting on its own background work</summary>\n</task-notification>`,
+          },
+        });
+
+      parser.push(waitingAt(undefined, 'w-0'));
+      const untimed = parser.waiting();
+      parser.push(waitingAt('2026-10-30T16:00:50.000Z', 'w-1'));
+      parser.push(waitingAt('2026-10-30T16:01:50.000Z', 'w-2'));
+
+      expect(untimed).toEqual(new Map());
+      expect(parser.waiting()).toEqual(
+        new Map([[SUBAGENT, Date.parse('2026-10-30T16:00:50.000Z')]]),
+      );
+      expect(ids(parser)).toEqual(['toolu-step']);
+    });
+
     it('starts nothing for a message the subagent did not resume from', () => {
       const parser = stoppedAtItsLimit();
       resume(SUBAGENT, { success: false }).forEach((line) => parser.push(line));
