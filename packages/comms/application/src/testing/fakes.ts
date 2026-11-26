@@ -17,6 +17,8 @@ import {
   type Workspace,
   type Multiplexer,
   type Worktree,
+  type PlanetRegistry,
+  type CiRun,
 } from '@pocket-comms/comms-domain';
 import { AgentRuntime, type Clip, type TurnInput } from '@smotastic/pocket-agent';
 import {
@@ -44,6 +46,7 @@ import {
   PullRequestsStoreError,
   TaskStartsStoreError,
   ConversationUnavailableError,
+  PlanetsStoreError,
 } from '../errors.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
 import {
@@ -58,6 +61,7 @@ import {
   StatusHistoryOutbound,
   type StatusMark,
 } from '../ports/memory.outbound.port.js';
+import { PlanetsOutbound } from '../ports/planets.outbound.port.js';
 import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 import { QuickRepliesOutbound } from '../ports/quick-replies.outbound.port.js';
 import { PullRequestsOutbound, type AttachedLists } from '../ports/pull-requests.outbound.port.js';
@@ -127,6 +131,14 @@ export class FakeState extends Context.Service<
     readonly seenChanges: PubSub.PubSub<void>;
     readonly history: Map<string, StatusMark>;
     planets: Array<Repository>;
+    /**
+     * The planets registry: `'none'` before the seed, or the registered planets; while unset,
+     * every repository of `planets` is registered at manual.
+     */
+    registry: PlanetRegistry | 'none' | undefined;
+    readonly registryChanges: PubSub.PubSub<void>;
+    /** Makes saving the registry fail with this reason. */
+    registryFailure: string | undefined;
     /** Every git question the fake planets port was asked, as `<method> <planet> [<branch>]`. */
     readonly gitCalls: Array<string>;
     /** The default branch of every planet; a planet without one fails `defaultBase`. */
@@ -155,6 +167,18 @@ export class FakeState extends Context.Service<
     giteaConfigured: boolean;
     /** Why the fake Gitea fails, when it does. */
     giteaFailure: string | undefined;
+    /**
+     * What Gitea holds of each repository for preflight, by `<owner>/<name>`: its default branch,
+     * its files on that branch by path, and its push runs (none: Gitea does not list them).
+     */
+    readonly giteaRepositories: Map<
+      string,
+      {
+        readonly defaultBranch: string;
+        readonly files: ReadonlyMap<string, string>;
+        readonly runs: ReadonlyArray<CiRun> | undefined;
+      }
+    >;
     /** Why only marking an issue in progress fails, when it does. */
     giteaMarkFailure: string | undefined;
     /** The names of the images the fake Gitea refuses to attach. */
@@ -565,6 +589,46 @@ const gitea = (state: FakeState['Service']) => {
           })
         : Option.none();
     },
+    defaultBranch: ({ owner, name }) =>
+      request(`defaultBranch ${owner}/${name}`, () =>
+        Effect.succeed(
+          Option.map(
+            Option.fromNullishOr(state.giteaRepositories.get(`${owner}/${name}`)),
+            (repository) => repository.defaultBranch,
+          ),
+        ),
+      ),
+    fileText: ({ owner, name }, ref, path) =>
+      request(`fileText ${owner}/${name} ${ref} ${path}`, () => {
+        const repository = state.giteaRepositories.get(`${owner}/${name}`);
+        return Effect.succeed(
+          repository?.defaultBranch === ref
+            ? Option.fromNullishOr(repository.files.get(path))
+            : Option.none(),
+        );
+      }),
+    entryNames: ({ owner, name }, ref, path) =>
+      request(`entryNames ${owner}/${name} ${ref} ${path}`, () => {
+        const repository = state.giteaRepositories.get(`${owner}/${name}`);
+        if (repository?.defaultBranch !== ref) return Effect.succeed([]);
+        const names = [...repository.files.keys()].flatMap((file) =>
+          file === path
+            ? [file.split('/').at(-1) ?? file]
+            : file.startsWith(`${path}/`)
+              ? [file.slice(path.length + 1).split('/')[0] ?? '']
+              : [],
+        );
+        return Effect.succeed([...new Set(names)]);
+      }),
+    pushRuns: ({ owner, name }, branch) =>
+      request(`pushRuns ${owner}/${name} ${branch}`, () => {
+        const repository = state.giteaRepositories.get(`${owner}/${name}`);
+        return Effect.succeed(
+          repository?.defaultBranch === branch
+            ? Option.fromNullishOr(repository.runs)
+            : Option.none(),
+        );
+      }),
     openIssues: ({ owner, name }) =>
       request(`openIssues ${owner}/${name}`, () =>
         Effect.succeed([...(state.issues.get(`${owner}/${name}`) ?? [])]),
@@ -719,6 +783,9 @@ export const fakeLayer = () => {
         seenChanges: yield* PubSub.unbounded<void>(),
         history: new Map(),
         planets: [{ name: 'app', path: '/work/app' }],
+        registry: undefined,
+        registryChanges: yield* PubSub.unbounded<void>(),
+        registryFailure: undefined,
         gitCalls: [],
         bases: new Map([['app', 'origin/master']]),
         branches: new Set(),
@@ -733,6 +800,7 @@ export const fakeLayer = () => {
         issues: new Map(),
         giteaConfigured: true,
         giteaFailure: undefined,
+        giteaRepositories: new Map(),
         giteaMarkFailure: undefined,
         giteaRefusedImages: new Set(),
         giteaCalls: [],
@@ -773,6 +841,30 @@ export const fakeLayer = () => {
         Context.add(ConversationOutbound, conversations(fake)),
         Context.add(RepositoriesOutbound, planets(fake)),
         Context.add(GiteaOutbound, gitea(fake)),
+        Context.add(PlanetsOutbound, {
+          load: Effect.sync(() =>
+            fake.registry === 'none'
+              ? Option.none<PlanetRegistry>()
+              : Option.some(
+                  fake.registry ?? {
+                    planets: fake.planets.map(({ name }) => ({
+                      name,
+                      autonomy: 'manual' as const,
+                    })),
+                  },
+                ),
+          ),
+          save: (registry) =>
+            Effect.suspend(() =>
+              fake.registryFailure === undefined
+                ? Effect.sync(() => void (fake.registry = registry)).pipe(
+                    Effect.andThen(PubSub.publish(fake.registryChanges, undefined)),
+                    Effect.asVoid,
+                  )
+                : Effect.fail(new PlanetsStoreError({ reason: fake.registryFailure })),
+            ),
+          changes: Stream.fromPubSub(fake.registryChanges),
+        }),
         Context.add(AgentRuntime, {
           get notSetUp() {
             return Option.fromNullishOr(fake.notSetUp);

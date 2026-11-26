@@ -4,11 +4,13 @@ import * as Stream from 'effect/Stream';
 import type { OverviewDto, OverviewStateDto } from '../dto/agent.dto.js';
 import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { SeenOutbound } from '../ports/memory.outbound.port.js';
+import { PlanetsOutbound } from '../ports/planets.outbound.port.js';
 import { makeLoadAgents, type AgentView } from './agents.js';
 
 export const makeOverview = Effect.gen(function* () {
   const herdrOutbound = yield* MultiplexerOutbound;
   const seenOutbound = yield* SeenOutbound;
+  const planetsOutbound = yield* PlanetsOutbound;
   const { load } = yield* makeLoadAgents;
 
   const overview = Effect.fn('Overview.overview')(function* () {
@@ -47,11 +49,13 @@ export const makeOverview = Effect.gen(function* () {
     ),
   );
 
-  // A new state after every change Herdr or the seen set reports; an unchanged one is not
+  // A new state after every change Herdr, the seen set or the planets report; an unchanged one is not
   // repeated. JSON text is a deep comparison of plain data.
   const overviewChanges: Stream.Stream<OverviewStateDto> = Stream.concat(
     Stream.succeed(undefined),
-    Stream.merge(herdrOutbound.changes, seenOutbound.changes),
+    Stream.mergeAll([herdrOutbound.changes, seenOutbound.changes, planetsOutbound.changes], {
+      concurrency: 'unbounded',
+    }),
   ).pipe(
     Stream.mapEffect(() => state),
     Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),

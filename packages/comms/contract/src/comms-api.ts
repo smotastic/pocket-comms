@@ -584,14 +584,84 @@ export const Planet = Schema.Struct({
     description: 'Herdr has a workspace for the planet.',
     examples: [true],
   }),
-}).annotate({ identifier: 'Planet', description: 'A git repository a task can start in.' });
+}).annotate({
+  identifier: 'Planet',
+  description: 'A git repository the owner registered: work can start in it (spec 034).',
+});
 
 export const Planets = Schema.Struct({
   planets: Schema.Array(Planet).annotate({
     description: 'The planets open in Herdr first, in workspace order, then the others by name.',
     examples: [[{ name: 'pocket-comms', open: true }]],
   }),
-}).annotate({ identifier: 'Planets', description: 'The planets a task can start in.' });
+  others: Schema.Array(Schema.String).annotate({
+    description:
+      'The git repositories below the repositories root that are not planets, by folder name.',
+    examples: [['setup']],
+  }),
+}).annotate({
+  identifier: 'Planets',
+  description: 'The planets, and the repositories that could be registered as one.',
+});
+
+const AUTONOMY_LEVELS = ['manual', 'missions', 'autopilot'] as const;
+
+export const PreflightCheck = Schema.Struct({
+  check: Schema.Literals([
+    'gitea',
+    'agents-md',
+    'ci-workflow',
+    'ci-green',
+    'verify-script',
+  ]).annotate({
+    description: 'The check, in the fixed order of the list.',
+    examples: ['ci-green'],
+  }),
+  passed: Schema.Boolean.annotate({ description: 'The check passed.', examples: [true] }),
+  reason: Schema.String.annotate({
+    description: 'One sentence that says why the check passed or failed.',
+    examples: ['The newest finished run on master succeeded.'],
+  }),
+}).annotate({ identifier: 'PreflightCheck', description: 'One check of preflight.' });
+
+export const Preflight = Schema.Struct({
+  result: Schema.Literals(['go', 'no-go']).annotate({
+    description: 'go when every check passed.',
+    examples: ['go'],
+  }),
+  checks: Schema.Array(PreflightCheck).annotate({
+    description: 'Every check, in their fixed order.',
+    examples: [[{ check: 'gitea', passed: true, reason: "The repository is on the app's Gitea." }]],
+  }),
+  autonomy: Schema.Struct({
+    chosen: Schema.Literals(AUTONOMY_LEVELS).annotate({
+      description: 'The level the owner chose: manual, missions or autopilot.',
+      examples: ['manual'],
+    }),
+    effective: Schema.Literals(AUTONOMY_LEVELS).annotate({
+      description: 'The chosen level, lowered to manual on no-go; never stored.',
+      examples: ['manual'],
+    }),
+  }).annotate({
+    description: 'How much Mission Control may do on the planet alone.',
+    examples: [{ chosen: 'manual', effective: 'manual' }],
+  }),
+  checkedAt: Millis.annotate({
+    description: 'When the checks were computed, in epoch milliseconds; reused for 60 seconds.',
+    examples: [1_795_600_000_000],
+  }),
+}).annotate({
+  identifier: 'Preflight',
+  description:
+    "Whether the planet is ready for missions, computed from facts on the planet's Gitea.",
+});
+
+export const RegisterPlanetRequest = Schema.Struct({
+  name: Schema.String.check(Schema.isPattern(/^[^/]{1,200}$/u)).annotate({
+    description: 'The folder name of a repository of `others` in `GET /planets`.',
+    examples: ['setup'],
+  }),
+}).annotate({ identifier: 'RegisterPlanetRequest', description: 'The repository to register.' });
 
 /** The agents the app can start in a new worktree. */
 export const AGENTS_TO_START = ['claude', 'pi'] as const;
@@ -1450,17 +1520,64 @@ const group = HttpApiGroup.make('agents')
     }),
   );
 
-const tasks = HttpApiGroup.make('tasks')
+const planets = HttpApiGroup.make('planets')
   .add(
-    HttpApiEndpoint.get('planets', '/planets', {
+    HttpApiEndpoint.get('list', '/planets', {
       success: Planets,
       error: Problems.ServiceUnavailable,
     }).annotateMerge(
       OpenApi.annotations({
         summary: 'List the planets',
-        description: 'The git repositories below the repositories root that a task can start in.',
+        description:
+          'The planets, the registered git repositories below the repositories root that work can start in, and the other repositories there.',
       }),
     ),
+    HttpApiEndpoint.post('register', '/planets', {
+      payload: RegisterPlanetRequest,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.Conflict, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Register a planet',
+        description:
+          'Makes a git repository below the repositories root a planet, at the autonomy level manual.',
+      }),
+    ),
+    HttpApiEndpoint.get('preflight', '/planets/:planet/preflight', {
+      params: { planet: PlanetParam },
+      success: Preflight,
+      error: Problems.NotFound,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Read a planet's preflight",
+        description:
+          "Checks the planet's default branch and CI on Gitea; a Gitea that cannot be read makes the result no-go.",
+      }),
+    ),
+    HttpApiEndpoint.delete('unregister', '/planets/:planet', {
+      params: { planet: PlanetParam },
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Unregister a planet',
+        description:
+          'Removes the planet and its settings. Its agents and worktrees keep running and fall under Other.',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Planets',
+      description: 'The repositories the owner registered, and their preflight (spec 034).',
+    }),
+  );
+
+const tasks = HttpApiGroup.make('tasks')
+  .add(
     HttpApiEndpoint.post('create', '/tasks', {
       payload: CreateTaskRequest,
       success: TaskCreated.pipe(HttpApiSchema.status(201)),
@@ -2216,6 +2333,7 @@ const taskStarts = HttpApiGroup.make('taskStarts')
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
+  .add(planets)
   .add(tasks)
   .add(issues)
   .add(brainstorm)

@@ -56,8 +56,34 @@ export const screenQuery = (client: CommsClient, ref: string) =>
   });
 
 /** The planets are read again each time the New task sheet opens. */
+/** The planets in their order; `otherRepositoriesQuery` shares the request. */
 export const planetsQuery = (client: CommsClient) =>
-  queryOptions({ queryKey: planetsKey, queryFn: () => client.planets(), staleTime: 0 });
+  queryOptions({
+    queryKey: planetsKey,
+    queryFn: () => client.planets(),
+    staleTime: 0,
+    select: (data) => data.planets,
+  });
+
+export const preflightKey = (planet: string) => ['planets', planet, 'preflight'] as const;
+
+/** A planet's preflight; the server reuses it for 60 seconds, so this asks no more often. */
+export const preflightQuery = (client: CommsClient, planet: string) =>
+  queryOptions({
+    queryKey: preflightKey(planet),
+    queryFn: () => client.preflight(planet),
+    staleTime: 60_000,
+    retry: false,
+  });
+
+/** The repositories below the root that are not planets, by name (spec 034). */
+export const otherRepositoriesQuery = (client: CommsClient) =>
+  queryOptions({
+    queryKey: planetsKey,
+    queryFn: () => client.planets(),
+    staleTime: 0,
+    select: (data) => data.others,
+  });
 
 /** A planet's issues, read again every 30 seconds so the agents working on them stay current. */
 export const issuesQuery = (client: CommsClient, planet: string) =>

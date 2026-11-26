@@ -19,6 +19,7 @@ import * as Schema from 'effect/Schema';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 import { makeIssuePlanet } from '../use-cases/issue-planet.js';
+import { makePlanetRegistry } from '../use-cases/planet-registry.js';
 
 // The tools of the brainstorm. Four read; none takes a path, and a planet is only ever a
 // name the repositories port lists. Two propose, a new issue or an edit of one, with the brainstorm
@@ -104,6 +105,7 @@ export const makeBrainstormTools = Effect.gen(function* () {
   const planetsOutbound = yield* RepositoriesOutbound;
   const giteaOutbound = yield* GiteaOutbound;
   const issuePlanet = yield* makeIssuePlanet;
+  const registry = yield* makePlanetRegistry;
 
   const findPlanet = (name: string) =>
     issuePlanet(name).pipe(
@@ -132,11 +134,11 @@ export const makeBrainstormTools = Effect.gen(function* () {
     defineTool({
       name: 'list_planets',
       description:
-        "The owner's planets: the git repositories in the planets folder, by name, and whether each has a repository on the owner's Gitea, where issues can be filed.",
+        "The owner's planets: the git repositories they registered, by name, and whether each has a repository on the owner's Gitea, where issues can be filed.",
       parameters: Schema.Struct({}),
       run: () =>
         Effect.gen(function* () {
-          const planets = yield* planetsOutbound.list;
+          const planets = yield* registry.planets;
           const listed = yield* Effect.forEach(planets, (planet) =>
             planetsOutbound.originUrl(planet).pipe(
               Effect.map((origin) => ({

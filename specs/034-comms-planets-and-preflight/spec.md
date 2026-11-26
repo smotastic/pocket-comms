@@ -1,6 +1,6 @@
 # Spec 034 — pocket-comms: planets and preflight
 
-- **Status:** `Approved` — grilling of 2026-11-26, verified
+- **Status:** `Done` — grilling of 2026-11-26, verified; built in #117 and the pull request of `feat/planets-and-preflight`
 - **Grilling:** confirmed by the owner on 2026-11-26
 - **Changes:** [spec 005](../005-comms-new-task/spec.md) (the projects a task can start in),
   [spec 007](../007-comms-sessions-by-project/spec.md) (cards by project),

@@ -48,6 +48,24 @@ describe('AgentsInbound.overview', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('puts the agent of a repository that is not a planet under Other', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.registry = { planets: [] };
+      state.agents = [fakeAgent({ paneId: 'w2:p1', workspaceId: 'w2', status: 'working' })];
+
+      const overview = yield* AgentsInbound.use((inbound) => inbound.overview);
+
+      expect(overview.groups).toEqual([
+        {
+          key: 'other',
+          name: 'Other',
+          agents: [expect.objectContaining({ paneId: 'w2:p1', planet: undefined })],
+        },
+      ]);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('keeps a done agent with running background work out of Needs you', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
@@ -214,6 +232,25 @@ describe('AgentsInbound.overviewChanges', () => {
       yield* PubSub.publish(state.herdrChanges, undefined);
 
       expect(needsYouCount(yield* Queue.take(changes))).toBe(1);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('emits the overview again when a planet is unregistered', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.agents = [fakeAgent({ paneId: 'w1:p1', status: 'working' })];
+      const changes = yield* collect(
+        yield* AgentsInbound.use((inbound) => Effect.succeed(inbound.overviewChanges)),
+      );
+      const groupOf = (next: OverviewStateDto) =>
+        next._tag === 'Available' ? next.overview.groups[0]?.name : undefined;
+
+      expect(groupOf(yield* Queue.take(changes))).toBe('app');
+      yield* settle;
+      state.registry = { planets: [] };
+      yield* PubSub.publish(state.registryChanges, undefined);
+
+      expect(groupOf(yield* Queue.take(changes))).toBe('Other');
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 

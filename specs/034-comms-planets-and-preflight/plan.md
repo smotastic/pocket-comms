@@ -1,7 +1,7 @@
 # Plan 034 — pocket-comms: planets and preflight
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — grilling of 2026-11-26, verified
+- **Status:** `Done` — grilling of 2026-11-26, verified; built in #117 and the pull request of `feat/planets-and-preflight`
 - **Decision:** [ADR 0018](../../docs/architecture/adr/0018-planets-are-registered-and-preflight-is-computed-from-facts.md),
   written from the grilling of 2026-11-26
 

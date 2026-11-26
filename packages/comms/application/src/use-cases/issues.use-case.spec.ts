@@ -164,6 +164,18 @@ describe('IssuesInbound.issues', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('fails for a repository below the root that is not a planet', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.registry = { planets: [] };
+
+      const error = yield* Effect.flip(issues('app'));
+
+      expect(error).toEqual(new PlanetNotFoundError({ planet: 'app' }));
+      expect(state.giteaCalls).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('passes on why Gitea fails', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

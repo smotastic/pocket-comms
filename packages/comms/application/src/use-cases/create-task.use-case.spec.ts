@@ -23,27 +23,6 @@ const create = (input: Partial<CreateTaskInput> = {}) =>
 
 const herdrMethods = (state: FakeState['Service']) => state.calls.map((call) => call.method);
 
-describe('TasksInbound.planets', () => {
-  it.effect('offers the planets open in Herdr first', () =>
-    Effect.gen(function* () {
-      const state = yield* FakeState;
-      state.planets = [
-        { name: 'zeta', path: '/work/zeta' },
-        { name: 'beta', path: '/work/beta' },
-        { name: 'app', path: '/work/app' },
-      ];
-
-      const planets = yield* TasksInbound.use((inbound) => inbound.planets);
-
-      expect(planets).toEqual([
-        { name: 'app', open: true },
-        { name: 'beta', open: false },
-        { name: 'zeta', open: false },
-      ]);
-    }).pipe(Effect.provide(layer())),
-  );
-});
-
 describe('TasksInbound.create', () => {
   it.effect('creates the worktree from the default remote branch, labelled with the title', () =>
     Effect.gen(function* () {
@@ -90,6 +69,22 @@ describe('TasksInbound.create', () => {
         error instanceof InvalidInputError && error.issues.map((issue) => issue.field),
       ).toEqual(['task', 'branch', 'agent']);
       expect(state.gitCalls).toEqual([]);
+      expect(state.calls).toEqual([]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('rejects a repository below the root that is not a planet', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.registry = { planets: [] };
+
+      const error = yield* create().pipe(Effect.flip);
+
+      expect(error).toEqual(
+        new InvalidInputError({
+          issues: [{ field: 'planet', message: 'app is not a planet the app offers.' }],
+        }),
+      );
       expect(state.calls).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );

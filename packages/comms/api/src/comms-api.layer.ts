@@ -8,6 +8,7 @@ import { agentsHandlers } from './agents.handlers.js';
 import { bodyLimit } from './body-limit.js';
 import { brainstormHandlers } from './brainstorm.handlers.js';
 import { issuesHandlers } from './issues.handlers.js';
+import { planetsHandlers } from './planets.handlers.js';
 import { tasksHandlers } from './tasks.handlers.js';
 import { healthLayer } from './health.handlers.js';
 import { imageSweepLayer, imagesHandlers } from './images.handlers.js';
@@ -33,6 +34,7 @@ export const commsApiLayer = (allowedLogin: string) =>
   HttpApiBuilder.layer(CommsApi, { openapiPath: '/docs/openapi.json' }).pipe(
     Layer.provide([
       agentsHandlers,
+      planetsHandlers,
       tasksHandlers,
       issuesHandlers,
       brainstormHandlers,

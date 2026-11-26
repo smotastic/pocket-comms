@@ -847,3 +847,107 @@ describe('Gitea.layerHttp', () => {
     }).pipe(Effect.scoped),
   );
 });
+
+describe('Gitea.layerHttp, the reads of preflight (spec 034)', () => {
+  const route: Route = (url) => {
+    switch (url.pathname) {
+      case '/api/v1/repos/owner/app':
+        return { status: 200, body: { default_branch: 'master', name: 'app' } };
+      case '/api/v1/repos/owner/app/raw/package.json':
+        return url.searchParams.get('ref') === 'master'
+          ? { status: 200, body: '{"scripts":{"verify":"pocket-ci verify"}}' }
+          : { status: 404, body: { message: 'Not found' } };
+      case '/api/v1/repos/owner/app/contents/.github/workflows':
+        return {
+          status: 200,
+          body: [
+            { name: 'ci.yml', type: 'file' },
+            { name: 'lib', type: 'dir' },
+          ],
+        };
+      case '/api/v1/repos/owner/app/contents/AGENTS.md':
+        return { status: 200, body: { name: 'AGENTS.md', type: 'file' } };
+      case '/api/v1/repos/owner/app/actions/runs':
+        return {
+          status: 200,
+          body: {
+            total_count: 2,
+            workflow_runs: [
+              { id: 2, status: 'in_progress', conclusion: '', head_branch: 'master' },
+              { id: 1, status: 'completed', conclusion: 'success', head_branch: 'master' },
+            ],
+          },
+        };
+      default:
+        return { status: 404, body: { message: 'Not found' } };
+    }
+  };
+
+  it.effect("names a repository's default branch, and none for a repository it cannot read", () =>
+    Effect.gen(function* () {
+      const { url } = yield* fakeGitea(route);
+      yield* withGitea(url, (gitea) =>
+        Effect.gen(function* () {
+          expect(yield* gitea.defaultBranch(repository)).toEqual(Option.some('master'));
+          expect(yield* gitea.defaultBranch({ owner: 'owner', name: 'gone' })).toEqual(
+            Option.none(),
+          );
+        }),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("reads a file's text on a branch, and none for a missing one", () =>
+    Effect.gen(function* () {
+      const { url, seen } = yield* fakeGitea(route);
+      yield* withGitea(url, (gitea) =>
+        Effect.gen(function* () {
+          expect(yield* gitea.fileText(repository, 'master', 'package.json')).toEqual(
+            Option.some('{"scripts":{"verify":"pocket-ci verify"}}'),
+          );
+          expect(yield* gitea.fileText(repository, 'master', 'README.md')).toEqual(Option.none());
+        }),
+      );
+      expect(seen[0]?.url).toBe('/api/v1/repos/owner/app/raw/package.json?ref=master');
+      expect(seen[0]?.authorization).toBe(`token ${TOKEN}`);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("names a folder's files and folders, a file alone, and nothing for a missing one", () =>
+    Effect.gen(function* () {
+      const { url } = yield* fakeGitea(route);
+      yield* withGitea(url, (gitea) =>
+        Effect.gen(function* () {
+          expect(yield* gitea.entryNames(repository, 'master', '.github/workflows')).toEqual([
+            'ci.yml',
+            'lib',
+          ]);
+          expect(yield* gitea.entryNames(repository, 'master', 'AGENTS.md')).toEqual(['AGENTS.md']);
+          expect(yield* gitea.entryNames(repository, 'master', '.gitea/workflows')).toEqual([]);
+        }),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('lists the push runs of a branch, newest first, and none without the runs API', () =>
+    Effect.gen(function* () {
+      const { url, seen } = yield* fakeGitea(route);
+      yield* withGitea(url, (gitea) =>
+        Effect.gen(function* () {
+          expect(yield* gitea.pushRuns(repository, 'master')).toEqual(
+            Option.some([
+              { status: 'in_progress', conclusion: '' },
+              { status: 'completed', conclusion: 'success' },
+            ]),
+          );
+          expect(yield* gitea.pushRuns({ owner: 'owner', name: 'gone' }, 'master')).toEqual(
+            Option.none(),
+          );
+        }),
+      );
+      expect(seen[0]?.url).toBe(
+        '/api/v1/repos/owner/app/actions/runs?branch=master&event=push&limit=20',
+      );
+    }).pipe(Effect.scoped),
+  );
+});

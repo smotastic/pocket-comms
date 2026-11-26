@@ -384,9 +384,7 @@ describe('the planet filter', () => {
     expect((await screen.findByRole('row', { name: 'All' })).getAttribute('aria-selected')).toBe(
       'true',
     );
-    act(() =>
-      fake.emitOverview({ _tag: 'Available', multiplexer: 'herdr', overview: twoPlanets }),
-    );
+    act(() => fake.emitOverview({ _tag: 'Available', multiplexer: 'herdr', overview: twoPlanets }));
     expect(screen.getByRole('row', { name: 'All' }).getAttribute('aria-selected')).toBe('true');
   });
 });

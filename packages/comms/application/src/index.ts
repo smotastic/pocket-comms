@@ -28,7 +28,14 @@ export type { ImageDto } from './dto/image.dto.js';
 export type { PushKeyDto, PushSubscriptionDto } from './dto/push.dto.js';
 export type { QuickRepliesDto } from './dto/quick-replies.dto.js';
 export type { SpeechDto } from './dto/speech.dto.js';
-export type { CreateTaskInput, PlanetDto, TaskAgentDto, TaskCreatedDto } from './dto/task.dto.js';
+export type {
+  CreateTaskInput,
+  PlanetDto,
+  PlanetsDto,
+  PreflightDto,
+  TaskAgentDto,
+  TaskCreatedDto,
+} from './dto/task.dto.js';
 export {
   AgentNotFoundError,
   BrainstormBusyError,
@@ -52,12 +59,15 @@ export {
   TaskStartsStoreError,
   NotAWorktreeError,
   RepositoryGitError,
+  PlanetExistsError,
   PlanetNotFoundError,
+  PlanetsStoreError,
   ProposalDecidedError,
   ProposalNotFoundError,
   PushStoreError,
   QuestionNotWaitingError,
   QuickRepliesStoreError,
+  RepositoryNotFoundError,
   MultiplexerRejectedError,
   MultiplexerUnavailableError,
   ImageNotFoundError,
@@ -101,6 +111,9 @@ export {
   PushSubscriptionsOutbound,
   type PushOutcome,
 } from './ports/push.outbound.port.js';
+export { PlanetsInbound } from './ports/planets.inbound.port.js';
+export { PlanetsOutbound } from './ports/planets.outbound.port.js';
+export { makePlanetRegistry } from './use-cases/planet-registry.js';
 export { PullRequestsInbound } from './ports/pull-requests.inbound.port.js';
 export type {
   AttachedPullRequestDto,

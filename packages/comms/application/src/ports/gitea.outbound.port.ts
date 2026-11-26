@@ -1,4 +1,5 @@
 import type {
+  CiRun,
   ChangedFile,
   GiteaRepository,
   ImageKind,
@@ -60,6 +61,33 @@ export class GiteaOutbound extends Context.Service<
   {
     /** The repository a git remote URL names, when the remote is this Gitea. */
     readonly repositoryOf: (remoteUrl: string) => Option.Option<LinkedRepository>;
+    /** The repository's default branch; none when Gitea has no such repository for the token. */
+    readonly defaultBranch: (
+      repository: GiteaRepository,
+    ) => Effect.Effect<Option.Option<string>, Failure>;
+    /** The text of the file at `path` on `ref`; none when there is no such file. */
+    readonly fileText: (
+      repository: GiteaRepository,
+      ref: string,
+      path: string,
+    ) => Effect.Effect<Option.Option<string>, Failure>;
+    /**
+     * The names in the folder at `path` on `ref`; a file alone names itself, and a missing path
+     * names nothing.
+     */
+    readonly entryNames: (
+      repository: GiteaRepository,
+      ref: string,
+      path: string,
+    ) => Effect.Effect<ReadonlyArray<string>, Failure>;
+    /**
+     * The runs of CI for a push to `branch`, newest first, up to 20; none when Gitea does not
+     * list them (no Actions, or no such repository).
+     */
+    readonly pushRuns: (
+      repository: GiteaRepository,
+      branch: string,
+    ) => Effect.Effect<Option.Option<ReadonlyArray<CiRun>>, Failure>;
     /** The open issues and pull requests, in Gitea's order, up to 500. */
     readonly openIssues: (
       repository: GiteaRepository,

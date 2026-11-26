@@ -21,6 +21,7 @@ import {
   type Issue,
   type IssueText,
   type PullRequestRef,
+  type CiRun,
 } from '@pocket-comms/comms-domain';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -137,6 +138,27 @@ const textUpTo = async (
 
 const GiteaLabel = Schema.Struct({ id: Schema.Int, name: Schema.String });
 const decodeLabel = Schema.decodeUnknownEffect(GiteaLabel);
+const decodeRepository = Schema.decodeUnknownEffect(
+  Schema.Struct({ default_branch: Schema.String }),
+);
+const GiteaEntry = Schema.Struct({ name: Schema.String });
+const decodeEntries = Schema.decodeUnknownEffect(
+  Schema.Union([Schema.Array(GiteaEntry), GiteaEntry]),
+);
+const decodeRuns = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    workflow_runs: Schema.NullOr(
+      Schema.Array(
+        Schema.Struct({ status: Schema.String, conclusion: Schema.optional(Schema.String) }),
+      ),
+    ),
+  }),
+);
+
+/** The most of a file preflight reads, such as a `package.json`. */
+const MAX_FILE_BYTES = 256 * 1024;
+/** The push runs preflight looks back on. */
+const RUNS_PAGE = 20;
 const decodeLabels = Schema.decodeUnknownEffect(Schema.Array(GiteaLabel));
 const decodeIssue = Schema.decodeUnknownEffect(GiteaIssue);
 const decodeIssues = Schema.decodeUnknownEffect(Schema.Array(GiteaIssue));
@@ -243,6 +265,60 @@ export const layerHttp = ({
 
   const repositoryPath = ({ owner, name }: GiteaRepository) =>
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+
+  // A path's segments are encoded one by one, so its slashes stay.
+  const filePath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
+
+  const defaultBranch = (repository: GiteaRepository) =>
+    Effect.gen(function* () {
+      const answer = yield* get(repositoryPath(repository));
+      if (answer === undefined) return Option.none<string>();
+      const decoded = yield* decodeRepository(answer).pipe(Effect.mapError(unknownShape));
+      return Option.some(decoded.default_branch);
+    }).pipe(Effect.withSpan('Gitea.defaultBranch'));
+
+  const fileText = (repository: GiteaRepository, ref: string, path: string) =>
+    Effect.gen(function* () {
+      const answer = yield* send(
+        'GET',
+        `${repositoryPath(repository)}/raw/${filePath(path)}?ref=${encodeURIComponent(ref)}`,
+      );
+      if (answer === undefined) return Option.none<string>();
+      const text = yield* Effect.tryPromise({
+        try: (signal) => textUpTo(answer, MAX_FILE_BYTES, signal),
+        catch: unknownShape,
+      });
+      if (text === undefined) {
+        return yield* unavailable(`${path} on ${ref} is longer than Gitea reads for preflight.`);
+      }
+      return Option.some(text);
+    }).pipe(Effect.withSpan('Gitea.fileText'));
+
+  const entryNames = (repository: GiteaRepository, ref: string, path: string) =>
+    Effect.gen(function* () {
+      const answer = yield* get(
+        `${repositoryPath(repository)}/contents/${filePath(path)}?ref=${encodeURIComponent(ref)}`,
+      );
+      if (answer === undefined) return [];
+      const decoded = yield* decodeEntries(answer).pipe(Effect.mapError(unknownShape));
+      const entries: ReadonlyArray<{ readonly name: string }> =
+        'name' in decoded ? [decoded] : decoded;
+      return entries.map((entry) => entry.name);
+    }).pipe(Effect.withSpan('Gitea.entryNames'));
+
+  const pushRuns = (repository: GiteaRepository, branch: string) =>
+    Effect.gen(function* () {
+      const query = `branch=${encodeURIComponent(branch)}&event=push&limit=${RUNS_PAGE}`;
+      const answer = yield* get(`${repositoryPath(repository)}/actions/runs?${query}`);
+      if (answer === undefined) return Option.none<ReadonlyArray<CiRun>>();
+      const decoded = yield* decodeRuns(answer).pipe(Effect.mapError(unknownShape));
+      return Option.some<ReadonlyArray<CiRun>>(
+        (decoded.workflow_runs ?? []).map(({ status, conclusion }) => ({
+          status,
+          ...(conclusion === undefined ? {} : { conclusion }),
+        })),
+      );
+    }).pipe(Effect.withSpan('Gitea.pushRuns'));
 
   const openIssues = (repository: GiteaRepository) =>
     Effect.gen(function* () {
@@ -501,6 +577,10 @@ export const layerHttp = ({
     GiteaOutbound,
     GiteaOutbound.of({
       repositoryOf,
+      defaultBranch,
+      fileText,
+      entryNames,
+      pushRuns,
       openIssues,
       issue,
       closeIssue,

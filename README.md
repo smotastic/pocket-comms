@@ -109,6 +109,11 @@ the server running after a log-out, add a launch agent for `pnpm start` yourself
   its label, and, if asked, starts a Claude or Pi agent there and sends it the task. An agent that
   shows a dialog first gets nothing; answer it in its conversation, then send the task. Removing
   worktrees stays on the desktop.
+- **Planets and preflight (spec 034):** a planet is a repository below `COMMS_PROJECTS_ROOT` that
+  you registered; the first start registers the ones on the app's Gitea, except pocket-cloud and
+  pocket-mission (`planets.json` in the state folder). The planets sheet registers the other
+  repositories; a planet's page shows its preflight (go or no-go, each check with its reason), its
+  autonomy level and Unregister.
 - **Planets and issues (Planets on the overview):** each planet's open Gitea issues (its
   `origin` names the repository), the most recently updated first, with labels, age, a link to
   Gitea and the agents working on each issue (worktrees on a `<type>/<number>-…` branch).

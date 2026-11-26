@@ -14,6 +14,7 @@ import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 import { makeAgentLaunch } from './agent-launch.js';
 import { makeImagePaths } from './image-paths.js';
+import { makePlanetRegistry } from './planet-registry.js';
 
 // Creates a task (spec 005): checks every input before anything changes, creates the worktree
 // through Herdr, then optionally starts an agent and sends it the task. Once the worktree exists
@@ -27,10 +28,10 @@ export const makeCreateTask = Effect.gen(function* () {
   const herdrOutbound = yield* MultiplexerOutbound;
   const { imagePaths } = yield* makeImagePaths;
   const { launch } = yield* makeAgentLaunch;
+  const { planets } = yield* makePlanetRegistry;
 
   const findPlanet = Effect.fnUntraced(function* (name: string) {
-    const planets = yield* planetsOutbound.list;
-    const planet = planets.find((candidate) => candidate.name === name);
+    const planet = (yield* planets).find((candidate) => candidate.name === name);
     if (planet === undefined) {
       return yield* new InvalidInputError({
         issues: [{ field: 'planet', message: `${name} is not a planet the app offers.` }],

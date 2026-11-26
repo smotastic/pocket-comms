@@ -11,31 +11,24 @@ export const tasksHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const tasksInbound = yield* TasksInbound;
 
-    return handlers
-      .handle('planets', () =>
-        tasksInbound.planets.pipe(
-          Effect.map((planets) => ({ planets })),
-          Effect.catchTags({ MultiplexerUnavailableError: problems.herdrUnavailable }),
+    return handlers.handle('create', ({ payload }) =>
+      tasksInbound
+        .create({
+          planet: payload.planet,
+          task: payload.task,
+          branch: payload.branch,
+          agent: payload.agent?.kind,
+          imageIds: payload.imageIds,
+        })
+        .pipe(
+          Effect.catchTags({
+            InvalidInputError: problems.invalidInput,
+            BranchExistsError: problems.branchExists,
+            RepositoryGitError: problems.planetGitFailed,
+            MultiplexerUnavailableError: problems.herdrUnavailable,
+            MultiplexerRejectedError: problems.worktreeRefused,
+          }),
         ),
-      )
-      .handle('create', ({ payload }) =>
-        tasksInbound
-          .create({
-            planet: payload.planet,
-            task: payload.task,
-            branch: payload.branch,
-            agent: payload.agent?.kind,
-            imageIds: payload.imageIds,
-          })
-          .pipe(
-            Effect.catchTags({
-              InvalidInputError: problems.invalidInput,
-              BranchExistsError: problems.branchExists,
-              RepositoryGitError: problems.planetGitFailed,
-              MultiplexerUnavailableError: problems.herdrUnavailable,
-              MultiplexerRejectedError: problems.worktreeRefused,
-            }),
-          ),
-      );
+    );
   }),
 );

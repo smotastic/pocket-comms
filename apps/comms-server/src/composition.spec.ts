@@ -4,7 +4,7 @@ import * as Layer from 'effect/Layer';
 import { HttpRouter, HttpServer } from 'effect/http';
 import * as Option from 'effect/Option';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Repositories } from '@pocket-comms/comms-infrastructure';
@@ -72,6 +72,18 @@ describe('the composed server', () => {
     const response = await serve()('/api/v1/agents');
 
     expect(response.status).toBe(503);
+  });
+
+  it('seeds the planets when it starts without a registry', async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), 'state-'));
+    const call = serve(repositoriesRoot(), stateDir);
+
+    await call('/api/v1/agents');
+
+    expect(JSON.parse(readFileSync(join(stateDir, 'planets.json'), 'utf-8'))).toEqual({
+      version: 1,
+      planets: [{ name: 'app', autonomy: 'manual' }],
+    });
   });
 
   it('answers 503 for the planets while Herdr is away', async () => {

@@ -16,6 +16,8 @@ import {
   OverviewState,
   type Overview,
   type Planet,
+  type Planets,
+  type Preflight,
   type ProposalDecisionRequest,
   type AttachedPullRequest,
   type PullRequestChanges,
@@ -45,6 +47,8 @@ export type SubagentView = typeof Subagent.Type;
 export type SubagentEventView = typeof SubagentEvent.Type;
 export type Key = (typeof KEYS)[number];
 export type PlanetView = typeof Planet.Type;
+export type PlanetsView = typeof Planets.Type;
+export type PreflightView = typeof Preflight.Type;
 export type NewTask = typeof CreateTaskRequest.Type;
 export type TaskCreatedView = typeof TaskCreated.Type;
 export type AgentToStart = (typeof AGENTS_TO_START)[number];
@@ -130,7 +134,14 @@ export interface CommsClient {
   readonly seen: (ref: string) => Promise<void>;
   /** Removes the agent's worktree and closes its workspace; `force` discards its changes. */
   readonly closeAgent: (ref: string, force: boolean) => Promise<void>;
-  readonly planets: () => Promise<ReadonlyArray<PlanetView>>;
+  /** The planets and the repositories below the root that are not planets (spec 034). */
+  readonly planets: () => Promise<PlanetsView>;
+  /** Makes a repository below the root a planet. */
+  readonly registerPlanet: (name: string) => Promise<void>;
+  /** Removes the planet and its settings; its agents keep running. */
+  readonly unregisterPlanet: (planet: string) => Promise<void>;
+  /** Whether the planet is ready for missions: its checks, go or no-go and the levels. */
+  readonly preflight: (planet: string) => Promise<PreflightView>;
   readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
   readonly issues: (planet: string) => Promise<IssueListView>;
   /** `additionalInformation` goes into the agent's first prompt for this launch (spec 021). */
@@ -375,7 +386,12 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     seen: (ref) => run((api) => api.agents.seen(agent(ref))).then(() => undefined),
     closeAgent: (ref, force) =>
       run((api) => api.agents.close({ ...agent(ref), payload: { force } })).then(() => undefined),
-    planets: () => run((api) => api.tasks.planets()).then((result) => result.planets),
+    planets: () => run((api) => api.planets.list()),
+    registerPlanet: (name) =>
+      run((api) => api.planets.register({ payload: { name } })).then(() => undefined),
+    unregisterPlanet: (planet) =>
+      run((api) => api.planets.unregister({ params: { planet } })).then(() => undefined),
+    preflight: (planet) => run((api) => api.planets.preflight({ params: { planet } })),
     createTask: (task) => run((api) => api.tasks.create({ payload: task })),
     issues: (planet) => run((api) => api.issues.list({ params: { planet } })),
     implementIssue: (planet, number, branch, additionalInformation) =>

@@ -181,3 +181,22 @@ export {
   type Recovery,
   type TaskStart,
 } from './task-start.js';
+export {
+  effectiveAutonomy,
+  LEFT_OUT_OF_SEED,
+  planetWorkspaces,
+  PREFLIGHT_CHECKS,
+  preflightOf,
+  registerPlanet,
+  seedPlanets,
+  unregisterPlanet,
+  type AutonomyLevel,
+  type CiRun,
+  type PlanetRegistry,
+  type PlanetSettings,
+  type Preflight,
+  type PreflightCheck,
+  type PreflightCheckName,
+  type PreflightFacts,
+  type PreflightResult,
+} from './planet.js';
