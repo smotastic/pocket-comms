@@ -15,7 +15,7 @@ in the task's own commit. T01 is the first pull request; T02–T08 the second.
     accepted lines; `git grep -i project` in `packages/comms`, `apps/comms-*` finds only Nx's
     `project.json`, the `COMMS_PROJECTS_ROOT` setting and its config key.
 
-- [ ] **T02** — Domain rules: the seed choice, `planetWorkspaces` (non-planets to Other),
+- [x] **T02** — Domain rules: the seed choice, `planetWorkspaces` (non-planets to Other),
       `preflightOf(facts)` with the five checks, the Gitea cascade, the CI run choice, go/no-go and
       the effective autonomy level.
   - Serves: 2, 4, 7, 8, 9, 11, 12
