@@ -1,8 +1,8 @@
 # Git and Pull Request Conventions
 
 Short rules for branches, commits and pull requests. `pnpm validate:conventions` checks the
-shapes locally, on pre-push and in CI. The [`git-and-pr-conventions`](../../.agents/skills/git-and-pr-conventions/SKILL.md)
-skill is the step-by-step procedure.
+shapes locally, on pre-push and in CI. The `flight-ship` skill is the
+step-by-step procedure.
 
 ## 1. Types
 
@@ -60,9 +60,9 @@ pnpm validate:conventions --title 'feat(bookmarks): add full-text search'
   the finished change.
 - The body follows [`.github/PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md):
   `## TL;DR`, `## Impact`, `## Links`. Do not list the checks you ran; CI shows them.
-- Agents may push their branches and merge their own pull requests once CI is green, unless the
-  change needs a human gate (constitution principle 8): an unapproved feature spec, a database
-  migration, a destructive action or secrets.
+- Agents may push their branches and merge their own pull requests once CI is green, unless one
+  of the flight rules' stops is open: a database migration, secrets, a destructive action, an
+  architecture decision the grilling did not settle.
 
 ## 4. Never
 

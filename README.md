@@ -166,7 +166,8 @@ specs/                 feature specs; docs/ ADRs and conventions; tools/ templat
 
 ## Working in it
 
-The repository comes from the pocket-factory template: read [`AGENTS.md`](AGENTS.md) and the
+The repository comes from the pocket-factory template: read [`AGENTS.md`](AGENTS.md), the
+flight rules (the `flight-rules` skill, whose source is `apps/comms-server/skills/`) and the
 [constitution](.specify/memory/constitution.md). `pnpm verify:local` runs the local gates (also the
 pre-push hook); CI runs the full set. Work on a branch and follow the
 [Git conventions](docs/engineering/git-and-pr-conventions.md).

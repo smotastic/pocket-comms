@@ -23,7 +23,8 @@ The script replaces the placeholders and can be run again:
 ## 2. Review the constitution
 
 Read [`.specify/memory/constitution.md`](.specify/memory/constitution.md). Keep it, or change it
-with the `speckit-constitution` skill and an ADR. Do not edit it in passing.
+with the `speckit-constitution` skill and an ADR. Do not edit it in passing. It holds only the
+engineering principles; how agents work is the flight rules (ADR 0016).
 
 ## 3. Keep or delete the blueprint
 
@@ -54,7 +55,7 @@ ADRs 0001 to 0009 record the ruleset and the stack. Keep them, or supersede one 
 The workflow runs on GitHub Actions and on Gitea Actions unchanged. In the repository settings:
 protect `master`, allow squash merges only with the pull request title as the commit subject, and
 require the `CI / verify` status check. If the repository is not on Gitea, replace the `tea`
-commands in `docs/engineering/git-and-pr-conventions.md` and the skills with your forge's CLI.
+commands in `docs/engineering/git-and-pr-conventions.md` with your forge's CLI.
 
 To release the bookmarks images (`.github/workflows/release.yml`), add the Actions variable
 `REGISTRY_HOST` (the container registry's host) and the Actions secret `REGISTRY_TOKEN` (a token

@@ -20,9 +20,13 @@ Accepting an ADR needs the human owner's approval.
 
 ## Index
 
+ADRs before 0017 cite the principles of constitution 2.x. Principles 1 to 3 keep their numbers,
+principle 6 is now 4, and principles 4, 5 and 7 to 10 are now the flight rules, where the owner's
+spec and plan approval became the grilling (ADR 0016).
+
 | ADR                                                                          | Title                                                         | Status                                |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------- |
-| [0001](0001-adopt-the-template-ruleset.md)                                   | Adopt the template ruleset                                    | Accepted                              |
+| [0001](0001-adopt-the-template-ruleset.md)                                   | Adopt the template ruleset                                    | Accepted (amended by ADR 0017)        |
 | [0002](0002-adopt-effect-as-the-backend-base.md)                             | Adopt Effect as the backend base                              | Accepted                              |
 | [0003](0003-hexagonal-architecture-with-effect-services.md)                  | Hexagonal architecture with Effect services                   | Accepted                              |
 | [0004](0004-persistence-with-effect-sql-on-postgresql.md)                    | Persistence with effect/sql on PostgreSQL                     | Accepted                              |
@@ -38,3 +42,4 @@ Accepting an ADR needs the human owner's approval.
 | [0014](0014-run-the-brainstorm-chat-on-the-shared-agent-package.md)          | Run the brainstorm chat on the shared agent package           | Accepted                              |
 | [0015](0015-a-multiplexer-port-with-switchable-herdr-hc-and-rex-adapters.md) | A multiplexer port with switchable Herdr, hc and Rex adapters | Accepted                              |
 | [0016](0016-pocket-comms-owns-the-workflow-and-the-flight-rules.md)          | Pocket Comms owns the workflow and the flight rules           | Accepted                              |
+| [0017](0017-take-up-the-flight-rules-cut-of-the-template.md)                 | Take up the flight-rules cut of the template                  | Accepted                              |

@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review a change and report findings. Use for a code review, a pull request review assigned to you, a review before opening a pull request, and the mandatory per-task gate after speckit-implement. Takes a pull request, a commit range, a branch, or uncommitted changes. Produces findings with severity, confidence and evidence; it reports and never changes code.
+description: Review a change and report findings. Use for a code review, a pull request review assigned to you, a review before opening a pull request, and the mandatory per-task gate of flight-implement. Takes a pull request, a commit range, a branch, or uncommitted changes. Produces findings with severity, confidence and evidence; it reports and never changes code.
 ---
 
 # code-review — review a change, report findings
@@ -12,13 +12,13 @@ description: Review a change and report findings. Use for a code review, a pull 
 This skill produces findings and stops. It never edits code. Acting on the findings belongs to
 whoever holds them:
 
-- In the spec-kit flow, [`speckit-implement`](../speckit/implement/SKILL.md) fixes the blocking
-  findings before its commit and records the follow-up findings as tasks.
+- In a flight, the `flight-implement` skill fixes the blocking findings before its commit and
+  records the follow-up findings as tasks.
 - On an assigned pull request, the human owner decides.
 
 ## When to use
 
-- **After `speckit-implement` finishes a task**, on that task's diff, before the commit step. This
+- **After `flight-implement` finishes a task**, on that task's diff, before the commit step. This
   is the mandatory per-task gate of ADR 0001.
 - **When a pull request review is assigned to you.**
 - **Before opening a pull request**, to catch what a human reviewer would otherwise find.
@@ -74,7 +74,8 @@ step both need it.
 
 1. **Resolve the target** and record its head commit SHA.
 2. **Read the rule sources** that apply to the changed files:
-   - `.specify/memory/constitution.md` — always, it wins over every other document.
+   - The flight rules (the `flight-rules` skill) and `.specify/memory/constitution.md` — always;
+     they win over every other document.
    - The root `AGENTS.md` and the nearest `AGENTS.md` for each changed directory — always.
    - `.dependency-cruiser.cjs` and the Nx tags — when imports or project configuration change.
    - [`docs/engineering/code-comments.md`](../../../docs/engineering/code-comments.md) — when
@@ -98,7 +99,7 @@ step both need it.
 The same workflow serves both modes. Diff mode has no step 6.
 
 This skill states no preference about which model reviews. The caller decides that; for the
-per-task gate, `speckit-implement` sets the rule.
+per-task gate, `flight-implement` sets the rule.
 
 ## Review concerns
 
@@ -129,7 +130,7 @@ dropped, not softened.
    the finding is "remove it", not "implement it properly". Do not recommend removing or changing
    API contracts (`contract` packages) or database schemas based only on an in-repo search; external
    callers may exist. Raise these changes for a spec and an owner decision (constitution
-   principles 3 and 8).
+   principle 3, and a stop of the flight rules).
 6. **Does the fix need a design or architecture decision?** Then it is not a comment. Escalate it to
    the human owner, as `AGENTS.md` requires for any guardrail crossing.
 

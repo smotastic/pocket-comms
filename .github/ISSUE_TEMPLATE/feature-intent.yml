@@ -1,5 +1,5 @@
 name: Feature intent
-description: Describe an intent for the spec-first workflow. The speckit-specify skill turns it into spec.md.
+description: Describe an intent for a full flight. The flight-grill skill grills it and flight-spec turns it into spec.md.
 title: 'feat: <short intent>'
 labels: [intent]
 body:

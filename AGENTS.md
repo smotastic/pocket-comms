@@ -1,7 +1,7 @@
 # AGENTS.md
 
-A spec-driven TypeScript monorepo (Effect, Nx, React) built mostly by coding agents under
-human-approved specs and automated gates.
+A spec-driven TypeScript monorepo (Effect, Nx, React) built mostly by coding agents under the
+flight rules and automated gates.
 
 ## Commands
 
@@ -16,9 +16,12 @@ Use pnpm. Run `pnpm install` before the first build.
 
 ## Read first
 
-- Read [the constitution](.specify/memory/constitution.md) before every task. It wins over every
-  other document.
-- Use English for all repository artifacts.
+- Load the `flight-rules` skill before every task. It says how agents work on every planet: the
+  lanes, when the owner is asked, and the standing rules. Its source is
+  `apps/comms-server/skills/`; every agent gets it through the global skills folder (ADR 0016).
+- Read [the constitution](.specify/memory/constitution.md) before every task: how code is built
+  here. It may make the flight rules stricter, never looser, and wins over every other document
+  of this repository.
 - Name things with the words of [the glossary](GLOSSARY.md) and never its _Avoid_ words, in docs,
   specs and new code.
 - For work below `apps/<app>/`, `packages/<service>/` or `blueprints/<name>/`, read the nearest
@@ -26,8 +29,9 @@ Use pnpm. Run `pnpm install` before the first build.
 
 ## Task guidance
 
-- Features and new behaviour need a spec first; fixes, refactors, docs and chores do not. See
-  [`specs/README.md`](specs/README.md) and the [Spec Kit skills](.agents/skills/speckit/).
+- Features and new behaviour fly the full flight (grilling, spec, plan, tasks, verify); fixes,
+  refactors, docs and chores fly the hop. The `flight-*` skills carry each step; see
+  [`specs/README.md`](specs/README.md).
 - For architecture work, read the [decision records](docs/architecture/adr/README.md).
 - For a new service or web app, build from the shapes of the
   [comms service](packages/comms/AGENTS.md) and its apps (`apps/comms-server`, `apps/comms-web`); the
@@ -44,9 +48,10 @@ Use pnpm. Run `pnpm install` before the first build.
 - For source comments, read [the comment conventions](docs/engineering/code-comments.md).
 - For reviews (a pull request, a commit range, uncommitted changes, or the per-task gate), use the
   [`code-review` skill](.agents/skills/code-review/SKILL.md).
-- For branches, commits and pull requests, use the
-  [`git-and-pr-conventions` skill](.agents/skills/git-and-pr-conventions/SKILL.md).
+- For branches, commits and pull requests, use the `flight-ship` skill; the shapes are checked
+  by [the conventions](docs/engineering/git-and-pr-conventions.md).
 - For the workflow and its gates, read [the workflow details](docs/architecture/workflow-details.md).
-- Before any non-trivial task, run the [`grill-me` skill](.agents/skills/grill-me/SKILL.md).
+- For the flight skills themselves (`flight-rules` and the steps), change them in
+  `apps/comms-server/skills/`; they reach the agents with the next deploy.
 
-If guidance conflicts or the task needs an exception, stop and ask the human owner.
+If guidance conflicts or the task needs an exception, stop and ask the owner.
