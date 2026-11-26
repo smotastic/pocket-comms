@@ -81,8 +81,9 @@ _Avoid_: activity, status
 ### Planets and issues
 
 **Planet**:
-One git repository the owner works on and has registered with Mission Control.
-_Avoid_: project, repository (in prose), repo, workspace group
+One git repository the owner works on and has registered with Mission Control; the
+repositories below the projects root that are not registered are not planets.
+_Avoid_: project, repository (in prose, for a planet), repo, workspace group
 
 **Workspace**:
 One place where agents run, usually on a worktree of a planet; workspaces without a planet fall
