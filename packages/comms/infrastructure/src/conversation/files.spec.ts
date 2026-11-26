@@ -317,6 +317,95 @@ describe('Conversation.layerFiles background', () => {
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
+  describe('a subagent that waits on its own background work', () => {
+    const WAITER = 'a3b5ae8dcea2d1b9b';
+    const NOTICE_AT = Date.parse('2026-10-30T16:00:20.000Z');
+    const json = (value: unknown) => `${JSON.stringify(value)}\n`;
+    const entry = (uuid: string, type: string, content: unknown, extra = {}) =>
+      json({
+        type,
+        uuid,
+        timestamp: '2026-10-30T16:00:10.000Z',
+        message: { role: type, content },
+        ...extra,
+      });
+    // A session whose subagent stopped while its own work goes on, and that subagent's file.
+    const waitingHome = (own: string, modifiedAt: number) => {
+      const { root, claudeFile } = home();
+      writeFileSync(
+        claudeFile,
+        [
+          entry('a-1', 'assistant', [
+            { type: 'tool_use', id: 'toolu-w', name: 'Agent', input: { description: 'Step 2' } },
+          ]),
+          entry('r-1', 'user', [{ type: 'tool_result', tool_use_id: 'toolu-w', content: 'ok' }], {
+            toolUseResult: { isAsync: true, agentId: WAITER },
+          }),
+          json({
+            type: 'user',
+            uuid: 'n-1',
+            timestamp: new Date(NOTICE_AT).toISOString(),
+            origin: { kind: 'task-notification' },
+            message: {
+              role: 'user',
+              content: `<task-notification>\n<task-id>${WAITER}</task-id>\n<status>completed</status>\n<summary>Agent "Step 2" is waiting on its own background work</summary>\n</task-notification>`,
+            },
+          }),
+        ].join(''),
+      );
+      const folder = join(claudeFile.replace(/\.jsonl$/u, ''), 'subagents');
+      mkdirSync(folder, { recursive: true });
+      const file = join(folder, `agent-${WAITER}.jsonl`);
+      writeFileSync(file, own);
+      utimesSync(file, new Date(modifiedAt), new Date(modifiedAt));
+      return root;
+    };
+    const sidechain = { isSidechain: true };
+    const ownShell = [
+      entry(
+        's-1',
+        'assistant',
+        [
+          {
+            type: 'tool_use',
+            id: 'toolu-ci',
+            name: 'Bash',
+            input: { command: 'wait-ci', description: 'Wait for CI', run_in_background: true },
+          },
+        ],
+        sidechain,
+      ),
+      entry('s-2', 'user', [{ type: 'tool_result', tool_use_id: 'toolu-ci', content: 'bg' }], {
+        ...sidechain,
+        toolUseResult: { backgroundTaskId: 'bci' },
+      }),
+    ].join('');
+    const idle = entry('s-1', 'assistant', [{ type: 'text', text: 'Waiting.' }], sidechain);
+    const ids = (root: string) =>
+      ConversationOutbound.use((port) => port.background(claude)).pipe(
+        Effect.map((items) => items.map((item) => item.id)),
+        Effect.provide(layerFiles({ home: root })),
+      );
+
+    it.live('runs while its own file shows work running', () =>
+      Effect.gen(function* () {
+        expect(yield* ids(waitingHome(ownShell, NOTICE_AT - 1_000))).toEqual(['toolu-w']);
+      }),
+    );
+
+    it.live('runs once its file goes on after the notice', () =>
+      Effect.gen(function* () {
+        expect(yield* ids(waitingHome(idle, NOTICE_AT + 5_000))).toEqual(['toolu-w']);
+      }),
+    );
+
+    it.live('has ended when neither shows', () =>
+      Effect.gen(function* () {
+        expect(yield* ids(waitingHome(idle, NOTICE_AT - 1_000))).toEqual([]);
+      }),
+    );
+  });
+
   it.effect('has no background work for a Pi session', () => {
     const { root } = home();
     return Effect.gen(function* () {

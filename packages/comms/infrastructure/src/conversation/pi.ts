@@ -129,5 +129,5 @@ export const createPiParser = (cwd: string | undefined): ConversationParser => {
   };
 
   // Pi has no tools that keep running after their call returns.
-  return { push, entries: log.entries, background: () => [] };
+  return { push, entries: log.entries, background: () => [], waiting: () => new Map() };
 };

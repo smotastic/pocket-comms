@@ -12,6 +12,11 @@ export interface ConversationParser {
   readonly entries: () => ReadonlyArray<ConversationEntry>;
   /** The background work started in the lines read so far that has not ended yet. */
   readonly background: () => ReadonlyArray<BackgroundItem>;
+  /**
+   * The subagents among `background` that stopped while their own background work still runs, by
+   * id, with when they said so. Whether such a one still runs only its own files tell.
+   */
+  readonly waiting: () => ReadonlyMap<string, number>;
 }
 
 export type ToolEntry = Extract<ConversationEntry, { type: 'tool' }>;

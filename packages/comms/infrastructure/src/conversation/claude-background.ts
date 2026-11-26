@@ -3,11 +3,14 @@ import { isRecord, oneLine, stringField } from './entries.js';
 
 // Claude Code reports background work in its own words: a result names the task it started, a
 // later user line (`origin.kind: "task-notification"`) says it ended, and `TaskStop` or
-// `KillShell` stop one by its task id. None of this is a documented format.
+// `KillShell` stop one by its task id. A subagent that stopped runs again when `SendMessage`
+// resumes it, and one that only waits on its own background work notifies without having ended.
+// None of this is a documented format.
 
 const TASK_TAG = /<task-id>([^<]+)<\/task-id>/u;
 const TOOL_USE_TAG = /<tool-use-id>([^<]+)<\/tool-use-id>/u;
 const STATUS_TAG = /<status>[^<]+<\/status>/u;
+const WAITING = /<summary>[^<]*is waiting on its own background work[^<]*<\/summary>/u;
 const MONITOR_TASK = /^Monitor started \(task ([^\s,)]+)/u;
 const MONITOR_EXPIRY = /expires in (\d+)\s*([smh])\b/u;
 const UNIT_MS = new Map([
@@ -46,13 +49,26 @@ export const backgroundLog = () => {
   const running = new Map<string, BackgroundItem>();
   // Claude names a running task by its own id; the item is kept by the call that started it.
   const callOfTask = new Map<string, string>();
+  // The subagents that stopped, by their id, so a resumed one runs again as the same item.
+  const stoppedSubagents = new Map<string, BackgroundItem>();
+  // The running subagents that stopped while their own work goes on, with when they said so.
+  const waitingSince = new Map<string, number>();
 
   const start = (item: BackgroundItem, task: string) => {
+    if (item.subagent !== undefined) {
+      stoppedSubagents.delete(item.subagent);
+      waitingSince.delete(item.subagent);
+    }
     running.set(item.id, item);
     callOfTask.set(task, item.id);
   };
 
   const endCall = (id: string) => {
+    const item = running.get(id);
+    if (item?.subagent !== undefined) {
+      stoppedSubagents.set(item.subagent, item);
+      waitingSince.delete(item.subagent);
+    }
     running.delete(id);
     for (const [task, call] of callOfTask) if (call === id) callOfTask.delete(task);
   };
@@ -64,6 +80,8 @@ export const backgroundLog = () => {
 
   return {
     items: (): ReadonlyArray<BackgroundItem> => [...running.values()],
+
+    waiting: (): ReadonlyMap<string, number> => new Map(waitingSince),
 
     /** A tool call the assistant made. A subagent runs from here; other work from its result. */
     call: (id: string, name: string, input: unknown, at: number) => {
@@ -122,6 +140,21 @@ export const backgroundLog = () => {
           }
           return;
         }
+        case 'SendMessage': {
+          const subagent = stringField(details, 'resumedAgentId');
+          if (!ok || subagent === undefined || !SUBAGENT_ID.test(subagent)) return;
+          if ([...running.values()].some((item) => item.subagent === subagent)) return;
+          // One that ran in the foreground, or before this file, runs as the message itself.
+          const item = stoppedSubagents.get(subagent) ?? {
+            id,
+            kind: 'subagent',
+            description: stringField(call.input, 'summary') ?? description,
+            startedAt: call.at,
+            inBackground: true,
+          };
+          start({ ...item, subagent }, subagent);
+          return;
+        }
         case 'TaskStop':
           if (ok) end(stringField(call.input, 'task_id') ?? '');
           return;
@@ -133,10 +166,21 @@ export const backgroundLog = () => {
 
     /**
      * A task's notification, naming it by its call or by its task id. Only one with a status says
-     * the task ended; a monitor also notifies on each event it sees, without one.
+     * the task ended; a monitor also notifies on each event it sees, without one, and a subagent
+     * that waits on its own background work with one.
      */
-    notification: (text: string) => {
+    notification: (text: string, at: number) => {
       if (!STATUS_TAG.test(text)) return;
+      if (WAITING.test(text)) {
+        // Claude records one notice up to three times; the latest says when it was last seen.
+        const task = TASK_TAG.exec(text)?.[1];
+        const item = running.get(callOfTask.get(task ?? '') ?? '');
+        if (item?.subagent !== undefined) {
+          const since = waitingSince.get(item.subagent) ?? 0;
+          waitingSince.set(item.subagent, Number.isFinite(at) ? Math.max(at, since) : since);
+        }
+        return;
+      }
       const call = TOOL_USE_TAG.exec(text)?.[1];
       if (call !== undefined && running.has(call)) {
         endCall(call);
