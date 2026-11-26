@@ -37,7 +37,7 @@ in the task's own commit. T01 is the first pull request; T02–T08 the second.
   - Serves: 7
   - Gate: Gitea HTTP adapter tests against the fake server.
 
-- [ ] **T06** — Preflight in the application: gather the facts, compute, reuse for 60 seconds;
+- [x] **T06** — Preflight in the application: gather the facts, compute, reuse for 60 seconds;
       Gitea down answers no-go.
   - Serves: 7, 8, 9, 10, 12
   - Gate: use case tests with fakes and a test clock.

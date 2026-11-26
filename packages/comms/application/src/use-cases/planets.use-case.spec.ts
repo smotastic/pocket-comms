@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@effect/vitest';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import { TestClock } from 'effect/testing';
 import {
   PlanetExistsError,
   PlanetNotFoundError,
@@ -150,6 +151,131 @@ describe('the seed', () => {
       yield* seed;
 
       expect(state.registry).toEqual({ planets: [] });
+    }).pipe(Effect.provide(layer())),
+  );
+});
+
+describe('PlanetsInbound.preflight', () => {
+  const ready = (state: FakeState['Service']) => {
+    state.giteaRepositories.set('owner/app', {
+      defaultBranch: 'master',
+      files: new Map([
+        ['AGENTS.md', '# app'],
+        ['.github/workflows/ci.yml', 'on: push'],
+        ['package.json', '{"scripts":{"verify":"pocket-ci verify"}}'],
+      ]),
+      runs: [{ status: 'completed', conclusion: 'success' }],
+    });
+  };
+
+  it.effect('is go for a ready planet, at the chosen level', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state);
+
+      const preflight = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+
+      expect(preflight.result).toBe('go');
+      expect(preflight.checks.map((check) => check.passed)).toEqual([true, true, true, true, true]);
+      expect(preflight.autonomy).toEqual({ chosen: 'manual', effective: 'manual' });
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('is no-go, with the reason, without a verify script or green CI', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.giteaRepositories.set('owner/app', {
+        defaultBranch: 'main',
+        files: new Map([
+          ['AGENTS.md', '# app'],
+          ['.gitea/workflows/ci.yaml', 'on: push'],
+          ['package.json', '{"scripts":{}}'],
+        ]),
+        runs: [{ status: 'running' }, { status: 'completed', conclusion: 'failure' }],
+      });
+
+      const preflight = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+
+      expect(preflight.result).toBe('no-go');
+      expect(preflight.checks.filter((check) => !check.passed)).toEqual([
+        {
+          check: 'ci-green',
+          passed: false,
+          reason: 'The newest finished run on main ended as failure; a newer run is still going.',
+        },
+        {
+          check: 'verify-script',
+          passed: false,
+          reason: 'package.json on main has no verify script.',
+        },
+      ]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('is no-go, not an error, when Gitea cannot be reached or has no token', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.giteaFailure = 'Gitea cannot be reached.';
+
+      const down = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      state.giteaFailure = undefined;
+      state.giteaConfigured = false;
+      yield* TestClock.adjust('61 seconds');
+      const noToken = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+
+      expect(down.result).toBe('no-go');
+      expect(down.checks[0]?.reason).toBe('Gitea cannot be reached.');
+      expect(noToken.checks[0]?.reason).toBe('The app has no Gitea token.');
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect(
+    'fails every check for a planet whose origin is not on Gitea, or a missing repository',
+    () =>
+      Effect.gen(function* () {
+        const state = yield* FakeState;
+        state.origins.set('app', 'git@github.com:owner/app.git');
+
+        const elsewhere = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+        state.origins.set('app', 'gitea:owner/app.git');
+        yield* TestClock.adjust('61 seconds');
+        const missing = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+
+        expect(elsewhere.checks[0]?.reason).toBe("Its origin is not on the app's Gitea.");
+        expect(missing.checks[0]?.reason).toBe(
+          'Gitea has no repository owner/app, or the token cannot read it.',
+        );
+        expect(missing.result).toBe('no-go');
+      }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('reuses a preflight for 60 seconds, then reads Gitea again', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state);
+
+      yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      const calls = state.giteaCalls.length;
+      yield* TestClock.adjust('30 seconds');
+      yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      expect(state.giteaCalls.length).toBe(calls);
+
+      yield* TestClock.adjust('31 seconds');
+      yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      expect(state.giteaCalls.length).toBeGreaterThan(calls);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('refuses a repository that is not a planet', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.registry = { planets: [] };
+
+      const error = yield* PlanetsInbound.use((inbound) => inbound.preflight('app')).pipe(
+        Effect.flip,
+      );
+
+      expect(error).toEqual(new PlanetNotFoundError({ planet: 'app' }));
     }).pipe(Effect.provide(layer())),
   );
 });

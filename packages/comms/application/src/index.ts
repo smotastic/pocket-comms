@@ -32,6 +32,7 @@ export type {
   CreateTaskInput,
   PlanetDto,
   PlanetsDto,
+  PreflightDto,
   TaskAgentDto,
   TaskCreatedDto,
 } from './dto/task.dto.js';

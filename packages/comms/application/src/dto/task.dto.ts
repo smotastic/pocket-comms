@@ -1,3 +1,4 @@
+import type { AutonomyLevel, PreflightCheck, PreflightResult } from '@pocket-comms/comms-domain';
 /** A planet the owner can start a task in. */
 export interface PlanetDto {
   readonly name: string;
@@ -9,6 +10,15 @@ export interface PlanetDto {
 export interface PlanetsDto {
   readonly planets: ReadonlyArray<PlanetDto>;
   readonly others: ReadonlyArray<string>;
+}
+
+/** A planet's preflight (spec 034): its checks, the result and the autonomy levels. */
+export interface PreflightDto {
+  readonly result: PreflightResult;
+  readonly checks: ReadonlyArray<PreflightCheck>;
+  readonly autonomy: { readonly chosen: AutonomyLevel; readonly effective: AutonomyLevel };
+  /** When the checks were computed, in epoch milliseconds. */
+  readonly checkedAt: number;
 }
 
 /** What the owner asks for: a task in a planet, on a new branch, optionally with an agent. */
