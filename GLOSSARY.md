@@ -1,7 +1,8 @@
 # Pocket Comms
 
 The words of Pocket Comms: the owner watching and steering their coding agents from a phone,
-turning ideas into issues in a brainstorm, and capturing ideas by voice. Words about how pocket
+turning ideas into issues in a brainstorm, sending issues on missions that agents carry out
+alone, and capturing ideas by voice. Words about how pocket
 apps are built and run, including **coding agent**, come from pocket-factory and pocket-cloud.
 
 ## Language
@@ -77,19 +78,19 @@ _Avoid_: feed, log, activity (for an agent's current step)
 What a working agent is doing right now, such as thinking or running a tool.
 _Avoid_: activity, status
 
-### Projects and issues
+### Planets and issues
 
-**Project**:
-One git repository the owner works on.
-_Avoid_: repository (in prose), repo, workspace group
+**Planet**:
+One git repository the owner works on and has registered with Mission Control.
+_Avoid_: project, repository (in prose), repo, workspace group
 
 **Workspace**:
-One place where agents run, usually on a worktree of a project; workspaces without a project fall
+One place where agents run, usually on a worktree of a planet; workspaces without a planet fall
 under **Other**.
-_Avoid_: tab, session, project
+_Avoid_: tab, session, planet
 
 **New task**:
-Starting work in a project: the task text, a branch for a new worktree, and optionally an agent.
+Starting work on a planet: the task text, a branch for a new worktree, and optionally an agent.
 _Avoid_: job, ticket, task (unqualified)
 
 **Task start**:
@@ -102,7 +103,7 @@ Where a task start's first prompt is: pending, not started, not sent, uncertain 
 _Avoid_: prompt status, sent state
 
 **Issue**:
-A tracked piece of work in a project's issue tracker.
+A tracked piece of work in a planet's issue tracker.
 _Avoid_: ticket, task, bug
 
 **Issue work**:
@@ -110,12 +111,60 @@ The worktrees and agents working on one issue's branch.
 _Avoid_: issue branch, progress
 
 **Pull request**:
-A proposed change to a project on the app's Gitea, with its changed files.
+A proposed change to a planet on the app's Gitea, with its changed files.
 _Avoid_: PR, MR, merge request (in prose)
 
 **Attached pull request**:
 A pull request an agent added to its conversation, so the owner can read its changes there.
 _Avoid_: linked PR, session PR
+
+### Mission Control
+
+**Mission Control**:
+The part of Pocket Comms that runs missions on the planets and keeps the flight rules.
+_Avoid_: orchestrator, scheduler, autopilot (that is an autonomy level)
+
+**Flight rules**:
+The rules every agent that Pocket Comms starts works by, on every planet; a planet may add
+stricter rules but never looser ones.
+_Avoid_: constitution (that is a planet's own engineering rules), policy, workflow
+
+**Mission**:
+One issue an agent carries out on its own, from being sent on its mission to its deploy.
+_Avoid_: job, run, autonomous task, task
+
+**Lane**:
+The path a mission takes: **full flight** or **hop**.
+_Avoid_: track, mode, workflow
+
+**Full flight**:
+The lane in which the agent grills the owner first and then ships without asking again.
+_Avoid_: grilled lane, feature lane, spec lane
+
+**Hop**:
+The lane in which the agent ships a small change without grilling.
+_Avoid_: direct lane, fast lane, quick fix
+
+**Grilling**:
+The interview in which an agent questions the owner until they share one understanding; the
+owner's confirmation approves the work.
+_Avoid_: interview, clarification, Q&A
+
+**Mission queue**:
+The missions waiting for their turn.
+_Avoid_: countdown, backlog, queue (unqualified)
+
+**Preflight**:
+The checklist that tells whether a planet is ready for missions; its result is **go** or **no-go**.
+_Avoid_: readiness check, agent readiness, health check
+
+**Autonomy level**:
+How much Mission Control may do on a planet alone: **manual**, **missions** or **autopilot**.
+_Avoid_: mode, trust level
+
+**Autopilot**:
+The autonomy level at which Mission Control chooses issues and their lanes by itself.
+_Avoid_: watchdog, scout, auto mode
 
 ### Brainstorm
 

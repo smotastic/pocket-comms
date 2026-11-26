@@ -37,3 +37,4 @@ Accepting an ADR needs the human owner's approval.
 | [0013](0013-adopt-the-shared-ci-package-and-a-single-job-gate.md)            | Adopt the shared CI package and a single-job gate             | Accepted                              |
 | [0014](0014-run-the-brainstorm-chat-on-the-shared-agent-package.md)          | Run the brainstorm chat on the shared agent package           | Accepted                              |
 | [0015](0015-a-multiplexer-port-with-switchable-herdr-hc-and-rex-adapters.md) | A multiplexer port with switchable Herdr, hc and Rex adapters | Accepted                              |
+| [0016](0016-pocket-comms-owns-the-workflow-and-the-flight-rules.md)          | Pocket Comms owns the workflow and the flight rules           | Accepted                              |
