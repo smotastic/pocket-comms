@@ -604,10 +604,7 @@ export const Planets = Schema.Struct({
   description: 'The planets, and the repositories that could be registered as one.',
 });
 
-const AutonomyLevel = Schema.Literals(['manual', 'missions', 'autopilot']).annotate({
-  description:
-    'How much Mission Control may do on the planet alone: manual, missions or autopilot.',
-});
+const AUTONOMY_LEVELS = ['manual', 'missions', 'autopilot'] as const;
 
 export const PreflightCheck = Schema.Struct({
   check: Schema.Literals([
@@ -616,8 +613,11 @@ export const PreflightCheck = Schema.Struct({
     'ci-workflow',
     'ci-green',
     'verify-script',
-  ]).annotate({ description: 'The check, in the fixed order of the list.' }),
-  passed: Schema.Boolean,
+  ]).annotate({
+    description: 'The check, in the fixed order of the list.',
+    examples: ['ci-green'],
+  }),
+  passed: Schema.Boolean.annotate({ description: 'The check passed.', examples: [true] }),
   reason: Schema.String.annotate({
     description: 'One sentence that says why the check passed or failed.',
     examples: ['The newest finished run on master succeeded.'],
@@ -627,16 +627,28 @@ export const PreflightCheck = Schema.Struct({
 export const Preflight = Schema.Struct({
   result: Schema.Literals(['go', 'no-go']).annotate({
     description: 'go when every check passed.',
+    examples: ['go'],
   }),
-  checks: Schema.Array(PreflightCheck),
+  checks: Schema.Array(PreflightCheck).annotate({
+    description: 'Every check, in their fixed order.',
+    examples: [[{ check: 'gitea', passed: true, reason: "The repository is on the app's Gitea." }]],
+  }),
   autonomy: Schema.Struct({
-    chosen: AutonomyLevel,
-    effective: AutonomyLevel.annotate({
-      description: 'The chosen level, lowered to manual on no-go; never stored.',
+    chosen: Schema.Literals(AUTONOMY_LEVELS).annotate({
+      description: 'The level the owner chose: manual, missions or autopilot.',
+      examples: ['manual'],
     }),
+    effective: Schema.Literals(AUTONOMY_LEVELS).annotate({
+      description: 'The chosen level, lowered to manual on no-go; never stored.',
+      examples: ['manual'],
+    }),
+  }).annotate({
+    description: 'How much Mission Control may do on the planet alone.',
+    examples: [{ chosen: 'manual', effective: 'manual' }],
   }),
-  checkedAt: Schema.Number.annotate({
+  checkedAt: Millis.annotate({
     description: 'When the checks were computed, in epoch milliseconds; reused for 60 seconds.',
+    examples: [1_795_600_000_000],
   }),
 }).annotate({
   identifier: 'Preflight',

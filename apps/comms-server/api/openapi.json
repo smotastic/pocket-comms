@@ -1954,15 +1954,24 @@
         "properties": {
           "autonomy": {
             "additionalProperties": false,
+            "description": "How much Mission Control may do on the planet alone.",
+            "examples": [
+              {
+                "chosen": "manual",
+                "effective": "manual"
+              }
+            ],
             "properties": {
               "chosen": {
-                "description": "How much Mission Control may do on the planet alone: manual, missions or autopilot.",
+                "description": "The level the owner chose: manual, missions or autopilot.",
                 "enum": ["manual", "missions", "autopilot"],
+                "examples": ["manual"],
                 "type": "string"
               },
               "effective": {
                 "description": "The chosen level, lowered to manual on no-go; never stored.",
                 "enum": ["manual", "missions", "autopilot"],
+                "examples": ["manual"],
                 "type": "string"
               }
             },
@@ -1970,17 +1979,21 @@
             "type": "object"
           },
           "checkedAt": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "enum": ["Infinity", "-Infinity", "NaN"],
-                "type": "string"
-              }
-            ]
+            "description": "When the checks were computed, in epoch milliseconds; reused for 60 seconds.",
+            "examples": [1795600000000],
+            "type": "integer"
           },
           "checks": {
+            "description": "Every check, in their fixed order.",
+            "examples": [
+              [
+                {
+                  "check": "gitea",
+                  "passed": true,
+                  "reason": "The repository is on the app's Gitea."
+                }
+              ]
+            ],
             "items": {
               "$ref": "#/components/schemas/PreflightCheck"
             },
@@ -1989,6 +2002,7 @@
           "result": {
             "description": "go when every check passed.",
             "enum": ["go", "no-go"],
+            "examples": ["go"],
             "type": "string"
           }
         },
@@ -2002,9 +2016,12 @@
           "check": {
             "description": "The check, in the fixed order of the list.",
             "enum": ["gitea", "agents-md", "ci-workflow", "ci-green", "verify-script"],
+            "examples": ["ci-green"],
             "type": "string"
           },
           "passed": {
+            "description": "The check passed.",
+            "examples": [true],
             "type": "boolean"
           },
           "reason": {
