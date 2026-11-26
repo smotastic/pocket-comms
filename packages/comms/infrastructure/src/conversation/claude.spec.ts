@@ -674,9 +674,9 @@ describe('createClaudeParser for a subagent', () => {
 });
 
 describe('claudeSessionPath', () => {
-  it('names the session file under the planet folder of the working directory', () => {
+  it('names the session file under the projects folder of Claude, by the working directory', () => {
     expect(claudeSessionPath('/home/me', '/Users/me/.herdr/worktrees/app', 'abc')).toBe(
-      '/home/me/.claude/planets/-Users-me--herdr-worktrees-app/abc.jsonl',
+      '/home/me/.claude/projects/-Users-me--herdr-worktrees-app/abc.jsonl',
     );
   });
 });
