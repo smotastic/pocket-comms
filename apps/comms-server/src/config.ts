@@ -33,7 +33,7 @@ export const serverConfig = Config.all({
   ),
   webDist: Config.option(Config.String('COMMS_WEB_DIST')),
   repositoriesRoot: Config.String('COMMS_PROJECTS_ROOT').pipe(
-    Config.withDefault(join(homedir(), 'Development', 'planets')),
+    Config.withDefault(join(homedir(), 'Development', 'projects')),
   ),
   // Where git adds a new task's worktree, beside Herdr's own (ADR 0015).
   worktreesRoot: Config.String('COMMS_WORKTREES_DIR').pipe(

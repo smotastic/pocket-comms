@@ -24,7 +24,7 @@ describe('serverConfig', () => {
         socketPath: `${homedir()}/.config/herdr/herdr.sock`,
         hcSocketPath: `${homedir()}/.local/state/herdr-core/default/default.sock`,
         webDist: Option.none(),
-        repositoriesRoot: `${homedir()}/Development/planets`,
+        repositoriesRoot: `${homedir()}/Development/projects`,
         worktreesRoot: `${homedir()}/.herdr/worktrees`,
         agentArgs: [],
         giteaUrl: 'http://localhost:3000',
