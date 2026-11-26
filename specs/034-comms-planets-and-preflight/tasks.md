@@ -32,7 +32,7 @@ in the task's own commit. T01 is the first pull request; T02–T08 the second.
   - Serves: 4, 6
   - Gate: overview use case test with an unregistered repository's agent.
 
-- [ ] **T05** — Gitea reads for preflight: the repository's default branch, a file's text, a
+- [x] **T05** — Gitea reads for preflight: the repository's default branch, a file's text, a
       folder's names and the push runs of a branch, each 404 as none.
   - Serves: 7
   - Gate: Gitea HTTP adapter tests against the fake server.

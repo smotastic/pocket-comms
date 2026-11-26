@@ -18,6 +18,7 @@ import {
   type Multiplexer,
   type Worktree,
   type PlanetRegistry,
+  type CiRun,
 } from '@pocket-comms/comms-domain';
 import { AgentRuntime, type Clip, type TurnInput } from '@smotastic/pocket-agent';
 import {
@@ -166,6 +167,18 @@ export class FakeState extends Context.Service<
     giteaConfigured: boolean;
     /** Why the fake Gitea fails, when it does. */
     giteaFailure: string | undefined;
+    /**
+     * What Gitea holds of each repository for preflight, by `<owner>/<name>`: its default branch,
+     * its files on that branch by path, and its push runs (none: Gitea does not list them).
+     */
+    readonly giteaRepositories: Map<
+      string,
+      {
+        readonly defaultBranch: string;
+        readonly files: ReadonlyMap<string, string>;
+        readonly runs: ReadonlyArray<CiRun> | undefined;
+      }
+    >;
     /** Why only marking an issue in progress fails, when it does. */
     giteaMarkFailure: string | undefined;
     /** The names of the images the fake Gitea refuses to attach. */
@@ -576,6 +589,46 @@ const gitea = (state: FakeState['Service']) => {
           })
         : Option.none();
     },
+    defaultBranch: ({ owner, name }) =>
+      request(`defaultBranch ${owner}/${name}`, () =>
+        Effect.succeed(
+          Option.map(
+            Option.fromNullishOr(state.giteaRepositories.get(`${owner}/${name}`)),
+            (repository) => repository.defaultBranch,
+          ),
+        ),
+      ),
+    fileText: ({ owner, name }, ref, path) =>
+      request(`fileText ${owner}/${name} ${ref} ${path}`, () => {
+        const repository = state.giteaRepositories.get(`${owner}/${name}`);
+        return Effect.succeed(
+          repository?.defaultBranch === ref
+            ? Option.fromNullishOr(repository.files.get(path))
+            : Option.none(),
+        );
+      }),
+    entryNames: ({ owner, name }, ref, path) =>
+      request(`entryNames ${owner}/${name} ${ref} ${path}`, () => {
+        const repository = state.giteaRepositories.get(`${owner}/${name}`);
+        if (repository?.defaultBranch !== ref) return Effect.succeed([]);
+        const names = [...repository.files.keys()].flatMap((file) =>
+          file === path
+            ? [file.split('/').at(-1) ?? file]
+            : file.startsWith(`${path}/`)
+              ? [file.slice(path.length + 1).split('/')[0] ?? '']
+              : [],
+        );
+        return Effect.succeed([...new Set(names)]);
+      }),
+    pushRuns: ({ owner, name }, branch) =>
+      request(`pushRuns ${owner}/${name} ${branch}`, () => {
+        const repository = state.giteaRepositories.get(`${owner}/${name}`);
+        return Effect.succeed(
+          repository?.defaultBranch === branch
+            ? Option.fromNullishOr(repository.runs)
+            : Option.none(),
+        );
+      }),
     openIssues: ({ owner, name }) =>
       request(`openIssues ${owner}/${name}`, () =>
         Effect.succeed([...(state.issues.get(`${owner}/${name}`) ?? [])]),
@@ -747,6 +800,7 @@ export const fakeLayer = () => {
         issues: new Map(),
         giteaConfigured: true,
         giteaFailure: undefined,
+        giteaRepositories: new Map(),
         giteaMarkFailure: undefined,
         giteaRefusedImages: new Set(),
         giteaCalls: [],
