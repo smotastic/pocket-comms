@@ -5,6 +5,8 @@ import {
   conversationFormatOf,
   type Agent,
   type Workspace,
+  planetWorkspaces,
+  type PlanetRegistry,
 } from '@pocket-comms/comms-domain';
 import * as Clock from 'effect/Clock';
 import * as Effect from 'effect/Effect';
@@ -12,6 +14,7 @@ import * as Option from 'effect/Option';
 import type { AgentDto } from '../dto/agent.dto.js';
 import { AgentNotFoundError } from '../errors.js';
 import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
+import { PlanetsOutbound } from '../ports/planets.outbound.port.js';
 import { SeenOutbound, StatusHistoryOutbound } from '../ports/memory.outbound.port.js';
 import {
   ConversationOutbound,
@@ -55,6 +58,7 @@ export interface AgentView {
 
 export const makeLoadAgents = Effect.gen(function* () {
   const herdrOutbound = yield* MultiplexerOutbound;
+  const planetsOutbound = yield* PlanetsOutbound;
   const conversationOutbound = yield* ConversationOutbound;
   const seenOutbound = yield* SeenOutbound;
   const statusHistoryOutbound = yield* StatusHistoryOutbound;
@@ -88,7 +92,15 @@ export const makeLoadAgents = Effect.gen(function* () {
   const load = Effect.fn('AgentsInbound.loadAgents')(function* () {
     const snapshot = yield* herdrOutbound.snapshot;
     const seen = yield* seenOutbound.seen;
-    const workspaces = new Map(snapshot.workspaces.map((workspace) => [workspace.id, workspace]));
+    // A workspace on a repository that is not a planet falls under Other (spec 034).
+    const { planets } = yield* planetsOutbound.load.pipe(
+      Effect.map(Option.getOrElse((): PlanetRegistry => ({ planets: [] }))),
+    );
+    const known = planetWorkspaces(
+      snapshot.workspaces,
+      new Set(planets.map((planet) => planet.name)),
+    );
+    const workspaces = new Map(known.map((workspace) => [workspace.id, workspace]));
     const views = yield* Effect.forEach(snapshot.agents, (agent) =>
       Effect.map(
         Effect.all([changedAt(agent), backgroundOf(agent)]),
@@ -119,7 +131,7 @@ export const makeLoadAgents = Effect.gen(function* () {
     );
     return {
       views,
-      workspaces: snapshot.workspaces satisfies ReadonlyArray<Workspace>,
+      workspaces: known satisfies ReadonlyArray<Workspace>,
       seen,
     };
   });

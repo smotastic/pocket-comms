@@ -27,7 +27,7 @@ in the task's own commit. T01 is the first pull request; T02–T08 the second.
   - Serves: 1, 2, 3, 5, 6
   - Gate: file store and use case tests (fakes); composition test that the seed runs at start.
 
-- [ ] **T04** — Non-planets fall under Other in the overview and the agents' `planet` field;
+- [x] **T04** — Non-planets fall under Other in the overview and the agents' `planet` field;
       the overview changes when the registry does.
   - Serves: 4, 6
   - Gate: overview use case test with an unregistered repository's agent.
