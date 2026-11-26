@@ -54,6 +54,8 @@ whose first prompt is not yet delivered are `task-starts.json` there, by worktre
 | Starting an agent and its first prompt, kept as a task start                   | `application` (`src/use-cases/agent-launch.ts`)             |
 | The task starts file                                                           | `infrastructure` (`src/task-starts`)                        |
 | The agent skill that attaches a pull request                                   | `apps/comms-server/skills/comms-attach-pull-request`        |
+| The flight rules and flight skills every agent gets (ADR 0016)                 | `apps/comms-server/skills/flight-*`                         |
+| Linking the skills into the agents' skills folders                             | `apps/comms-server` (`src/skills.ts`, `src/link-skills.ts`) |
 | The image store                                                                | `infrastructure` (`src/images`)                             |
 | Activity rules (snapshot diff, what is kept, prompt excerpts)                  | `domain` (`src/activity.ts`)                                |
 | The activity recorder and timeline                                             | `application` (`src/use-cases/activity*`)                   |
