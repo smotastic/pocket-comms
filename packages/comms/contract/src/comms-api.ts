@@ -604,6 +604,46 @@ export const Planets = Schema.Struct({
   description: 'The planets, and the repositories that could be registered as one.',
 });
 
+const AutonomyLevel = Schema.Literals(['manual', 'missions', 'autopilot']).annotate({
+  description:
+    'How much Mission Control may do on the planet alone: manual, missions or autopilot.',
+});
+
+export const PreflightCheck = Schema.Struct({
+  check: Schema.Literals([
+    'gitea',
+    'agents-md',
+    'ci-workflow',
+    'ci-green',
+    'verify-script',
+  ]).annotate({ description: 'The check, in the fixed order of the list.' }),
+  passed: Schema.Boolean,
+  reason: Schema.String.annotate({
+    description: 'One sentence that says why the check passed or failed.',
+    examples: ['The newest finished run on master succeeded.'],
+  }),
+}).annotate({ identifier: 'PreflightCheck', description: 'One check of preflight.' });
+
+export const Preflight = Schema.Struct({
+  result: Schema.Literals(['go', 'no-go']).annotate({
+    description: 'go when every check passed.',
+  }),
+  checks: Schema.Array(PreflightCheck),
+  autonomy: Schema.Struct({
+    chosen: AutonomyLevel,
+    effective: AutonomyLevel.annotate({
+      description: 'The chosen level, lowered to manual on no-go; never stored.',
+    }),
+  }),
+  checkedAt: Schema.Number.annotate({
+    description: 'When the checks were computed, in epoch milliseconds; reused for 60 seconds.',
+  }),
+}).annotate({
+  identifier: 'Preflight',
+  description:
+    "Whether the planet is ready for missions, computed from facts on the planet's Gitea.",
+});
+
 export const RegisterPlanetRequest = Schema.Struct({
   name: Schema.String.check(Schema.isPattern(/^[^/]{1,200}$/u)).annotate({
     description: 'The folder name of a repository of `others` in `GET /planets`.',
@@ -1489,6 +1529,17 @@ const planets = HttpApiGroup.make('planets')
         summary: 'Register a planet',
         description:
           'Makes a git repository below the repositories root a planet, at the autonomy level manual.',
+      }),
+    ),
+    HttpApiEndpoint.get('preflight', '/planets/:planet/preflight', {
+      params: { planet: PlanetParam },
+      success: Preflight,
+      error: Problems.NotFound,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Read a planet's preflight",
+        description:
+          "Checks the planet's default branch and CI on Gitea; a Gitea that cannot be read makes the result no-go.",
       }),
     ),
     HttpApiEndpoint.delete('unregister', '/planets/:planet', {

@@ -572,6 +572,33 @@ describe('the tasks API', () => {
     expect((await response.json()).type).toContain(slug);
   });
 
+  it("answers a planet's preflight, and 404 for one that is not a planet", async () => {
+    const preflight = {
+      result: 'no-go' as const,
+      checks: [
+        { check: 'gitea' as const, passed: true, reason: "The repository is on the app's Gitea." },
+        {
+          check: 'ci-green' as const,
+          passed: false,
+          reason: 'No CI run on master has finished yet.',
+        },
+      ],
+      autonomy: { chosen: 'manual' as const, effective: 'manual' as const },
+      checkedAt: 5,
+    };
+    const call = servePlanets({
+      preflight: (name) =>
+        name === 'app'
+          ? Effect.succeed(preflight)
+          : Effect.fail(new PlanetNotFoundError({ planet: name })),
+    });
+
+    const response = await call('/api/v1/planets/app/preflight');
+
+    expect(await response.json()).toEqual(preflight);
+    expect((await call('/api/v1/planets/nope/preflight')).status).toBe(404);
+  });
+
   it('unregisters a planet, and answers 404 for one that is not a planet', async () => {
     const call = servePlanets({
       unregister: (name) =>

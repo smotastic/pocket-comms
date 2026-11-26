@@ -42,7 +42,7 @@ in the task's own commit. T01 is the first pull request; T02–T08 the second.
   - Serves: 7, 8, 9, 10, 12
   - Gate: use case tests with fakes and a test clock.
 
-- [ ] **T07** — Contract and API: `GET /planets` with `others`, `POST /planets`,
+- [x] **T07** — Contract and API: `GET /planets` with `others`, `POST /planets`,
       `DELETE /planets/:planet`, `GET /planets/:planet/preflight`; the accepted OpenAPI lines.
   - Serves: 3, 5, 6, 7–12
   - Gate: `comms-api.spec.ts`; `openapi:diff`.

@@ -45,7 +45,9 @@ const herdrOperations = () =>
           '/api/v1/activity',
           '/api/v1/push',
           '/api/v1/speech',
-        ].some((prefix) => path.startsWith(prefix)),
+        ].some((prefix) => path.startsWith(prefix)) &&
+        // Preflight reads Gitea only, and Gitea down is a no-go answer (spec 034).
+        !path.endsWith('/preflight'),
     ),
   );
 
@@ -87,6 +89,7 @@ describe('CommsApi', () => {
       '/api/v1/planets/{planet}/issues/{number}/close',
       '/api/v1/planets/{planet}/issues/{number}/implement',
       '/api/v1/planets/{planet}/issues/{number}/start-agent',
+      '/api/v1/planets/{planet}/preflight',
       '/api/v1/push/key',
       '/api/v1/push/subscriptions',
       '/api/v1/push/subscriptions/remove',

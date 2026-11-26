@@ -1901,7 +1901,7 @@
       },
       "Planet": {
         "additionalProperties": false,
-        "description": "A git repository a task can start in.",
+        "description": "A git repository the owner registered: work can start in it (spec 034).",
         "properties": {
           "name": {
             "description": "The planet's folder name below the repositories root.",
@@ -1919,8 +1919,16 @@
       },
       "Planets": {
         "additionalProperties": false,
-        "description": "The planets a task can start in.",
+        "description": "The planets, and the repositories that could be registered as one.",
         "properties": {
+          "others": {
+            "description": "The git repositories below the repositories root that are not planets, by folder name.",
+            "examples": [["setup"]],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "planets": {
             "description": "The planets open in Herdr first, in workspace order, then the others by name.",
             "examples": [
@@ -1937,7 +1945,75 @@
             "type": "array"
           }
         },
-        "required": ["planets"],
+        "required": ["planets", "others"],
+        "type": "object"
+      },
+      "Preflight": {
+        "additionalProperties": false,
+        "description": "Whether the planet is ready for missions, computed from facts on the planet's Gitea.",
+        "properties": {
+          "autonomy": {
+            "additionalProperties": false,
+            "properties": {
+              "chosen": {
+                "description": "How much Mission Control may do on the planet alone: manual, missions or autopilot.",
+                "enum": ["manual", "missions", "autopilot"],
+                "type": "string"
+              },
+              "effective": {
+                "description": "The chosen level, lowered to manual on no-go; never stored.",
+                "enum": ["manual", "missions", "autopilot"],
+                "type": "string"
+              }
+            },
+            "required": ["chosen", "effective"],
+            "type": "object"
+          },
+          "checkedAt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "enum": ["Infinity", "-Infinity", "NaN"],
+                "type": "string"
+              }
+            ]
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/PreflightCheck"
+            },
+            "type": "array"
+          },
+          "result": {
+            "description": "go when every check passed.",
+            "enum": ["go", "no-go"],
+            "type": "string"
+          }
+        },
+        "required": ["result", "checks", "autonomy", "checkedAt"],
+        "type": "object"
+      },
+      "PreflightCheck": {
+        "additionalProperties": false,
+        "description": "One check of preflight.",
+        "properties": {
+          "check": {
+            "description": "The check, in the fixed order of the list.",
+            "enum": ["gitea", "agents-md", "ci-workflow", "ci-green", "verify-script"],
+            "type": "string"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "One sentence that says why the check passed or failed.",
+            "examples": ["The newest finished run on master succeeded."],
+            "type": "string"
+          }
+        },
+        "required": ["check", "passed", "reason"],
         "type": "object"
       },
       "PromptRequest": {
@@ -2355,6 +2431,20 @@
           }
         },
         "required": ["replies"],
+        "type": "object"
+      },
+      "RegisterPlanetRequest": {
+        "additionalProperties": false,
+        "description": "The repository to register.",
+        "properties": {
+          "name": {
+            "description": "The folder name of a repository of `others` in `GET /planets`.",
+            "examples": ["setup"],
+            "pattern": "^[^/]{1,200}$",
+            "type": "string"
+          }
+        },
+        "required": ["name"],
         "type": "object"
       },
       "Screen": {
@@ -5519,8 +5609,8 @@
     },
     "/api/v1/planets": {
       "get": {
-        "description": "The git repositories below the repositories root that a task can start in.",
-        "operationId": "tasks.planets",
+        "description": "The planets, the registered git repositories below the repositories root that work can start in, and the other repositories there.",
+        "operationId": "planets.list",
         "parameters": [],
         "responses": {
           "200": {
@@ -5531,7 +5621,7 @@
                 }
               }
             },
-            "description": "The planets a task can start in."
+            "description": "The planets, and the repositories that could be registered as one."
           },
           "403": {
             "content": {
@@ -5566,7 +5656,149 @@
         },
         "security": [],
         "summary": "List the planets",
-        "tags": ["Tasks"]
+        "tags": ["Planets"]
+      },
+      "post": {
+        "description": "Makes a git repository below the repositories root a planet, at the autonomy level manual.",
+        "operationId": "planets.register",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPlanetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Register a planet",
+        "tags": ["Planets"]
+      }
+    },
+    "/api/v1/planets/{planet}": {
+      "delete": {
+        "description": "Removes the planet and its settings. Its agents and worktrees keep running and fall under Other.",
+        "operationId": "planets.unregister",
+        "parameters": [
+          {
+            "description": "The planet's folder name below the repositories root.",
+            "example": "pocket-comms",
+            "in": "path",
+            "name": "planet",
+            "required": true,
+            "schema": {
+              "description": "The planet's folder name below the repositories root.",
+              "examples": ["pocket-comms"],
+              "pattern": "^[^/]{1,200}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Unregister a planet",
+        "tags": ["Planets"]
       }
     },
     "/api/v1/planets/{planet}/issues": {
@@ -5953,6 +6185,72 @@
         "security": [],
         "summary": "Start an agent in an issue's worktree",
         "tags": ["Task starts"]
+      }
+    },
+    "/api/v1/planets/{planet}/preflight": {
+      "get": {
+        "description": "Checks the planet's default branch and CI on Gitea; a Gitea that cannot be read makes the result no-go.",
+        "operationId": "planets.preflight",
+        "parameters": [
+          {
+            "description": "The planet's folder name below the repositories root.",
+            "example": "pocket-comms",
+            "in": "path",
+            "name": "planet",
+            "required": true,
+            "schema": {
+              "description": "The planet's folder name below the repositories root.",
+              "examples": ["pocket-comms"],
+              "pattern": "^[^/]{1,200}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preflight"
+                }
+              }
+            },
+            "description": "Whether the planet is ready for missions, computed from facts on the planet's Gitea."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          }
+        },
+        "security": [],
+        "summary": "Read a planet's preflight",
+        "tags": ["Planets"]
       }
     },
     "/api/v1/push/key": {
@@ -6412,6 +6710,10 @@
     {
       "description": "Read and drive the Herdr agents.",
       "name": "Agents"
+    },
+    {
+      "description": "The repositories the owner registered, and their preflight (spec 034).",
+      "name": "Planets"
     },
     {
       "description": "Start new work in a Herdr worktree.",

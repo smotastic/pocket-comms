@@ -26,6 +26,11 @@ export const planetsHandlers = HttpApiBuilder.group(
           }),
         ),
       )
+      .handle('preflight', ({ params }) =>
+        planetsInbound
+          .preflight(params.planet)
+          .pipe(Effect.catchTags({ PlanetNotFoundError: problems.planetNotFound })),
+      )
       .handle('unregister', ({ params }) =>
         planetsInbound.unregister(params.planet).pipe(
           Effect.catchTags({
