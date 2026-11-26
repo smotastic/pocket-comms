@@ -584,14 +584,32 @@ export const Planet = Schema.Struct({
     description: 'Herdr has a workspace for the planet.',
     examples: [true],
   }),
-}).annotate({ identifier: 'Planet', description: 'A git repository a task can start in.' });
+}).annotate({
+  identifier: 'Planet',
+  description: 'A git repository the owner registered: work can start in it (spec 034).',
+});
 
 export const Planets = Schema.Struct({
   planets: Schema.Array(Planet).annotate({
     description: 'The planets open in Herdr first, in workspace order, then the others by name.',
     examples: [[{ name: 'pocket-comms', open: true }]],
   }),
-}).annotate({ identifier: 'Planets', description: 'The planets a task can start in.' });
+  others: Schema.Array(Schema.String).annotate({
+    description:
+      'The git repositories below the repositories root that are not planets, by folder name.',
+    examples: [['setup']],
+  }),
+}).annotate({
+  identifier: 'Planets',
+  description: 'The planets, and the repositories that could be registered as one.',
+});
+
+export const RegisterPlanetRequest = Schema.Struct({
+  name: Schema.String.check(Schema.isPattern(/^[^/]{1,200}$/u)).annotate({
+    description: 'The folder name of a repository of `others` in `GET /planets`.',
+    examples: ['setup'],
+  }),
+}).annotate({ identifier: 'RegisterPlanetRequest', description: 'The repository to register.' });
 
 /** The agents the app can start in a new worktree. */
 export const AGENTS_TO_START = ['claude', 'pi'] as const;
@@ -1450,17 +1468,53 @@ const group = HttpApiGroup.make('agents')
     }),
   );
 
-const tasks = HttpApiGroup.make('tasks')
+const planets = HttpApiGroup.make('planets')
   .add(
-    HttpApiEndpoint.get('planets', '/planets', {
+    HttpApiEndpoint.get('list', '/planets', {
       success: Planets,
       error: Problems.ServiceUnavailable,
     }).annotateMerge(
       OpenApi.annotations({
         summary: 'List the planets',
-        description: 'The git repositories below the repositories root that a task can start in.',
+        description:
+          'The planets, the registered git repositories below the repositories root that work can start in, and the other repositories there.',
       }),
     ),
+    HttpApiEndpoint.post('register', '/planets', {
+      payload: RegisterPlanetRequest,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.Conflict, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Register a planet',
+        description:
+          'Makes a git repository below the repositories root a planet, at the autonomy level manual.',
+      }),
+    ),
+    HttpApiEndpoint.delete('unregister', '/planets/:planet', {
+      params: { planet: PlanetParam },
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Unregister a planet',
+        description:
+          'Removes the planet and its settings. Its agents and worktrees keep running and fall under Other.',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Planets',
+      description: 'The repositories the owner registered, and their preflight (spec 034).',
+    }),
+  );
+
+const tasks = HttpApiGroup.make('tasks')
+  .add(
     HttpApiEndpoint.post('create', '/tasks', {
       payload: CreateTaskRequest,
       success: TaskCreated.pipe(HttpApiSchema.status(201)),
@@ -2216,6 +2270,7 @@ const taskStarts = HttpApiGroup.make('taskStarts')
 /** The comms API v1, shared by the server and the web app. */
 export const CommsApi = HttpApi.make('comms')
   .add(group)
+  .add(planets)
   .add(tasks)
   .add(issues)
   .add(brainstorm)

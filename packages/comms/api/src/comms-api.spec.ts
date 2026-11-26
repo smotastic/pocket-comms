@@ -28,7 +28,11 @@ import {
   ProposalNotFoundError,
   PushInbound,
   PushStoreError,
+  PlanetExistsError,
+  PlanetsInbound,
+  PlanetsStoreError,
   QuickRepliesInbound,
+  RepositoryNotFoundError,
   PullRequestsInbound,
   PullRequestNotFoundError,
   InvalidPullRequestError,
@@ -117,6 +121,7 @@ const serve = (
   speech: Partial<SpeechInbound['Service']> = {},
   pullRequests: Partial<PullRequestsInbound['Service']> = {},
   taskStarts: Partial<TaskStartsInbound['Service']> = {},
+  planets: Partial<PlanetsInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -135,6 +140,7 @@ const serve = (
       Layer.provide(Layer.mock(SpeechInbound, speech)),
       Layer.provide(Layer.mock(PullRequestsInbound, pullRequests)),
       Layer.provide(Layer.mock(TaskStartsInbound, taskStarts)),
+      Layer.provide(Layer.mock(PlanetsInbound, planets)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -516,22 +522,64 @@ describe('the tasks API', () => {
     agent: undefined,
   };
 
-  it('lists the planets', async () => {
-    const call = serve({}, undefined, {
-      planets: Effect.succeed([{ name: 'pocket-comms', open: true }]),
+  /** The server with only the planets use cases mocked. */
+  const servePlanets = (planets: Partial<PlanetsInbound['Service']>) =>
+    serve({}, undefined, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, planets);
+
+  it('lists the planets and the other repositories', async () => {
+    const call = servePlanets({
+      list: Effect.succeed({ planets: [{ name: 'pocket-comms', open: true }], others: ['setup'] }),
     });
 
     const response = await call('/api/v1/planets');
 
-    expect(await response.json()).toEqual({ planets: [{ name: 'pocket-comms', open: true }] });
+    expect(await response.json()).toEqual({
+      planets: [{ name: 'pocket-comms', open: true }],
+      others: ['setup'],
+    });
   });
 
   it('answers 503 for the planets while Herdr is away', async () => {
-    const call = serve({}, undefined, {
-      planets: Effect.fail(new MultiplexerUnavailableError({ reason: 'connect ENOENT' })),
+    const call = servePlanets({
+      list: Effect.fail(new MultiplexerUnavailableError({ reason: 'connect ENOENT' })),
     });
 
     expect((await call('/api/v1/planets')).status).toBe(503);
+  });
+
+  it('registers a planet and answers 204', async () => {
+    const registered: Array<string> = [];
+    const call = servePlanets({
+      register: (name) => Effect.sync(() => void registered.push(name)),
+    });
+
+    const response = await call('/api/v1/planets', json({ name: 'setup' }));
+
+    expect(response.status).toBe(204);
+    expect(registered).toEqual(['setup']);
+  });
+
+  it.each([
+    [new RepositoryNotFoundError({ name: 'nope' }), 404, 'repository-not-found'],
+    [new PlanetExistsError({ planet: 'nope' }), 409, 'planet-exists'],
+    [new PlanetsStoreError({ reason: 'disk full' }), 503, 'planets-unavailable'],
+  ])('answers a refused registration with its problem', async (error, status, slug) => {
+    const call = servePlanets({ register: () => Effect.fail(error) });
+
+    const response = await call('/api/v1/planets', json({ name: 'nope' }));
+
+    expect(response.status).toBe(status);
+    expect((await response.json()).type).toContain(slug);
+  });
+
+  it('unregisters a planet, and answers 404 for one that is not a planet', async () => {
+    const call = servePlanets({
+      unregister: (name) =>
+        name === 'setup' ? Effect.void : Effect.fail(new PlanetNotFoundError({ planet: name })),
+    });
+
+    expect((await call('/api/v1/planets/setup', { method: 'DELETE' })).status).toBe(204);
+    expect((await call('/api/v1/planets/nope', { method: 'DELETE' })).status).toBe(404);
   });
 
   it('creates a task with an agent and answers 201', async () => {

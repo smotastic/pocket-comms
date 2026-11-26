@@ -94,6 +94,8 @@ export interface FakeState {
   /** Holds a brainstorm message on its way until it resolves. */
   sendGate?: Promise<void>;
   planets: ReadonlyArray<PlanetView>;
+  /** The repositories below the root that are not planets. */
+  others: ReadonlyArray<string>;
   /** What the next task creation answers: the created worktree, or a failure. */
   created: TaskCreatedView | RequestError;
   /** Each planet's issues, or a failure; a planet without an entry has no Gitea remote. */
@@ -143,6 +145,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       { name: 'pocket-comms', open: true },
       { name: 'pocket-home', open: false },
     ],
+    others: [],
     created: { workspace: 'wK', branch: 'feat/x', path: '/worktrees/feat-x' },
     issues: new Map(),
     implemented: { workspace: 'wK', branch: 'feat/1-x', path: '/worktrees/feat-1-x' },
@@ -177,6 +180,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     typed: [] as Array<[string, string]>,
     answers: [] as Array<[string, string, ReadonlyArray<ReadonlyArray<number>>]>,
     seen: [] as Array<string>,
+    registered: [] as Array<string>,
+    unregistered: [] as Array<string>,
     tasks: [] as Array<NewTask>,
     implemented: [] as Array<[string, number, string, string?]>,
     closed: [] as Array<[string, number]>,
@@ -288,7 +293,17 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     seen: async (ref) => {
       calls.seen.push(ref);
     },
-    planets: async () => state.planets,
+    planets: async () => ({ planets: state.planets, others: state.others }),
+    registerPlanet: async (name) => {
+      calls.registered.push(name);
+      state.others = state.others.filter((other) => other !== name);
+      state.planets = [...state.planets, { name, open: false }];
+    },
+    unregisterPlanet: async (planet) => {
+      calls.unregistered.push(planet);
+      state.planets = state.planets.filter((each) => each.name !== planet);
+      state.others = [...state.others, planet];
+    },
     createTask: async (task) => {
       calls.tasks.push(task);
       if (state.created instanceof RequestError) throw state.created;

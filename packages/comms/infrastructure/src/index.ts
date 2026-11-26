@@ -4,6 +4,7 @@ export * as Gitea from './gitea/index.js';
 export * as Hc from './hc/index.js';
 export * as Herdr from './herdr/index.js';
 export * as Images from './images/index.js';
+export * as Planets from './planets/index.js';
 export * as Push from './push/index.js';
 export * as Repositories from './repositories/index.js';
 export * as QuickReplies from './quick-replies/index.js';

@@ -131,14 +131,36 @@ describe('the tasks requests', () => {
     vi.stubGlobal('fetch', fetch);
   });
 
-  it('lists the planets', async () => {
+  it('lists the planets and the other repositories', async () => {
     fetch.mockImplementation(async () =>
-      answer(200, { planets: [{ name: 'pocket-comms', open: true }] }),
+      answer(200, { planets: [{ name: 'pocket-comms', open: true }], others: ['setup'] }),
     );
 
-    expect(await makeCommsClient('http://app').planets()).toEqual([
-      { name: 'pocket-comms', open: true },
+    expect(await makeCommsClient('http://app').planets()).toEqual({
+      planets: [{ name: 'pocket-comms', open: true }],
+      others: ['setup'],
+    });
+  });
+
+  it('registers and unregisters a planet', async () => {
+    fetch.mockImplementation(async () => new Response(null, { status: 204 }));
+    const client = makeCommsClient('http://app');
+
+    await client.registerPlanet('setup');
+    await client.unregisterPlanet('setup');
+
+    const sent = await Promise.all(
+      fetch.mock.calls.map(async ([input, init]) => ({
+        url: String(input instanceof Request ? input.url : input),
+        method: input instanceof Request ? input.method : init?.method,
+        body: input instanceof Request ? await input.text() : init?.body,
+      })),
+    );
+    expect(sent.map(({ url, method }) => [method, url])).toEqual([
+      ['POST', 'http://app/api/v1/planets'],
+      ['DELETE', 'http://app/api/v1/planets/setup'],
     ]);
+    expect(JSON.parse(String(sent[0]?.body))).toEqual({ name: 'setup' });
   });
 
   it('posts a new task and returns the created worktree', async () => {

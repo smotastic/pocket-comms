@@ -82,6 +82,7 @@ describe('CommsApi', () => {
       '/api/v1/images',
       '/api/v1/images/{image}',
       '/api/v1/planets',
+      '/api/v1/planets/{planet}',
       '/api/v1/planets/{planet}/issues',
       '/api/v1/planets/{planet}/issues/{number}/close',
       '/api/v1/planets/{planet}/issues/{number}/implement',

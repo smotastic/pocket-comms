@@ -113,6 +113,21 @@ export class PullRequestsStoreError extends Data.TaggedError('PullRequestsStoreE
   readonly reason: string;
 }> {}
 
+/** The planets file cannot be written. */
+export class PlanetsStoreError extends Data.TaggedError('PlanetsStoreError')<{
+  readonly reason: string;
+}> {}
+
+/** No repository below the root has this name. */
+export class RepositoryNotFoundError extends Data.TaggedError('RepositoryNotFoundError')<{
+  readonly name: string;
+}> {}
+
+/** The repository is a planet already. */
+export class PlanetExistsError extends Data.TaggedError('PlanetExistsError')<{
+  readonly planet: string;
+}> {}
+
 /** The file of task starts cannot be read or written; a broken file is never replaced. */
 export class TaskStartsStoreError extends Data.TaggedError('TaskStartsStoreError')<{
   readonly reason: string;

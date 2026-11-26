@@ -9,6 +9,8 @@ import {
   PullRequestsInbound,
   TaskStartsInbound,
   PushInbound,
+  makePlanetRegistry,
+  PlanetsInbound,
   QuickRepliesInbound,
   SpeechInbound,
   TasksInbound,
@@ -20,6 +22,7 @@ import {
   Hc,
   Herdr,
   Images,
+  Planets,
   Repositories,
   PullRequests,
   TaskStarts,
@@ -113,6 +116,7 @@ export const services = ({
     QuickReplies.layerFile({ folder: stateDir }),
     PullRequests.layerFile({ folder: stateDir }),
     TaskStarts.layerFile({ folder: stateDir }),
+    Planets.layerFile({ folder: stateDir }),
     speech === undefined ? layerTranscriberNotSetUp : layerOpenAiTranscriber(speech),
     Seen.layerMemory,
     StatusHistory.layerMemory,
@@ -122,6 +126,18 @@ export const services = ({
 export const herdrReadiness = MultiplexerOutbound.use(
   (herdrOutbound) => herdrOutbound.snapshot,
 ).pipe(Effect.asVoid);
+
+/** Registers the planets once, when the server starts without a registry (spec 034). */
+const seedPlanetsLayer = Layer.effectDiscard(
+  makePlanetRegistry.pipe(
+    Effect.flatMap((registry) => registry.seed),
+    Effect.catchTag('PlanetsStoreError', (error) =>
+      Effect.logError('The planets were not seeded').pipe(
+        Effect.annotateLogs({ reason: error.reason }),
+      ),
+    ),
+  ),
+);
 
 /** Every route of the server, with the use cases on the adapters. */
 export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
@@ -142,6 +158,8 @@ export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
       SpeechInbound.layer,
       PullRequestsInbound.layer,
       TaskStartsInbound.layer,
+      PlanetsInbound.layer,
+      seedPlanetsLayer,
     ]),
     Layer.provideMerge(services(adapters)),
   );

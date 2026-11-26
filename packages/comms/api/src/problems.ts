@@ -118,8 +118,32 @@ export const problems = {
     Effect.fail(
       notFoundProblem({
         slug: 'planet-not-found',
+        title: 'Planet not found',
+        detail: `${error.planet} is not a planet.`,
+      }),
+    ),
+  repositoryNotFound: (error: { readonly name: string }) =>
+    Effect.fail(
+      notFoundProblem({
+        slug: 'repository-not-found',
         title: 'Repository not found',
-        detail: `${error.planet} is not a planet below the repositories root.`,
+        detail: `${error.name} is not a git repository below the repositories root.`,
+      }),
+    ),
+  planetExists: (error: { readonly planet: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'planet-exists',
+        title: 'The planet is registered already',
+        detail: `${error.planet} is a planet already.`,
+      }),
+    ),
+  planetsUnavailable: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'planets-unavailable',
+        title: 'The planets cannot be kept',
+        detail: error.reason,
       }),
     ),
   noGiteaRemote: (error: { readonly planet: string }) =>

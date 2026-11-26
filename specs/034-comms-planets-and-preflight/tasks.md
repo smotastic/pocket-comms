@@ -21,7 +21,7 @@ in the task's own commit. T01 is the first pull request; T02–T08 the second.
   - Serves: 2, 4, 7, 8, 9, 11, 12
   - Gate: domain unit tests.
 
-- [ ] **T03** — The registry: `PlanetsOutbound` and its `planets.json` file store; the planets
+- [x] **T03** — The registry: `PlanetsOutbound` and its `planets.json` file store; the planets
       use case lists planets from the registry (and the others), registers, unregisters, and
       seeds once when the server starts; work in a non-planet answers `PlanetNotFound`.
   - Serves: 1, 2, 3, 5, 6

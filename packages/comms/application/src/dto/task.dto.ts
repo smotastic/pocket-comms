@@ -5,6 +5,12 @@ export interface PlanetDto {
   readonly open: boolean;
 }
 
+/** The planets in their order, and the repositories below the root that are not planets. */
+export interface PlanetsDto {
+  readonly planets: ReadonlyArray<PlanetDto>;
+  readonly others: ReadonlyArray<string>;
+}
+
 /** What the owner asks for: a task in a planet, on a new branch, optionally with an agent. */
 export interface CreateTaskInput {
   readonly planet: string;
