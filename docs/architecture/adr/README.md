@@ -36,3 +36,4 @@ Accepting an ADR needs the human owner's approval.
 | [0012](0012-an-agent-runtime-port-with-a-pi-adapter.md)                 | An agent runtime port with a Pi adapter                 | Accepted (amended by ADR 0014)        |
 | [0013](0013-adopt-the-shared-ci-package-and-a-single-job-gate.md)       | Adopt the shared CI package and a single-job gate       | Accepted                              |
 | [0014](0014-run-the-brainstorm-chat-on-the-shared-agent-package.md)     | Run the brainstorm chat on the shared agent package     | Accepted                              |
+| [0016](0016-pocket-comms-owns-the-workflow-and-the-flight-rules.md)     | Pocket Comms owns the workflow and the flight rules     | Proposed                              |
