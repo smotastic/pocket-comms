@@ -361,16 +361,29 @@ describe('Projects.layerGit for a worktree of its own', () => {
   it.live('says so when removing the worktree takes longer than it may', () =>
     Effect.gen(function* () {
       const { root } = projectsRoot();
+      // A git that never finishes in time, found first on the PATH while the test runs.
+      const slow = mkdtempSync(join(tmpdir(), 'slow-git-'));
+      writeFileSync(join(slow, 'git'), '#!/bin/sh\nsleep 5\n', { mode: 0o755 });
+      const path = process.env['PATH'];
+      yield* Effect.acquireRelease(
+        Effect.sync(() => {
+          process.env['PATH'] = `${slow}:${path ?? ''}`;
+        }),
+        () =>
+          Effect.sync(() => {
+            process.env['PATH'] = path;
+          }),
+      );
 
       const error = yield* ProjectsOutbound.use((outbound) =>
         outbound.removeWorktree(alpha(root), join(root, 'linked'), true),
       ).pipe(
-        Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root), removeTimeoutMs: 1 })),
+        Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root), removeTimeoutMs: 100 })),
         Effect.flip,
       );
 
-      expect(error.reason).toBe('git worktree remove failed: git ran out of time after 1 ms.');
-    }),
+      expect(error.reason).toBe('git worktree remove failed: git ran out of time after 100 ms.');
+    }).pipe(Effect.scoped),
   );
 });
 
