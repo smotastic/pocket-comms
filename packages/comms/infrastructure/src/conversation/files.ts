@@ -134,7 +134,7 @@ export const layerFiles = ({
           expected !== undefined && existsSync(expected)
             ? expected
             : await search(
-                join(home, '.claude', 'planets'),
+                join(home, '.claude', 'projects'),
                 (name) => name === `${source.session}.jsonl`,
               );
       } else {

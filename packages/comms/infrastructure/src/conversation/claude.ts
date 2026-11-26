@@ -23,9 +23,9 @@ import {
 // Claude Code writes one JSON object per line: `user` and `assistant` messages in the API's shape,
 // plus bookkeeping lines (modes, snapshots, titles) that the chat does not show.
 
-/** `~/.claude/planets/<cwd with / and . as ->/<session>.jsonl`. */
+/** `~/.claude/projects/<cwd with / and . as ->/<session>.jsonl`: Claude's own folder name, not a planet. */
 export const claudeSessionPath = (home: string, cwd: string, session: string): string =>
-  join(home, '.claude', 'planets', cwd.replace(/[/.]/g, '-'), `${session}.jsonl`);
+  join(home, '.claude', 'projects', cwd.replace(/[/.]/g, '-'), `${session}.jsonl`);
 
 // A question's options, each with its label and description. The owner answers by choosing one
 // by its place, so a list with an option that cannot be read is left out as a whole.
