@@ -16,7 +16,7 @@ import {
 } from '../errors.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { makeCreateTask } from './create-task.use-case.js';
-import { makeIssueProject } from './issue-project.js';
+import { makeIssuePlanet } from './issue-planet.js';
 
 /**
  * Implements an issue (spec 006): reads it from Gitea again and creates the spec 005 task with a
@@ -39,22 +39,22 @@ const markReason = (
 
 export const makeImplementIssue = Effect.gen(function* () {
   const giteaOutbound = yield* GiteaOutbound;
-  const issueProject = yield* makeIssueProject;
+  const issuePlanet = yield* makeIssuePlanet;
   const { create } = yield* makeCreateTask;
 
   const implement = Effect.fn('Issues.implement')(function* (input: ImplementIssueInput) {
     const additionalInformation = parseAdditionalInformation(input.additionalInformation);
     if (Result.isFailure(additionalInformation)) return yield* additionalInformation.failure;
-    const { project, repository } = yield* issueProject(input.project);
+    const { planet, repository } = yield* issuePlanet(input.planet);
     if (Option.isNone(repository)) {
-      return yield* new NoGiteaRemoteError({ project: project.name });
+      return yield* new NoGiteaRemoteError({ planet: planet.name });
     }
     const issue = yield* giteaOutbound.issue(repository.value, input.number);
     if (issue.pull) return yield* new IssueNotFoundError({ number: input.number });
     if (issue.state !== 'open') return yield* new IssueClosedError({ number: input.number });
     const created = yield* create(
       {
-        project: project.name,
+        planet: planet.name,
         task: issueTask(issue, additionalInformation.success),
         branch: input.branch,
         agent: 'claude',

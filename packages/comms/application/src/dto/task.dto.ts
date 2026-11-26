@@ -1,13 +1,13 @@
-/** A project the owner can start a task in. */
-export interface ProjectDto {
+/** A planet the owner can start a task in. */
+export interface PlanetDto {
   readonly name: string;
   /** Herdr has a workspace for it. */
   readonly open: boolean;
 }
 
-/** What the owner asks for: a task in a project, on a new branch, optionally with an agent. */
+/** What the owner asks for: a task in a planet, on a new branch, optionally with an agent. */
 export interface CreateTaskInput {
-  readonly project: string;
+  readonly planet: string;
   readonly task: string;
   readonly branch: string;
   /** The kind of agent to start, or none. */

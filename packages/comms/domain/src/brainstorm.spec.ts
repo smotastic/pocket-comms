@@ -5,7 +5,7 @@ import {
   brainstormImages,
   cutDoc,
   cutIssueBody,
-  isProjectDoc,
+  isRepositoryDoc,
   MAX_DOC_LENGTH,
   MAX_ISSUE_BODY,
   MAX_ISSUE_TITLE,
@@ -29,7 +29,7 @@ const proposal = (id: string, state: IssueProposal['state'] = { _tag: 'open' }):
   kind: 'issue',
   id,
   at: 2,
-  project: 'pocket-home',
+  planet: 'pocket-home',
   title: 'Dark mode',
   body: 'A toggle.',
   images: [],
@@ -48,29 +48,29 @@ const entries: ReadonlyArray<BrainstormEntry> = [
 describe('parseProposedIssue', () => {
   it('trims the fields', () => {
     expect(
-      parseProposedIssue({ project: ' pocket-home ', title: '  Dark mode ', body: '\nBody\n' }),
-    ).toEqual(Result.succeed({ project: 'pocket-home', title: 'Dark mode', body: 'Body' }));
+      parseProposedIssue({ planet: ' pocket-home ', title: '  Dark mode ', body: '\nBody\n' }),
+    ).toEqual(Result.succeed({ planet: 'pocket-home', title: 'Dark mode', body: 'Body' }));
   });
 
   it('refuses a blank title, a title over the limit and a body over the limit', () => {
-    const issues = (issue: { project: string; title: string; body: string }) => {
+    const issues = (issue: { planet: string; title: string; body: string }) => {
       const result = parseProposedIssue(issue);
       return Result.isFailure(result) ? result.failure.issues.map((issue) => issue.field) : [];
     };
-    expect(issues({ project: 'a', title: ' ', body: '' })).toEqual(['title']);
-    expect(issues({ project: 'a', title: 'x'.repeat(MAX_ISSUE_TITLE + 1), body: '' })).toEqual([
+    expect(issues({ planet: 'a', title: ' ', body: '' })).toEqual(['title']);
+    expect(issues({ planet: 'a', title: 'x'.repeat(MAX_ISSUE_TITLE + 1), body: '' })).toEqual([
       'title',
     ]);
-    expect(issues({ project: 'a', title: 'x', body: 'x'.repeat(MAX_ISSUE_BODY + 1) })).toEqual([
+    expect(issues({ planet: 'a', title: 'x', body: 'x'.repeat(MAX_ISSUE_BODY + 1) })).toEqual([
       'body',
     ]);
-    expect(issues({ project: '', title: '', body: '' })).toEqual(['project', 'title']);
+    expect(issues({ planet: '', title: '', body: '' })).toEqual(['planet', 'title']);
   });
 
   it('accepts a title of exactly the limit and an empty body', () => {
     expect(
       Result.isSuccess(
-        parseProposedIssue({ project: 'a', title: 'x'.repeat(MAX_ISSUE_TITLE), body: '' }),
+        parseProposedIssue({ planet: 'a', title: 'x'.repeat(MAX_ISSUE_TITLE), body: '' }),
       ),
     ).toBe(true);
   });
@@ -111,10 +111,10 @@ describe('parseIssueEdit', () => {
 });
 
 describe('issue reads', () => {
-  const read = (number: number, title: string, project = 'pocket-comms'): IssueRead => ({
-    project,
+  const read = (number: number, title: string, planet = 'pocket-comms'): IssueRead => ({
+    planet,
     number,
-    url: `http://gitea/${project}/issues/${number}`,
+    url: `http://gitea/${planet}/issues/${number}`,
     title,
     body: 'Body',
     cut: false,
@@ -130,7 +130,7 @@ describe('issue reads', () => {
     expect(readOf(reads, 'pocket-comms', 12)?.title).toBe('Other');
   });
 
-  it('tells issues of different projects apart', () => {
+  it('tells issues of different planets apart', () => {
     const reads = rememberRead([read(11, 'Comms')], read(11, 'Home', 'pocket-home'));
     expect(readOf(reads, 'pocket-comms', 11)?.title).toBe('Comms');
     expect(readOf(reads, 'pocket-home', 11)?.title).toBe('Home');
@@ -152,15 +152,12 @@ describe('issue reads', () => {
   });
 });
 
-describe('project docs', () => {
+describe('planet docs', () => {
   it('allows only the top-level README.md and AGENTS.md', () => {
-    expect(['README.md', 'AGENTS.md'].map(isProjectDoc)).toEqual([true, true]);
-    expect(['../secrets', 'src/main.ts', 'readme.md', 'docs/README.md'].map(isProjectDoc)).toEqual([
-      false,
-      false,
-      false,
-      false,
-    ]);
+    expect(['README.md', 'AGENTS.md'].map(isRepositoryDoc)).toEqual([true, true]);
+    expect(
+      ['../secrets', 'src/main.ts', 'readme.md', 'docs/README.md'].map(isRepositoryDoc),
+    ).toEqual([false, false, false, false]);
   });
 
   it('cuts a long doc and says so', () => {

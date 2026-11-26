@@ -5,7 +5,7 @@ import * as Fiber from 'effect/Fiber';
 import * as Layer from 'effect/Layer';
 import { TestClock } from 'effect/testing';
 import type { CreateTaskInput } from '../dto/task.dto.js';
-import { BranchExistsError, ProjectGitError } from '../errors.js';
+import { BranchExistsError, RepositoryGitError } from '../errors.js';
 import { TasksInbound } from '../ports/tasks.inbound.port.js';
 import { FAKE_IMAGES_FOLDER, fakeAgent, fakeLayer, FakeState } from '../testing/fakes.js';
 
@@ -14,7 +14,7 @@ const layer = () => TasksInbound.layer.pipe(Layer.provideMerge(fakeLayer()));
 const create = (input: Partial<CreateTaskInput> = {}) =>
   TasksInbound.use((inbound) =>
     inbound.create({
-      project: 'app',
+      planet: 'app',
       task: 'Add the new task flow\nWith a sheet.',
       branch: 'feat/new-task-flow',
       ...input,
@@ -23,19 +23,19 @@ const create = (input: Partial<CreateTaskInput> = {}) =>
 
 const herdrMethods = (state: FakeState['Service']) => state.calls.map((call) => call.method);
 
-describe('TasksInbound.projects', () => {
-  it.effect('offers the projects open in Herdr first', () =>
+describe('TasksInbound.planets', () => {
+  it.effect('offers the planets open in Herdr first', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
-      state.projects = [
+      state.planets = [
         { name: 'zeta', path: '/work/zeta' },
         { name: 'beta', path: '/work/beta' },
         { name: 'app', path: '/work/app' },
       ];
 
-      const projects = yield* TasksInbound.use((inbound) => inbound.projects);
+      const planets = yield* TasksInbound.use((inbound) => inbound.planets);
 
-      expect(projects).toEqual([
+      expect(planets).toEqual([
         { name: 'app', open: true },
         { name: 'beta', open: false },
         { name: 'zeta', open: false },
@@ -94,15 +94,15 @@ describe('TasksInbound.create', () => {
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect.each(['../etc', 'unknown'])('rejects the project %j without git or Herdr', (project) =>
+  it.effect.each(['../etc', 'unknown'])('rejects the planet %j without git or Herdr', (planet) =>
     Effect.gen(function* () {
       const state = yield* FakeState;
 
-      const error = yield* create({ project }).pipe(Effect.flip);
+      const error = yield* create({ planet }).pipe(Effect.flip);
 
       expect(error).toEqual(
         new InvalidInputError({
-          issues: [{ field: 'project', message: `${project} is not a project the app offers.` }],
+          issues: [{ field: 'planet', message: `${planet} is not a planet the app offers.` }],
         }),
       );
       expect(state.gitCalls).toEqual([]);
@@ -141,7 +141,7 @@ describe('TasksInbound.create', () => {
 
       const error = yield* create().pipe(Effect.flip);
 
-      expect(error).toBeInstanceOf(ProjectGitError);
+      expect(error).toBeInstanceOf(RepositoryGitError);
       expect(state.calls).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
@@ -380,7 +380,7 @@ describe('TasksInbound.create keeps the task start', () => {
 
       expect(state.taskStarts.get(folder)).toMatchObject({
         folder,
-        project: 'app',
+        planet: 'app',
         branch: 'feat/new-task-flow',
         issue: undefined,
         kind: 'pi',

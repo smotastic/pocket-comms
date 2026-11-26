@@ -42,7 +42,7 @@ const proposal = {
   kind: 'issue',
   id: 'p1',
   at: 3,
-  project: 'pocket-home',
+  planet: 'pocket-home',
   title: 'Dark mode',
   body: 'A toggle.',
   images: [],
@@ -55,7 +55,7 @@ const edit = {
   kind: 'edit',
   id: 'e1',
   at: 4,
-  project: 'pocket-comms',
+  planet: 'pocket-comms',
   number: 11,
   url: 'http://gitea/i/11',
   title: 'Orchestrator mode',
@@ -181,7 +181,7 @@ describe('the brainstorm', () => {
         entry(4, {
           kind: 'toolStarted',
           callId: 'c2',
-          tool: 'read_project_doc',
+          tool: 'read_planet_doc',
           target: 'app/README.md',
         }),
       ),
@@ -294,7 +294,7 @@ describe('a proposal in the brainstorm', () => {
     const card = await within(sheet).findByRole('region', { name: 'Proposed issue: Dark mode' });
 
     await userEvent.selectOptions(
-      within(card).getByRole('combobox', { name: 'Project' }),
+      within(card).getByRole('combobox', { name: 'Planet' }),
       'pocket-comms',
     );
     const title = within(card).getByRole('textbox', { name: 'Title' });
@@ -308,7 +308,7 @@ describe('a proposal in the brainstorm', () => {
           'p1',
           {
             _tag: 'Create',
-            issue: { project: 'pocket-comms', title: 'Dark mode toggle', body: 'A toggle.' },
+            issue: { planet: 'pocket-comms', title: 'Dark mode toggle', body: 'A toggle.' },
             images: [],
           },
         ],
@@ -470,7 +470,7 @@ describe('images in the brainstorm', () => {
           'p1',
           {
             _tag: 'Create',
-            issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+            issue: { planet: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
             images: [A, B],
           },
         ],
@@ -538,7 +538,7 @@ describe('images in the brainstorm', () => {
           'p1',
           {
             _tag: 'Create',
-            issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+            issue: { planet: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
             images: [A, B],
           },
         ],

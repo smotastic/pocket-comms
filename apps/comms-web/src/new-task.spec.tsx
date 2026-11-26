@@ -6,8 +6,8 @@ import { fakeAgent, fakeClient, renderApp } from './testing.js';
 
 afterEach(cleanup);
 
-// New task opens from a project's page (spec 008, requirement 11).
-const at = { path: '/projects/pocket-home' };
+// New task opens from a planet's page (spec 008, requirement 11).
+const at = { path: '/planets/pocket-home' };
 
 const openSheet = async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'New task' }));
@@ -19,13 +19,13 @@ const fill = async (task: string) => {
 };
 
 describe('the New task sheet', () => {
-  it("names the page's project and offers no other", async () => {
+  it("names the page's planet and offers no other", async () => {
     renderApp({ client: fakeClient().client, ...at });
 
     const sheet = await openSheet();
 
     expect(within(sheet).getByText('pocket-home · a new worktree')).toBeDefined();
-    expect(within(sheet).queryByRole('combobox', { name: 'Project' })).toBeNull();
+    expect(within(sheet).queryByRole('combobox', { name: 'Planet' })).toBeNull();
   });
 
   it('names the multiplexer the overview reports', async () => {
@@ -78,7 +78,7 @@ describe('the New task sheet', () => {
 
     expect(fake.calls.tasks).toEqual([
       {
-        project: 'pocket-home',
+        planet: 'pocket-home',
         task: 'Add dark mode',
         branch: 'feat/add-dark-mode',
         agent: { kind: 'claude' },
@@ -127,7 +127,7 @@ describe('the New task sheet', () => {
     expect(fake.calls.tasks[0]?.agent).toEqual({ kind: 'pi' });
   });
 
-  it('creates only the worktree without an agent and says so on the project page', async () => {
+  it('creates only the worktree without an agent and says so on the planet page', async () => {
     const fake = fakeClient();
     const { router } = renderApp({ client: fake.client, ...at });
     await openSheet();
@@ -138,13 +138,13 @@ describe('the New task sheet', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(fake.calls.tasks).toEqual([
-      { project: 'pocket-home', task: 'Add dark mode', branch: 'feat/add-dark-mode' },
+      { planet: 'pocket-home', task: 'Add dark mode', branch: 'feat/add-dark-mode' },
     ]);
     expect(
       (await screen.findByText('feat/x is ready in a new worktree.')).closest('[role="status"]'),
     ).not.toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(router.state.location.pathname).toBe('/projects/pocket-home');
+    expect(router.state.location.pathname).toBe('/planets/pocket-home');
   });
 
   it('shows a refused field at the field and keeps what was typed', async () => {

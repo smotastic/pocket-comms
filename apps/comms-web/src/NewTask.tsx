@@ -29,8 +29,8 @@ import {
 
 export interface NewTaskProps {
   readonly client: CommsClient;
-  /** The project the task starts in (spec 008, requirement 11). */
-  readonly project: string;
+  /** The planet the task starts in (spec 008, requirement 11). */
+  readonly planet: string;
   readonly open: boolean;
   readonly onClose: () => void;
   readonly onCreated: (created: TaskCreatedView) => void;
@@ -43,9 +43,9 @@ const AGENT_OPTIONS: ReadonlyArray<{ readonly id: AgentToStart; readonly label: 
 
 const NewTaskForm = ({
   client,
-  project,
+  planet,
   onCreated,
-}: Pick<NewTaskProps, 'client' | 'project' | 'onCreated'>) => {
+}: Pick<NewTaskProps, 'client' | 'planet' | 'onCreated'>) => {
   const [task, setTask] = useState('');
   // The branch follows the task until the owner edits it (spec 005, requirement 6).
   const [editedBranch, setBranch] = useState<string | undefined>(undefined);
@@ -71,7 +71,7 @@ const NewTaskForm = ({
         event.preventDefault();
         if (busy) return;
         create.mutate({
-          project,
+          planet,
           task,
           branch,
           ...(startAgent ? { agent: { kind } } : {}),
@@ -156,10 +156,10 @@ const NewTaskForm = ({
 };
 
 /**
- * The New task sheet (spec 005) of one project (spec 008): the task, its branch and optionally an
+ * The New task sheet (spec 005) of one planet (spec 008): the task, its branch and optionally an
  * agent. A closed sheet forgets what was typed; a failed create keeps it.
  */
-export const NewTask = ({ client, project, open, onClose, onCreated }: NewTaskProps) => {
+export const NewTask = ({ client, planet, open, onClose, onCreated }: NewTaskProps) => {
   const multiplexer = useMultiplexerName();
   return (
     <Sheet
@@ -170,13 +170,13 @@ export const NewTask = ({ client, project, open, onClose, onCreated }: NewTaskPr
       header={
         <SheetHeader
           title="New task"
-          subtitle={`${project} · a new worktree${multiplexer === undefined ? '' : ` in ${multiplexer}`}`}
+          subtitle={`${planet} · a new worktree${multiplexer === undefined ? '' : ` in ${multiplexer}`}`}
         >
           <IconButton icon="close" label="Close" onClick={onClose} />
         </SheetHeader>
       }
     >
-      <NewTaskForm client={client} project={project} onCreated={onCreated} />
+      <NewTaskForm client={client} planet={planet} onCreated={onCreated} />
     </Sheet>
   );
 };

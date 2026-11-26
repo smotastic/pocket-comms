@@ -12,16 +12,16 @@ export const tasksHandlers = HttpApiBuilder.group(
     const tasksInbound = yield* TasksInbound;
 
     return handlers
-      .handle('projects', () =>
-        tasksInbound.projects.pipe(
-          Effect.map((projects) => ({ projects })),
+      .handle('planets', () =>
+        tasksInbound.planets.pipe(
+          Effect.map((planets) => ({ planets })),
           Effect.catchTags({ MultiplexerUnavailableError: problems.herdrUnavailable }),
         ),
       )
       .handle('create', ({ payload }) =>
         tasksInbound
           .create({
-            project: payload.project,
+            planet: payload.planet,
             task: payload.task,
             branch: payload.branch,
             agent: payload.agent?.kind,
@@ -31,7 +31,7 @@ export const tasksHandlers = HttpApiBuilder.group(
             Effect.catchTags({
               InvalidInputError: problems.invalidInput,
               BranchExistsError: problems.branchExists,
-              ProjectGitError: problems.projectGitFailed,
+              RepositoryGitError: problems.planetGitFailed,
               MultiplexerUnavailableError: problems.herdrUnavailable,
               MultiplexerRejectedError: problems.worktreeRefused,
             }),

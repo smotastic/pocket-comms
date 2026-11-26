@@ -12,7 +12,7 @@ const kirk = {
   ref: 'kirk',
   name: 'kirk',
   workspace: 'feat-x',
-  project: 'pocket-comms',
+  planet: 'pocket-comms',
   worktree: 'feat-x',
 };
 
@@ -51,7 +51,7 @@ const goneElsewhere: ActivityEventView = {
     ref: 'w3:p1',
     name: undefined,
     workspace: 'notes',
-    project: undefined,
+    planet: undefined,
     worktree: undefined,
   },
   live: false,
@@ -62,12 +62,12 @@ const events = [finished, prompted, gone, goneElsewhere];
 const timeline = () => screen.findByRole('list', { name: 'Activity' });
 
 describe('the activity page', () => {
-  it('opens from the projects sheet of the overview', async () => {
+  it('opens from the planets sheet of the overview', async () => {
     renderApp({ client: fakeClient({ activity: { events } }).client });
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Projects' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Planets' }));
     await userEvent.click(
-      within(screen.getByRole('dialog', { name: 'Projects' })).getByRole('link', {
+      within(screen.getByRole('dialog', { name: 'Planets' })).getByRole('link', {
         name: 'Activity',
       }),
     );
@@ -76,7 +76,7 @@ describe('the activity page', () => {
     expect(await timeline()).toBeDefined();
   });
 
-  it('lists every event newest first with its agent, project, text and time', async () => {
+  it('lists every event newest first with its agent, planet, text and time', async () => {
     renderApp({ client: fakeClient({ activity: { events } }).client, path: '/activity' });
 
     const items = within(await timeline()).getAllByRole('listitem');
@@ -100,7 +100,7 @@ describe('the activity page', () => {
     expect(router.state.location.pathname).toBe('/agents/kirk');
   });
 
-  it('opens the project of an agent that is gone, and nothing for one without a project', async () => {
+  it('opens the planet of an agent that is gone, and nothing for one without a planet', async () => {
     const { router } = renderApp({
       client: fakeClient({ activity: { events } }).client,
       path: '/activity',
@@ -111,12 +111,12 @@ describe('the activity page', () => {
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/agents/kirk',
       '/agents/kirk',
-      '/projects/pocket-comms',
+      '/planets/pocket-comms',
     ]);
     expect(within(list).getAllByRole('listitem')[3]?.querySelector('a')).toBeNull();
     await userEvent.click(links[2] as HTMLElement);
 
-    expect(router.state.location.pathname).toBe('/projects/pocket-comms');
+    expect(router.state.location.pathname).toBe('/planets/pocket-comms');
   });
 
   it('says so when nothing happened', async () => {

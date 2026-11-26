@@ -4,7 +4,7 @@ import { InvalidInputError } from './errors.js';
 import {
   agentNameFor,
   MAX_BRANCH_LENGTH,
-  orderProjects,
+  orderPlanets,
   parseAgentToStart,
   parseBranch,
   parseTask,
@@ -18,9 +18,9 @@ const workspace = (id: string, root?: string): Workspace => ({
   ...(root === undefined ? {} : { root }),
 });
 
-describe('orderProjects', () => {
-  it('puts the projects open in Herdr first, in workspace order, then the rest by name', () => {
-    const projects = [
+describe('orderPlanets', () => {
+  it('puts the planets open in Herdr first, in workspace order, then the rest by name', () => {
+    const planets = [
       { name: 'beta', path: '/p/beta' },
       { name: 'gamma', path: '/p/gamma' },
       { name: 'alpha', path: '/p/alpha' },
@@ -34,7 +34,7 @@ describe('orderProjects', () => {
       workspace('w5', '/elsewhere/zeta'),
     ];
 
-    expect(orderProjects(projects, workspaces)).toEqual([
+    expect(orderPlanets(planets, workspaces)).toEqual([
       { name: 'delta', path: '/p/delta', open: true },
       { name: 'gamma', path: '/p/gamma', open: true },
       { name: 'alpha', path: '/p/alpha', open: false },

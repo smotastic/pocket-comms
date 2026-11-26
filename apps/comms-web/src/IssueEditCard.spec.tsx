@@ -7,7 +7,7 @@ import { IssueEditCard, type IssueEditCardProps } from './IssueEditCard.js';
 afterEach(cleanup);
 
 const props = (overrides: Partial<IssueEditCardProps> = {}): IssueEditCardProps => ({
-  project: 'pocket-comms',
+  planet: 'pocket-comms',
   number: 11,
   url: 'http://gitea/i/11',
   title: 'Orchestrator mode',

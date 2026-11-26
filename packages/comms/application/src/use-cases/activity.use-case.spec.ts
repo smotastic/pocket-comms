@@ -37,7 +37,7 @@ const kept = (event: Partial<ActivityEvent> & Pick<ActivityEvent, 'at'>): Activi
       ref: 'kirk',
       name: 'kirk',
       workspace: 'app',
-      project: 'app',
+      planet: 'app',
       worktree: undefined,
     },
     ...event,
@@ -79,7 +79,7 @@ describe('ActivityInbound recorder', () => {
       expect(state.activity[0]).toMatchObject({
         at: 5_000,
         id: expect.any(String),
-        agent: { project: 'app', worktree: 'feature', workspace: 'feature' },
+        agent: { planet: 'app', worktree: 'feature', workspace: 'feature' },
       });
     }).pipe(Effect.scoped, Effect.provide(fakeLayer())),
   );

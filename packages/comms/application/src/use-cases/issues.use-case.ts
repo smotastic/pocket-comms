@@ -14,11 +14,11 @@ import * as Option from 'effect/Option';
 import type { IssueDto, IssueListDto } from '../dto/issue.dto.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
-import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
+import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 import { TaskStartsOutbound } from '../ports/task-starts.outbound.port.js';
-import { makeIssueProject } from './issue-project.js';
+import { makeIssuePlanet } from './issue-planet.js';
 
-// A project's open issues (spec 006), each with the worktrees and agents that work on it. The
+// A planet's open issues (spec 006), each with the worktrees and agents that work on it. The
 // link is derived from git's worktrees and Herdr's agents on every request; nothing is stored.
 
 const toDto = (
@@ -44,27 +44,27 @@ const toDto = (
 });
 
 export const makeIssues = Effect.gen(function* () {
-  const projectsOutbound = yield* ProjectsOutbound;
+  const planetsOutbound = yield* RepositoriesOutbound;
   const giteaOutbound = yield* GiteaOutbound;
   const herdrOutbound = yield* MultiplexerOutbound;
   const taskStarts = yield* TaskStartsOutbound;
-  const issueProject = yield* makeIssueProject;
+  const issuePlanet = yield* makeIssuePlanet;
 
   const issues = Effect.fn('Issues.issues')(function* (name: string) {
-    const { project, repository } = yield* issueProject(name);
+    const { planet, repository } = yield* issuePlanet(name);
     if (Option.isNone(repository)) return { _tag: 'NoGiteaRemote' } satisfies IssueListDto;
     const listed = yield* giteaOutbound
       .openIssues(repository.value)
       .pipe(Effect.catchTag('GiteaNotConfiguredError', () => Effect.succeed(undefined)));
     if (listed === undefined) return { _tag: 'NotConfigured' } satisfies IssueListDto;
     // Without git's worktrees or Herdr's agents the list still shows, only without its work.
-    const worktrees = yield* projectsOutbound.worktrees(project).pipe(Effect.option);
+    const worktrees = yield* planetsOutbound.worktrees(planet).pipe(Effect.option);
     const starts = yield* taskStarts.load.pipe(Effect.orElseSucceed(() => []));
     // A start whose worktree git no longer lists has nothing to recover (spec 032).
     if (Option.isSome(worktrees)) {
       const folders = new Set(worktrees.value.map((worktree) => worktree.path));
       yield* Effect.forEach(
-        starts.filter((start) => start.project === project.name && !folders.has(start.folder)),
+        starts.filter((start) => start.planet === planet.name && !folders.has(start.folder)),
         (start) => taskStarts.forget(start.folder).pipe(Effect.ignore),
         { discard: true },
       );

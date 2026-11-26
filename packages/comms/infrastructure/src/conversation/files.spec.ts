@@ -104,7 +104,7 @@ describe('Conversation.layerFiles', () => {
     }).pipe(Effect.provide(layerFiles({ home: root })));
   });
 
-  it.effect('finds a Claude session in another project folder', () => {
+  it.effect('finds a Claude session in another planet folder', () => {
     const { root } = home();
     const moved: ConversationSource = { ...claude, cwd: '/work/app/packages/web' };
     return Effect.gen(function* () {

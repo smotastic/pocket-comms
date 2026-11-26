@@ -17,7 +17,7 @@ import type {
   MultiplexerRejectedError,
   MultiplexerUnavailableError,
   NotAWorktreeError,
-  ProjectGitError,
+  RepositoryGitError,
   QuestionNotWaitingError,
   SubagentNotFoundError,
   ConversationUnavailableError,
@@ -92,7 +92,7 @@ export class AgentsInbound extends Context.Service<
       | Lookup
       | NotAWorktreeError
       | WorktreeHasChangesError
-      | ProjectGitError
+      | RepositoryGitError
       | MultiplexerRejectedError
     >;
   }

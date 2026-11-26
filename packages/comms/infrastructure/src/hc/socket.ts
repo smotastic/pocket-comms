@@ -24,7 +24,7 @@ import { execFile } from 'node:child_process';
 import { createConnection } from 'node:net';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { gitEnvironment } from '../projects/git.js';
+import { gitEnvironment } from '../repositories/git.js';
 import { KEY_SEQUENCES, writeRaw } from './attach.js';
 
 // hc's API (protocol generation 1): JSON-RPC 2.0, one message per line on a Unix socket. Every
@@ -292,13 +292,13 @@ export const layerSocket = ({
       const place = yield* placeOf(id);
       const shown = label ?? basename(id);
       if (place === undefined) return { id, label: shown, group: OTHER_GROUP } satisfies Workspace;
-      const project = basename(place.root);
+      const planet = basename(place.root);
       return {
         id,
         label: shown,
-        group: { key: place.key, name: project },
+        group: { key: place.key, name: planet },
         root: place.root,
-        project,
+        planet,
         ...(place.checkout === place.root ? {} : { worktree: shown }),
         checkout: place.checkout,
       } satisfies Workspace;

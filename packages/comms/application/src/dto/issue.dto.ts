@@ -15,7 +15,7 @@ export interface IssueWorkDto {
   readonly recovery: Recovery | undefined;
 }
 
-/** An open issue as the project screen shows it. */
+/** An open issue as the planet screen shows it. */
 export interface IssueDto {
   readonly number: number;
   readonly title: string;
@@ -29,7 +29,7 @@ export interface IssueDto {
   readonly inProgress: boolean;
 }
 
-/** A project's issues, or why the project has none to show. */
+/** A planet's issues, or why the planet has none to show. */
 export type IssueListDto =
   | {
       readonly _tag: 'Listed';
@@ -39,9 +39,9 @@ export type IssueListDto =
   | { readonly _tag: 'NoGiteaRemote' }
   | { readonly _tag: 'NotConfigured' };
 
-/** Close an issue of a project. */
+/** Close an issue of a planet. */
 export interface CloseIssueInput {
-  readonly project: string;
+  readonly planet: string;
   readonly number: number;
 }
 
@@ -50,9 +50,9 @@ export interface IssueTaskCreatedDto extends TaskCreatedDto {
   readonly markNote: string | undefined;
 }
 
-/** Implement an issue of a project on a new branch. */
+/** Implement an issue of a planet on a new branch. */
 export interface ImplementIssueInput {
-  readonly project: string;
+  readonly planet: string;
   readonly number: number;
   readonly branch: string;
   /** Added to the agent's first prompt for this launch only (spec 021). */

@@ -10,13 +10,13 @@ const blocked = fakeAgent({
   ref: 'w2:p1',
   paneId: 'w2:p1',
   name: 'spock',
-  project: 'pocket-home',
+  planet: 'pocket-home',
   worktree: 'feat-login',
   status: 'blocked',
   needsYou: true,
 });
-const working = fakeAgent({ ref: 'kirk', project: 'pocket-home', status: 'working' });
-const elsewhere = fakeAgent({ ref: 'w3:p1', paneId: 'w3:p1', name: 'uhura', project: 'app' });
+const working = fakeAgent({ ref: 'kirk', planet: 'pocket-home', status: 'working' });
+const elsewhere = fakeAgent({ ref: 'w3:p1', paneId: 'w3:p1', name: 'uhura', planet: 'app' });
 
 const overview: OverviewView = {
   needsYou: [blocked],
@@ -28,9 +28,9 @@ const overview: OverviewView = {
 
 const agentsSection = () => screen.findByRole('region', { name: 'Agents' });
 
-describe('the project page', () => {
-  it("lists the project's agents, those that need the owner first", async () => {
-    renderApp({ client: fakeClient({ overview }).client, path: '/projects/pocket-home' });
+describe('the planet page', () => {
+  it("lists the planet's agents, those that need the owner first", async () => {
+    renderApp({ client: fakeClient({ overview }).client, path: '/planets/pocket-home' });
 
     const section = await agentsSection();
     const rows = await within(section).findAllByRole('link', { name: /spock|kirk/u });
@@ -45,7 +45,7 @@ describe('the project page', () => {
 
   it('updates its agents live', async () => {
     const fake = fakeClient({ overview });
-    renderApp({ client: fake.client, path: '/projects/pocket-home' });
+    renderApp({ client: fake.client, path: '/planets/pocket-home' });
     const section = await agentsSection();
     await within(section).findByText('spock');
 
@@ -60,25 +60,25 @@ describe('the project page', () => {
     expect(within(section).queryByText('spock')).toBeNull();
   });
 
-  it('says when no agent runs in the project', async () => {
-    renderApp({ client: fakeClient({ overview }).client, path: '/projects/pocket-comms' });
+  it('says when no agent runs in the planet', async () => {
+    renderApp({ client: fakeClient({ overview }).client, path: '/planets/pocket-comms' });
 
     expect(await within(await agentsSection()).findByText('No agents are running.')).toBeDefined();
     expect(await screen.findByRole('region', { name: 'Issues' })).toBeDefined();
   });
 
   it('goes back to the overview', async () => {
-    const { router } = renderApp({ client: fakeClient().client, path: '/projects/pocket-home' });
+    const { router } = renderApp({ client: fakeClient().client, path: '/planets/pocket-home' });
 
     await userEvent.click(await screen.findByRole('button', { name: 'Back to all agents' }));
 
     expect(router.state.location.pathname).toBe('/');
   });
 
-  it('says when the name is not a project', async () => {
-    renderApp({ client: fakeClient().client, path: '/projects/nope' });
+  it('says when the name is not a planet', async () => {
+    renderApp({ client: fakeClient().client, path: '/planets/nope' });
 
-    expect(await screen.findByText('nope is not a project.')).toBeDefined();
+    expect(await screen.findByText('nope is not a planet.')).toBeDefined();
     expect(screen.queryByRole('button', { name: 'New task' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Back to all agents' })).toBeDefined();
     expect(
@@ -87,7 +87,7 @@ describe('the project page', () => {
   });
 
   it('opens the brainstorm from the top bar, right before New task', async () => {
-    renderApp({ client: fakeClient().client, path: '/projects/pocket-home' });
+    renderApp({ client: fakeClient().client, path: '/planets/pocket-home' });
     const banner = await screen.findByRole('banner');
 
     expect(within(banner).getAllByRole('button')).toEqual([

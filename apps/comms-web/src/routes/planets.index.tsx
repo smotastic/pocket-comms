@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 
-/** `/projects` was the list of projects; the overview lists them now (spec 008). */
-export const Route = createFileRoute('/projects/')({
+/** `/planets` was the list of planets; the overview lists them now (spec 008). */
+export const Route = createFileRoute('/planets/')({
   beforeLoad: () => {
     throw redirect({ to: '/', replace: true });
   },

@@ -18,7 +18,7 @@ const issue = (id: string, state: IssueProposal['state'], attached: IssueProposa
     kind: 'issue',
     id,
     at: 3,
-    project: 'app',
+    planet: 'app',
     title: 'Dark mode',
     body: 'A toggle.',
     images: [IMAGE],
@@ -31,7 +31,7 @@ const edit: EditProposal = {
   kind: 'edit',
   id: 'e1',
   at: 5,
-  project: 'app',
+  planet: 'app',
   number: 11,
   url: 'http://gitea.test/owner/app/issues/11',
   title: 'Orchestrator',
@@ -72,7 +72,7 @@ const history: StoredBrainstorm = {
   ],
   reads: [
     {
-      project: 'app',
+      planet: 'app',
       number: 11,
       url: 'http://gitea.test/owner/app/issues/11',
       title: 'Orchestrator',
@@ -105,6 +105,17 @@ describe('the brainstorm file store', () => {
         Option.some({ ...history, runtime: Option.none() }),
       );
       expect(statSync(join(path, 'brainstorm.json')).mode & 0o777).toBe(0o600);
+    }),
+  );
+
+  it.effect('names the planet project in the file, as before spec 034', () =>
+    Effect.gen(function* () {
+      const path = folder();
+      yield* (yield* store(path)).save(history);
+
+      const text = readFileSync(join(path, 'brainstorm.json'), 'utf-8');
+      expect(text).toContain('"project":"app"');
+      expect(text).not.toContain('"planet"');
     }),
   );
 
@@ -146,7 +157,7 @@ describe('the brainstorm file store', () => {
                   kind: 'issue',
                   id: 'p1',
                   at: 3,
-                  project: 'app',
+                  planet: 'app',
                   title: 'Dark mode',
                   body: 'A toggle.',
                   images: [],
@@ -255,7 +266,7 @@ describe('the brainstorm file store', () => {
         const path = folder();
         const outbound = yield* store(path);
         yield* outbound.save(history);
-        const { images, ...open } = issue('p1', { _tag: 'open' }, []);
+        const { images, planet, ...open } = issue('p1', { _tag: 'open' }, []);
         writeFileSync(
           join(path, 'brainstorm.json'),
           JSON.stringify({
@@ -264,7 +275,13 @@ describe('the brainstorm file store', () => {
             log: [
               { sequence: 1, entry: { kind: 'chatStarted' } },
               { sequence: 2, entry: { kind: 'said', id: 'u1', at: 1, text: 'Idea', images } },
-              { sequence: 3, entry: { kind: 'proposal', proposal: { ...open, pictures: images } } },
+              {
+                sequence: 3,
+                entry: {
+                  kind: 'proposal',
+                  proposal: { ...open, project: planet, pictures: images },
+                },
+              },
             ],
             reads: [],
             runtime: null,
@@ -276,7 +293,7 @@ describe('the brainstorm file store', () => {
           Option.some([
             { sequence: 1, entry: { kind: 'brainstormStarted' } },
             { sequence: 2, entry: { kind: 'said', id: 'u1', at: 1, text: 'Idea', images } },
-            { sequence: 3, entry: { kind: 'proposal', proposal: { ...open, images } } },
+            { sequence: 3, entry: { kind: 'proposal', proposal: { ...open, planet, images } } },
           ]),
         );
 

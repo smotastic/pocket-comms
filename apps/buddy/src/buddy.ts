@@ -158,7 +158,7 @@ export const buddy = Effect.scoped(
 
     /** Creates or discards the proposal on the screen, when the buddy may decide it. */
     const decide = (
-      decision: (proposal: { project: string; title: string; body: string }) => Decision,
+      decision: (proposal: { planet: string; title: string; body: string }) => Decision,
     ) =>
       Effect.gen(function* () {
         const shown = (yield* Ref.get(state)).proposals.at(-1);
@@ -188,9 +188,9 @@ export const buddy = Effect.scoped(
         case 'Limit':
           return current?.number === event.voiceMessage ? stop : Effect.void;
         case 'Create':
-          return decide(({ project, title, body }) => ({
+          return decide(({ planet, title, body }) => ({
             _tag: 'Create',
-            issue: { project, title, body },
+            issue: { planet, title, body },
           }));
         case 'Discard':
           return decide(() => ({ _tag: 'Discard' }));

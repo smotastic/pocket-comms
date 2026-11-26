@@ -24,7 +24,7 @@
           {
             "name": "kirk",
             "paneId": "wJ:p1",
-            "project": "pocket-home",
+            "planet": "pocket-home",
             "ref": "kirk",
             "workspace": "ingestor-mvp",
             "worktree": "ingestor-mvp"
@@ -48,7 +48,7 @@
             "examples": ["wJ:p1"],
             "type": "string"
           },
-          "project": {
+          "planet": {
             "anyOf": [
               {
                 "type": "string"
@@ -441,7 +441,7 @@
             "examples": ["wJ:p1"],
             "type": "string"
           },
-          "project": {
+          "planet": {
             "anyOf": [
               {
                 "type": "string"
@@ -1358,8 +1358,8 @@
             "description": "Up to five uploaded images for the agent's first prompt; they need an agent.",
             "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
           },
-          "project": {
-            "description": "The name of a project of `GET /projects`.",
+          "planet": {
+            "description": "The name of a planet of `GET /planets`.",
             "examples": ["pocket-comms"],
             "maxLength": 200,
             "minLength": 1,
@@ -1373,7 +1373,7 @@
             "type": "string"
           }
         },
-        "required": ["project", "task", "branch"],
+        "required": ["planet", "task", "branch"],
         "type": "object"
       },
       "DiffHunk": {
@@ -1510,7 +1510,7 @@
           },
           "branch": {
             "description": "The new branch, `<type>/<kebab-description>`; it must not exist yet.",
-            "examples": ["feat/8-per-project-gitea-issue-list"],
+            "examples": ["feat/8-per-planet-gitea-issue-list"],
             "maxLength": 80,
             "minLength": 1,
             "type": "string"
@@ -1521,11 +1521,11 @@
       },
       "Issue": {
         "additionalProperties": false,
-        "description": "An open issue of the project.",
+        "description": "An open issue of the planet.",
         "properties": {
           "branch": {
             "description": "The branch the issue suggests for a new worktree.",
-            "examples": ["feat/8-per-project-gitea-issue-list"],
+            "examples": ["feat/8-per-planet-gitea-issue-list"],
             "type": "string"
           },
           "inProgress": {
@@ -1548,7 +1548,7 @@
           },
           "title": {
             "description": "The issue's title.",
-            "examples": ["feat: per-project Gitea issue list"],
+            "examples": ["feat: per-planet Gitea issue list"],
             "type": "string"
           },
           "updatedAt": {
@@ -1562,7 +1562,7 @@
             "type": "string"
           },
           "work": {
-            "description": "The project's worktrees on a branch of this issue.",
+            "description": "The planet's worktrees on a branch of this issue.",
             "examples": [[]],
             "items": {
               "$ref": "#/components/schemas/IssueWork"
@@ -1608,7 +1608,7 @@
             "additionalProperties": false,
             "properties": {
               "_tag": {
-                "description": "The project is on Gitea and the app can read it.",
+                "description": "The planet is on Gitea and the app can read it.",
                 "enum": ["Listed"],
                 "examples": ["Listed"],
                 "type": "string"
@@ -1632,7 +1632,7 @@
             "additionalProperties": false,
             "properties": {
               "_tag": {
-                "description": "The project's `origin` is not on the app's Gitea.",
+                "description": "The planet's `origin` is not on the app's Gitea.",
                 "enum": ["NoGiteaRemote"],
                 "examples": ["NoGiteaRemote"],
                 "type": "string"
@@ -1655,11 +1655,11 @@
             "type": "object"
           }
         ],
-        "description": "The project's open issues, or why it has none to show."
+        "description": "The planet's open issues, or why it has none to show."
       },
       "IssueRepository": {
         "additionalProperties": false,
-        "description": "The project's Gitea repository.",
+        "description": "The planet's Gitea repository.",
         "examples": [
           {
             "name": "pocket-comms",
@@ -1754,7 +1754,7 @@
           },
           "branch": {
             "description": "The worktree's branch, `<type>/<number>-<description>`.",
-            "examples": ["feat/8-per-project-gitea-issue-list"],
+            "examples": ["feat/8-per-planet-gitea-issue-list"],
             "type": "string"
           },
           "recovery": {
@@ -1878,8 +1878,8 @@
             "type": "array"
           },
           "key": {
-            "description": "The repository's key, or `other` for every workspace without a project.",
-            "examples": ["/Users/me/projects/pocket-home/.git"],
+            "description": "The repository's key, or `other` for every workspace without a planet.",
+            "examples": ["/Users/me/code/pocket-home/.git"],
             "type": "string"
           },
           "name": {
@@ -1899,17 +1899,17 @@
         ],
         "type": "string"
       },
-      "Project": {
+      "Planet": {
         "additionalProperties": false,
         "description": "A git repository a task can start in.",
         "properties": {
           "name": {
-            "description": "The project's folder name below the projects root.",
+            "description": "The planet's folder name below the repositories root.",
             "examples": ["pocket-comms"],
             "type": "string"
           },
           "open": {
-            "description": "Herdr has a workspace for the project.",
+            "description": "Herdr has a workspace for the planet.",
             "examples": [true],
             "type": "boolean"
           }
@@ -1917,12 +1917,12 @@
         "required": ["name", "open"],
         "type": "object"
       },
-      "Projects": {
+      "Planets": {
         "additionalProperties": false,
-        "description": "The projects a task can start in.",
+        "description": "The planets a task can start in.",
         "properties": {
-          "projects": {
-            "description": "The projects open in Herdr first, in workspace order, then the others by name.",
+          "planets": {
+            "description": "The planets open in Herdr first, in workspace order, then the others by name.",
             "examples": [
               [
                 {
@@ -1932,12 +1932,12 @@
               ]
             ],
             "items": {
-              "$ref": "#/components/schemas/Project"
+              "$ref": "#/components/schemas/Planet"
             },
             "type": "array"
           }
         },
-        "required": ["projects"],
+        "required": ["planets"],
         "type": "object"
       },
       "PromptRequest": {
@@ -2093,7 +2093,7 @@
         "examples": [
           {
             "body": "A toggle in settings.",
-            "project": "pocket-home",
+            "planet": "pocket-home",
             "title": "Dark mode toggle"
           }
         ],
@@ -2104,8 +2104,8 @@
             "maxLength": 20000,
             "type": "string"
           },
-          "project": {
-            "description": "The project the issue is for, by name.",
+          "planet": {
+            "description": "The planet the issue is for, by name.",
             "examples": ["pocket-home"],
             "maxLength": 100,
             "minLength": 1,
@@ -2118,7 +2118,7 @@
             "type": "string"
           }
         },
-        "required": ["project", "title", "body"],
+        "required": ["planet", "title", "body"],
         "type": "object"
       },
       "PullRequestChanges": {
@@ -5139,7 +5139,7 @@
     },
     "/api/v1/brainstorm/proposals/{proposal}/decision": {
       "post": {
-        "description": "Creates the proposed issue as shown, with only its title and body, in the project's Gitea repository; or applies a proposed edit, setting only the issue's title and body, when they are unchanged since Pi read them; or discards either. Then tells Pi. A proposal is decided once.",
+        "description": "Creates the proposed issue as shown, with only its title and body, in the planet's Gitea repository; or applies a proposed edit, setting only the issue's title and body, when they are unchanged since Pi read them; or discards either. Then tells Pi. A proposal is decided once.",
         "operationId": "brainstorm.decide",
         "parameters": [
           {
@@ -5517,21 +5517,21 @@
         "tags": ["Images"]
       }
     },
-    "/api/v1/projects": {
+    "/api/v1/planets": {
       "get": {
-        "description": "The git repositories below the projects root that a task can start in.",
-        "operationId": "tasks.projects",
+        "description": "The git repositories below the repositories root that a task can start in.",
+        "operationId": "tasks.planets",
         "parameters": [],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Projects"
+                  "$ref": "#/components/schemas/Planets"
                 }
               }
             },
-            "description": "The projects a task can start in."
+            "description": "The planets a task can start in."
           },
           "403": {
             "content": {
@@ -5565,23 +5565,23 @@
           }
         },
         "security": [],
-        "summary": "List the projects",
+        "summary": "List the planets",
         "tags": ["Tasks"]
       }
     },
-    "/api/v1/projects/{project}/issues": {
+    "/api/v1/planets/{planet}/issues": {
       "get": {
-        "description": "The open Gitea issues of the project's `origin` repository, each with its suggested branch, the worktrees and agents that work on it, and whether it is in progress.",
+        "description": "The open Gitea issues of the planet's `origin` repository, each with its suggested branch, the worktrees and agents that work on it, and whether it is in progress.",
         "operationId": "issues.list",
         "parameters": [
           {
-            "description": "The project's folder name below the projects root.",
+            "description": "The planet's folder name below the repositories root.",
             "example": "pocket-comms",
             "in": "path",
-            "name": "project",
+            "name": "planet",
             "required": true,
             "schema": {
-              "description": "The project's folder name below the projects root.",
+              "description": "The planet's folder name below the repositories root.",
               "examples": ["pocket-comms"],
               "pattern": "^[^/]{1,200}$",
               "type": "string"
@@ -5597,7 +5597,7 @@
                 }
               }
             },
-            "description": "The project's open issues, or why it has none to show."
+            "description": "The planet's open issues, or why it has none to show."
           },
           "403": {
             "content": {
@@ -5641,23 +5641,23 @@
           }
         },
         "security": [],
-        "summary": "List a project's issues",
+        "summary": "List a planet's issues",
         "tags": ["Issues"]
       }
     },
-    "/api/v1/projects/{project}/issues/{number}/close": {
+    "/api/v1/planets/{planet}/issues/{number}/close": {
       "post": {
-        "description": "Reads the issue from Gitea again and sets its state to closed; nothing else of the issue changes. An issue that is closed already answers 204 without a write. The project's worktrees and agents stay as they are.",
+        "description": "Reads the issue from Gitea again and sets its state to closed; nothing else of the issue changes. An issue that is closed already answers 204 without a write. The planet's worktrees and agents stay as they are.",
         "operationId": "issues.close",
         "parameters": [
           {
-            "description": "The project's folder name below the projects root.",
+            "description": "The planet's folder name below the repositories root.",
             "example": "pocket-comms",
             "in": "path",
-            "name": "project",
+            "name": "planet",
             "required": true,
             "schema": {
-              "description": "The project's folder name below the projects root.",
+              "description": "The planet's folder name below the repositories root.",
               "examples": ["pocket-comms"],
               "pattern": "^[^/]{1,200}$",
               "type": "string"
@@ -5737,19 +5737,19 @@
         "tags": ["Issues"]
       }
     },
-    "/api/v1/projects/{project}/issues/{number}/implement": {
+    "/api/v1/planets/{planet}/issues/{number}/implement": {
       "post": {
         "description": "Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt. Then it adds the `status/in-progress` label to the issue, creating the label when the repository has none; a failed label write leaves the task started and is reported in `markNote`.",
         "operationId": "issues.implement",
         "parameters": [
           {
-            "description": "The project's folder name below the projects root.",
+            "description": "The planet's folder name below the repositories root.",
             "example": "pocket-comms",
             "in": "path",
-            "name": "project",
+            "name": "planet",
             "required": true,
             "schema": {
-              "description": "The project's folder name below the projects root.",
+              "description": "The planet's folder name below the repositories root.",
               "examples": ["pocket-comms"],
               "pattern": "^[^/]{1,200}$",
               "type": "string"
@@ -5846,19 +5846,19 @@
         "tags": ["Issues"]
       }
     },
-    "/api/v1/projects/{project}/issues/{number}/start-agent": {
+    "/api/v1/planets/{planet}/issues/{number}/start-agent": {
       "post": {
         "description": "Starts the agent in a new shell of the issue's existing linked worktree on `branch`, never a new worktree, and sends it the kept prompt, or the issue's task, once it is idle and ready. A branch that is not a linked worktree of the issue is 404; a worktree with a live agent or a start that runs is 409.",
         "operationId": "taskStarts.startAgent",
         "parameters": [
           {
-            "description": "The project's folder name below the projects root.",
+            "description": "The planet's folder name below the repositories root.",
             "example": "pocket-comms",
             "in": "path",
-            "name": "project",
+            "name": "planet",
             "required": true,
             "schema": {
-              "description": "The project's folder name below the projects root.",
+              "description": "The planet's folder name below the repositories root.",
               "examples": ["pocket-comms"],
               "pattern": "^[^/]{1,200}$",
               "type": "string"
@@ -6336,7 +6336,7 @@
     },
     "/api/v1/tasks": {
       "post": {
-        "description": "Creates a Herdr worktree on a new branch from the project's default remote branch, without moving the focus, and optionally starts an agent in it with the task as its first prompt.",
+        "description": "Creates a Herdr worktree on a new branch from the planet's default remote branch, without moving the focus, and optionally starts an agent in it with the task as its first prompt.",
         "operationId": "tasks.create",
         "parameters": [],
         "requestBody": {
@@ -6418,7 +6418,7 @@
       "name": "Tasks"
     },
     {
-      "description": "Read a project's Gitea issues, implement one or close one.",
+      "description": "Read a planet's Gitea issues, implement one or close one.",
       "name": "Issues"
     },
     {

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { activeFilter, agentsOf, ALL } from './everything-else.js';
 import { fakeAgent } from './testing.js';
 
-const comms = fakeAgent({ ref: 'a', project: 'pocket-comms' });
-const home = fakeAgent({ ref: 'b', project: 'pocket-home' });
-const loose = fakeAgent({ ref: 'c', project: undefined });
+const comms = fakeAgent({ ref: 'a', planet: 'pocket-comms' });
+const home = fakeAgent({ ref: 'b', planet: 'pocket-home' });
+const loose = fakeAgent({ ref: 'c', planet: undefined });
 const groups = [
   { key: '/comms/.git', name: 'pocket-comms', agents: [comms] },
   { key: '/home/.git', name: 'pocket-home', agents: [home] },

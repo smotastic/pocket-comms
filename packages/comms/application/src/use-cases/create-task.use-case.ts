@@ -4,14 +4,14 @@ import {
   parseBranch,
   parseTask,
   promptWithImages,
-  type Project,
+  type Repository,
 } from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Result from 'effect/Result';
 import type { CreateTaskInput, TaskCreatedDto } from '../dto/task.dto.js';
 import { BranchExistsError } from '../errors.js';
 import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
-import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
+import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 import { makeAgentLaunch } from './agent-launch.js';
 import { makeImagePaths } from './image-paths.js';
 
@@ -23,30 +23,30 @@ const issuesOf = <A>(result: Result.Result<A, InvalidInputError>): InvalidInputE
   Result.isFailure(result) ? result.failure.issues : [];
 
 export const makeCreateTask = Effect.gen(function* () {
-  const projectsOutbound = yield* ProjectsOutbound;
+  const planetsOutbound = yield* RepositoriesOutbound;
   const herdrOutbound = yield* MultiplexerOutbound;
   const { imagePaths } = yield* makeImagePaths;
   const { launch } = yield* makeAgentLaunch;
 
-  const findProject = Effect.fnUntraced(function* (name: string) {
-    const projects = yield* projectsOutbound.list;
-    const project = projects.find((candidate) => candidate.name === name);
-    if (project === undefined) {
+  const findPlanet = Effect.fnUntraced(function* (name: string) {
+    const planets = yield* planetsOutbound.list;
+    const planet = planets.find((candidate) => candidate.name === name);
+    if (planet === undefined) {
       return yield* new InvalidInputError({
-        issues: [{ field: 'project', message: `${name} is not a project the app offers.` }],
+        issues: [{ field: 'planet', message: `${name} is not a planet the app offers.` }],
       });
     }
-    return project;
+    return planet;
   });
 
-  const checkBranch = Effect.fnUntraced(function* (project: Project, branch: string) {
-    if (!(yield* projectsOutbound.isValidBranchName(project, branch))) {
+  const checkBranch = Effect.fnUntraced(function* (planet: Repository, branch: string) {
+    if (!(yield* planetsOutbound.isValidBranchName(planet, branch))) {
       return yield* new InvalidInputError({
         issues: [{ field: 'branch', message: `git does not accept ${branch} as a branch name.` }],
       });
     }
-    const base = yield* projectsOutbound.defaultBase(project);
-    if (yield* projectsOutbound.branchExists(project, branch)) {
+    const base = yield* planetsOutbound.defaultBase(planet);
+    if (yield* planetsOutbound.branchExists(planet, branch)) {
       return yield* new BranchExistsError({ branch });
     }
     return base;
@@ -72,12 +72,12 @@ export const makeCreateTask = Effect.gen(function* () {
     }
     const paths = yield* imagePaths(imageIds);
 
-    const project = yield* findProject(input.project);
-    const base = yield* checkBranch(project, branch.success);
+    const planet = yield* findPlanet(input.planet);
+    const base = yield* checkBranch(planet, branch.success);
     // git adds the worktree, then the multiplexer opens it as a workspace (ADR 0015).
-    const added = yield* projectsOutbound.addWorktree(project, { branch: branch.success, base });
+    const added = yield* planetsOutbound.addWorktree(planet, { branch: branch.success, base });
     const opened = yield* herdrOutbound.openWorktree({
-      cwd: project.path,
+      cwd: planet.path,
       path: added.path,
       label: task.success.title,
     });
@@ -86,7 +86,7 @@ export const makeCreateTask = Effect.gen(function* () {
       kind.success === undefined
         ? undefined
         : yield* launch(
-            { folder: worktree.path, project: project.name, branch: worktree.branch, issue },
+            { folder: worktree.path, planet: planet.name, branch: worktree.branch, issue },
             worktree.paneId,
             kind.success,
             promptWithImages(task.success.text, paths),

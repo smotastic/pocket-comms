@@ -21,8 +21,8 @@ export type IssueText = {
 };
 
 export type IssueEditCardProps = IssueText & {
-  /** The project the issue is in, by its name. */
-  readonly project: string;
+  /** The planet the issue is in, by its name. */
+  readonly planet: string;
   readonly number: number;
   /** The issue's page. */
   readonly url: string;
@@ -58,7 +58,7 @@ const lines = (text: string) =>
  * the outcome.
  */
 export const IssueEditCard = ({
-  project,
+  planet,
   number,
   url,
   title,
@@ -87,7 +87,7 @@ export const IssueEditCard = ({
         <Card>
           <Stack gap="xs">
             <Inline gap="sm">
-              <Tag>{project}</Tag>
+              <Tag>{planet}</Tag>
               {state._tag === 'updated' ? (
                 <Link href={state.url} external>
                   Issue #{number} updated
@@ -114,7 +114,7 @@ export const IssueEditCard = ({
             <Text as="span" tone="muted" size="sm">
               Proposed edit
             </Text>
-            <Tag>{project}</Tag>
+            <Tag>{planet}</Tag>
             <Link href={url} external>
               Issue #{number}
             </Link>

@@ -17,14 +17,14 @@ export type OpenProposal =
   | {
       readonly kind: 'issue';
       readonly id: string;
-      readonly project: string;
+      readonly planet: string;
       readonly title: string;
       readonly body: string;
     }
   | {
       readonly kind: 'edit';
       readonly id: string;
-      readonly project: string;
+      readonly planet: string;
       readonly number: number;
     };
 
@@ -68,9 +68,9 @@ const answerText = (answer: BuddyState['answer']) => {
 
 const proposalView = (proposal: OpenProposal) =>
   proposal.kind === 'issue'
-    ? { text: `${proposal.project}: ${proposal.title}`, decidable: true }
+    ? { text: `${proposal.planet}: ${proposal.title}`, decidable: true }
     : {
-        text: `An edit of ${proposal.project} #${proposal.number} waits in comms`,
+        text: `An edit of ${proposal.planet} #${proposal.number} waits in comms`,
         decidable: false,
       };
 

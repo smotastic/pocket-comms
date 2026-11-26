@@ -33,7 +33,7 @@ export interface TaskStartSentDto {
 
 /** Start an agent in the existing worktree of an issue, on `branch`. */
 export interface StartAgentInWorktreeInput {
-  readonly project: string;
+  readonly planet: string;
   readonly number: number;
   readonly branch: string;
   readonly agent: AgentToStart;

@@ -43,7 +43,7 @@ const main = Layer.unwrap(
         socketPath: config.socketPath,
         hcSocketPath: config.hcSocketPath,
         home: homedir(),
-        projectsRoot: config.projectsRoot,
+        repositoriesRoot: config.repositoriesRoot,
         worktreesRoot: config.worktreesRoot,
         agentArgs: config.agentArgs,
         gitea: { url: config.giteaUrl, token: config.giteaToken, hosts: config.giteaHosts },

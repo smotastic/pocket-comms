@@ -113,18 +113,18 @@ export interface Notification {
 export const notificationOf = ({
   agent,
   reason,
-  project,
+  planet,
   excerpt,
 }: {
   readonly agent: Agent;
   readonly reason: NeedsYouReason;
-  readonly project: string | undefined;
+  readonly planet: string | undefined;
   readonly excerpt: string | undefined;
 }): Notification => {
   const ref = agentRef(agent);
   return {
     title: reason === 'blocked' ? `${ref} needs you` : `${ref} is done`,
-    body: cut([project, excerpt].filter((part) => part !== undefined).join('\n')),
+    body: cut([planet, excerpt].filter((part) => part !== undefined).join('\n')),
     tag: agent.paneId,
     url: `/agents/${encodeURIComponent(ref)}?from=push`,
   };

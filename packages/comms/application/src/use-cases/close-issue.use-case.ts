@@ -3,7 +3,7 @@ import * as Option from 'effect/Option';
 import type { CloseIssueInput } from '../dto/issue.dto.js';
 import { IssueNotFoundError, NoGiteaRemoteError } from '../errors.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
-import { makeIssueProject } from './issue-project.js';
+import { makeIssuePlanet } from './issue-planet.js';
 
 /**
  * Closes an issue (spec 010): reads it from Gitea again, so a pull request is never closed, and
@@ -11,12 +11,12 @@ import { makeIssueProject } from './issue-project.js';
  */
 export const makeCloseIssue = Effect.gen(function* () {
   const giteaOutbound = yield* GiteaOutbound;
-  const issueProject = yield* makeIssueProject;
+  const issuePlanet = yield* makeIssuePlanet;
 
   const close = Effect.fn('Issues.close')(function* (input: CloseIssueInput) {
-    const { project, repository } = yield* issueProject(input.project);
+    const { planet, repository } = yield* issuePlanet(input.planet);
     if (Option.isNone(repository)) {
-      return yield* new NoGiteaRemoteError({ project: project.name });
+      return yield* new NoGiteaRemoteError({ planet: planet.name });
     }
     const issue = yield* giteaOutbound.issue(repository.value, input.number);
     if (issue.pull) return yield* new IssueNotFoundError({ number: input.number });

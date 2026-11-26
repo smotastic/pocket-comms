@@ -9,22 +9,22 @@ import {
   IssueClosedError,
   IssueNotFoundError,
   NoGiteaRemoteError,
-  ProjectNotFoundError,
+  PlanetNotFoundError,
 } from '../errors.js';
 import { IssuesInbound } from '../ports/issues.inbound.port.js';
 import { fakeAgent, fakeIssue, fakeLayer, FakeState } from '../testing/fakes.js';
 
 const layer = () => IssuesInbound.layer.pipe(Layer.provideMerge(fakeLayer()));
 
-const issues = (project = 'app') => IssuesInbound.use((inbound) => inbound.issues(project));
+const issues = (planet = 'app') => IssuesInbound.use((inbound) => inbound.issues(planet));
 
 const implement = (input: Partial<ImplementIssueInput> = {}) =>
   IssuesInbound.use((inbound) =>
-    inbound.implement({ project: 'app', number: 8, branch: 'feat/8-issue-list', ...input }),
+    inbound.implement({ planet: 'app', number: 8, branch: 'feat/8-issue-list', ...input }),
   );
 
-const close = (number = 8, project = 'app') =>
-  IssuesInbound.use((inbound) => inbound.close({ project, number }));
+const close = (number = 8, planet = 'app') =>
+  IssuesInbound.use((inbound) => inbound.close({ planet, number }));
 
 describe('IssuesInbound.issues', () => {
   it.effect('lists the open issues, newest activity first, with their suggested branch', () =>
@@ -131,7 +131,7 @@ describe('IssuesInbound.issues', () => {
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect('reports a project whose origin is not on Gitea, without asking Gitea', () =>
+  it.effect('reports a planet whose origin is not on Gitea, without asking Gitea', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
       state.origins.set('app', 'git@github.com:owner/app.git');
@@ -153,13 +153,13 @@ describe('IssuesInbound.issues', () => {
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect('fails for a project the app does not offer, without git', () =>
+  it.effect('fails for a planet the app does not offer, without git', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
 
       const error = yield* Effect.flip(issues('../etc'));
 
-      expect(error).toEqual(new ProjectNotFoundError({ project: '../etc' }));
+      expect(error).toEqual(new PlanetNotFoundError({ planet: '../etc' }));
       expect(state.gitCalls).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
@@ -181,7 +181,7 @@ describe('IssuesInbound.issues', () => {
 describe('IssuesInbound.issues and task starts', () => {
   const kept = {
     folder: '/worktrees/feat-8-list',
-    project: 'app',
+    planet: 'app',
     branch: 'feat/8-list',
     issue: 8,
     kind: 'claude' as const,
@@ -211,7 +211,7 @@ describe('IssuesInbound.issues and task starts', () => {
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect("forgets a start whose worktree git no longer lists, and keeps another project's", () =>
+  it.effect("forgets a start whose worktree git no longer lists, and keeps another planet's", () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
       state.issues.set('owner/app', [fakeIssue({ number: 8 })]);
@@ -220,7 +220,7 @@ describe('IssuesInbound.issues and task starts', () => {
       state.taskStarts.set('/worktrees/other', {
         ...kept,
         folder: '/worktrees/other',
-        project: 'other',
+        planet: 'other',
       });
 
       yield* IssuesInbound.use((inbound) => inbound.issues('app'));
@@ -346,7 +346,7 @@ describe('IssuesInbound.implement', () => {
 
       expect(yield* Effect.flip(implement())).toEqual(new GiteaNotConfiguredError());
       state.origins.set('app', '/elsewhere/app');
-      expect(yield* Effect.flip(implement())).toEqual(new NoGiteaRemoteError({ project: 'app' }));
+      expect(yield* Effect.flip(implement())).toEqual(new NoGiteaRemoteError({ planet: 'app' }));
       expect(state.calls).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
@@ -454,16 +454,16 @@ describe('IssuesInbound.close', () => {
 
       expect(yield* Effect.flip(close())).toEqual(new GiteaNotConfiguredError());
       state.origins.set('app', '/elsewhere/app');
-      expect(yield* Effect.flip(close())).toEqual(new NoGiteaRemoteError({ project: 'app' }));
+      expect(yield* Effect.flip(close())).toEqual(new NoGiteaRemoteError({ planet: 'app' }));
       expect(state.giteaCalls).toEqual([]);
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect('fails for a project the app does not offer', () =>
+  it.effect('fails for a planet the app does not offer', () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(close(8, 'nope'));
 
-      expect(error).toEqual(new ProjectNotFoundError({ project: 'nope' }));
+      expect(error).toEqual(new PlanetNotFoundError({ planet: 'nope' }));
     }).pipe(Effect.provide(layer())),
   );
 

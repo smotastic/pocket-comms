@@ -22,9 +22,10 @@ const Subject = Schema.Struct({
   ref: Schema.String,
   name: Schema.optional(Schema.String),
   workspace: Schema.String,
-  project: Schema.optional(Schema.String),
+  planet: Schema.optional(Schema.String),
   worktree: Schema.optional(Schema.String),
-});
+  // The file names the planet `project`, the word from before spec 034.
+}).pipe(Schema.encodeKeys({ planet: 'project' }));
 
 const Common = { id: Schema.String, at: Schema.Number, agent: Subject };
 
@@ -53,6 +54,8 @@ const decode = Schema.decodeUnknownOption(Schema.fromJsonString(StoredFile));
 
 const codeOf = (error: unknown) =>
   error instanceof Error && 'code' in error ? error.code : undefined;
+
+const encodeFile = Schema.encodeSync(StoredFile);
 
 export interface FileStoreOptions {
   /** The server's state folder, such as `~/.pocket-comms`; it is created when missing. */
@@ -89,7 +92,7 @@ export const layerFile = ({ folder }: FileStoreOptions) => {
         agent: {
           ...agent,
           name: agent.name,
-          project: agent.project,
+          planet: agent.planet,
           worktree: agent.worktree,
         },
       }),
@@ -99,7 +102,7 @@ export const layerFile = ({ folder }: FileStoreOptions) => {
   const save = (events: ReadonlyArray<ActivityEvent>) =>
     Effect.tryPromise(async () => {
       await mkdir(folder, { recursive: true, mode: 0o700 });
-      const file: typeof StoredFile.Encoded = { version: 1, events };
+      const file = encodeFile({ version: 1, events });
       const temporary = `${path}.tmp`;
       await writeFile(temporary, JSON.stringify(file), { encoding: 'utf-8', mode: 0o600 });
       await rename(temporary, path);

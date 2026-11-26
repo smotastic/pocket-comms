@@ -4,8 +4,8 @@ import {
   orderIssues,
   parseProposedIssue,
   parseIssueEdit,
-  isProjectDoc,
-  PROJECT_DOCS,
+  isRepositoryDoc,
+  PLANET_DOCS,
   type InvalidInputError,
   type ProposedIssue,
   type IssueRead,
@@ -17,19 +17,19 @@ import * as Option from 'effect/Option';
 import * as Result from 'effect/Result';
 import * as Schema from 'effect/Schema';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
-import { ProjectsOutbound } from '../ports/projects.outbound.port.js';
-import { makeIssueProject } from '../use-cases/issue-project.js';
+import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
+import { makeIssuePlanet } from '../use-cases/issue-planet.js';
 
-// The tools of the brainstorm. Four read; none takes a path, and a project is only ever a
-// name the projects port lists. Two propose, a new issue or an edit of one, with the brainstorm
+// The tools of the brainstorm. Four read; none takes a path, and a planet is only ever a
+// name the repositories port lists. Two propose, a new issue or an edit of one, with the brainstorm
 // images that go along, and end the turn: only the owner's decision writes.
 
-const ProjectName = Schema.String.annotate({
-  description: 'The name of a project, as list_projects names it.',
+const PlanetName = Schema.String.annotate({
+  description: 'The name of a planet, as list_planets names it.',
 });
 
 const IssueNumber = Schema.Int.check(Schema.isGreaterThan(0)).annotate({
-  description: "The issue's number in the project's Gitea repository.",
+  description: "The issue's number in the planet's Gitea repository.",
 });
 
 const Images = Schema.optional(
@@ -59,28 +59,28 @@ export interface BrainstormHooks {
   readonly proposeEdit: (edit: ProposedEdit) => Effect.Effect<string>;
   /** Keeps this read as the last read of its issue. */
   readonly remember: (read: IssueRead) => Effect.Effect<void>;
-  /** The last read of a project's issue in this brainstorm, if Pi read it. */
-  readonly readOf: (project: string, number: number) => Effect.Effect<IssueRead | undefined>;
+  /** The last read of a planet's issue in this brainstorm, if Pi read it. */
+  readonly readOf: (planet: string, number: number) => Effect.Effect<IssueRead | undefined>;
   /** The ids of the brainstorm images with these numbers; a number of no image is refused. */
   readonly images: (
     numbers: ReadonlyArray<number>,
   ) => Effect.Effect<Result.Result<ReadonlyArray<string>, InvalidInputError>>;
 }
 
-/** A target shows at most this many characters; Pi chooses the project names it passes. */
+/** A target shows at most this many characters; Pi chooses the planet names it passes. */
 const MAX_TARGET = 80;
 
 /** The parts of a call's input a row may show; anything else in it is ignored. */
 const decodeShown = Schema.decodeUnknownOption(
   Schema.Struct({
-    project: Schema.optional(Schema.String),
+    planet: Schema.optional(Schema.String),
     number: Schema.optional(Schema.Number),
     file: Schema.optional(Schema.String),
   }),
 );
 
 /**
- * What a tool's row in the brainstorm shows of its call (spec 026): the project, the issue or the file
+ * What a tool's row in the brainstorm shows of its call (spec 026): the planet, the issue or the file
  * it works on, never the rest of its input, such as a proposed body.
  */
 export const describeBrainstormCall = (
@@ -89,34 +89,34 @@ export const describeBrainstormCall = (
 ): { readonly target?: string } => {
   const shown = decodeShown(input);
   if (Option.isNone(shown)) return {};
-  const { project, number, file } = shown.value;
-  if (project === undefined || project === '') return {};
+  const { planet, number, file } = shown.value;
+  if (planet === undefined || planet === '') return {};
   const target =
     number !== undefined
-      ? `${project} #${number}`
-      : file !== undefined && isProjectDoc(file)
-        ? `${project}/${file}`
-        : project;
+      ? `${planet} #${number}`
+      : file !== undefined && isRepositoryDoc(file)
+        ? `${planet}/${file}`
+        : planet;
   return { target: target.length <= MAX_TARGET ? target : `${target.slice(0, MAX_TARGET - 1)}…` };
 };
 
 export const makeBrainstormTools = Effect.gen(function* () {
-  const projectsOutbound = yield* ProjectsOutbound;
+  const planetsOutbound = yield* RepositoriesOutbound;
   const giteaOutbound = yield* GiteaOutbound;
-  const issueProject = yield* makeIssueProject;
+  const issuePlanet = yield* makeIssuePlanet;
 
-  const findProject = (name: string) =>
-    issueProject(name).pipe(
-      Effect.catchTag('ProjectNotFoundError', () =>
-        refuse(`There is no project ${name}. Call list_projects for their names.`),
+  const findPlanet = (name: string) =>
+    issuePlanet(name).pipe(
+      Effect.catchTag('PlanetNotFoundError', () =>
+        refuse(`There is no planet ${name}. Call list_planets for their names.`),
       ),
     );
 
-  const repositoryOf = (project: string) =>
+  const repositoryOf = (planet: string) =>
     Effect.gen(function* () {
-      const { repository } = yield* findProject(project);
+      const { repository } = yield* findPlanet(planet);
       if (Option.isNone(repository)) {
-        return yield* refuse(`${project} has no repository on Gitea.`);
+        return yield* refuse(`${planet} has no repository on Gitea.`);
       }
       return repository.value;
     });
@@ -130,17 +130,17 @@ export const makeBrainstormTools = Effect.gen(function* () {
   /** The tools of one turn, which act on the brainstorm through `hooks`. */
   return (hooks: BrainstormHooks): ReadonlyArray<AgentTool> => [
     defineTool({
-      name: 'list_projects',
+      name: 'list_planets',
       description:
-        "The owner's projects: the git repositories in the projects folder, by name, and whether each has a repository on the owner's Gitea, where issues can be filed.",
+        "The owner's planets: the git repositories in the planets folder, by name, and whether each has a repository on the owner's Gitea, where issues can be filed.",
       parameters: Schema.Struct({}),
       run: () =>
         Effect.gen(function* () {
-          const projects = yield* projectsOutbound.list;
-          const listed = yield* Effect.forEach(projects, (project) =>
-            projectsOutbound.originUrl(project).pipe(
+          const planets = yield* planetsOutbound.list;
+          const listed = yield* Effect.forEach(planets, (planet) =>
+            planetsOutbound.originUrl(planet).pipe(
               Effect.map((origin) => ({
-                name: project.name,
+                name: planet.name,
                 onGitea: Option.isSome(Option.flatMap(origin, giteaOutbound.repositoryOf)),
               })),
             ),
@@ -151,11 +151,11 @@ export const makeBrainstormTools = Effect.gen(function* () {
     defineTool({
       name: 'list_open_issues',
       description:
-        "A project's open Gitea issues, by number and title. Read them before proposing an issue, so no idea is filed twice.",
-      parameters: Schema.Struct({ project: ProjectName }),
-      run: ({ project }) =>
+        "A planet's open Gitea issues, by number and title. Read them before proposing an issue, so no idea is filed twice.",
+      parameters: Schema.Struct({ planet: PlanetName }),
+      run: ({ planet }) =>
         Effect.gen(function* () {
-          const repository = yield* repositoryOf(project);
+          const repository = yield* repositoryOf(planet);
           const issues = yield* giteaOutbound
             .openIssues(repository)
             .pipe(Effect.catchTags(giteaRefusals));
@@ -168,38 +168,38 @@ export const makeBrainstormTools = Effect.gen(function* () {
         }),
     }),
     defineTool({
-      name: 'read_project_doc',
-      description: `A project's ${PROJECT_DOCS.join(' or ')} at its top level, to learn what the project is. No other file can be read.`,
+      name: 'read_planet_doc',
+      description: `A planet's ${PLANET_DOCS.join(' or ')} at its top level, to learn what the planet is. No other file can be read.`,
       parameters: Schema.Struct({
-        project: ProjectName,
-        file: Schema.Literals(PROJECT_DOCS).annotate({ description: 'The file to read.' }),
+        planet: PlanetName,
+        file: Schema.Literals(PLANET_DOCS).annotate({ description: 'The file to read.' }),
       }),
-      run: ({ project, file }) =>
+      run: ({ planet, file }) =>
         Effect.gen(function* () {
-          const found = yield* findProject(project);
-          const text = yield* projectsOutbound.readDoc(found.project, file);
-          if (Option.isNone(text)) return yield* refuse(`${project} has no ${file}.`);
+          const found = yield* findPlanet(planet);
+          const text = yield* planetsOutbound.readDoc(found.planet, file);
+          if (Option.isNone(text)) return yield* refuse(`${planet} has no ${file}.`);
           return { output: cutDoc(text.value) };
         }),
     }),
     defineTool({
       name: 'read_issue',
       description:
-        'One issue of a project, open or closed, by its number: its title, its whole body, its state and its page. Read an issue before proposing an edit to it.',
-      parameters: Schema.Struct({ project: ProjectName, number: IssueNumber }),
-      run: ({ project, number }) =>
+        'One issue of a planet, open or closed, by its number: its title, its whole body, its state and its page. Read an issue before proposing an edit to it.',
+      parameters: Schema.Struct({ planet: PlanetName, number: IssueNumber }),
+      run: ({ planet, number }) =>
         Effect.gen(function* () {
-          const repository = yield* repositoryOf(project);
+          const repository = yield* repositoryOf(planet);
           const issue = yield* giteaOutbound.issue(repository, number).pipe(
             Effect.catchTags({
               ...giteaRefusals,
-              IssueNotFoundError: () => refuse(`${project} has no issue #${number}.`),
+              IssueNotFoundError: () => refuse(`${planet} has no issue #${number}.`),
             }),
           );
-          if (issue.pull) return yield* refuse(`#${number} of ${project} is a pull request.`);
+          if (issue.pull) return yield* refuse(`#${number} of ${planet} is a pull request.`);
           const { body, cut } = cutIssueBody(issue.body);
           yield* hooks.remember({
-            project,
+            planet,
             number,
             url: issue.url,
             title: issue.title,
@@ -225,9 +225,9 @@ export const makeBrainstormTools = Effect.gen(function* () {
     defineTool({
       name: 'propose_issue',
       description:
-        'Proposes an idea as a Gitea issue in a project. The owner sees it as a card, may edit it, and creates or discards it; you learn their decision in the next message. This ends your turn. Nothing is filed without the owner.',
+        'Proposes an idea as a Gitea issue in a planet. The owner sees it as a card, may edit it, and creates or discards it; you learn their decision in the next message. This ends your turn. Nothing is filed without the owner.',
       parameters: Schema.Struct({
-        project: ProjectName,
+        planet: PlanetName,
         title: Schema.String.annotate({ description: 'A short issue title.' }),
         body: Schema.String.annotate({
           description: 'The issue body in Markdown: the idea, why, and a rough shape.',
@@ -240,10 +240,10 @@ export const makeBrainstormTools = Effect.gen(function* () {
           if (Result.isFailure(proposed)) return yield* refusal(proposed.failure);
           const images = yield* hooks.images(numbers);
           if (Result.isFailure(images)) return yield* refusal(images.failure);
-          const { repository } = yield* findProject(proposed.success.project);
+          const { repository } = yield* findPlanet(proposed.success.planet);
           if (Option.isNone(repository)) {
             return yield* refuse(
-              `${proposed.success.project} has no repository on Gitea, so no issue can be filed there.`,
+              `${proposed.success.planet} has no repository on Gitea, so no issue can be filed there.`,
             );
           }
           yield* hooks.propose(proposed.success, images.success);
@@ -258,18 +258,18 @@ export const makeBrainstormTools = Effect.gen(function* () {
       description:
         'Proposes a new title and body for an existing issue you read with read_issue in this brainstorm. Send the whole new body, and keep every part of it the edit is not about. The owner sees the edit next to the current version, may change it, and applies or discards it; you learn their decision in the next message. This ends your turn. Nothing changes without the owner.',
       parameters: Schema.Struct({
-        project: ProjectName,
+        planet: PlanetName,
         number: IssueNumber,
         title: Schema.String.annotate({ description: "The issue's whole new title." }),
         body: Schema.String.annotate({ description: "The issue's whole new body in Markdown." }),
         images: Images,
       }),
-      run: ({ project, number, images: numbers = [], ...text }) =>
+      run: ({ planet, number, images: numbers = [], ...text }) =>
         Effect.gen(function* () {
-          const read = yield* hooks.readOf(project, number);
+          const read = yield* hooks.readOf(planet, number);
           if (read === undefined) {
             return yield* refuse(
-              `Read the issue #${number} of ${project} with read_issue first, then propose the edit.`,
+              `Read the issue #${number} of ${planet} with read_issue first, then propose the edit.`,
             );
           }
           if (read.cut) {

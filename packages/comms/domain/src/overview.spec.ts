@@ -17,17 +17,17 @@ const agent = (overrides: Partial<Agent> & Pick<Agent, 'paneId'>): Agent => ({
 });
 
 const workspaces: ReadonlyArray<Workspace> = [
-  { id: 'w1', label: 'app', group: { key: '/work/app/.git', name: 'app' }, project: 'app' },
+  { id: 'w1', label: 'app', group: { key: '/work/app/.git', name: 'app' }, planet: 'app' },
   {
     id: 'w2',
     label: 'feature',
     group: { key: '/work/app/.git', name: 'app' },
-    project: 'app',
+    planet: 'app',
     worktree: 'feature',
   },
   { id: 'w3', label: 'notes', group: OTHER_GROUP },
   { id: 'w4', label: 'setup', group: OTHER_GROUP },
-  { id: 'w5', label: 'site', group: { key: '/work/site/.git', name: 'site' }, project: 'site' },
+  { id: 'w5', label: 'site', group: { key: '/work/site/.git', name: 'site' }, planet: 'site' },
 ];
 
 const none = new Set<string>();
@@ -62,7 +62,7 @@ describe('buildOverview', () => {
     );
   });
 
-  it('puts the agents of every workspace without a project into one Other group, last', () => {
+  it('puts the agents of every workspace without a planet into one Other group, last', () => {
     const overview = buildOverview(
       [
         agent({ paneId: 'w3:p1', workspaceId: 'w3' }),

@@ -65,15 +65,15 @@ describe('the conversation', () => {
     expect((await screen.findByRole('status')).textContent).toContain('Running pnpm test…');
   });
 
-  it('says under the top bar which project and task the agent is on, not its directory', async () => {
-    open(fakeAgent({ status: 'working', project: 'pocket-comms', title: 'Attach PRs (#98)' }));
+  it('says under the top bar which planet and task the agent is on, not its directory', async () => {
+    open(fakeAgent({ status: 'working', planet: 'pocket-comms', title: 'Attach PRs (#98)' }));
     const task = await screen.findByText(/Attach PRs \(#98\)/u);
     expect(task.textContent).toBe('pocket-comms Attach PRs (#98)');
     expect(screen.queryByText(/\/work\/app/u)).toBeNull();
   });
 
-  it('names the workspace in place of a missing project', async () => {
-    open(fakeAgent({ status: 'working', project: undefined, workspace: 'scratch' }));
+  it('names the workspace in place of a missing planet', async () => {
+    open(fakeAgent({ status: 'working', planet: undefined, workspace: 'scratch' }));
     expect((await screen.findByText(/Fix the build/u)).textContent).toBe('scratch Fix the build');
   });
 

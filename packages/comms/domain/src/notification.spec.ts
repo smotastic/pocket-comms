@@ -211,7 +211,7 @@ describe('notificationOf', () => {
       notificationOf({
         agent: agent({ paneId: 'w1:p1', name: 'kirk/one' }),
         reason: 'blocked',
-        project: 'app',
+        planet: 'app',
         excerpt: 'Which stack?',
       }),
     ).toEqual({
@@ -227,18 +227,18 @@ describe('notificationOf', () => {
       notificationOf({
         agent: agent({ paneId: 'w1:p1' }),
         reason: 'done',
-        project: 'app',
+        planet: 'app',
         excerpt: undefined,
       }),
     ).toMatchObject({ title: 'w1:p1 is done', body: 'app' });
   });
 
-  it('has an empty body without a project and an excerpt', () => {
+  it('has an empty body without a planet and an excerpt', () => {
     expect(
       notificationOf({
         agent: agent({ paneId: 'w1:p1' }),
         reason: 'done',
-        project: undefined,
+        planet: undefined,
         excerpt: undefined,
       }).body,
     ).toBe('');
@@ -248,7 +248,7 @@ describe('notificationOf', () => {
     const { body } = notificationOf({
       agent: agent({ paneId: 'w1:p1' }),
       reason: 'blocked',
-      project: undefined,
+      planet: undefined,
       excerpt: 'x'.repeat(500),
     });
 
@@ -260,7 +260,7 @@ describe('notificationOf', () => {
     notificationOf({
       agent: agent({ paneId: 'w1:p1' }),
       reason: 'blocked',
-      project: undefined,
+      planet: undefined,
       excerpt,
     }).body;
 

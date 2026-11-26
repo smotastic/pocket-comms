@@ -74,12 +74,12 @@ export const problems = {
         detail: `${error.branch} exists locally or on origin. Choose another name.`,
       }),
     ),
-  projectGitFailed: (error: { readonly project: string; readonly reason: string }) =>
+  planetGitFailed: (error: { readonly planet: string; readonly reason: string }) =>
     Effect.fail(
       conflictProblem({
-        slug: 'project-git-failed',
-        title: 'git could not prepare the project',
-        detail: `${error.project}: ${error.reason}`,
+        slug: 'planet-git-failed',
+        title: 'git could not prepare the planet',
+        detail: `${error.planet}: ${error.reason}`,
       }),
     ),
   worktreeRefused: (error: { readonly code: string; readonly message: string }) =>
@@ -95,7 +95,7 @@ export const problems = {
       conflictProblem({
         slug: 'not-a-worktree',
         title: 'The agent is not in a worktree',
-        detail: `${error.ref} does not work in a linked worktree of a project, so the app does not close it.`,
+        detail: `${error.ref} does not work in a linked worktree of a planet, so the app does not close it.`,
       }),
     ),
   worktreeHasChanges: (error: { readonly ref: string }) =>
@@ -114,20 +114,20 @@ export const problems = {
         detail: `${error.message} (${error.code})`,
       }),
     ),
-  projectNotFound: (error: { readonly project: string }) =>
+  planetNotFound: (error: { readonly planet: string }) =>
     Effect.fail(
       notFoundProblem({
-        slug: 'project-not-found',
-        title: 'Project not found',
-        detail: `${error.project} is not a project below the projects root.`,
+        slug: 'planet-not-found',
+        title: 'Repository not found',
+        detail: `${error.planet} is not a planet below the repositories root.`,
       }),
     ),
-  noGiteaRemote: (error: { readonly project: string }) =>
+  noGiteaRemote: (error: { readonly planet: string }) =>
     Effect.fail(
       conflictProblem({
         slug: 'no-gitea-remote',
-        title: 'The project is not on Gitea',
-        detail: `The origin of ${error.project} is not a repository on the app's Gitea.`,
+        title: 'The planet is not on Gitea',
+        detail: `The origin of ${error.planet} is not a repository on the app's Gitea.`,
       }),
     ),
   giteaNotConfigured: () =>
@@ -328,7 +328,7 @@ export const problems = {
       notFoundProblem({
         slug: 'worktree-not-found',
         title: 'No worktree of the issue is on this branch',
-        detail: `The project has no linked worktree of this issue on ${error.branch}.`,
+        detail: `The planet has no linked worktree of this issue on ${error.branch}.`,
       }),
     ),
   worktreeBusy: (error: { readonly branch: string }) =>

@@ -36,7 +36,7 @@ const AGENT = (overrides: Partial<Agent> = {}) =>
 
 const kept = (overrides: Partial<TaskStart> = {}): TaskStart => ({
   folder: FOLDER,
-  project: 'app',
+  planet: 'app',
   branch: 'fix/12-login',
   issue: 12,
   kind: 'pi',
@@ -63,7 +63,7 @@ const arrange = (start: TaskStart | null = kept()) =>
         label: 'fix-12-login',
         group: { key: '/work/app/.git', name: 'app' },
         root: '/work/app',
-        project: 'app',
+        planet: 'app',
         worktree: 'fix-12-login',
         checkout: FOLDER,
       },
@@ -229,7 +229,7 @@ describe('TaskStartsInbound.dismiss', () => {
 describe('TaskStartsInbound.startInWorktree', () => {
   const start = (branch = 'fix/12-login') =>
     TaskStartsInbound.use((inbound) =>
-      inbound.startInWorktree({ project: 'app', number: 12, branch, agent: 'pi' }),
+      inbound.startInWorktree({ planet: 'app', number: 12, branch, agent: 'pi' }),
     );
 
   it.effect('starts the agent in a new shell of the worktree and sends the kept prompt', () =>

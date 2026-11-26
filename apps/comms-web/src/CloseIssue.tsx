@@ -12,7 +12,7 @@ import type { CommsClient, IssueView } from './comms-client.js';
 
 export interface CloseIssueProps {
   readonly client: CommsClient;
-  readonly project: string;
+  readonly planet: string;
   /** The issue to close; none closes the sheet. */
   readonly issue: IssueView | undefined;
   readonly onClose: () => void;
@@ -25,26 +25,26 @@ export const stillWorking = (issue: IssueView) =>
     work.agents.length === 0 ? [work.branch] : work.agents.map((agent) => agent.ref),
   );
 
-/** Closes an issue in Gitea; the Close sheet and the projects sheet ask first. */
+/** Closes an issue in Gitea; the Close sheet and the planets sheet ask first. */
 export const useCloseIssue = (
   client: CommsClient,
-  project: string,
+  planet: string,
   number: number,
   onClosed: (number: number) => void,
 ) =>
   useMutation({
-    mutationFn: () => client.closeIssue(project, number),
+    mutationFn: () => client.closeIssue(planet, number),
     onSuccess: () => onClosed(number),
   });
 
 const CloseForm = ({
   client,
-  project,
+  planet,
   issue,
   onClose,
   onClosed,
 }: Omit<CloseIssueProps, 'issue'> & { readonly issue: IssueView }) => {
-  const close = useCloseIssue(client, project, issue.number, onClosed);
+  const close = useCloseIssue(client, planet, issue.number, onClosed);
   const working = stillWorking(issue);
 
   return (
@@ -78,7 +78,7 @@ const CloseForm = ({
  * The Close sheet (spec 010): the issue and a confirmation, so a stray tap never closes it. The
  * worktrees and agents on the issue stay as they are.
  */
-export const CloseIssue = ({ client, project, issue, onClose, onClosed }: CloseIssueProps) => (
+export const CloseIssue = ({ client, planet, issue, onClose, onClosed }: CloseIssueProps) => (
   <Sheet
     open={issue !== undefined}
     label={issue === undefined ? 'Close issue' : `Close #${issue.number}`}
@@ -97,7 +97,7 @@ export const CloseIssue = ({ client, project, issue, onClose, onClosed }: CloseI
       <CloseForm
         key={issue.number}
         client={client}
-        project={project}
+        planet={planet}
         issue={issue}
         onClose={onClose}
         onClosed={onClosed}

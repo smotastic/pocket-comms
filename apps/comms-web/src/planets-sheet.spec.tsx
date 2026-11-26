@@ -23,7 +23,7 @@ const listed = (...issues: ReadonlyArray<IssueView>): IssueListView => ({
   issues,
 });
 
-const projects = [
+const planets = [
   { name: 'alpha', open: true },
   { name: 'beta', open: false },
 ];
@@ -32,11 +32,11 @@ const waiting = fakeAgent({
   ref: 'uhura',
   name: 'uhura',
   paneId: 'w1:p1',
-  project: 'alpha',
+  planet: 'alpha',
   status: 'blocked',
   needsYou: true,
 });
-const working = fakeAgent({ ref: 'kirk', paneId: 'w1:p2', project: 'alpha', status: 'working' });
+const working = fakeAgent({ ref: 'kirk', paneId: 'w1:p2', planet: 'alpha', status: 'working' });
 const overview = {
   needsYou: [waiting],
   groups: [{ key: '/alpha/.git', name: 'alpha', agents: [working] }],
@@ -61,7 +61,7 @@ const betaIssues = listed(
 const open = (extra: Parameters<typeof fakeClient>[0] = {}) => {
   const fake = fakeClient({
     overview,
-    projects,
+    planets,
     issues: new Map([['beta', betaIssues]]),
     ...extra,
   });
@@ -70,15 +70,15 @@ const open = (extra: Parameters<typeof fakeClient>[0] = {}) => {
 };
 
 const openSheet = async () => {
-  await userEvent.click(await screen.findByRole('button', { name: 'Projects' }));
-  return screen.getByRole('dialog', { name: 'Projects' });
+  await userEvent.click(await screen.findByRole('button', { name: 'Planets' }));
+  return screen.getByRole('dialog', { name: 'Planets' });
 };
 
-const entry = (sheet: HTMLElement, project: string) =>
-  within(sheet).getByRole('button', { name: new RegExp(`^${project} `, 'u') });
+const entry = (sheet: HTMLElement, planet: string) =>
+  within(sheet).getByRole('button', { name: new RegExp(`^${planet} `, 'u') });
 
-describe('the projects sheet', () => {
-  it('opens from the top bar and lists every project with its agents and issues', async () => {
+describe('the planets sheet', () => {
+  it('opens from the top bar and lists every planet with its agents and issues', async () => {
     open();
     const sheet = await openSheet();
 
@@ -90,14 +90,14 @@ describe('the projects sheet', () => {
     expect(entry(sheet, 'beta').getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('shows no issue count for a project without a Gitea remote', async () => {
+  it('shows no issue count for a planet without a Gitea remote', async () => {
     open();
     const sheet = await openSheet();
     await within(sheet).findByRole('button', { name: /^beta .*3 issues/u });
     expect(entry(sheet, 'alpha').textContent).not.toContain('issue');
   });
 
-  it('opens one project at a time, below its entry', async () => {
+  it('opens one planet at a time, below its entry', async () => {
     open();
     const sheet = await openSheet();
 
@@ -113,7 +113,7 @@ describe('the projects sheet', () => {
       expect.stringMatching(/^#3 Dark mode/u),
     ]);
     expect(within(panel).getByRole('button', { name: 'New task' })).toBeDefined();
-    expect(within(panel).getByRole('link', { name: 'Project page' })).toBeDefined();
+    expect(within(panel).getByRole('link', { name: 'Planet page' })).toBeDefined();
 
     await userEvent.click(entry(sheet, 'alpha'));
     expect(within(sheet).queryByRole('group', { name: /^beta /u })).toBeNull();
@@ -172,7 +172,7 @@ describe('the projects sheet', () => {
     expect(nine.textContent).not.toContain('Status/In-Progress');
   });
 
-  it('says what a project without issues shows', async () => {
+  it('says what a planet without issues shows', async () => {
     open({
       issues: new Map<string, IssueListView | RequestError>([
         ['alpha', { _tag: 'NotConfigured' }],
@@ -187,7 +187,7 @@ describe('the projects sheet', () => {
     expect(await within(sheet).findByText(/Gitea is not configured/u)).toBeDefined();
   });
 
-  it('says when a project has no Gitea remote or its issues cannot be read', async () => {
+  it('says when a planet has no Gitea remote or its issues cannot be read', async () => {
     open({
       issues: new Map<string, IssueListView | RequestError>([
         ['beta', new RequestError('Gitea cannot be reached.', 503)],
@@ -201,41 +201,41 @@ describe('the projects sheet', () => {
     expect(await within(sheet).findByText('Gitea cannot be reached.')).toBeDefined();
   });
 
-  it('says why it lists no projects', async () => {
-    const { client } = fakeClient({ overview, projects });
+  it('says why it lists no planets', async () => {
+    const { client } = fakeClient({ overview, planets });
     renderApp({
       client: {
         ...client,
-        projects: () => Promise.reject(new RequestError('The projects folder is gone.', 500)),
+        planets: () => Promise.reject(new RequestError('The planets folder is gone.', 500)),
       },
     });
     const sheet = await openSheet();
 
-    expect(await within(sheet).findByText('The projects folder is gone.')).toBeDefined();
+    expect(await within(sheet).findByText('The planets folder is gone.')).toBeDefined();
   });
 
-  it('closes with Escape, gives focus back to the Projects action and starts collapsed again', async () => {
+  it('closes with Escape, gives focus back to the Planets action and starts collapsed again', async () => {
     open();
     const sheet = await openSheet();
     await userEvent.click(entry(sheet, 'beta'));
 
     await userEvent.keyboard('{Escape}');
 
-    expect(screen.queryByRole('dialog', { name: 'Projects' })).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Projects' }));
+    expect(screen.queryByRole('dialog', { name: 'Planets' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Planets' }));
     const again = await openSheet();
     expect(entry(again, 'beta').getAttribute('aria-expanded')).toBe('false');
   });
 
-  it("opens a project's page", async () => {
+  it("opens a planet's page", async () => {
     const { router } = open();
     const sheet = await openSheet();
     await userEvent.click(entry(sheet, 'beta'));
 
-    await userEvent.click(within(sheet).getByRole('link', { name: 'Project page' }));
+    await userEvent.click(within(sheet).getByRole('link', { name: 'Planet page' }));
 
-    expect(router.state.location.pathname).toBe('/projects/beta');
-    expect(screen.queryByRole('dialog', { name: 'Projects' })).toBeNull();
+    expect(router.state.location.pathname).toBe('/planets/beta');
+    expect(screen.queryByRole('dialog', { name: 'Planets' })).toBeNull();
   });
 
   it('implements an issue, then closes the sheets and opens the new agent', async () => {
@@ -262,7 +262,7 @@ describe('the projects sheet', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('starts a new task in the project', async () => {
+  it('starts a new task in the planet', async () => {
     const agent = fakeAgent({ ref: 'feat-x', paneId: 'wK:p1', title: 'X' });
     const { router, calls } = open({
       agents: new Map([[agent.ref, agent]]),
@@ -282,11 +282,11 @@ describe('the projects sheet', () => {
     await userEvent.type(within(task).getByRole('textbox', { name: 'Task' }), 'X');
     await userEvent.click(within(task).getByRole('button', { name: 'Create' }));
 
-    expect(calls.tasks.map((created) => created.project)).toEqual(['beta']);
+    expect(calls.tasks.map((created) => created.planet)).toEqual(['beta']);
     expect(router.state.location.pathname).toBe('/agents/feat-x');
   });
 
-  it('shows on the project page what a start without an agent left to say', async () => {
+  it('shows on the planet page what a start without an agent left to say', async () => {
     const { router } = open({
       created: { workspace: 'wK', branch: 'feat/x', path: '/w' },
     });
@@ -301,11 +301,11 @@ describe('the projects sheet', () => {
     expect((await screen.findByRole('status')).textContent).toContain(
       'feat/x is ready in a new worktree.',
     );
-    expect(router.state.location.pathname).toBe('/projects/beta');
+    expect(router.state.location.pathname).toBe('/planets/beta');
   });
 });
 
-describe('closing an issue from the projects sheet', () => {
+describe('closing an issue from the planets sheet', () => {
   const expandBeta = async () => {
     const sheet = await openSheet();
     await userEvent.click(entry(sheet, 'beta'));
@@ -382,7 +382,7 @@ describe('closing an issue from the projects sheet', () => {
     expect(within(eight).queryByText('Gitea refused the token (403).')).toBeNull();
   });
 
-  it('forgets an open question when the project collapses', async () => {
+  it('forgets an open question when the planet collapses', async () => {
     open();
     const sheet = await expandBeta();
     const eight = await within(sheet).findByRole('article', { name: '#8 feat: issue list' });

@@ -20,7 +20,7 @@ export class MultiplexerRejectedError extends Data.TaggedError('MultiplexerRejec
   readonly message: string;
 }> {}
 
-/** The agent's workspace is not a linked worktree of a project, so the app may not close it. */
+/** The agent's workspace is not a linked worktree of a planet, so the app may not close it. */
 export class NotAWorktreeError extends Data.TaggedError('NotAWorktreeError')<{
   readonly ref: string;
 }> {}
@@ -51,9 +51,9 @@ export class SubagentNotFoundError extends Data.TaggedError('SubagentNotFoundErr
   readonly subagent: string;
 }> {}
 
-/** Git could not prepare the project, such as a failed fetch or no default remote branch. */
-export class ProjectGitError extends Data.TaggedError('ProjectGitError')<{
-  readonly project: string;
+/** Git could not prepare the planet, such as a failed fetch or no default remote branch. */
+export class RepositoryGitError extends Data.TaggedError('RepositoryGitError')<{
+  readonly planet: string;
   readonly reason: string;
 }> {}
 
@@ -62,14 +62,14 @@ export class BranchExistsError extends Data.TaggedError('BranchExistsError')<{
   readonly branch: string;
 }> {}
 
-/** No project of the projects root has this name. */
-export class ProjectNotFoundError extends Data.TaggedError('ProjectNotFoundError')<{
-  readonly project: string;
+/** No planet of the repositories root has this name. */
+export class PlanetNotFoundError extends Data.TaggedError('PlanetNotFoundError')<{
+  readonly planet: string;
 }> {}
 
-/** The project's `origin` is not a repository on the app's Gitea. */
+/** The planet's `origin` is not a repository on the app's Gitea. */
 export class NoGiteaRemoteError extends Data.TaggedError('NoGiteaRemoteError')<{
-  readonly project: string;
+  readonly planet: string;
 }> {}
 
 /** The app has no Gitea token, so it cannot read issues. */
@@ -134,7 +134,7 @@ export class NoTaskStartError extends Data.TaggedError('NoTaskStartError')<{
   readonly ref: string;
 }> {}
 
-/** No linked worktree of the project is on the branch of this issue. */
+/** No linked worktree of the planet is on the branch of this issue. */
 export class WorktreeNotFoundError extends Data.TaggedError('WorktreeNotFoundError')<{
   readonly branch: string;
 }> {}

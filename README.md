@@ -3,7 +3,7 @@
 A phone web app to **read and drive the Herdr coding agents** on the home server, over Tailscale.
 It lists every live agent, shows a Claude or Pi agent's conversation as a chat, shows any agent's
 screen, sends prompts and key presses, starts new tasks in fresh Herdr worktrees, and lists each
-project's open Gitea issues with "Implement with Claude" and "Close" actions. Install it to the
+planet's open Gitea issues with "Implement with Claude" and "Close" actions. Install it to the
 iPhone home screen, and it pushes a notification when an agent needs you or is done. It complements the Moshi terminal
 app, which keeps approvals and the raw terminal.
 
@@ -37,7 +37,7 @@ Both listen on `127.0.0.1` only. The server rejects every request without the al
 | `HERDR_SOCKET_PATH`             | `~/.config/herdr/herdr.sock`                     | Herdr's API socket                                                                                                                                                |
 | `COMMS_WEB_DIST`                | set by `pnpm start`                              | The built web app the server serves; without it the server serves only the API                                                                                    |
 | `COMMS_PROJECTS_ROOT`           | `~/Development/projects`                         | The folder whose git repositories (direct children) a new task can start in                                                                                       |
-| `COMMS_WORKTREES_DIR`           | `~/.herdr/worktrees`                             | Where a new task's worktree goes, as `<project>/<branch with - for />`                                                                                            |
+| `COMMS_WORKTREES_DIR`           | `~/.herdr/worktrees`                             | Where a new task's worktree goes, as `<planet>/<branch with - for />`                                                                                             |
 | `COMMS_MULTIPLEXER`             | `herdr`                                          | The program that runs the agents: `herdr` (the Herdr TUI) or `hc` (herdr-core, spec 033)                                                                          |
 | `HC_SOCKET`                     | `~/.local/state/herdr-core/default/default.sock` | hc's socket, with `COMMS_MULTIPLEXER=hc`                                                                                                                          |
 | `COMMS_AGENT_ARGS`              | empty                                            | Extra arguments for every agent a new task starts, split on spaces; empty keeps the CLI defaults                                                                  |
@@ -65,10 +65,10 @@ closing, creating or marking one then fails; a failed mark leaves the started ag
 The brainstorm (the bulb in the top bar, or More in a conversation) runs Pi inside the server. Sign
 in with Pi once (`pi`, then `/login`) and set the provider and the model, for example
 `COMMS_BRAINSTORM_PROVIDER=openai` and `COMMS_BRAINSTORM_MODEL=gpt-6-luna`. Pi only reads the
-project list, a project's open issues and its `README.md` and `AGENTS.md`; an issue is created only
+planet list, a planet's open issues and its `README.md` and `AGENTS.md`; an issue is created only
 when you tap **Create issue** on its proposal.
 
-Notifications are switched on per device at the bottom of the Projects sheet. On the iPhone that
+Notifications are switched on per device at the bottom of the planets sheet. On the iPhone that
 works only in the app added to the home screen (iOS 16.4 or later); Safari alone offers no Web Push.
 The server makes its push key pair itself in `COMMS_STATE_DIR/push/` and sends a notification when
 an agent has been blocked, or done without you looking, for 10 seconds. Keep that folder: new keys
@@ -95,32 +95,32 @@ the server running after a log-out, add a launch agent for `pnpm start` yourself
 ## What it does
 
 - **Overview (`/`):** Needs you first (blocked agents and done agents not yet seen), then
-  Everything else: every other agent in one list, ordered by project, with a filter for one
-  project (agents without a project fall under Other). Each row shows the agent's status, project,
+  Everything else: every other agent in one list, ordered by planet, with a filter for one
+  planet (agents without a planet fall under Other). Each row shows the agent's status, planet,
   title and time since the last change. Live.
 - **Conversation (`/agents/<name>`):** a Claude or Pi agent's conversation as a chat, live;
   Chat | Screen switches to its coloured screen. Other agent kinds show only the screen.
 - **Prompts and keys:** the composer sends a prompt (Enter sends, Shift+Enter is a new line). While
   the agent is blocked, an approval panel with its screen and the keys `1 2 3 ↑ ↓ Enter Esc`
   replaces the composer; Ctrl-C sends only after a long press.
-- **New task (on a project in the projects sheet, or its page):** pick a project, describe the task
+- **New task (on a planet in the planets sheet, or its page):** pick a planet, describe the task
   and check the branch (it is suggested from the task, `feat/…` or `fix/…`). The server fetches
   `origin`, creates a Herdr worktree from the default remote branch with the task's first line as
   its label, and, if asked, starts a Claude or Pi agent there and sends it the task. An agent that
   shows a dialog first gets nothing; answer it in its conversation, then send the task. Removing
   worktrees stays on the desktop.
-- **Projects and issues (Projects on the overview):** each project's open Gitea issues (its
+- **Planets and issues (Planets on the overview):** each planet's open Gitea issues (its
   `origin` names the repository), the most recently updated first, with labels, age, a link to
   Gitea and the agents working on each issue (worktrees on a `<type>/<number>-…` branch).
   **Implement with Claude** asks for the branch (suggested as `feat/<number>-<title>`), then starts
   a New task with a Claude agent and the issue, ending in a `Closes #<number>` line, as its first
   prompt. **Close** asks first, warns about agents still on the issue (it leaves them running),
   then closes the issue in Gitea. The app never deletes issues and writes nothing else to Gitea.
-- **Activity (`/activity`, from the projects sheet):** what happened across the agents in the last
+- **Activity (`/activity`, from the planets sheet):** what happened across the agents in the last
   24 hours, newest first: new and gone agents, agents that started working, need you or finished,
   and the prompts (their first line) and keys you sent from the app. The server records it while
   it runs, whether or not the app is open, and keeps the newest 100 events in `activity.json`. An
-  event opens its agent's conversation, or its project when the agent is gone.
+  event opens its agent's conversation, or its planet when the agent is gone.
 - Nothing in the app moves the Herdr focus on the desktop. The "seen" state lives in server memory.
 
 ## The pocket buddy

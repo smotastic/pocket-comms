@@ -28,24 +28,24 @@ import type {
   OverviewView,
   TaskCreatedView,
 } from './comms-client.js';
-import { issuesKey, issuesQuery, overviewQuery, projectsQuery } from './comms-queries.js';
+import { issuesKey, issuesQuery, overviewQuery, planetsQuery } from './comms-queries.js';
 import { CloseIssue } from './CloseIssue.js';
 import { ImplementIssue } from './ImplementIssue.js';
 import { groupIssues, shownLabels } from './issue-groups.js';
 import { STATUS_LABELS } from './labels.js';
 import { useNow, useOverviewLive } from './live.js';
 import { NewTask } from './NewTask.js';
-import { filterOverview } from './project-agents.js';
-import { projectHue } from './rows.js';
+import { filterOverview } from './planet-agents.js';
+import { planetHue } from './rows.js';
 import { since } from './since.js';
 import { StartAgentSheet, type WorktreeToStart } from './StartAgentSheet.js';
 import { startedNotice } from './started.js';
 import { StatusBadge } from './StatusBadge.js';
 
-export interface ProjectPageProps {
+export interface PlanetPageProps {
   readonly client: CommsClient;
-  readonly project: string;
-  /** Shown when the page opens, such as what a start from the projects sheet left to say. */
+  readonly planet: string;
+  /** Shown when the page opens, such as what a start from the planets sheet left to say. */
   readonly notice?: string | undefined;
   readonly onBack: () => void;
   /** Opens the conversation of an agent New task or Implement with Claude started, with a note. */
@@ -149,7 +149,7 @@ const Issues = ({
     );
   }
   if (list._tag === 'NoGiteaRemote') {
-    return <Text tone="muted">This project has no Gitea remote, so it has no issues to show.</Text>;
+    return <Text tone="muted">This planet has no Gitea remote, so it has no issues to show.</Text>;
   }
   if (list.issues.length === 0) return <Text tone="muted">No open issues.</Text>;
   const { inProgress, open } = groupIssues(list.issues);
@@ -180,9 +180,9 @@ const Issues = ({
   );
 };
 
-/** The project's agents from the overview: those in Needs you first, then the others. */
-const agentsOf = (overview: OverviewView, project: string) => {
-  const mine = filterOverview(overview, project);
+/** The planet's agents from the overview: those in Needs you first, then the others. */
+const agentsOf = (overview: OverviewView, planet: string) => {
+  const mine = filterOverview(overview, planet);
   return [...mine.needsYou, ...mine.groups.flatMap((group) => group.agents)];
 };
 
@@ -192,7 +192,7 @@ const Agents = ({
   now,
 }: {
   readonly agents: ReadonlyArray<AgentView>;
-  /** The project's colour. */
+  /** The planet's colour. */
   readonly hue: Hue;
   readonly now: number;
 }) => (
@@ -202,9 +202,9 @@ const Agents = ({
         <SectionHeader title="Agents" count={agents.length} />
         {agents.length === 0 ? <Text tone="muted">No agents are running.</Text> : null}
         {agents.length === 0 ? null : (
-          <AgentList label="Agents of the project">
+          <AgentList label="Agents of the planet">
             {agents.map((agent) => (
-              <AgentItem key={agent.paneId} agent={agent} hue={hue} withProject={false} now={now} />
+              <AgentItem key={agent.paneId} agent={agent} hue={hue} withPlanet={false} now={now} />
             ))}
           </AgentList>
         )}
@@ -214,20 +214,20 @@ const Agents = ({
 );
 
 /**
- * `/projects/$project`: the project's agents, its open Gitea issues with Implement with Claude
+ * `/planets/$planet`: the planet's agents, its open Gitea issues with Implement with Claude
  * (spec 006) and Close (spec 010), and a new task in it (spec 008). The agents update live.
  */
-export const ProjectPage = ({
+export const PlanetPage = ({
   client,
-  project,
+  planet,
   notice: initialNotice,
   onBack,
   onStarted,
-}: ProjectPageProps) => {
+}: PlanetPageProps) => {
   useOverviewLive(client);
   const overview = useQuery(overviewQuery(client));
-  const projects = useQuery(projectsQuery(client));
-  const issues = useQuery(issuesQuery(client, project));
+  const planets = useQuery(planetsQuery(client));
+  const issues = useQuery(issuesQuery(client, planet));
   const queryClient = useQueryClient();
   const [implementing, setImplementing] = useState<IssueView | undefined>(undefined);
   const [closing, setClosing] = useState<IssueView | undefined>(undefined);
@@ -237,7 +237,7 @@ export const ProjectPage = ({
   const now = useNow();
   const repository = issues.data?._tag === 'Listed' ? issues.data.repository : undefined;
   const unknown =
-    projects.data !== undefined && !projects.data.some(({ name }) => name === project);
+    planets.data !== undefined && !planets.data.some(({ name }) => name === planet);
   const back = <IconButton icon="back" label="Back to all agents" onClick={onBack} />;
   // A start without a running agent says so here; a running one opens its conversation.
   const started = (created: TaskCreatedView) => {
@@ -248,9 +248,9 @@ export const ProjectPage = ({
   if (unknown) {
     return (
       <>
-        <AppBar start={back} title={project} end={<BrainstormAction />} />
+        <AppBar start={back} title={planet} end={<BrainstormAction />} />
         <Page>
-          <Text>{project} is not a project.</Text>
+          <Text>{planet} is not a planet.</Text>
         </Page>
       </>
     );
@@ -260,7 +260,7 @@ export const ProjectPage = ({
     <>
       <AppBar
         start={back}
-        title={project}
+        title={planet}
         {...(repository === undefined
           ? {}
           : { subtitle: `${repository.owner}/${repository.name} on Gitea` })}
@@ -280,7 +280,7 @@ export const ProjectPage = ({
       />
       <NewTask
         client={client}
-        project={project}
+        planet={planet}
         open={creating}
         onClose={() => setCreating(false)}
         onCreated={(created) => {
@@ -290,35 +290,35 @@ export const ProjectPage = ({
       />
       <ImplementIssue
         client={client}
-        project={project}
+        planet={planet}
         issue={implementing}
         onClose={() => setImplementing(undefined)}
         onStarted={(created) => {
           setImplementing(undefined);
-          void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
+          void queryClient.invalidateQueries({ queryKey: issuesKey(planet) });
           started(created);
         }}
       />
       <StartAgentSheet
         client={client}
-        project={project}
+        planet={planet}
         worktree={startingIn}
         onClose={() => setStartingIn(undefined)}
         onStarted={(created) => {
           setStartingIn(undefined);
-          void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
+          void queryClient.invalidateQueries({ queryKey: issuesKey(planet) });
           started(created);
         }}
       />
       <CloseIssue
         client={client}
-        project={project}
+        planet={planet}
         issue={closing}
         onClose={() => setClosing(undefined)}
         onClosed={(number) => {
           setClosing(undefined);
           setNotice(`#${number} closed.`);
-          void queryClient.invalidateQueries({ queryKey: issuesKey(project) });
+          void queryClient.invalidateQueries({ queryKey: issuesKey(planet) });
         }}
       />
       <Page>
@@ -335,8 +335,8 @@ export const ProjectPage = ({
             ) : null
           ) : (
             <Agents
-              agents={agentsOf(overview.data, project)}
-              hue={projectHue(project, projects.data?.map(({ name }) => name) ?? [])}
+              agents={agentsOf(overview.data, planet)}
+              hue={planetHue(planet, planets.data?.map(({ name }) => name) ?? [])}
               now={now}
             />
           )}

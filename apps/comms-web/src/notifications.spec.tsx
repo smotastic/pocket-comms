@@ -9,11 +9,11 @@ import { fakeAgent, fakeClient, fakeDevicePush, renderApp } from './testing.js';
 afterEach(cleanup);
 
 const openSheet = async (state: DevicePushState) => {
-  const fake = fakeClient({ projects: [{ name: 'alpha', open: true }] });
+  const fake = fakeClient({ planets: [{ name: 'alpha', open: true }] });
   const device = fakeDevicePush(state);
   renderApp({ client: fake.client, devicePush: device.push });
-  await userEvent.click(await screen.findByRole('button', { name: 'Projects' }));
-  return { ...fake, ...device, sheet: screen.getByRole('dialog', { name: 'Projects' }) };
+  await userEvent.click(await screen.findByRole('button', { name: 'Planets' }));
+  return { ...fake, ...device, sheet: screen.getByRole('dialog', { name: 'Planets' }) };
 };
 
 const comesToTheFront = () =>

@@ -113,7 +113,7 @@ export const agentsHandlers = HttpApiBuilder.group(
             ...lookup,
             NotAWorktreeError: problems.notAWorktree,
             WorktreeHasChangesError: problems.worktreeHasChanges,
-            ProjectGitError: problems.projectGitFailed,
+            RepositoryGitError: problems.planetGitFailed,
             MultiplexerRejectedError: problems.worktreeNotRemoved,
           }),
         ),

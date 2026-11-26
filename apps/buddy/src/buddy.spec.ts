@@ -494,7 +494,7 @@ const issue = (
       kind: 'issue',
       id: 'p1',
       at: 2,
-      project: 'pocket-home',
+      planet: 'pocket-home',
       title: 'Dark mode',
       body: 'A toggle.',
       images: [],
@@ -584,7 +584,7 @@ describe('proposals', () => {
             'p1',
             {
               _tag: 'Create',
-              issue: { project: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
+              issue: { planet: 'pocket-home', title: 'Dark mode', body: 'A toggle.' },
             },
           ],
         ]);
@@ -677,7 +677,7 @@ describe('proposals', () => {
               kind: 'edit',
               id: 'e1',
               at: 3,
-              project: 'pocket-comms',
+              planet: 'pocket-comms',
               number: 11,
               url: 'http://gitea/11',
               title: 'New title',

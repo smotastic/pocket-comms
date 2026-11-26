@@ -13,11 +13,11 @@ const toOpen = (proposal: Proposal): OpenProposal =>
     ? {
         kind: 'issue',
         id: proposal.id,
-        project: proposal.project,
+        planet: proposal.planet,
         title: proposal.title,
         body: proposal.body,
       }
-    : { kind: 'edit', id: proposal.id, project: proposal.project, number: proposal.number };
+    : { kind: 'edit', id: proposal.id, planet: proposal.planet, number: proposal.number };
 
 /** What the owner hears about a proposal the buddy decided, once comms has done it. */
 const outcome = (proposal: Proposal) =>

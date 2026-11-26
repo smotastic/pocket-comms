@@ -17,14 +17,14 @@ import type {
   IssueClosedError,
   IssueNotFoundError,
   NoGiteaRemoteError,
-  ProjectGitError,
-  ProjectNotFoundError,
+  RepositoryGitError,
+  PlanetNotFoundError,
 } from '../errors.js';
 import { makeCloseIssue } from '../use-cases/close-issue.use-case.js';
 import { makeImplementIssue } from '../use-cases/implement-issue.use-case.js';
 import { makeIssues } from '../use-cases/issues.use-case.js';
 
-// The inbound port of the issues resource (ADR 0006): a project's open Gitea issues, and
+// The inbound port of the issues resource (ADR 0006): a planet's open Gitea issues, and
 // implementing one as a spec 005 task and marking it in progress (specs 006 and 015), and closing
 // one (spec 010).
 
@@ -32,20 +32,20 @@ export class IssuesInbound extends Context.Service<
   IssuesInbound,
   {
     readonly issues: (
-      project: string,
-    ) => Effect.Effect<IssueListDto, ProjectNotFoundError | GiteaUnavailableError>;
+      planet: string,
+    ) => Effect.Effect<IssueListDto, PlanetNotFoundError | GiteaUnavailableError>;
     readonly implement: (
       input: ImplementIssueInput,
     ) => Effect.Effect<
       IssueTaskCreatedDto,
-      | ProjectNotFoundError
+      | PlanetNotFoundError
       | NoGiteaRemoteError
       | GiteaNotConfiguredError
       | GiteaUnavailableError
       | IssueNotFoundError
       | IssueClosedError
       | InvalidInputError
-      | ProjectGitError
+      | RepositoryGitError
       | BranchExistsError
       | MultiplexerUnavailableError
       | MultiplexerRejectedError
@@ -54,7 +54,7 @@ export class IssuesInbound extends Context.Service<
       input: CloseIssueInput,
     ) => Effect.Effect<
       void,
-      | ProjectNotFoundError
+      | PlanetNotFoundError
       | NoGiteaRemoteError
       | GiteaNotConfiguredError
       | GiteaUnavailableError

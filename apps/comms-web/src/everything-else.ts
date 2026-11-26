@@ -5,7 +5,7 @@ export const ALL = '*';
 
 type Group = OverviewView['groups'][number];
 
-/** Every agent outside Needs you, by project in the overview's order, those without one last. */
+/** Every agent outside Needs you, by planet in the overview's order, those without one last. */
 export const agentsOf = (groups: ReadonlyArray<Group>, chosen: string = ALL) =>
   (chosen === ALL ? groups : groups.filter((group) => group.key === chosen)).flatMap(
     (group) => group.agents,

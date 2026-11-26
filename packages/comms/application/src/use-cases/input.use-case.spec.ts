@@ -219,7 +219,7 @@ describe('AgentsInbound input in the activity timeline', () => {
             ref: 'kirk',
             name: 'kirk',
             workspace: 'app',
-            project: 'app',
+            planet: 'app',
             worktree: undefined,
           },
         },

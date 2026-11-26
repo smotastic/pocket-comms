@@ -34,7 +34,7 @@ import { CloseAgent } from './CloseAgent.js';
 import { ConversationMenu, type MenuPullRequests } from './ConversationMenu.js';
 import {
   agentQuery,
-  projectsQuery,
+  planetsQuery,
   pullRequestsKey,
   pullRequestsQuery,
   taskStartQuery,
@@ -46,7 +46,7 @@ import {
 import { KeyPad } from './KeyPad.js';
 import { QuickReplies, SuggestedReplies } from './QuickReplies.js';
 import { kindOf, STATUS_LABELS } from './labels.js';
-import { projectHue, projectLabel } from './rows.js';
+import { planetHue, planetLabel } from './rows.js';
 import { useAgentLive, useNow } from './live.js';
 import { StatusBadge } from './StatusBadge.js';
 import { TaskStartCard } from './TaskStartCard.js';
@@ -112,7 +112,7 @@ const Header = ({
   pullRequests,
 }: {
   readonly agent: AgentView | undefined;
-  /** The color of the agent's project, as on the overview. */
+  /** The color of the agent's planet, as on the overview. */
   readonly hue?: Hue;
   /** The agent's attached pull requests, in the More menu (spec 031). */
   readonly pullRequests?: MenuPullRequests;
@@ -150,7 +150,7 @@ const Header = ({
       }
     />
     {agent === undefined ? null : (
-      <AgentTask project={projectLabel(agent)} hue={hue ?? 'neutral'} title={agent.title} />
+      <AgentTask project={planetLabel(agent)} hue={hue ?? 'neutral'} title={agent.title} />
     )}
   </Stack>
 );
@@ -206,7 +206,7 @@ export const Conversation = ({
       pendingEntry.outcome === 'pending' &&
       pendingEntry.questions !== undefined);
   const quickReplies = useQuery(quickRepliesQuery(client));
-  const projects = useQuery(projectsQuery(client));
+  const planets = useQuery(planetsQuery(client));
   const screen = useQuery({
     ...screenQuery(client, agentRef),
     enabled: agent !== undefined && (view === 'screen' || dialogWaits),
@@ -420,7 +420,7 @@ export const Conversation = ({
       header={
         <Header
           agent={agent}
-          hue={projectHue(agent.project, projects.data?.map((project) => project.name) ?? [])}
+          hue={planetHue(agent.planet, planets.data?.map((planet) => planet.name) ?? [])}
           view={view}
           onView={setChosen}
           onBack={onBack}

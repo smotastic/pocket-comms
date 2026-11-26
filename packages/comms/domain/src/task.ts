@@ -3,44 +3,44 @@ import * as Schema from 'effect/Schema';
 import { InvalidInputError } from './errors.js';
 import type { Workspace } from './workspace.js';
 
-// The rules of a new task (spec 005): a project to work in, the task text, the branch of the new
+// The rules of a new task (spec 005): a planet to work in, the task text, the branch of the new
 // worktree, and optionally the agent to start in it.
 
 export const MAX_TASK_LENGTH = 20_000;
 export const MAX_TITLE_LENGTH = 80;
 export const MAX_BRANCH_LENGTH = 80;
 
-/** A git repository directly below the projects root, by its folder name. */
-export interface Project {
+/** A git repository directly below the repositories root, by its folder name. */
+export interface Repository {
   readonly name: string;
   readonly path: string;
 }
 
-/** A project as the app offers it: `open` when Herdr has a workspace for it. */
-export interface ProjectChoice extends Project {
+/** A planet as the app offers it: `open` when Herdr has a workspace for it. */
+export interface PlanetChoice extends Repository {
   readonly open: boolean;
 }
 
-/** Projects open in Herdr first, in Herdr's workspace order, then the others by name. */
-export const orderProjects = (
-  projects: ReadonlyArray<Project>,
+/** Planets open in Herdr first, in Herdr's workspace order, then the others by name. */
+export const orderPlanets = (
+  planets: ReadonlyArray<Repository>,
   workspaces: ReadonlyArray<Workspace>,
-): ReadonlyArray<ProjectChoice> => {
+): ReadonlyArray<PlanetChoice> => {
   const rank = new Map<string, number>();
   for (const workspace of workspaces) {
     if (workspace.root !== undefined && !rank.has(workspace.root)) {
       rank.set(workspace.root, rank.size);
     }
   }
-  const open = projects
-    .filter((project) => rank.has(project.path))
+  const open = planets
+    .filter((planet) => rank.has(planet.path))
     .sort((a, b) => (rank.get(a.path) ?? 0) - (rank.get(b.path) ?? 0));
-  const others = projects
-    .filter((project) => !rank.has(project.path))
+  const others = planets
+    .filter((planet) => !rank.has(planet.path))
     .sort((a, b) => a.name.localeCompare(b.name));
   return [
-    ...open.map((project) => ({ ...project, open: true })),
-    ...others.map((project) => ({ ...project, open: false })),
+    ...open.map((planet) => ({ ...planet, open: true })),
+    ...others.map((planet) => ({ ...planet, open: false })),
   ];
 };
 

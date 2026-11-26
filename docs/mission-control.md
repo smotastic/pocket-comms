@@ -72,9 +72,11 @@ Each step is its own ADR or spec.
    process skills in Pocket Comms, the verify step. Manual agents gain from it at once. _Done:_
    ADRs 0016 and 0017, pocket-factory ADR 0018.
 2. **Planets and preflight:** the registry, the rename from project to planet, the checklist in
-   the cockpit.
-3. **Missions to merge:** sending on a mission, the lane labels and the brainstorm's lane picker,
-   the bot user, the mission queue, the mission's state in the cockpit.
+   the cockpit. Spec 034, ADR 0018.
+3. **Missions to merge:** sending on a mission, from a brainstorm proposal accepted with a lane or
+   by **Send on a mission** on an existing issue (next to Implement, with the same lane picker);
+   the lane labels, the bot user, the mission queue, the mission's state in the cockpit. Sending
+   computes preflight again, without reusing it.
 4. **Autonomous deploy:** deploy recipes, health checks and rollback in preflight.
 5. **Autopilot:** Mission Control chooses issues and their lanes by itself.
 

@@ -21,8 +21,8 @@ import type {
   IssueNotFoundError,
   NoGiteaRemoteError,
   NoTaskStartError,
-  ProjectGitError,
-  ProjectNotFoundError,
+  RepositoryGitError,
+  PlanetNotFoundError,
   TaskStartsStoreError,
   WorktreeBusyError,
   WorktreeNotFoundError,
@@ -42,7 +42,7 @@ export class TaskStartsInbound extends Context.Service<
     readonly forAgent: (
       ref: string,
       fromIssue: boolean,
-    ) => Effect.Effect<TaskStartDto | undefined, Lookup | ProjectNotFoundError>;
+    ) => Effect.Effect<TaskStartDto | undefined, Lookup | PlanetNotFoundError>;
     /** Sends the prompt to the agent while it is idle and ready, and keeps where it went. */
     readonly send: (
       ref: string,
@@ -50,14 +50,14 @@ export class TaskStartsInbound extends Context.Service<
     ) => Effect.Effect<
       TaskStartSentDto,
       | Lookup
-      | ProjectNotFoundError
+      | PlanetNotFoundError
       | InvalidInputError
       | NoTaskStartError
       | AgentNotReadyError
       | DeliveryUncertainError
     >;
     /** Forgets the start of the agent's worktree without sending anything. */
-    readonly dismiss: (ref: string) => Effect.Effect<void, Lookup | ProjectNotFoundError>;
+    readonly dismiss: (ref: string) => Effect.Effect<void, Lookup | PlanetNotFoundError>;
     /** Starts an agent in the issue's existing worktree on `branch`, with the start's prompt. */
     readonly startInWorktree: (
       input: StartAgentInWorktreeInput,
@@ -66,8 +66,8 @@ export class TaskStartsInbound extends Context.Service<
       | MultiplexerUnavailableError
       | MultiplexerRejectedError
       | TaskStartsStoreError
-      | ProjectNotFoundError
-      | ProjectGitError
+      | PlanetNotFoundError
+      | RepositoryGitError
       | NoGiteaRemoteError
       | GiteaNotConfiguredError
       | GiteaUnavailableError

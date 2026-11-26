@@ -9,8 +9,8 @@ export const agentKey = (ref: string) => ['agent', ref] as const;
 export const conversationKey = (ref: string) => ['conversation', ref] as const;
 export const screenKey = (ref: string) => ['screen', ref] as const;
 export const subagentKey = (ref: string, id: string) => ['subagent', ref, id] as const;
-export const projectsKey = ['projects'] as const;
-export const issuesKey = (project: string) => ['issues', project] as const;
+export const planetsKey = ['planets'] as const;
+export const issuesKey = (planet: string) => ['issues', planet] as const;
 export const brainstormKey = ['brainstorm'] as const;
 export const activityKey = ['activity'] as const;
 /** The multiplexer the overview stream last named; only that stream writes it. */
@@ -55,15 +55,15 @@ export const screenQuery = (client: CommsClient, ref: string) =>
     refetchInterval: 1000,
   });
 
-/** The projects are read again each time the New task sheet opens. */
-export const projectsQuery = (client: CommsClient) =>
-  queryOptions({ queryKey: projectsKey, queryFn: () => client.projects(), staleTime: 0 });
+/** The planets are read again each time the New task sheet opens. */
+export const planetsQuery = (client: CommsClient) =>
+  queryOptions({ queryKey: planetsKey, queryFn: () => client.planets(), staleTime: 0 });
 
-/** A project's issues, read again every 30 seconds so the agents working on them stay current. */
-export const issuesQuery = (client: CommsClient, project: string) =>
+/** A planet's issues, read again every 30 seconds so the agents working on them stay current. */
+export const issuesQuery = (client: CommsClient, planet: string) =>
   queryOptions({
-    queryKey: issuesKey(project),
-    queryFn: () => client.issues(project),
+    queryKey: issuesKey(planet),
+    queryFn: () => client.issues(planet),
     refetchInterval: 30_000,
   });
 

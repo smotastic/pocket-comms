@@ -21,7 +21,7 @@ import { withMarkNote } from './issue-groups.js';
 
 export interface ImplementIssueProps {
   readonly client: CommsClient;
-  readonly project: string;
+  readonly planet: string;
   /** The issue to implement; none closes the sheet. */
   readonly issue: IssueView | undefined;
   readonly onClose: () => void;
@@ -30,7 +30,7 @@ export interface ImplementIssueProps {
 
 const ImplementForm = ({
   client,
-  project,
+  planet,
   issue,
   onStarted,
 }: Omit<ImplementIssueProps, 'issue' | 'onClose'> & { readonly issue: IssueView }) => {
@@ -39,7 +39,7 @@ const ImplementForm = ({
   const start = useMutation({
     mutationFn: () =>
       client.implementIssue(
-        project,
+        planet,
         issue.number,
         branch,
         additionalInformation.trim() === '' ? undefined : additionalInformation,
@@ -66,7 +66,7 @@ const ImplementForm = ({
       }
     >
       <Text tone="muted">
-        Claude starts in a new worktree of {project}, with the issue as its first prompt.
+        Claude starts in a new worktree of {planet}, with the issue as its first prompt.
       </Text>
       <Input
         label="Branch"
@@ -100,7 +100,7 @@ const ImplementForm = ({
  */
 export const ImplementIssue = ({
   client,
-  project,
+  planet,
   issue,
   onClose,
   onStarted,
@@ -123,7 +123,7 @@ export const ImplementIssue = ({
       <ImplementForm
         key={issue.number}
         client={client}
-        project={project}
+        planet={planet}
         issue={issue}
         onStarted={onStarted}
       />

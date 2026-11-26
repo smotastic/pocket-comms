@@ -43,3 +43,4 @@ spec and plan approval became the grilling (ADR 0016).
 | [0015](0015-a-multiplexer-port-with-switchable-herdr-hc-and-rex-adapters.md) | A multiplexer port with switchable Herdr, hc and Rex adapters | Accepted                              |
 | [0016](0016-pocket-comms-owns-the-workflow-and-the-flight-rules.md)          | Pocket Comms owns the workflow and the flight rules           | Accepted                              |
 | [0017](0017-take-up-the-flight-rules-cut-of-the-template.md)                 | Take up the flight-rules cut of the template                  | Accepted                              |
+| [0018](0018-planets-are-registered-and-preflight-is-computed-from-facts.md)  | Planets are registered, and preflight is computed from facts  | Accepted                              |

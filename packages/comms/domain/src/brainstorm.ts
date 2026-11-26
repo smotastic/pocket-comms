@@ -4,15 +4,15 @@ import { InvalidInputError } from './errors.js';
 
 // The rules of the brainstorm: what the conversation holds, the issue or the edit
 // a proposal proposes and how it is decided, the images that go with it, the issues Pi read, and
-// the project files Pi may read.
+// the planet files Pi may read.
 
 /** Gitea's limit of an issue title. */
 export const MAX_ISSUE_TITLE = 255;
 export const MAX_ISSUE_BODY = 20_000;
 
-/** The issue a proposal proposes: the project by its name, the title and the Markdown body. */
+/** The issue a proposal proposes: the planet by its name, the title and the Markdown body. */
 export interface ProposedIssue {
-  readonly project: string;
+  readonly planet: string;
   readonly title: string;
   readonly body: string;
 }
@@ -72,7 +72,7 @@ export interface EditProposal extends IssueText, WithImages {
   readonly kind: 'edit';
   readonly id: string;
   readonly at: number;
-  readonly project: string;
+  readonly planet: string;
   readonly number: number;
   /** The issue's page in Gitea. */
   readonly url: string;
@@ -121,19 +121,19 @@ const textIssues = (title: string, body: string): Array<FieldIssue> => {
   return issues;
 };
 
-/** The proposed issue, trimmed; a blank project or title, or a field over its limit, is refused. */
+/** The proposed issue, trimmed; a blank planet or title, or a field over its limit, is refused. */
 export const parseProposedIssue = (
   issue: ProposedIssue,
 ): Result.Result<ProposedIssue, InvalidInputError> => {
-  const project = issue.project.trim();
+  const planet = issue.planet.trim();
   const title = issue.title.trim();
   const body = issue.body.trim();
   const issues: Array<FieldIssue> = [
-    ...(project === '' ? [{ field: 'project', message: 'Choose a project.' }] : []),
+    ...(planet === '' ? [{ field: 'planet', message: 'Choose a planet.' }] : []),
     ...textIssues(title, body),
   ];
   return issues.length === 0
-    ? Result.succeed({ project, title, body })
+    ? Result.succeed({ planet, title, body })
     : Result.fail(new InvalidInputError({ issues }));
 };
 
@@ -230,7 +230,7 @@ export const withImages = (
 
 /** An issue as Pi last read it; `cut` when its body was longer than Pi may read. */
 export interface IssueRead extends IssueText {
-  readonly project: string;
+  readonly planet: string;
   readonly number: number;
   /** The issue's page in Gitea. */
   readonly url: string;
@@ -242,17 +242,16 @@ export const rememberRead = (
   reads: ReadonlyArray<IssueRead>,
   read: IssueRead,
 ): ReadonlyArray<IssueRead> => [
-  ...reads.filter((kept) => kept.project !== read.project || kept.number !== read.number),
+  ...reads.filter((kept) => kept.planet !== read.planet || kept.number !== read.number),
   read,
 ];
 
-/** The last read of a project's issue, if Pi read it. */
+/** The last read of a planet's issue, if Pi read it. */
 export const readOf = (
   reads: ReadonlyArray<IssueRead>,
-  project: string,
+  planet: string,
   number: number,
-): IssueRead | undefined =>
-  reads.find((read) => read.project === project && read.number === number);
+): IssueRead | undefined => reads.find((read) => read.planet === planet && read.number === number);
 
 /** The body Pi may read: at most an issue body's limit, and whether it was cut. */
 export const cutIssueBody = (body: string): { readonly body: string; readonly cut: boolean } =>
@@ -264,14 +263,14 @@ export const cutIssueBody = (body: string): { readonly body: string; readonly cu
 export const baseChanged = (base: IssueText, current: IssueText): boolean =>
   base.title !== current.title || base.body !== current.body;
 
-/** The files at a project's top level that Pi may read; nothing else. */
-export const PROJECT_DOCS = ['README.md', 'AGENTS.md'] as const;
-export type ProjectDoc = (typeof PROJECT_DOCS)[number];
+/** The files at a planet's top level that Pi may read; nothing else. */
+export const PLANET_DOCS = ['README.md', 'AGENTS.md'] as const;
+export type RepositoryDoc = (typeof PLANET_DOCS)[number];
 
-export const isProjectDoc = (name: string): name is ProjectDoc =>
-  (PROJECT_DOCS as ReadonlyArray<string>).includes(name);
+export const isRepositoryDoc = (name: string): name is RepositoryDoc =>
+  (PLANET_DOCS as ReadonlyArray<string>).includes(name);
 
-/** Pi reads at most this many characters of a project doc. */
+/** Pi reads at most this many characters of a planet doc. */
 export const MAX_DOC_LENGTH = 20_000;
 
 export const cutDoc = (text: string): string =>
