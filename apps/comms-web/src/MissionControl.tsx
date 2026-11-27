@@ -1,0 +1,241 @@
+import {
+  Alert,
+  AppBar,
+  Button,
+  Card,
+  IconButton,
+  Inline,
+  Link,
+  List,
+  ListItem,
+  Page,
+  SectionHeader,
+  Stack,
+  Tag,
+  Text,
+} from '@smotastic/pocket-design';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import type { CommsClient, MissionView } from './comms-client.js';
+import { missionsKey, missionsQuery } from './comms-queries.js';
+import { useNow } from './live.js';
+import { since } from './since.js';
+
+/** What each state is called on the screen (spec 035). */
+export const STATE_NAMES: Readonly<Record<MissionView['state'], string>> = {
+  queued: 'Queued',
+  working: 'Working',
+  waiting: 'Waiting on you',
+  'pull-request': 'Pull request',
+  lost: 'Lost',
+  // Until step 4 a merge is not a deploy.
+  merged: 'Merged, not deployed',
+  failed: 'Failed',
+  aborted: 'Aborted',
+  held: 'Held',
+};
+
+const laneName = (mission: MissionView) => (mission.lane === 'hop' ? 'Hop' : 'Full flight');
+
+/** How long a finished mission ran, in minutes or hours. */
+export const ranFor = (mission: MissionView): string | undefined => {
+  if (mission.startedAt === undefined || mission.finishedAt === undefined) return undefined;
+  const minutes = Math.max(1, Math.round((mission.finishedAt - mission.startedAt) / 60_000));
+  return minutes < 60 ? `ran ${minutes} min` : `ran ${(minutes / 60).toFixed(1)} h`;
+};
+
+const IssueLink = ({ mission }: { readonly mission: MissionView }) => (
+  <Link emphasis="strong" external href={mission.issue.url}>
+    {`${mission.planet} #${mission.issue.number} ${mission.issue.title}`}
+  </Link>
+);
+
+/** A button that runs `action`, shows a failure, and reads Mission Control again. */
+const Action = ({
+  label,
+  variant,
+  action,
+}: {
+  readonly label: string;
+  readonly variant: 'secondary' | 'danger';
+  readonly action: () => Promise<void>;
+}) => {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | undefined>(undefined);
+  return (
+    <Stack gap="xs">
+      <Button
+        size="sm"
+        variant={variant}
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setFailure(undefined);
+          action()
+            .then(() => queryClient.invalidateQueries({ queryKey: missionsKey }))
+            .catch((error: unknown) =>
+              setFailure(error instanceof Error ? error.message : `${label} failed.`),
+            )
+            .finally(() => setBusy(false));
+        }}
+      >
+        {label}
+      </Button>
+      {failure === undefined ? null : <Alert>{failure}</Alert>}
+    </Stack>
+  );
+};
+
+const Running = ({
+  client,
+  mission,
+}: {
+  readonly client: CommsClient;
+  readonly mission: MissionView;
+}) => (
+  <Card>
+    <section aria-label="Running mission">
+      <Stack gap="xs">
+        <SectionHeader title="Running" />
+        <IssueLink mission={mission} />
+        <Inline gap="xs">
+          <Tag>{STATE_NAMES[mission.state]}</Tag>
+          <Tag>{laneName(mission)}</Tag>
+          {mission.agent === undefined ? null : (
+            <Link href={`/agents/${encodeURIComponent(mission.agent)}`}>Open its agent</Link>
+          )}
+          {mission.pullRequest === undefined ? null : (
+            <Link external href={mission.pullRequest.url}>
+              {`Pull request #${mission.pullRequest.number}`}
+            </Link>
+          )}
+        </Inline>
+        {mission.reason === undefined ? null : <Text size="sm">{mission.reason}</Text>}
+        <Inline gap="xs">
+          {mission.state === 'lost' ? (
+            <Action
+              label="Resume"
+              variant="secondary"
+              action={() => client.resumeMission(mission.id)}
+            />
+          ) : null}
+          <Action label="Abort" variant="danger" action={() => client.abortMission(mission.id)} />
+        </Inline>
+      </Stack>
+    </section>
+  </Card>
+);
+
+/**
+ * Mission Control (spec 035): the running mission with Abort and Resume, the mission queue with
+ * Remove, and the mission log with what finished since the owner last looked. Opening it marks the
+ * log seen; the marks stay on this screen until it reads the missions again.
+ */
+export const MissionControl = ({
+  client,
+  onBack,
+}: {
+  readonly client: CommsClient;
+  readonly onBack: () => void;
+}) => {
+  const missions = useQuery(missionsQuery(client));
+  const now = useNow();
+  const marked = useRef(false);
+  const data = missions.data;
+  useEffect(() => {
+    if (data === undefined || marked.current) return;
+    marked.current = true;
+    if (data.newCount > 0) void client.missionsSeen().catch(() => undefined);
+  }, [client, data]);
+
+  return (
+    <>
+      <AppBar
+        start={<IconButton icon="back" label="Back to all agents" onClick={onBack} />}
+        title="Mission Control"
+      />
+      <Page>
+        <Stack gap="md">
+          {missions.error === null ? null : <Alert>{missions.error.message}</Alert>}
+          {missions.isPending ? <Text tone="muted">Reading the missions…</Text> : null}
+          {data === undefined ? null : (
+            <>
+              {data.running === undefined ? (
+                <Text tone="muted">No mission is running.</Text>
+              ) : (
+                <Running client={client} mission={data.running} />
+              )}
+              <Stack gap="xs">
+                <SectionHeader title="Mission queue" count={data.queue.length} />
+                {data.queue.length === 0 ? (
+                  <Text tone="muted">No mission waits.</Text>
+                ) : (
+                  <List aria-label="Mission queue">
+                    {data.queue.map((mission) => (
+                      <ListItem key={mission.id}>
+                        <Stack gap="xs">
+                          <IssueLink mission={mission} />
+                          <Inline gap="xs">
+                            <Tag>{laneName(mission)}</Tag>
+                            <Text as="span" size="sm" tone="muted">
+                              {`sent ${since(mission.sentAt, now)} ago`}
+                            </Text>
+                            <Action
+                              label="Remove"
+                              variant="secondary"
+                              action={() => client.removeMission(mission.id)}
+                            />
+                          </Inline>
+                        </Stack>
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Stack>
+              <Stack gap="xs">
+                <SectionHeader title="Mission log" count={data.log.length} />
+                {data.log.length === 0 ? (
+                  <Text tone="muted">No mission has finished yet.</Text>
+                ) : (
+                  <List aria-label="Mission log">
+                    {data.log.map((mission) => (
+                      <ListItem key={mission.id}>
+                        <Stack gap="xs">
+                          <IssueLink mission={mission} />
+                          <Inline gap="xs">
+                            {mission.isNew === true ? <Tag>New</Tag> : null}
+                            <Tag>{STATE_NAMES[mission.state]}</Tag>
+                            <Tag>{laneName(mission)}</Tag>
+                            {mission.pullRequest === undefined ? null : (
+                              <Link external href={mission.pullRequest.url}>
+                                {`Pull request #${mission.pullRequest.number}`}
+                              </Link>
+                            )}
+                            <Text as="span" size="sm" tone="muted">
+                              {[
+                                ranFor(mission),
+                                mission.finishedAt === undefined
+                                  ? undefined
+                                  : `finished ${since(mission.finishedAt, now)} ago`,
+                              ]
+                                .filter((part) => part !== undefined)
+                                .join(' · ')}
+                            </Text>
+                          </Inline>
+                          {mission.outcome === undefined && mission.reason === undefined ? null : (
+                            <Text size="sm">{mission.outcome ?? mission.reason}</Text>
+                          )}
+                        </Stack>
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Stack>
+            </>
+          )}
+        </Stack>
+      </Page>
+    </>
+  );
+};

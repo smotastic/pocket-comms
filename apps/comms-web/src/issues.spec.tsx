@@ -457,3 +457,36 @@ describe('recovering a task start from an issue', () => {
     expect(await within(sheet).findByText(/has a live agent/u)).toBeTruthy();
   });
 });
+
+describe('Send on a mission (spec 035)', () => {
+  const sendSheet = async (number: number) => {
+    await userEvent.click(
+      within(await rowOf(number)).getByRole('button', { name: 'Send on a mission' }),
+    );
+    return screen.findByRole('dialog', { name: `Send #${number} on a mission` });
+  };
+
+  it("names the lane the issue's label names, and sends the lane the owner picks", async () => {
+    const { calls } = open(listed(issue({ number: 8, labels: ['mission:hop'] })));
+
+    const sheet = await sendSheet(8);
+    expect(within(sheet).getByText("The issue's label names the lane hop.")).toBeTruthy();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Send as full flight' }));
+
+    await waitFor(() => expect(calls.sentMissions).toEqual(['pocket-comms #8 full-flight']));
+    expect(await screen.findByText('#8 is on a mission: queued.')).toBeTruthy();
+  });
+
+  it('asks for a lane when the issue names none, and shows why a send is refused', async () => {
+    const { calls } = open(listed(issue({ number: 3 })), {
+      missionFailure: new RequestError('pocket-comms is at manual.', 409),
+    });
+
+    const sheet = await sendSheet(3);
+    expect(within(sheet).getByText('The issue names no lane: pick one.')).toBeTruthy();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Send as hop' }));
+
+    expect(await within(sheet).findByText('pocket-comms is at manual.')).toBeTruthy();
+    expect(calls.sentMissions).toEqual(['pocket-comms #3 hop']);
+  });
+});

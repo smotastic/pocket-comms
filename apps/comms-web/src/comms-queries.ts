@@ -10,6 +10,7 @@ export const conversationKey = (ref: string) => ['conversation', ref] as const;
 export const screenKey = (ref: string) => ['screen', ref] as const;
 export const subagentKey = (ref: string, id: string) => ['subagent', ref, id] as const;
 export const planetsKey = ['planets'] as const;
+export const missionsKey = ['missions'] as const;
 export const issuesKey = (planet: string) => ['issues', planet] as const;
 export const brainstormKey = ['brainstorm'] as const;
 export const activityKey = ['activity'] as const;
@@ -22,6 +23,14 @@ export const taskStartKey = (ref: string, fromIssue: boolean) =>
   ['task-start', ref, fromIssue] as const;
 export const pullRequestChangesKey = (ref: string, { owner, name, number }: PullRequestRef) =>
   ['pull-request-changes', ref, owner, name, number] as const;
+
+/** Mission Control, read again every 10 seconds while a screen shows it (spec 035). */
+export const missionsQuery = (client: CommsClient) =>
+  queryOptions({
+    queryKey: missionsKey,
+    queryFn: () => client.missions(),
+    refetchInterval: 10_000,
+  });
 
 export const overviewQuery = (client: CommsClient) =>
   queryOptions({ queryKey: overviewKey, queryFn: () => client.overview() });

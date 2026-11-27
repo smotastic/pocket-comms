@@ -17,6 +17,7 @@ export const Route = createFileRoute('/')({
           })
         }
         onSettings={() => void navigate({ to: '/settings' })}
+        onMissions={() => void navigate({ to: '/missions' })}
         onStarted={(agent, note) =>
           void navigate({
             to: '/agents/$agent',

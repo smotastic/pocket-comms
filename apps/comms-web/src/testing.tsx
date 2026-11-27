@@ -22,6 +22,7 @@ import {
   type OverviewView,
   type PlanetView,
   type PreflightView,
+  type MissionsView,
   type ProposalDecision,
   type SubagentEventView,
   type SubagentView,
@@ -129,6 +130,10 @@ export interface FakeState {
   taskStartSent: TaskStartSentView | RequestError;
   /** What the next Start an agent here answers. */
   startedInWorktree: TaskCreatedView | RequestError;
+  /** Mission Control as the server holds it. */
+  missions: MissionsView;
+  /** What the next send on a mission answers; without it the mission is queued. */
+  missionFailure?: RequestError;
 }
 
 /**
@@ -169,6 +174,7 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     taskStarts: new Map(),
     taskStartSent: { delivery: 'delivered' },
     startedInWorktree: { workspace: 'w5', branch: 'fix/12-login', path: '/worktrees/fix-12-login' },
+    missions: { queue: [], log: [], newCount: 0 },
     ...initial,
   };
   const calls = {
@@ -185,6 +191,13 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     answers: [] as Array<[string, string, ReadonlyArray<ReadonlyArray<number>>]>,
     seen: [] as Array<string>,
     registered: [] as Array<string>,
+    /** Every send on a mission, as `<planet> #<number> <lane>`. */
+    sentMissions: [] as Array<string>,
+    /** Every chosen level, as `<planet> <level>`. */
+    chosenLevels: [] as Array<string>,
+    /** Every abort, remove and resume, as `<request> <id>`. */
+    missionRequests: [] as Array<string>,
+    missionsSeen: 0,
     unregistered: [] as Array<string>,
     tasks: [] as Array<NewTask>,
     implemented: [] as Array<[string, number, string, string?]>,
@@ -302,6 +315,34 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
       calls.registered.push(name);
       state.others = state.others.filter((other) => other !== name);
       state.planets = [...state.planets, { name, open: false }];
+    },
+    chooseAutonomy: async (planet, level) => {
+      calls.chosenLevels.push(`${planet} ${level}`);
+    },
+    sendOnMission: async (planet, number, lane) => {
+      calls.sentMissions.push(`${planet} #${number} ${lane}`);
+      if (state.missionFailure !== undefined) throw state.missionFailure;
+      return {
+        id: '3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b',
+        planet,
+        issue: { number, title: 'An issue', url: `http://gitea/${number}` },
+        lane,
+        state: 'queued',
+        sentAt: 1,
+      };
+    },
+    missions: async () => state.missions,
+    removeMission: async (id) => {
+      calls.missionRequests.push(`remove ${id}`);
+    },
+    abortMission: async (id) => {
+      calls.missionRequests.push(`abort ${id}`);
+    },
+    resumeMission: async (id) => {
+      calls.missionRequests.push(`resume ${id}`);
+    },
+    missionsSeen: async () => {
+      calls.missionsSeen += 1;
     },
     preflight: async (planet) => {
       const preflight = state.preflights.get(planet);
