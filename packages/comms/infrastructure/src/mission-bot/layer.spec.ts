@@ -260,4 +260,47 @@ describe('the mission bot', () => {
       expect(statSync(credentials).mode & 0o777).toBe(0o600);
     }).pipe(Effect.scoped),
   );
+
+  it.effect('pushes a tag, accepts the same tag on the same commit, refuses another commit', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((path, method) => {
+        if (method === 'POST' && path === '/repos/owner/app/tags') {
+          return { status: 201, body: { name: 'app-v1.0.0' } };
+        }
+        return { status: 404, body: {} };
+      });
+      const missions = yield* bot(gitea.url);
+      yield* missions.pushTag(repository, 'app-v1.0.0', 'abc');
+      expect(gitea.seen[0]).toMatchObject({
+        method: 'POST',
+        path: '/repos/owner/app/tags',
+        body: { tag_name: 'app-v1.0.0', target: 'abc' },
+      });
+
+      const exists = yield* fakeGitea((path, method) => {
+        if (method === 'POST') return { status: 409, body: { message: 'exists' } };
+        if (path === '/repos/owner/app/tags/app-v1.0.0') {
+          return { status: 200, body: { name: 'app-v1.0.0', commit: { sha: 'abc' } } };
+        }
+        return { status: 404, body: {} };
+      });
+      const again = yield* bot(exists.url);
+      yield* again.pushTag(repository, 'app-v1.0.0', 'abc');
+      const other = yield* again.pushTag(repository, 'app-v1.0.0', 'def').pipe(Effect.flip);
+      expect(other.reason).toBe('The tag app-v1.0.0 exists already on another commit.');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('opens an issue and answers its number', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((path, method) =>
+        method === 'POST' && path === '/repos/owner/app/issues'
+          ? { status: 201, body: { number: 41 } }
+          : { status: 404, body: {} },
+      );
+      const missions = yield* bot(gitea.url);
+      expect(yield* missions.openIssue(repository, { title: 'Fix it', body: 'Output.' })).toBe(41);
+      expect(gitea.seen[0]?.body).toEqual({ title: 'Fix it', body: 'Output.' });
+    }).pipe(Effect.scoped),
+  );
 });

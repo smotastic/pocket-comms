@@ -25,3 +25,31 @@ POST /api/v1/projects/{project}/issues/{number}/implement api path removed witho
 POST /api/v1/projects/{project}/issues/{number}/start-agent api path removed without deprecation
 POST /api/v1/tasks added the new required request property `planet`
 GET /api/v1/planets/{planet}/preflight added the new `mission-bot` enum value to the `checks/items/check` response property for the response status `200`
+GET /api/v1/missions added the new `awaiting-deploy` enum value to the `log/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `awaiting-deploy` enum value to the `queue/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `awaiting-deploy` enum value to the `running/anyOf[#/components/schemas/Mission_1]/state` response property for the response status `200`
+GET /api/v1/missions added the new `deployed` enum value to the `log/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `deployed` enum value to the `queue/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `deployed` enum value to the `running/anyOf[#/components/schemas/Mission_1]/state` response property for the response status `200`
+GET /api/v1/missions added the new `deploying` enum value to the `log/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `deploying` enum value to the `queue/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `deploying` enum value to the `running/anyOf[#/components/schemas/Mission_1]/state` response property for the response status `200`
+GET /api/v1/missions added the new `not-deployed` enum value to the `log/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `not-deployed` enum value to the `queue/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `not-deployed` enum value to the `running/anyOf[#/components/schemas/Mission_1]/state` response property for the response status `200`
+GET /api/v1/missions added the new `nothing-to-release` enum value to the `log/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `nothing-to-release` enum value to the `queue/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `nothing-to-release` enum value to the `running/anyOf[#/components/schemas/Mission_1]/state` response property for the response status `200`
+GET /api/v1/missions added the new `releasing` enum value to the `log/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `releasing` enum value to the `queue/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `releasing` enum value to the `running/anyOf[#/components/schemas/Mission_1]/state` response property for the response status `200`
+GET /api/v1/missions added the new `rolled-back` enum value to the `log/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `rolled-back` enum value to the `queue/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `rolled-back` enum value to the `running/anyOf[#/components/schemas/Mission_1]/state` response property for the response status `200`
+POST /api/v1/planets/{planet}/issues/{number}/mission added the new `awaiting-deploy` enum value to the `state` response property for the response status `201`
+POST /api/v1/planets/{planet}/issues/{number}/mission added the new `deployed` enum value to the `state` response property for the response status `201`
+POST /api/v1/planets/{planet}/issues/{number}/mission added the new `deploying` enum value to the `state` response property for the response status `201`
+POST /api/v1/planets/{planet}/issues/{number}/mission added the new `not-deployed` enum value to the `state` response property for the response status `201`
+POST /api/v1/planets/{planet}/issues/{number}/mission added the new `nothing-to-release` enum value to the `state` response property for the response status `201`
+POST /api/v1/planets/{planet}/issues/{number}/mission added the new `releasing` enum value to the `state` response property for the response status `201`
+POST /api/v1/planets/{planet}/issues/{number}/mission added the new `rolled-back` enum value to the `state` response property for the response status `201`

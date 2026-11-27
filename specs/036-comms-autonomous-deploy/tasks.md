@@ -25,11 +25,11 @@ Requirements are the spec's numbers (R1–R18).
   `deploy.sh check`, `start` runs the script detached with a result file in the state folder,
   `result` reads it; `COMMS_DEPLOY_SCRIPT` in the config and composition. (R3, R13, R14) Gate:
   adapter tests against a fake script in a temporary folder.
-- [ ] **T05** — `RepositoriesOutbound`: fetch the planet's tags, list the tags of a prefix, the
+- [x] **T05** — `RepositoriesOutbound`: fetch the planet's tags, list the tags of a prefix, the
   commits since a tag with their files, and the default branch's head, from the planet's
   checkout. (R6, R7, R9) Gate: adapter tests against temporary repositories with an isolated git
   environment.
-- [ ] **T06** — `GiteaOutbound.tagRun` (a tag's release workflow run) and `MissionBotOutbound`
+- [x] **T06** — `GiteaOutbound.tagRun` (a tag's release workflow run) and `MissionBotOutbound`
   `pushTag` and `openIssue`. (R9, R12) Gate: adapter tests against the fake Gitea.
 
 ## Use cases
@@ -49,7 +49,7 @@ Requirements are the spec's numbers (R1–R18).
 
 ## API and cockpit
 
-- [ ] **T11** — Contract and API: the new states, `versions`, `POST /missions/{mission}/deploy`,
+- [x] **T11** — Contract and API: the new states, `versions`, `POST /missions/{mission}/deploy`,
   the preflight's deploy section; the OpenAPI document regenerated and linted; the accepted line
   for the widened state union. (R15, R17, R18) Gate: API tests, `openapi:lint`, `openapi:diff`.
 - [ ] **T12** — Web: Mission Control shows the new states, the versions and Deploy; the planet

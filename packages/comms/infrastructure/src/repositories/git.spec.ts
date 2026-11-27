@@ -414,3 +414,50 @@ describe('Planets.layerGit for the brainstorm', () => {
     }),
   );
 });
+
+describe('Planets.layerGit for releases (spec 036)', () => {
+  const planet = (root: string, name: string) => ({ name, path: join(root, name) });
+
+  it.live('fetches the tags, names a ref’s commit, and lists the commits since a tag', () =>
+    Effect.gen(function* () {
+      const { root, seed } = repositoriesRoot();
+      run(seed, 'tag', 'app-v0.1.0');
+      mkdirSync(join(seed, 'apps'));
+      writeFileSync(join(seed, 'apps', 'a.ts'), 'a\n');
+      run(seed, 'add', '.');
+      run(seed, 'commit', '--quiet', '-m', 'fix(app): a', '-m', 'BREAKING CHANGE: moved');
+      writeFileSync(join(seed, 'README.md'), 'seed 2\n');
+      run(seed, 'commit', '--quiet', '-am', 'docs: words');
+      run(seed, 'push', '--quiet', '--tags', 'origin', 'HEAD:main');
+      const head = run(seed, 'rev-parse', 'HEAD').trim();
+
+      const found = yield* RepositoriesOutbound.use((outbound) =>
+        Effect.gen(function* () {
+          const alpha = planet(root, 'alpha');
+          const base = yield* outbound.defaultBase(alpha);
+          yield* outbound.fetchTags(alpha);
+          return {
+            tags: yield* outbound.tags(alpha),
+            head: yield* outbound.commitOf(alpha, base),
+            since: yield* outbound.commits(alpha, 'app-v0.1.0', base),
+            all: yield* outbound.commits(alpha, undefined, base),
+            bad: yield* outbound.commitOf(alpha, 'nope').pipe(Effect.flip),
+          };
+        }),
+      ).pipe(Effect.provide(layerGit({ root, worktreesRoot: worktreesOf(root) })));
+
+      expect(found.tags).toEqual(['app-v0.1.0']);
+      expect(found.head).toBe(head);
+      expect(found.since).toEqual([
+        { subject: 'fix(app): a', body: 'BREAKING CHANGE: moved', files: ['apps/a.ts'] },
+        { subject: 'docs: words', body: '', files: ['README.md'] },
+      ]);
+      expect(found.all.map((commit) => commit.subject)).toEqual([
+        'seed',
+        'fix(app): a',
+        'docs: words',
+      ]);
+      expect(found.bad).toBeInstanceOf(RepositoryGitError);
+    }),
+  );
+});

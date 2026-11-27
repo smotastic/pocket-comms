@@ -88,6 +88,7 @@ describe('CommsApi', () => {
       '/api/v1/missions/seen',
       '/api/v1/missions/{mission}',
       '/api/v1/missions/{mission}/abort',
+      '/api/v1/missions/{mission}/deploy',
       '/api/v1/missions/{mission}/resume',
       '/api/v1/planets',
       '/api/v1/planets/{planet}',

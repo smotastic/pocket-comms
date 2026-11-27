@@ -33,6 +33,9 @@ export const missionsHandlers = HttpApiBuilder.group(
           }),
         ),
       )
+      .handle('deploy', ({ params }) =>
+        missionsInbound.deploy(params.mission).pipe(Effect.catchTags(kept)),
+      )
       .handle('seen', () =>
         missionsInbound
           .seen()

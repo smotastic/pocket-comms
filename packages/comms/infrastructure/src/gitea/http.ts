@@ -155,6 +155,20 @@ const decodeRuns = Schema.decodeUnknownEffect(
   }),
 );
 
+const decodeTagRuns = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    workflow_runs: Schema.NullOr(
+      Schema.Array(
+        Schema.Struct({
+          path: Schema.optional(Schema.String),
+          status: Schema.String,
+          conclusion: Schema.optional(Schema.String),
+        }),
+      ),
+    ),
+  }),
+);
+
 /** The most of a file preflight reads, such as a `package.json`. */
 const MAX_FILE_BYTES = 256 * 1024;
 /** The push runs preflight looks back on. */
@@ -319,6 +333,23 @@ export const layerHttp = ({
         })),
       );
     }).pipe(Effect.withSpan('Gitea.pushRuns'));
+
+  // Gitea names a tag's run by its path, `<workflow>@refs/tags/<tag>`; the newest runs come first.
+  const tagRun = (repository: GiteaRepository, workflow: string, tag: string) =>
+    Effect.gen(function* () {
+      const answer = yield* get(`${repositoryPath(repository)}/actions/runs?event=push&limit=50`);
+      if (answer === undefined) return Option.none<CiRun>();
+      const decoded = yield* decodeTagRuns(answer).pipe(Effect.mapError(unknownShape));
+      const run = (decoded.workflow_runs ?? []).find(
+        (each) => each.path === `${workflow}@refs/tags/${tag}`,
+      );
+      return run === undefined
+        ? Option.none<CiRun>()
+        : Option.some<CiRun>({
+            status: run.status,
+            ...(run.conclusion === undefined ? {} : { conclusion: run.conclusion }),
+          });
+    }).pipe(Effect.withSpan('Gitea.tagRun'));
 
   const openIssues = (repository: GiteaRepository) =>
     Effect.gen(function* () {
@@ -581,6 +612,7 @@ export const layerHttp = ({
       fileText,
       entryNames,
       pushRuns,
+      tagRun,
       openIssues,
       issue,
       closeIssue,
