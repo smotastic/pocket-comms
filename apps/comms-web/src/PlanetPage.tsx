@@ -30,6 +30,7 @@ import type {
 } from './comms-client.js';
 import { issuesKey, issuesQuery, overviewQuery, planetsQuery } from './comms-queries.js';
 import { CloseIssue } from './CloseIssue.js';
+import { SendOnMission } from './SendOnMission.js';
 import { ImplementIssue } from './ImplementIssue.js';
 import { groupIssues, shownLabels } from './issue-groups.js';
 import { STATUS_LABELS } from './labels.js';
@@ -64,12 +65,15 @@ const IssueRow = ({
   issue,
   now,
   onImplement,
+  onSend,
   onClose,
   onStartAgent,
 }: {
   readonly issue: IssueView;
   readonly now: number;
   readonly onImplement: () => void;
+  /** Sends the issue on a mission (spec 035). */
+  readonly onSend: () => void;
   readonly onClose: () => void;
   /** Starts an agent in the issue's worktree on `branch`, which has none (spec 032). */
   readonly onStartAgent: (branch: string) => void;
@@ -123,6 +127,9 @@ const IssueRow = ({
         <Button size="sm" variant="secondary" onClick={onImplement}>
           Implement with Claude
         </Button>
+        <Button size="sm" variant="secondary" onClick={onSend}>
+          Send on a mission
+        </Button>
         <Button size="sm" variant="ghost" onClick={onClose}>
           Close
         </Button>
@@ -135,12 +142,14 @@ const Issues = ({
   list,
   now,
   onImplement,
+  onSend,
   onClose,
   onStartAgent,
 }: {
   readonly list: IssueListView;
   readonly now: number;
   readonly onImplement: (issue: IssueView) => void;
+  readonly onSend: (issue: IssueView) => void;
   readonly onClose: (issue: IssueView) => void;
   readonly onStartAgent: (worktree: WorktreeToStart) => void;
 }) => {
@@ -165,6 +174,7 @@ const Issues = ({
               issue={issue}
               now={now}
               onImplement={() => onImplement(issue)}
+              onSend={() => onSend(issue)}
               onClose={() => onClose(issue)}
               onStartAgent={(branch) => onStartAgent({ issue, branch })}
             />
@@ -232,6 +242,7 @@ export const PlanetPage = ({
   const queryClient = useQueryClient();
   const [implementing, setImplementing] = useState<IssueView | undefined>(undefined);
   const [closing, setClosing] = useState<IssueView | undefined>(undefined);
+  const [sending, setSending] = useState<IssueView | undefined>(undefined);
   const [startingIn, setStartingIn] = useState<WorktreeToStart | undefined>(undefined);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState(initialNotice);
@@ -299,6 +310,16 @@ export const PlanetPage = ({
           started(created);
         }}
       />
+      <SendOnMission
+        client={client}
+        planet={planet}
+        issue={sending}
+        onClose={() => setSending(undefined)}
+        onSent={(mission) => {
+          setSending(undefined);
+          setNotice(`#${mission.issue.number} is on a mission: ${mission.state}.`);
+        }}
+      />
       <StartAgentSheet
         client={client}
         planet={planet}
@@ -353,6 +374,10 @@ export const PlanetPage = ({
                   onImplement={(issue) => {
                     setNotice(undefined);
                     setImplementing(issue);
+                  }}
+                  onSend={(issue) => {
+                    setNotice(undefined);
+                    setSending(issue);
                   }}
                   onClose={(issue) => {
                     setNotice(undefined);

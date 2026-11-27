@@ -51,11 +51,11 @@ in the task's own commit. Requirements are the spec's numbers (R1–R26).
 
 ## Pull request B — the cockpit
 
-- [ ] **T12** — The Mission Control screen: the running mission (Abort, Resume), the queue
+- [x] **T12** — The Mission Control screen: the running mission (Abort, Resume), the queue
       (Remove), the log with new marks; the start screen's entry with the new count; seen on open.
   - Serves: R24–R26
   - Gate: `pnpm nx test comms-web`
-- [ ] **T13** — **Send on a mission** with the lane picker on an issue (sheet and planet page);
+- [x] **T13** — **Send on a mission** with the lane picker on an issue (sheet and planet page);
       the **missions** level in the Preflight card; the mission tag on agents.
   - Serves: R4–R6, R16
   - Gate: `pnpm nx test comms-web`, `pnpm verify:local`

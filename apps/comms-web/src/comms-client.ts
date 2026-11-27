@@ -18,6 +18,8 @@ import {
   type Planet,
   type Planets,
   type Preflight,
+  type Mission,
+  type Missions,
   type ProposalDecisionRequest,
   type AttachedPullRequest,
   type PullRequestChanges,
@@ -49,6 +51,10 @@ export type Key = (typeof KEYS)[number];
 export type PlanetView = typeof Planet.Type;
 export type PlanetsView = typeof Planets.Type;
 export type PreflightView = typeof Preflight.Type;
+export type AutonomyLevel = PreflightView['autonomy']['chosen'];
+export type MissionView = typeof Mission.Type;
+export type MissionsView = typeof Missions.Type;
+export type Lane = MissionView['lane'];
 export type NewTask = typeof CreateTaskRequest.Type;
 export type TaskCreatedView = typeof TaskCreated.Type;
 export type AgentToStart = (typeof AGENTS_TO_START)[number];
@@ -142,6 +148,17 @@ export interface CommsClient {
   readonly unregisterPlanet: (planet: string) => Promise<void>;
   /** Whether the planet is ready for missions: its checks, go or no-go and the levels. */
   readonly preflight: (planet: string) => Promise<PreflightView>;
+  /** Sets a planet's chosen autonomy level: manual or missions (spec 035). */
+  readonly chooseAutonomy: (planet: string, level: AutonomyLevel) => Promise<void>;
+  /** Sends an open issue on a mission in `lane` (spec 035). */
+  readonly sendOnMission: (planet: string, number: number, lane: Lane) => Promise<MissionView>;
+  /** Mission Control: the running mission, the mission queue and the mission log. */
+  readonly missions: () => Promise<MissionsView>;
+  readonly removeMission: (id: string) => Promise<void>;
+  readonly abortMission: (id: string) => Promise<void>;
+  readonly resumeMission: (id: string) => Promise<void>;
+  /** Marks the mission log seen. */
+  readonly missionsSeen: () => Promise<void>;
   readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
   readonly issues: (planet: string) => Promise<IssueListView>;
   /** `additionalInformation` goes into the agent's first prompt for this launch (spec 021). */
@@ -392,6 +409,22 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     unregisterPlanet: (planet) =>
       run((api) => api.planets.unregister({ params: { planet } })).then(() => undefined),
     preflight: (planet) => run((api) => api.planets.preflight({ params: { planet } })),
+    chooseAutonomy: (planet, level) =>
+      run((api) => api.planets.chooseAutonomy({ params: { planet }, payload: { level } })).then(
+        () => undefined,
+      ),
+    sendOnMission: (planet, number, lane) =>
+      run((api) =>
+        api.issues.sendOnMission({ params: { planet, number: String(number) }, payload: { lane } }),
+      ),
+    missions: () => run((api) => api.missions.list()),
+    removeMission: (id) =>
+      run((api) => api.missions.remove({ params: { mission: id } })).then(() => undefined),
+    abortMission: (id) =>
+      run((api) => api.missions.abort({ params: { mission: id } })).then(() => undefined),
+    resumeMission: (id) =>
+      run((api) => api.missions.resume({ params: { mission: id } })).then(() => undefined),
+    missionsSeen: () => run((api) => api.missions.seen()).then(() => undefined),
     createTask: (task) => run((api) => api.tasks.create({ payload: task })),
     issues: (planet) => run((api) => api.issues.list({ params: { planet } })),
     implementIssue: (planet, number, branch, additionalInformation) =>

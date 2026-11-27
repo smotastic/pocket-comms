@@ -12,7 +12,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { CommsClient, PreflightView } from './comms-client.js';
-import { planetsKey, preflightQuery } from './comms-queries.js';
+import { planetsKey, preflightKey, preflightQuery } from './comms-queries.js';
 
 type Check = PreflightView['checks'][number]['check'];
 type Level = PreflightView['autonomy']['chosen'];
@@ -29,8 +29,8 @@ const CHECK_NAMES: Readonly<Record<Check, string>> = {
 
 const LEVELS: ReadonlyArray<{ readonly id: Level; readonly label: string }> = [
   { id: 'manual', label: 'Manual' },
-  // Spec 034 lets the owner choose only manual; the others come with missions and autopilot.
-  { id: 'missions', label: 'Missions (coming)' },
+  { id: 'missions', label: 'Missions' },
+  // Autopilot comes with step 5 of Mission Control.
   { id: 'autopilot', label: 'Autopilot (coming)' },
 ];
 
@@ -111,6 +111,8 @@ export interface PreflightCardProps {
  */
 export const PreflightCard = ({ client, planet, onUnregistered }: PreflightCardProps) => {
   const preflight = useQuery(preflightQuery(client, planet));
+  const queryClient = useQueryClient();
+  const [choosing, setChoosing] = useState<string | undefined>(undefined);
   const data = preflight.data;
 
   return (
@@ -134,9 +136,18 @@ export const PreflightCard = ({ client, planet, onUnregistered }: PreflightCardP
                 label="Autonomy level"
                 options={LEVELS}
                 selected={data.autonomy.chosen}
-                onSelect={() => undefined}
-                isDisabled
+                onSelect={(level) => {
+                  if (level === 'autopilot' || level === data.autonomy.chosen) return;
+                  setChoosing(undefined);
+                  client
+                    .chooseAutonomy(planet, level)
+                    .then(() => queryClient.invalidateQueries({ queryKey: preflightKey(planet) }))
+                    .catch((error: unknown) =>
+                      setChoosing(error instanceof Error ? error.message : 'Choosing failed.'),
+                    );
+                }}
               />
+              {choosing === undefined ? null : <Alert>{choosing}</Alert>}
               <Text size="sm" tone="muted">
                 {inEffect(data)}
               </Text>

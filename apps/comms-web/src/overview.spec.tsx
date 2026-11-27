@@ -271,13 +271,14 @@ describe('the overview', () => {
 });
 
 describe('the planets on the overview', () => {
-  it('has only the Brainstorm, Planets and Settings actions in the top bar, in that order', async () => {
+  it('has only the Brainstorm, Planets, Mission Control and Settings actions in the top bar, in that order', async () => {
     renderApp({ client: fakeClient({ overview }).client });
 
     const banner = await screen.findByRole('banner');
     expect(within(banner).getAllByRole('button')).toEqual([
       within(banner).getByRole('button', { name: 'Brainstorm' }),
       within(banner).getByRole('button', { name: 'Planets' }),
+      within(banner).getByRole('button', { name: 'Mission Control' }),
       within(banner).getByRole('button', { name: 'Settings' }),
     ]);
   });

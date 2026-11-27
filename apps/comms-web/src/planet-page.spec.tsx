@@ -141,12 +141,19 @@ describe("the planet page's preflight", () => {
     expect(within(card).getByText('Passed: master has an AGENTS.md.')).toBeDefined();
     const levels = within(card).getByRole('radiogroup', { name: 'Autonomy level' });
     const manual = within(levels).getByRole('radio', { name: 'Manual' });
-    const missions = within(levels).getByRole('radio', { name: 'Missions (coming)' });
     expect(manual.getAttribute('aria-checked')).toBe('true');
-    expect(
-      missions.hasAttribute('disabled') || missions.getAttribute('aria-disabled') === 'true',
-    ).toBe(true);
+    expect(within(levels).getByRole('radio', { name: 'Autopilot (coming)' })).toBeDefined();
     expect(within(card).getByText('In effect: manual.')).toBeDefined();
+  });
+
+  it('chooses the missions level (spec 035)', async () => {
+    const fake = fakeClient({ overview, preflights: new Map([['pocket-home', noGo]]) });
+    renderApp({ client: fake.client, path: '/planets/pocket-home' });
+    const card = await preflightCard();
+
+    await userEvent.click(await within(card).findByRole('radio', { name: 'Missions' }));
+
+    expect(fake.calls.chosenLevels).toEqual(['pocket-home missions']);
   });
 
   it('unregisters the planet only once the owner confirms, then goes back', async () => {

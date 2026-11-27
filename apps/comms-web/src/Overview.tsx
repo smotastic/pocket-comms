@@ -19,7 +19,7 @@ import { AgentItem } from './AgentItem.js';
 import { BrainstormAction } from './Brainstorm.js';
 import type { AgentView, CommsClient } from './comms-client.js';
 import { RequestError } from './comms-client.js';
-import { overviewQuery, planetsQuery } from './comms-queries.js';
+import { missionsQuery, overviewQuery, planetsQuery } from './comms-queries.js';
 import { activeFilter, agentsOf, ALL } from './everything-else.js';
 import { useMultiplexerName, useNow, useOverviewLive } from './live.js';
 import { PlanetsSheet } from './PlanetsSheet.js';
@@ -34,6 +34,8 @@ export interface OverviewProps {
   readonly onStarted: (ref: string, note: string | undefined) => void;
   /** Opens the Settings page. */
   readonly onSettings: () => void;
+  /** Opens Mission Control (spec 035). */
+  readonly onMissions: () => void;
 }
 
 const Rows = ({
@@ -116,7 +118,15 @@ const Group = ({
  * of them on the sky, then Everything else by planet, narrowed by a planet filter. Its Planets action opens every planet and the activity
  * timeline in a side sheet, and its Settings action opens the Settings page. It updates live.
  */
-export const Overview = ({ client, onPlanet, onStarted, onSettings }: OverviewProps) => {
+export const Overview = ({
+  client,
+  onPlanet,
+  onStarted,
+  onSettings,
+  onMissions,
+}: OverviewProps) => {
+  const missions = useQuery(missionsQuery(client));
+  const newMissions = missions.data?.newCount ?? 0;
   const { live, unavailable } = useOverviewLive(client);
   const multiplexer = useMultiplexerName();
   const overview = useQuery(overviewQuery(client));
@@ -149,6 +159,16 @@ export const Overview = ({ client, onPlanet, onStarted, onSettings }: OverviewPr
           <>
             <BrainstormAction />
             <IconButton icon="cards" label="Planets" onClick={() => setPlanetsOpen(true)} />
+            <IconButton
+              icon="automation"
+              label={
+                newMissions === 0
+                  ? 'Mission Control'
+                  : `Mission Control, ${newMissions} new ${newMissions === 1 ? 'mission' : 'missions'}`
+              }
+              count={newMissions}
+              onClick={onMissions}
+            />
             <IconButton icon="settings" label="Settings" onClick={onSettings} />
           </>
         }
