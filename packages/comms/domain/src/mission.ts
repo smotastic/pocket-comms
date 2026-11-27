@@ -286,7 +286,7 @@ export const missionPrompt = (input: {
     '- Attach your pull request to this conversation with the comms-attach-pull-request skill.',
     "- Merge the pull request yourself once CI is green, as the mission bot (comms-mission skill), unless the flight rules' stops say to ask first.",
     '- Never deploy.',
-    '- At the end, report your outcome in one paragraph with the comms-mission skill: done after the merge, or failed when you cannot go on.',
+    '- Report your outcome in one paragraph with the comms-mission skill: done right before the merge call, or failed when you cannot go on.',
     ...(input.continued
       ? [
           '',

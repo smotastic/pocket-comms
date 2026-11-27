@@ -2075,7 +2075,7 @@
             "type": "string"
           },
           "result": {
-            "description": "done after the merge; failed when the agent cannot go on.",
+            "description": "done right before the merge call; failed when the agent cannot go on.",
             "enum": ["done", "failed"],
             "examples": ["done"],
             "type": "string"

@@ -57,25 +57,35 @@ Comms follows your mission.
 
 ## Merge when CI is green
 
-Wait for the pull request's CI to finish. Read the newest run of your branch's head and merge only
-when it says `success`:
+Wait for the pull request's CI to finish. Read the newest run of your branch's head; go on only when
+it says `success`:
 
 ```sh
 sha="$(git rev-parse HEAD)"
 api "$gitea/api/v1/repos/$repo/commits/$sha/status" | jq -r .state   # success, pending, failure
+```
+
+A red gate gets three attempts to fix it (flight rules, section 3); then stop and ask the owner.
+
+When it is green, report your `done` outcome first (below), then merge right after it. Pocket
+Comms closes your agent as soon as it sees the merge, so an outcome sent after the merge never
+arrives. A `done` report does not end the mission: only the merge Comms sees does.
+
+```sh
 api -X POST "$gitea/api/v1/repos/$repo/pulls/<pull number>/merge" \
   -d "$(jq -n --arg title '<title> (#<pull number>)' \
     '{Do: "squash", merge_title_field: $title, delete_branch_after_merge: true}')"
 ```
 
-A red gate gets three attempts to fix it (flight rules, section 3); then stop and ask the owner.
-Branch protection that refuses the bot is a stop too: ask the owner.
+If the merge call fails, the mission stays open: fix the cause and merge again, or report `failed`
+with the reason, which replaces the `done` paragraph. Branch protection that refuses the bot is a
+stop too: ask the owner.
 
 ## Report the outcome
 
-At the end, report one paragraph for the owner's mission log: `done` after the merge, or `failed`
-when you cannot go on (say why). A failed outcome ends the mission; the owner finds the worktree and
-branch kept.
+Report one paragraph for the owner's mission log: `done` right before the merge call (above), or
+`failed` when you cannot go on (say why). A failed outcome ends the mission; the owner finds the
+worktree and branch kept.
 
 ```sh
 pane="${HERDR_PANE_ID:-${HC_TERMINAL_ID:-}}"
@@ -86,4 +96,5 @@ curl -sS -w '\n%{http_code}\n' -X POST "$base/api/v1/agents/$agent/mission/outco
   -d "$(jq -n --arg result done --arg outcome '<one paragraph>' '{result: $result, outcome: $outcome}')"
 ```
 
-`204` means it arrived. On any other status, say so in your last message and stop; do not retry.
+`204` means it arrived. On any other status, do not retry it. If it was your `done` report, merge
+anyway, and say in your last message that the outcome did not arrive.
