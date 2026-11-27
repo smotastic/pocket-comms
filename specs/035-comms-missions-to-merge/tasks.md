@@ -27,17 +27,17 @@ in the task's own commit. Requirements are the spec's numbers (R1–R26).
       and the worktree's git identity with the credential file.
   - Serves: R1, R2, R3, R7, R13, R16, R21
   - Gate: `pnpm nx test comms-infrastructure`
-- [ ] **T06** — Preflight reads the bot; `Planets.choose`.
+- [x] **T06** — Preflight reads the bot; `Planets.choose`.
   - Serves: R3, R4
   - Gate: `pnpm nx test comms-application`
-- [ ] **T07** — `makeMissions`: send, remove, list, seen.
+- [x] **T07** — `makeMissions`: send, remove, list, seen.
   - Serves: R1, R5–R7, R9–R11, R24, R25
   - Gate: `pnpm nx test comms-application`
-- [ ] **T08** — The advance loop: start (held, worktree, bot, Claude with the settings, prompt,
+- [x] **T08** — The advance loop: start (held, worktree, bot, Claude with the settings, prompt,
       label, comment), waiting, pull request, merged and cleanup.
   - Serves: R10, R12–R17, R19, R23
   - Gate: `pnpm nx test comms-application`
-- [ ] **T09** — Abort, outcome (done, failed), a closed pull request, lost and resume.
+- [x] **T09** — Abort, outcome (done, failed), a closed pull request, lost and resume.
   - Serves: R20–R22
   - Gate: `pnpm nx test comms-application`
 - [ ] **T10** — Contract, handlers and problems: send, choose autonomy, missions (list, remove,

@@ -1,5 +1,8 @@
 import {
+  chooseAutonomy,
   effectiveAutonomy,
+  InvalidInputError,
+  type AutonomyLevel,
   orderPlanets,
   preflightOf,
   registerPlanet,
@@ -15,6 +18,7 @@ import * as Ref from 'effect/Ref';
 import type { PlanetDto, PlanetsDto, PreflightDto } from '../dto/task.dto.js';
 import { PlanetExistsError, PlanetNotFoundError, RepositoryNotFoundError } from '../errors.js';
 import { GiteaOutbound, type LinkedRepository } from '../ports/gitea.outbound.port.js';
+import { MissionBotOutbound } from '../ports/mission-bot.outbound.port.js';
 import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 import { PlanetsOutbound } from '../ports/planets.outbound.port.js';
@@ -35,6 +39,7 @@ export const makePlanets = Effect.gen(function* () {
   const herdrOutbound = yield* MultiplexerOutbound;
   const repositoriesOutbound = yield* RepositoriesOutbound;
   const giteaOutbound = yield* GiteaOutbound;
+  const missionBot = yield* MissionBotOutbound;
   const { split, registry, find } = yield* makePlanetRegistry;
   const reused = yield* Ref.make(
     new Map<string, { readonly at: number; readonly preflight: Preflight }>(),
@@ -69,6 +74,7 @@ export const makePlanets = Effect.gen(function* () {
         workflows: workflows.flat().some(isWorkflow),
         runs: Option.getOrUndefined(runs),
         packageJson: Option.getOrUndefined(packageJson),
+        bot: yield* missionBot.facts(repository),
       } satisfies PreflightFacts;
     }).pipe(
       Effect.catchTags({
@@ -121,26 +127,42 @@ export const makePlanets = Effect.gen(function* () {
     yield* planetsOutbound.save(next);
   });
 
-  const preflight = Effect.fn('Planets.preflight')(function* (name: string) {
+  /** The planet's preflight; `fresh` computes it again without reusing it (spec 035). */
+  const preflight = Effect.fn('Planets.preflight')(function* (name: string, fresh = false) {
     const planet = yield* find(name);
     const now = yield* Clock.currentTimeMillis;
-    const kept = (yield* Ref.get(reused)).get(name);
-    const fresh =
+    const kept = fresh ? undefined : (yield* Ref.get(reused)).get(name);
+    const computed =
       kept !== undefined && now - kept.at < PREFLIGHT_REUSE_MS
         ? kept
         : { at: now, preflight: yield* compute(planet) };
-    if (fresh !== kept) {
-      yield* Ref.update(reused, (map) => new Map(map).set(name, fresh));
+    if (computed !== kept) {
+      yield* Ref.update(reused, (map) => new Map(map).set(name, computed));
     }
     const chosen =
       (yield* registry).planets.find((settings) => settings.name === name)?.autonomy ?? 'manual';
     return {
-      result: fresh.preflight.result,
-      checks: fresh.preflight.checks,
-      autonomy: { chosen, effective: effectiveAutonomy(chosen, fresh.preflight.result) },
-      checkedAt: fresh.at,
+      result: computed.preflight.result,
+      checks: computed.preflight.checks,
+      autonomy: { chosen, effective: effectiveAutonomy(chosen, computed.preflight.result) },
+      checkedAt: computed.at,
     } satisfies PreflightDto;
   });
 
-  return { list: list(), register, unregister, preflight };
+  /** Sets the planet's chosen autonomy level; autopilot cannot be chosen yet (spec 035). */
+  const choose = Effect.fn('Planets.choose')(function* (name: string, level: AutonomyLevel) {
+    const { registry } = yield* split;
+    if (!registry.planets.some((planet) => planet.name === name)) {
+      return yield* new PlanetNotFoundError({ planet: name });
+    }
+    const next = chooseAutonomy(registry, name, level);
+    if (next === undefined) {
+      return yield* new InvalidInputError({
+        issues: [{ field: 'level', message: `${level} cannot be chosen yet.` }],
+      });
+    }
+    yield* planetsOutbound.save(next);
+  });
+
+  return { list: list(), register, unregister, preflight, choose };
 });

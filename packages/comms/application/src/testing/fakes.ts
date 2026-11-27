@@ -19,6 +19,9 @@ import {
   type Worktree,
   type PlanetRegistry,
   type CiRun,
+  EMPTY_MISSIONS,
+  type GiteaRepository,
+  type MissionsFile,
 } from '@pocket-comms/comms-domain';
 import { AgentRuntime, type Clip, type TurnInput } from '@smotastic/pocket-agent';
 import {
@@ -47,7 +50,11 @@ import {
   TaskStartsStoreError,
   ConversationUnavailableError,
   PlanetsStoreError,
+  MissionBotError,
+  MissionsStoreError,
 } from '../errors.js';
+import { MissionBotOutbound } from '../ports/mission-bot.outbound.port.js';
+import { MissionsOutbound } from '../ports/missions.outbound.port.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
 import {
   BrainstormStoreOutbound,
@@ -246,6 +253,17 @@ export class FakeState extends Context.Service<
     quickReplies: ReadonlyArray<string> | undefined;
     /** Why the quick replies store fails, when it does. */
     quickRepliesFailure: string | undefined;
+    /** The missions file. */
+    missions: MissionsFile;
+    /** When set, saving the missions file fails with this reason. */
+    missionsFailure: string | undefined;
+    /** The mission bot: whether it has a token, the repositories it may not push to, why it fails, and every call as `<method> <owner>/<name> [<detail>]`. */
+    readonly bot: {
+      configured: boolean;
+      readonly noPush: Set<string>;
+      failure: string | undefined;
+      readonly calls: Array<string>;
+    };
     /** The speech service: whether it is set up, what it hears, why it fails and the voice messages it got (`clips`, as the agent package names them). */
     readonly speech: {
       available: boolean;
@@ -760,6 +778,43 @@ export const fakeIssue = (overrides: Partial<Issue> & Pick<Issue, 'number'>): Is
 });
 
 /** Every outbound port as a fake, plus `FakeState` to arrange and inspect them. */
+// The mission bot: it records every call, and fails them all when it has no token or a failure.
+const missionBot = (fake: FakeState['Service']): MissionBotOutbound['Service'] => {
+  const call = (line: string) =>
+    Effect.suspend(() => {
+      if (!fake.bot.configured) {
+        return Effect.fail(
+          new MissionBotError({
+            reason: 'Missions have no bot token (COMMS_MISSION_GITEA_TOKEN).',
+          }),
+        );
+      }
+      if (fake.bot.failure !== undefined) {
+        return Effect.fail(new MissionBotError({ reason: fake.bot.failure }));
+      }
+      fake.bot.calls.push(line);
+      return Effect.void;
+    });
+  const name = (repository: GiteaRepository) => `${repository.owner}/${repository.name}`;
+  return {
+    get configured() {
+      return fake.bot.configured;
+    },
+    facts: (repository) =>
+      Effect.sync(() =>
+        !fake.bot.configured
+          ? { _tag: 'NoToken' as const }
+          : { _tag: 'Read' as const, canPush: !fake.bot.noPush.has(name(repository)) },
+      ),
+    setLane: (repository, number, lane) => call(`setLane ${name(repository)} ${number} ${lane}`),
+    markInProgress: (repository, number) => call(`markInProgress ${name(repository)} ${number}`),
+    unmarkInProgress: (repository, number) =>
+      call(`unmarkInProgress ${name(repository)} ${number}`),
+    comment: (repository, number, body) => call(`comment ${name(repository)} ${number} ${body}`),
+    prepareWorktree: (path, repository) => call(`prepareWorktree ${name(repository)} ${path}`),
+  };
+};
+
 export const fakeLayer = () => {
   const state = Layer.effect(
     FakeState,
@@ -831,6 +886,9 @@ export const fakeLayer = () => {
         quickReplies: undefined,
         quickRepliesFailure: undefined,
         speech: { available: true, text: '', failure: undefined, clips: [] },
+        missions: EMPTY_MISSIONS,
+        missionsFailure: undefined,
+        bot: { configured: true, noPush: new Set(), failure: undefined, calls: [] },
       };
     }),
   );
@@ -955,6 +1013,16 @@ export const fakeLayer = () => {
             }).pipe(Effect.asVoid),
           changes: Stream.fromPubSub(fake.seenChanges),
         }),
+        Context.add(MissionsOutbound, {
+          load: Effect.sync(() => fake.missions),
+          save: (file) =>
+            Effect.suspend(() =>
+              fake.missionsFailure === undefined
+                ? Effect.sync(() => void (fake.missions = file))
+                : Effect.fail(new MissionsStoreError({ reason: fake.missionsFailure })),
+            ),
+        }),
+        Context.add(MissionBotOutbound, missionBot(fake)),
         Context.add(StatusHistoryOutbound, {
           get: (paneId) => Effect.sync(() => Option.fromNullishOr(fake.history.get(paneId))),
           set: (paneId, mark) => Effect.sync(() => void fake.history.set(paneId, mark)),
