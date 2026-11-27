@@ -45,3 +45,4 @@ spec and plan approval became the grilling (ADR 0016).
 | [0017](0017-take-up-the-flight-rules-cut-of-the-template.md)                   | Take up the flight-rules cut of the template                            | Accepted                              |
 | [0018](0018-planets-are-registered-and-preflight-is-computed-from-facts.md)    | Planets are registered, and preflight is computed from facts            | Accepted                              |
 | [0019](0019-missions-run-as-a-bot-in-the-planets-worktrees-queued-by-comms.md) | Missions run as a bot in the planets' worktrees, queued by Pocket Comms | Accepted                              |
+| [0020](0020-missions-deploy-through-pocket-clouds-deploy-script-with-bot-cut-releases.md) | Missions deploy through pocket-cloud's deploy script, with bot-cut releases | Accepted |
