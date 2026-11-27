@@ -121,6 +121,7 @@ export {
   type RepositoryDoc,
   type ProposalEntry,
   type ProposalState,
+  type LaneSuggestion,
 } from './brainstorm.js';
 export {
   ACTIVITY_LIMIT,

@@ -42,7 +42,19 @@ const Pictures = { pictures: Schema.Array(Schema.String), attached: Attached };
 const Ids = Schema.optional(Schema.Array(Schema.String));
 const MaybePictures = { pictures: Ids, attached: Schema.optional(Attached) };
 
+// Pi's lane and what became of the owner's (spec 035); older files have neither.
+const LaneFields = {
+  suggestedLane: Schema.optional(
+    Schema.Struct({
+      lane: Schema.Literals(['none', 'hop', 'full-flight']),
+      reason: Schema.String,
+    }),
+  ),
+  mission: Schema.optional(Schema.String),
+};
+
 const IssueFields = {
+  ...LaneFields,
   type: Schema.tag('proposal'),
   ...Text,
   planet: Schema.String,
@@ -69,6 +81,7 @@ const issueProposal = <P extends Schema.Struct.Fields>(images: P) =>
   );
 const editProposal = <P extends Schema.Struct.Fields>(images: P) =>
   Schema.Struct({
+    ...LaneFields,
     type: Schema.tag('proposal'),
     kind: Schema.tag('edit'),
     ...Text,

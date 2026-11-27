@@ -12,6 +12,12 @@ import {
   TextArea,
 } from '@smotastic/pocket-design';
 import { useState } from 'react';
+import {
+  LanePicker,
+  missionLane,
+  type LaneSuggestionView,
+  type ProposalLane,
+} from './LanePicker.js';
 import { ProposalAttachedImages, ImageChoice, type BrainstormImage } from './ProposalImages.js';
 
 /** An issue as the proposal proposes it: the planet by its name, the title and the body. */
@@ -43,7 +49,15 @@ export type ProposalCardProps = ProposedIssue & {
    * Called with the issue as the owner edited it and the chosen images; while `attaching`, it
    * retries the images.
    */
-  readonly onCreate: (issue: ProposedIssue, images: ReadonlyArray<string>) => void;
+  /** Pi's lane and its reason; the picker starts there (spec 035). */
+  readonly suggestedLane?: LaneSuggestionView | undefined;
+  /** After the decision: whether the issue went on a mission, and why not. */
+  readonly mission?: string | undefined;
+  readonly onCreate: (
+    issue: ProposedIssue,
+    images: ReadonlyArray<string>,
+    lane?: 'hop' | 'full-flight',
+  ) => void;
   readonly onDiscard: () => void;
   /** While `attaching`: finish with the images attached so far. */
   readonly onFinishWithout?: () => void;
@@ -71,8 +85,11 @@ export const ProposalCard = ({
   onFinishWithout,
   busy = false,
   error,
+  suggestedLane,
+  mission,
 }: ProposalCardProps) => {
   const [issue, setIssue] = useState<ProposedIssue>({ planet, title, body });
+  const [lane, setLane] = useState<ProposalLane>(suggestedLane?.lane ?? 'none');
   // A image the app no longer keeps cannot go along (spec 023, requirement 10).
   const [choice, setChoice] = useState<ReadonlyArray<string>>(() =>
     chosen.filter((id) => images.some((image) => image.id === id && image.available)),
@@ -127,6 +144,7 @@ export const ProposalCard = ({
               )}
             </Inline>
             <Text>{title}</Text>
+            {mission === undefined ? null : <Text size="sm">{mission}</Text>}
             <ProposalAttachedImages images={images} attached={attached} />
           </Stack>
         </Card>
@@ -165,12 +183,13 @@ export const ProposalCard = ({
             onChange={(event) => setIssue({ ...issue, body: event.target.value })}
           />
           <ImageChoice images={images} chosen={choice} onChange={setChoice} disabled={busy} />
+          <LanePicker value={lane} suggestion={suggestedLane} onChange={setLane} />
           {error === undefined ? null : <Alert>{error}</Alert>}
           <Inline gap="sm" justify="end">
             <Button variant="secondary" disabled={busy} onClick={onDiscard}>
               Discard
             </Button>
-            <Button disabled={busy} onClick={() => onCreate(issue, choice)}>
+            <Button disabled={busy} onClick={() => onCreate(issue, choice, missionLane(lane))}>
               Create issue
             </Button>
           </Inline>

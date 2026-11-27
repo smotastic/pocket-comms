@@ -1,3 +1,4 @@
+import type { Lane } from '@pocket-comms/comms-domain';
 import type { BrainstormEntry, BrainstormImage, ProposedIssue } from '@pocket-comms/comms-domain';
 import type { ChatStreamEvent } from '@smotastic/pocket-agent/chat';
 
@@ -33,12 +34,16 @@ export type ProposalDecisionInput =
       readonly _tag: 'Create';
       readonly issue: ProposedIssue;
       readonly images?: ReadonlyArray<string> | undefined;
+      /** Sends the created issue on a mission in this lane (spec 035). */
+      readonly lane?: Lane | undefined;
     }
   | {
       readonly _tag: 'Apply';
       readonly title: string;
       readonly body: string;
       readonly images?: ReadonlyArray<string> | undefined;
+      /** Sends the updated issue on a mission in this lane (spec 035). */
+      readonly lane?: Lane | undefined;
     }
   | { readonly _tag: 'Discard' }
   | { readonly _tag: 'FinishWithout' };

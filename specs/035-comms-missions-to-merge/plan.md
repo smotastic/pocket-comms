@@ -1,7 +1,7 @@
 # Plan 035 — pocket-comms: missions to merge
 
 - **Spec:** [spec.md](./spec.md)
-- **Status:** `Approved` — grilling of 2026-11-27, verified
+- **Status:** `Done` — grilling of 2026-11-27, verified
 
 Three pull requests, each green on its own: **(A)** the server (domain, queue, bot, API, skill,
 settings, docs), **(B)** the cockpit, **(C)** the brainstorm's lane picker. A pocket-cloud pull

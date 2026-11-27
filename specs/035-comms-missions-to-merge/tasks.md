@@ -62,10 +62,10 @@ in the task's own commit. Requirements are the spec's numbers (R1–R26).
 
 ## Pull request C — the brainstorm's lane
 
-- [ ] **T14** — Pi suggests a lane with a reason on issue and edit proposals; the decision takes
+- [x] **T14** — Pi suggests a lane with a reason on issue and edit proposals; the decision takes
       a lane and sends the mission; the proposal card's lane picker.
   - Serves: R8
   - Gate: `pnpm nx test comms-application comms-web`, `pnpm verify:local`
-- [ ] **T15** — The spec, plan and tasks marked Done.
+- [x] **T15** — The spec, plan and tasks marked Done.
   - Serves: —
   - Gate: review

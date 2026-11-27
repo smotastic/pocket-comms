@@ -10,6 +10,7 @@ import {
   type ProposedIssue,
   type IssueRead,
   type IssueText,
+  type LaneSuggestion,
 } from '@pocket-comms/comms-domain';
 import { defineTool, ToolRefusal, type AgentTool } from '@smotastic/pocket-agent';
 import * as Effect from 'effect/Effect';
@@ -48,14 +49,40 @@ const refusal = (error: InvalidInputError) =>
 /** An edit Pi proposes, with the issue as Pi last read it. */
 export interface ProposedEdit extends IssueText {
   readonly read: IssueRead;
+  /** The lane Pi suggests, with its reason (spec 035). */
+  readonly suggestedLane?: LaneSuggestion | undefined;
   /** The brainstorm images that go along, by image id. */
   readonly images: ReadonlyArray<string>;
 }
 
+/**
+ * The lane Pi suggests for a proposal (spec 035): none for an issue that is only filed, hop for a
+ * small fix, refactor or docs change, full flight for a feature that needs a grilling.
+ */
+const LaneParameters = {
+  lane: Schema.optional(
+    Schema.Literals(['none', 'hop', 'full-flight']).annotate({
+      description:
+        'The lane you suggest: none to only file it, hop for a small fix, refactor or docs change that needs no grilling, full-flight for a feature or behaviour that needs a grilling first. The owner may change it.',
+    }),
+  ),
+  laneReason: Schema.optional(Schema.String.annotate({ description: 'One line: why this lane.' })),
+};
+
+const suggestionOf = (
+  lane: LaneSuggestion['lane'] | undefined,
+  reason: string | undefined,
+): LaneSuggestion | undefined =>
+  lane === undefined ? undefined : { lane, reason: (reason ?? '').trim().slice(0, 300) };
+
 /** What the tools of one turn do in the brainstorm they run for. */
 export interface BrainstormHooks {
   /** Shows a new issue proposal, with these brainstorm images by id, and answers its id. */
-  readonly propose: (issue: ProposedIssue, images: ReadonlyArray<string>) => Effect.Effect<string>;
+  readonly propose: (
+    issue: ProposedIssue,
+    images: ReadonlyArray<string>,
+    suggestedLane?: LaneSuggestion,
+  ) => Effect.Effect<string>;
   /** Shows an edit proposal to the owner and answers its id. */
   readonly proposeEdit: (edit: ProposedEdit) => Effect.Effect<string>;
   /** Keeps this read as the last read of its issue. */
@@ -235,8 +262,9 @@ export const makeBrainstormTools = Effect.gen(function* () {
           description: 'The issue body in Markdown: the idea, why, and a rough shape.',
         }),
         images: Images,
+        ...LaneParameters,
       }),
-      run: ({ images: numbers = [], ...input }) =>
+      run: ({ images: numbers = [], lane, laneReason, ...input }) =>
         Effect.gen(function* () {
           const proposed = parseProposedIssue(input);
           if (Result.isFailure(proposed)) return yield* refusal(proposed.failure);
@@ -248,7 +276,7 @@ export const makeBrainstormTools = Effect.gen(function* () {
               `${proposed.success.planet} has no repository on Gitea, so no issue can be filed there.`,
             );
           }
-          yield* hooks.propose(proposed.success, images.success);
+          yield* hooks.propose(proposed.success, images.success, suggestionOf(lane, laneReason));
           return {
             output: 'The owner sees the proposal now. Wait for their decision.',
             pause: true,
@@ -265,8 +293,9 @@ export const makeBrainstormTools = Effect.gen(function* () {
         title: Schema.String.annotate({ description: "The issue's whole new title." }),
         body: Schema.String.annotate({ description: "The issue's whole new body in Markdown." }),
         images: Images,
+        ...LaneParameters,
       }),
-      run: ({ planet, number, images: numbers = [], ...text }) =>
+      run: ({ planet, number, images: numbers = [], lane, laneReason, ...text }) =>
         Effect.gen(function* () {
           const read = yield* hooks.readOf(planet, number);
           if (read === undefined) {
@@ -283,7 +312,12 @@ export const makeBrainstormTools = Effect.gen(function* () {
           if (Result.isFailure(edit)) return yield* refusal(edit.failure);
           const images = yield* hooks.images(numbers);
           if (Result.isFailure(images)) return yield* refusal(images.failure);
-          yield* hooks.proposeEdit({ ...edit.success, read, images: images.success });
+          yield* hooks.proposeEdit({
+            ...edit.success,
+            read,
+            images: images.success,
+            suggestedLane: suggestionOf(lane, laneReason),
+          });
           return {
             output: 'The owner sees the edit now. Wait for their decision.',
             pause: true,

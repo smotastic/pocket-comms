@@ -54,8 +54,21 @@ export type EditState =
   | { readonly _tag: 'updated'; readonly url: string }
   | { readonly _tag: 'discarded' };
 
+/** The lane Pi suggests for a proposal, with its one-line reason (spec 035). */
+export interface LaneSuggestion {
+  readonly lane: 'none' | 'hop' | 'full-flight';
+  readonly reason: string;
+}
+
+/** Pi's lane, and what became of the owner's lane once the issue was created or updated. */
+interface WithLane {
+  readonly suggestedLane?: LaneSuggestion | undefined;
+  /** Whether the issue was sent on a mission, and why not when it was not. */
+  readonly mission?: string | undefined;
+}
+
 /** A new issue Pi proposes. */
-export interface IssueProposal extends ProposedIssue, WithImages {
+export interface IssueProposal extends ProposedIssue, WithImages, WithLane {
   readonly type: 'proposal';
   readonly kind: 'issue';
   readonly id: string;
@@ -67,7 +80,7 @@ export interface IssueProposal extends ProposedIssue, WithImages {
  * A new title and body Pi proposes for an existing issue. `base` is the issue as Pi read it, so
  * applying the edit can tell when someone changed the issue since.
  */
-export interface EditProposal extends IssueText, WithImages {
+export interface EditProposal extends IssueText, WithImages, WithLane {
   readonly type: 'proposal';
   readonly kind: 'edit';
   readonly id: string;

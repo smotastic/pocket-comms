@@ -23,6 +23,7 @@ import {
   type IssueRead,
   type IssueText,
   type ProposalEntry,
+  type LaneSuggestion,
 } from '@pocket-comms/comms-domain';
 import {
   AgentRuntime,
@@ -61,6 +62,7 @@ import {
   type StoredBrainstorm,
 } from '../ports/brainstorm-store.outbound.port.js';
 import { GiteaOutbound, type LinkedRepository } from '../ports/gitea.outbound.port.js';
+import { MissionsInbound } from '../ports/missions.inbound.port.js';
 import { ImagesOutbound, type StoredImage } from '../ports/images.outbound.port.js';
 import {
   describeBrainstormCall,
@@ -141,7 +143,10 @@ const numbersOf = (entries: ReadonlyArray<BrainstormEntry>) =>
 const listed = (numbers: ReadonlyArray<number>) => numbers.join(', ');
 
 /** What Pi is told about the owner's decision, as the input of its next turn. */
-const decisionNote = (decided: ProposalEntry, numbers: ReadonlyMap<string, number>): string => {
+const decisionNote = (decided: ProposalEntry, numbers: ReadonlyMap<string, number>): string =>
+  [decisionText(decided, numbers), decided.mission].filter((part) => part !== undefined).join(' ');
+
+const decisionText = (decided: ProposalEntry, numbers: ReadonlyMap<string, number>): string => {
   const numberOf = (id: string) => numbers.get(id) ?? 0;
   const attached = decided.attached.map((image) => numberOf(image.image));
   const left = missingImages(decided.images, decided.attached).map(numberOf);
@@ -170,6 +175,7 @@ export const makeBrainstorm = Effect.gen(function* () {
   const runtime = yield* AgentRuntime;
   const store = yield* BrainstormStoreOutbound;
   const giteaOutbound = yield* GiteaOutbound;
+  const missions = yield* MissionsInbound;
   const imagesOutbound = yield* ImagesOutbound;
   const transcriber = yield* Transcriber;
   const issuePlanet = yield* makeIssuePlanet;
@@ -249,23 +255,29 @@ export const makeBrainstorm = Effect.gen(function* () {
 
   /** What the tools of a turn do in the brainstorm `brainstormId`. */
   const hooksFor = (brainstormId: string) => ({
-    propose: (issue: ProposedIssue, images: ReadonlyArray<string>) =>
+    propose: (
+      issue: ProposedIssue,
+      images: ReadonlyArray<string>,
+      suggestedLane?: LaneSuggestion,
+    ) =>
       proposeIn(brainstormId, (id, at) => ({
         type: 'proposal',
         kind: 'issue',
         id,
         at,
         ...issue,
+        ...(suggestedLane === undefined ? {} : { suggestedLane }),
         images,
         attached: [],
         state: { _tag: 'open' },
       })),
-    proposeEdit: ({ read, title, body, images }: ProposedEdit) =>
+    proposeEdit: ({ read, title, body, images, suggestedLane }: ProposedEdit) =>
       proposeIn(brainstormId, (id, at) => ({
         type: 'proposal',
         kind: 'edit',
         id,
         at,
+        ...(suggestedLane === undefined ? {} : { suggestedLane }),
         planet: read.planet,
         number: read.number,
         url: read.url,
@@ -549,6 +561,34 @@ export const makeBrainstorm = Effect.gen(function* () {
       } satisfies EditProposal;
     });
 
+  /**
+   * Sends a created or updated issue on a mission in the lane the owner chose (spec 035). A refused
+   * send leaves the issue as it is and says why on the proposal.
+   */
+  const sendOnMission = (settled: ProposalEntry, decision: ProposalDecisionInput) => {
+    const lane =
+      decision._tag === 'Create' || decision._tag === 'Apply' ? decision.lane : undefined;
+    const number =
+      settled.kind === 'edit'
+        ? settled.state._tag === 'updated'
+          ? settled.number
+          : undefined
+        : settled.state._tag === 'created'
+          ? settled.state.number
+          : undefined;
+    if (lane === undefined || number === undefined) return Effect.succeed(settled);
+    const name = lane === 'hop' ? 'hop' : 'full flight';
+    return missions.send(settled.planet, number, lane).pipe(
+      Effect.map(() => `Sent on a mission (${name}).`),
+      Effect.catch((error) =>
+        Effect.succeed(
+          `Not sent on a mission: ${'reason' in error && typeof error.reason === 'string' ? error.reason : error._tag}`,
+        ),
+      ),
+      Effect.map((mission): ProposalEntry => ({ ...settled, mission })),
+    );
+  };
+
   /** The decided proposal, or why the decision does not fit it. */
   const decided = (proposal: ProposalEntry, decision: ProposalDecisionInput) => {
     if (proposal.kind === 'edit') {
@@ -633,7 +673,7 @@ export const makeBrainstorm = Effect.gen(function* () {
     if (proposal.state._tag !== 'open' && proposal.state._tag !== 'attaching') {
       return yield* new ProposalDecidedError({ id });
     }
-    const settled = yield* decided(proposal, decision);
+    const settled = yield* sendOnMission(yield* decided(proposal, decision), decision);
     answering = true;
     yield* change({
       ...ongoing,

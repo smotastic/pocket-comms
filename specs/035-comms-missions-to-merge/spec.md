@@ -1,6 +1,6 @@
 # Spec 035 — pocket-comms: missions to merge
 
-- **Status:** `Approved` — grilling of 2026-11-27, verified
+- **Status:** `Done` — grilling of 2026-11-27, verified; built in #121, #122 and the pull request of `feat/brainstorm-lane-picker`
 - **Grilling:** confirmed by the owner on 2026-11-27
 - **Changes:** [spec 034](../034-comms-planets-and-preflight/spec.md) (a sixth preflight check;
   the **missions** level can be chosen), [spec 006](../006-comms-gitea-issues/spec.md) (an
