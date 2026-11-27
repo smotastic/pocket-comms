@@ -82,7 +82,10 @@ Each step is its own ADR or spec.
    the lane labels, the bot user, the mission queue, the mission's state in the cockpit. Sending
    computes preflight again, without reusing it. The mission log shows what finished overnight;
    a merged mission shows as "merged, not deployed" until step 4. Spec 035, ADR 0019.
-4. **Autonomous deploy:** deploy recipes, health checks and rollback in preflight.
+4. **Autonomous deploy:** a merged mission's release, cut by the mission bot, and its deploy
+   through pocket-cloud's `scripts/deploy.sh` with health check and rollback; the deploy checks
+   in preflight; migrations and breaking changes wait for the owner's **Deploy** (spec 036, ADR
+   0020).
 5. **Autopilot:** Mission Control chooses issues and their lanes by itself.
 
 ## Not now

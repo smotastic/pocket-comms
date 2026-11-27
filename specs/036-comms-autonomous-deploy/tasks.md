@@ -52,12 +52,12 @@ Requirements are the spec's numbers (R1–R18).
 - [x] **T11** — Contract and API: the new states, `versions`, `POST /missions/{mission}/deploy`,
   the preflight's deploy section; the OpenAPI document regenerated and linted; the accepted line
   for the widened state union. (R15, R17, R18) Gate: API tests, `openapi:lint`, `openapi:diff`.
-- [ ] **T12** — Web: Mission Control shows the new states, the versions and Deploy; the planet
+- [x] **T12** — Web: Mission Control shows the new states, the versions and Deploy; the planet
   page shows the deploy checks and whether the planet deploys. (R15, R17, R18) Gate: web tests.
 
 ## Docs, pocket-cloud and planets
 
-- [ ] **T13** — The vision's step 4, the glossary (Release, Deploy check), comms' `AGENTS.md`
+- [x] **T13** — The vision's step 4, the glossary (Release, Deploy check), comms' `AGENTS.md`
   with its own Mission Control block. (R1) Gate: `pnpm verify:local`.
 - [ ] **T14** — pocket-cloud `scripts/deploy.sh` with `check`, health check, rollback, backup and
   the JSON result, its README and `.env.example`; a pull request left for the owner. (R13) Gate:

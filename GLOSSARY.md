@@ -171,6 +171,20 @@ _Avoid_: dead, crashed, orphan
 The finished missions, newest first, with their outcomes.
 _Avoid_: history, report, finished list
 
+**Release**:
+A planet's version that a tag names, such as `pocket-galaxy-v0.19.0`; the mission bot cuts the
+next one after a merge.
+_Avoid_: build, version bump, tag (unqualified)
+
+**Deploy check**:
+One of the checks that tell whether a planet deploys its merged missions; they never change go
+or no-go.
+_Avoid_: deploy readiness, recipe check
+
+**Fix issue**:
+The issue a failed release or deploy opens; its planet is paused until the issue is closed.
+_Avoid_: incident, rollback ticket
+
 **Preflight**:
 The checklist that tells whether a planet is ready for missions; its result is **go** or **no-go**.
 _Avoid_: readiness check, agent readiness, health check

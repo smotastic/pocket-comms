@@ -77,4 +77,45 @@ describe('Mission Control (spec 035)', () => {
 
     await waitFor(() => expect(fake.calls.missionRequests).toEqual(['resume l']));
   });
+
+  it('shows the deploy states, versions and the fix issue, and offers Deploy (spec 036)', async () => {
+    const fake = fakeClient({
+      missions: {
+        running: mission({ id: 'd', state: 'deploying', versions: undefined }),
+        queue: [],
+        log: [
+          mission({
+            id: 'w',
+            state: 'awaiting-deploy',
+            finishedAt: Date.now(),
+            reason: 'home-server-v0.10.0 holds a database migration.',
+          }),
+          mission({
+            id: 'r',
+            state: 'rolled-back',
+            finishedAt: Date.now(),
+            versions: ['home-server-v0.9.1'],
+            fixIssue: 42,
+            output: 'health check failed: 503',
+          }),
+        ],
+        newCount: 0,
+      },
+    });
+    renderApp({ client: fake.client, path: '/missions' });
+
+    const running = await screen.findByRole('region', { name: 'Running mission' });
+    expect(within(running).getByText('Deploying')).toBeDefined();
+    expect(within(running).queryByRole('button', { name: 'Abort' })).toBeNull();
+
+    const log = screen.getByRole('list', { name: 'Mission log' });
+    expect(within(log).getByText('Merged, waiting for you to deploy')).toBeDefined();
+    expect(within(log).getByText('Rolled back')).toBeDefined();
+    expect(within(log).getByText('home-server-v0.9.1')).toBeDefined();
+    expect(
+      within(log).getByText('Fix issue #42; the planet is paused until it is closed.'),
+    ).toBeDefined();
+    await userEvent.click(within(log).getByRole('button', { name: 'Deploy' }));
+    await waitFor(() => expect(fake.calls.missionRequests).toEqual(['deploy w']));
+  });
 });
