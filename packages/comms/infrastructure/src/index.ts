@@ -7,6 +7,7 @@ export * as Images from './images/index.js';
 export * as Planets from './planets/index.js';
 export * as Missions from './missions/index.js';
 export * as MissionBot from './mission-bot/index.js';
+export * as Deploy from './deploy/index.js';
 export * as Push from './push/index.js';
 export * as Repositories from './repositories/index.js';
 export * as QuickReplies from './quick-replies/index.js';

@@ -2,6 +2,10 @@ import {
   chooseAutonomy,
   effectiveAutonomy,
   InvalidInputError,
+  lastDeploy,
+  releaseSettingsOf,
+  type DeployFacts,
+  type LastDeployFacts,
   type AutonomyLevel,
   orderPlanets,
   preflightOf,
@@ -18,7 +22,9 @@ import * as Ref from 'effect/Ref';
 import type { PlanetDto, PlanetsDto, PreflightDto } from '../dto/task.dto.js';
 import { PlanetExistsError, PlanetNotFoundError, RepositoryNotFoundError } from '../errors.js';
 import { GiteaOutbound, type LinkedRepository } from '../ports/gitea.outbound.port.js';
+import { DeployOutbound } from '../ports/deploy.outbound.port.js';
 import { MissionBotOutbound } from '../ports/mission-bot.outbound.port.js';
+import { MissionsOutbound } from '../ports/missions.outbound.port.js';
 import { MultiplexerOutbound } from '../ports/multiplexer.outbound.port.js';
 import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
 import { PlanetsOutbound } from '../ports/planets.outbound.port.js';
@@ -40,13 +46,54 @@ export const makePlanets = Effect.gen(function* () {
   const repositoriesOutbound = yield* RepositoriesOutbound;
   const giteaOutbound = yield* GiteaOutbound;
   const missionBot = yield* MissionBotOutbound;
+  const deployOutbound = yield* DeployOutbound;
+  const missionsOutbound = yield* MissionsOutbound;
   const { split, registry, find } = yield* makePlanetRegistry;
   const reused = yield* Ref.make(
     new Map<string, { readonly at: number; readonly preflight: Preflight }>(),
   );
 
   /** The facts of a planet's repository on Gitea; a Gitea that cannot be read is a fact too. */
-  const factsOf = (repository: LinkedRepository) =>
+  /** The deploy checks' facts: the AGENTS.md block, and the script on each app it names. */
+  const deployFacts = (agentsMd: string | undefined) =>
+    Effect.gen(function* () {
+      const settings = releaseSettingsOf(agentsMd);
+      const apps =
+        settings._tag === 'Settings'
+          ? [
+              ...new Set(
+                settings.settings.releases.flatMap((release) =>
+                  release.app === undefined ? [] : [release.app],
+                ),
+              ),
+            ]
+          : [];
+      return {
+        settings,
+        script: deployOutbound.configured,
+        apps: deployOutbound.configured
+          ? yield* Effect.forEach(apps, deployOutbound.check, { concurrency: 'unbounded' })
+          : [],
+      } satisfies DeployFacts;
+    });
+
+  /** The planet's latest deploy; a rolled-back one counts until its fix issue is closed. */
+  const lastDeployFacts = (planet: string, repository: LinkedRepository) =>
+    Effect.gen(function* () {
+      const latest = lastDeploy(yield* missionsOutbound.load, planet);
+      if (latest?.state !== 'rolled-back') return { _tag: 'Fine' } satisfies LastDeployFacts;
+      const what = (latest.versions ?? []).join(', ') || `#${latest.issue.number}`;
+      const fixIssue = latest.fixIssue;
+      if (fixIssue !== undefined) {
+        const issue = yield* giteaOutbound.issue(repository, fixIssue).pipe(Effect.option);
+        if (Option.isSome(issue) && issue.value.state !== 'open') {
+          return { _tag: 'Fine' } satisfies LastDeployFacts;
+        }
+      }
+      return { _tag: 'RolledBack', what, fixIssue } satisfies LastDeployFacts;
+    });
+
+  const factsOf = (planet: string, repository: LinkedRepository) =>
     Effect.gen(function* () {
       const branch = yield* giteaOutbound.defaultBranch(repository);
       if (Option.isNone(branch)) {
@@ -56,9 +103,10 @@ export const makePlanets = Effect.gen(function* () {
         } satisfies PreflightFacts;
       }
       const ref = branch.value;
-      const [agentsMd, workflows, runs, packageJson] = yield* Effect.all(
+      const [agentsMd, agentsMdText, workflows, runs, packageJson] = yield* Effect.all(
         [
           giteaOutbound.entryNames(repository, ref, 'AGENTS.md'),
+          giteaOutbound.fileText(repository, ref, 'AGENTS.md'),
           Effect.forEach(WORKFLOW_FOLDERS, (folder) =>
             giteaOutbound.entryNames(repository, ref, folder),
           ),
@@ -75,6 +123,8 @@ export const makePlanets = Effect.gen(function* () {
         runs: Option.getOrUndefined(runs),
         packageJson: Option.getOrUndefined(packageJson),
         bot: yield* missionBot.facts(repository),
+        deploy: yield* deployFacts(Option.getOrUndefined(agentsMdText)),
+        lastDeploy: yield* lastDeployFacts(planet, repository),
       } satisfies PreflightFacts;
     }).pipe(
       Effect.catchTags({
@@ -92,7 +142,9 @@ export const makePlanets = Effect.gen(function* () {
     const origin = yield* repositoriesOutbound.originUrl(planet);
     const repository = Option.flatMap(origin, giteaOutbound.repositoryOf);
     return preflightOf(
-      Option.isNone(repository) ? { _tag: 'NotOnGitea' } : yield* factsOf(repository.value),
+      Option.isNone(repository)
+        ? { _tag: 'NotOnGitea' }
+        : yield* factsOf(planet.name, repository.value),
     );
   });
 
@@ -145,6 +197,7 @@ export const makePlanets = Effect.gen(function* () {
       result: computed.preflight.result,
       checks: computed.preflight.checks,
       autonomy: { chosen, effective: effectiveAutonomy(chosen, computed.preflight.result) },
+      deploy: computed.preflight.deploy,
       checkedAt: computed.at,
     } satisfies PreflightDto;
   });

@@ -49,5 +49,16 @@ export class MissionBotOutbound extends Context.Service<
       path: string,
       repository: GiteaRepository,
     ) => Effect.Effect<void, MissionBotError>;
+    /** Pushes the tag `tag` on the commit `target`; an existing tag on it is fine (spec 036). */
+    readonly pushTag: (
+      repository: GiteaRepository,
+      tag: string,
+      target: string,
+    ) => Effect.Effect<void, MissionBotError>;
+    /** Opens an issue and answers its number (spec 036). */
+    readonly openIssue: (
+      repository: GiteaRepository,
+      issue: { readonly title: string; readonly body: string },
+    ) => Effect.Effect<number, MissionBotError>;
   }
 >()('comms/application/MissionBotOutbound') {}

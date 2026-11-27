@@ -19,6 +19,7 @@ import {
   type Worktree,
   type PlanetRegistry,
   type CiRun,
+  type ReleaseCommit,
   EMPTY_MISSIONS,
   type GiteaRepository,
   type MissionsFile,
@@ -51,9 +52,15 @@ import {
   ConversationUnavailableError,
   PlanetsStoreError,
   MissionBotError,
+  DeployError,
   MissionsStoreError,
 } from '../errors.js';
 import { MissionBotOutbound } from '../ports/mission-bot.outbound.port.js';
+import {
+  DeployOutbound,
+  type DeployJob,
+  type DeployResult,
+} from '../ports/deploy.outbound.port.js';
 import { MissionsOutbound } from '../ports/missions.outbound.port.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
 import {
@@ -264,6 +271,31 @@ export class FakeState extends Context.Service<
       failure: string | undefined;
       readonly calls: Array<string>;
     };
+    /**
+     * pocket-cloud's deploy script (spec 036): whether it is set up, what `check` says of each app
+     * (an app missing is ready), every started run, the results by run id, and why starting fails.
+     */
+    readonly deploy: {
+      configured: boolean;
+      readonly checks: Map<string, { readonly ready: boolean; readonly reason: string }>;
+      readonly started: Array<DeployJob>;
+      readonly results: Map<string, DeployResult>;
+      startFailure: string | undefined;
+    };
+    /**
+     * The git facts of each planet's checkout for releases (spec 036), by planet name: its tags,
+     * the commit of each ref, and its commits, oldest first, each with its sha.
+     */
+    readonly releaseGit: Map<
+      string,
+      {
+        tags: Array<string>;
+        readonly refs: Map<string, string>;
+        commits: Array<ReleaseCommit & { readonly sha: string }>;
+      }
+    >;
+    /** The runs of release workflows, by `<owner>/<name> <workflow> <tag>`. */
+    readonly tagRuns: Map<string, CiRun>;
     /** The speech service: whether it is set up, what it hears, why it fails and the voice messages it got (`clips`, as the agent package names them). */
     readonly speech: {
       available: boolean;
@@ -470,6 +502,30 @@ const planets = (state: FakeState['Service']) => {
       ),
     worktrees: (planet) =>
       Effect.as(ask(`worktrees ${planet.name}`), [...(state.worktrees.get(planet.name) ?? [])]),
+    fetchTags: (planet) => ask(`fetchTags ${planet.name}`),
+    tags: (planet) =>
+      Effect.as(ask(`tags ${planet.name}`), [...(state.releaseGit.get(planet.name)?.tags ?? [])]),
+    commitOf: (planet, ref) =>
+      Effect.flatMap(ask(`commitOf ${planet.name} ${ref}`), () => {
+        const sha = state.releaseGit.get(planet.name)?.refs.get(ref);
+        return sha === undefined
+          ? Effect.fail(new RepositoryGitError({ planet: planet.name, reason: `no ${ref}` }))
+          : Effect.succeed(sha);
+      }),
+    commits: (planet, from, to) =>
+      Effect.map(ask(`commits ${planet.name} ${from ?? '-'} ${to}`), () => {
+        const git = state.releaseGit.get(planet.name);
+        if (git === undefined) return [];
+        const resolve = (ref: string) => git.refs.get(ref) ?? ref;
+        const end = git.commits.findIndex((commit) => commit.sha === resolve(to));
+        const start =
+          from === undefined
+            ? 0
+            : git.commits.findIndex((commit) => commit.sha === resolve(from)) + 1;
+        return git.commits
+          .slice(start, end + 1)
+          .map(({ subject, body, files }) => ({ subject, body, files }));
+      }),
     readDoc: (planet, doc) =>
       Effect.map(state.readDocWait ?? Effect.void, () =>
         Option.fromNullishOr(state.docs.get(`${planet.name}/${doc}`)),
@@ -647,6 +703,12 @@ const gitea = (state: FakeState['Service']) => {
             : Option.none(),
         );
       }),
+    tagRun: ({ owner, name }, workflow, tag) =>
+      request(`tagRun ${owner}/${name} ${workflow} ${tag}`, () =>
+        Effect.succeed(
+          Option.fromNullishOr(state.tagRuns.get(`${owner}/${name} ${workflow} ${tag}`)),
+        ),
+      ),
     openIssues: ({ owner, name }) =>
       request(`openIssues ${owner}/${name}`, () =>
         Effect.succeed([...(state.issues.get(`${owner}/${name}`) ?? [])]),
@@ -813,6 +875,12 @@ const missionBot = (fake: FakeState['Service']): MissionBotOutbound['Service'] =
       call(`unmarkInProgress ${name(repository)} ${number}`),
     comment: (repository, number, body) => call(`comment ${name(repository)} ${number} ${body}`),
     prepareWorktree: (path, repository) => call(`prepareWorktree ${name(repository)} ${path}`),
+    pushTag: (repository, tag, target) => call(`pushTag ${name(repository)} ${tag} ${target}`),
+    openIssue: (repository, issue) =>
+      Effect.map(
+        call(`openIssue ${name(repository)} ${issue.title}`),
+        () => 900 + fake.bot.calls.length,
+      ),
   };
 };
 
@@ -890,6 +958,15 @@ export const fakeLayer = () => {
         missions: EMPTY_MISSIONS,
         missionsFailure: undefined,
         bot: { configured: true, noPush: new Set(), failure: undefined, calls: [] },
+        deploy: {
+          configured: true,
+          checks: new Map(),
+          started: [],
+          results: new Map(),
+          startFailure: undefined,
+        },
+        releaseGit: new Map(),
+        tagRuns: new Map(),
       };
     }),
   );
@@ -1024,6 +1101,28 @@ export const fakeLayer = () => {
             ),
         }),
         Context.add(MissionBotOutbound, missionBot(fake)),
+        Context.add(DeployOutbound, {
+          get configured() {
+            return fake.deploy.configured;
+          },
+          check: (app) =>
+            Effect.sync(() => ({
+              app,
+              ...(fake.deploy.configured
+                ? (fake.deploy.checks.get(app) ?? { ready: true, reason: `${app} is ready.` })
+                : {
+                    ready: false,
+                    reason: 'The server has no deploy script (COMMS_DEPLOY_SCRIPT).',
+                  }),
+            })),
+          start: (job) =>
+            Effect.suspend(() =>
+              fake.deploy.startFailure === undefined
+                ? Effect.sync(() => void fake.deploy.started.push(job))
+                : Effect.fail(new DeployError({ reason: fake.deploy.startFailure })),
+            ),
+          result: (id) => Effect.sync(() => Option.fromNullishOr(fake.deploy.results.get(id))),
+        }),
         Context.add(StatusHistoryOutbound, {
           get: (paneId) => Effect.sync(() => Option.fromNullishOr(fake.history.get(paneId))),
           set: (paneId, mark) => Effect.sync(() => void fake.history.set(paneId, mark)),
