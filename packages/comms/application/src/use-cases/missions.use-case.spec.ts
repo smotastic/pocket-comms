@@ -302,8 +302,9 @@ describe('a running mission', () => {
 
         state.pullRequests.set('owner/app#12', pullRequest('merged'));
         yield* service.advance;
+        // The planet names no releases, so the merge ends it as not deployed (spec 036).
         expect((yield* service.list).log[0]).toMatchObject({
-          state: 'merged',
+          state: 'not-deployed',
           outcome: 'Fixed the header.',
         });
       }).pipe(Effect.scoped, Effect.provide(layer())),
