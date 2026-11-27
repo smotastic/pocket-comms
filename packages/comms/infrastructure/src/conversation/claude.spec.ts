@@ -554,6 +554,124 @@ describe('createClaudeParser background work', () => {
     expect(ids(parser)).toEqual(['toolu-ci', 'toolu-mon']);
   });
 
+  describe('a subagent resumed with SendMessage', () => {
+    const SUBAGENT = 'a3b5ae8dcea2d1b9b';
+    const stopped = (summary: string, note = '') =>
+      notice(
+        `<task-id>${SUBAGENT}</task-id>\n<status>completed</status>\n<summary>${summary}</summary>${note}`,
+      );
+    const resume = (to: string, details: unknown) => [
+      assistantCall('toolu-send', 'SendMessage', { to, summary: 'Continue step 2' }),
+      toolResult('toolu-send', '{"success":true}', details),
+    ];
+    // A delegation in the background that stopped at its turn limit.
+    const stoppedAtItsLimit = () => {
+      const parser = createClaudeParser('/work/app');
+      parser.push(
+        assistantCall('toolu-step', 'Agent', {
+          description: 'Fly step 2',
+          subagent_type: 'fork',
+          prompt: 'Go',
+        }),
+      );
+      parser.push(
+        toolResult('toolu-step', 'Async agent launched', {
+          isAsync: true,
+          status: 'async_launched',
+          agentId: SUBAGENT,
+        }),
+      );
+      parser.push(stopped('Agent "Fly step 2" stopped at its 200-turn limit'));
+      return parser;
+    };
+    const resumed = { resumedAgentId: SUBAGENT, revivedAgentId: SUBAGENT };
+
+    it('runs again once resumed, as the delegation that started it', () => {
+      const parser = stoppedAtItsLimit();
+      const before = ids(parser);
+      resume(SUBAGENT, resumed).forEach((line) => parser.push(line));
+
+      expect(before).toEqual([]);
+      expect(parser.background()).toEqual([
+        expect.objectContaining({
+          id: 'toolu-step',
+          kind: 'subagent',
+          description: 'Fly step 2',
+          subagent: SUBAGENT,
+          inBackground: true,
+        }),
+      ]);
+    });
+
+    it('keeps running while it only waits on its own background work, and ends when it stops', () => {
+      const parser = stoppedAtItsLimit();
+      resume(SUBAGENT, resumed).forEach((line) => parser.push(line));
+      parser.push(
+        stopped(
+          'Agent "Fly step 2" is waiting on its own background work',
+          '\n<note>This agent stopped with background work of its own still running.</note>',
+        ),
+      );
+      const waiting = ids(parser);
+      const waitingSince = parser.waiting();
+      parser.push(stopped('Agent "Fly step 2" completed'));
+
+      expect(waiting).toEqual(['toolu-step']);
+      expect(waitingSince).toEqual(new Map([[SUBAGENT, Date.parse('2026-10-30T16:00:40.000Z')]]));
+      expect(ids(parser)).toEqual([]);
+      expect(parser.waiting()).toEqual(new Map());
+    });
+
+    it('runs a resumed subagent it did not see stop, as the message that resumed it', () => {
+      const parser = createClaudeParser('/work/app');
+      resume(SUBAGENT, resumed).forEach((line) => parser.push(line));
+      resume(SUBAGENT, resumed).forEach((line) => parser.push(line));
+
+      expect(parser.background()).toEqual([
+        expect.objectContaining({
+          id: 'toolu-send',
+          kind: 'subagent',
+          description: 'Continue step 2',
+          subagent: SUBAGENT,
+        }),
+      ]);
+    });
+
+    it('takes the earliest record of a waiting notice, and none without a time', () => {
+      const parser = stoppedAtItsLimit();
+      resume(SUBAGENT, resumed).forEach((line) => parser.push(line));
+      const waitingAt = (timestamp: string | undefined, uuid: string) =>
+        JSON.stringify({
+          type: 'user',
+          uuid,
+          ...(timestamp === undefined ? {} : { timestamp }),
+          origin: { kind: 'task-notification' },
+          message: {
+            role: 'user',
+            content: `<task-notification>\n<task-id>${SUBAGENT}</task-id>\n<status>completed</status>\n<summary>Agent "Fly step 2" is waiting on its own background work</summary>\n</task-notification>`,
+          },
+        });
+
+      parser.push(waitingAt(undefined, 'w-0'));
+      const untimed = parser.waiting();
+      parser.push(waitingAt('2026-10-30T16:00:50.000Z', 'w-1'));
+      parser.push(waitingAt('2026-10-30T16:01:50.000Z', 'w-2'));
+
+      expect(untimed).toEqual(new Map());
+      expect(parser.waiting()).toEqual(
+        new Map([[SUBAGENT, Date.parse('2026-10-30T16:00:50.000Z')]]),
+      );
+      expect(ids(parser)).toEqual(['toolu-step']);
+    });
+
+    it('starts nothing for a message the subagent did not resume from', () => {
+      const parser = stoppedAtItsLimit();
+      resume(SUBAGENT, { success: false }).forEach((line) => parser.push(line));
+
+      expect(ids(parser)).toEqual([]);
+    });
+  });
+
   it('counts a command Claude moved into the background without the flag', () => {
     const parser = createClaudeParser('/work/app');
     parser.push(

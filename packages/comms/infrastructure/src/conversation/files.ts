@@ -4,7 +4,7 @@ import {
   type SubagentMeta,
   type ConversationSource,
 } from '@pocket-comms/comms-application';
-import type { BackgroundItem, ConversationEntry } from '@pocket-comms/comms-domain';
+import { runningAt, type BackgroundItem, type ConversationEntry } from '@pocket-comms/comms-domain';
 import * as Clock from 'effect/Clock';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -309,31 +309,67 @@ export const layerFiles = ({
       for (const [key, state] of tracked) {
         if (now - state.usedAt > TRACKED_FOR_MS) tracked.delete(key);
       }
+      // What `take` reads from a file's parser once it has every line appended since the last
+      // read of that file, within the same turn.
+      const parsedFrom = <A>(
+        file: string,
+        parserOf: () => ConversationParser,
+        take: (parser: ConversationParser) => A,
+      ) =>
+        inTurn(file, async () => {
+          const fresh = () => ({ parser: parserOf(), offset: 0, usedAt: now });
+          let state = tracked.get(file) ?? fresh();
+          let appended = await readAppended(file, state.offset);
+          // Session files only grow; one shorter than what was read was rewritten, so it is read
+          // again from its start.
+          if (appended.size < state.offset) {
+            state = fresh();
+            appended = await readAppended(file, 0);
+          }
+          for (const line of appended.lines) state.parser.push(line);
+          tracked.set(file, { ...state, offset: appended.offset, usedAt: now });
+          return take(state.parser);
+        });
+      // A subagent that stopped while its own work goes on still runs while its own file shows
+      // that work, or once the file goes on after it stopped: then it resumed by itself.
+      const stillRuns = async (subagent: string, since: number) => {
+        const file = join(subagentsFolder(path), `agent-${subagent}.jsonl`);
+        const info = await stat(file).catch(() => undefined);
+        if (info === undefined) return false;
+        if (info.mtimeMs > since) return true;
+        const own = await parsedFrom(
+          file,
+          () => createClaudeParser(source.cwd, { sidechain: true }),
+          (parser) => parser.background(),
+        );
+        return runningAt(own, now).length > 0;
+      };
       const items = yield* Effect.tryPromise({
-        try: () =>
-          inTurn(path, async (): Promise<ReadonlyArray<BackgroundItem>> => {
-            const fresh = () => ({ parser: parserFor(source), offset: 0, usedAt: now });
-            let state = tracked.get(path) ?? fresh();
-            let appended = await readAppended(path, state.offset);
-            // Session files only grow; one shorter than what was read was rewritten, so it is read
-            // again from its start.
-            if (appended.size < state.offset) {
-              state = fresh();
-              appended = await readAppended(path, 0);
+        try: async (): Promise<ReadonlyArray<BackgroundItem>> => {
+          const { background, waiting } = await parsedFrom(
+            path,
+            () => parserFor(source),
+            (parser) => ({ background: parser.background(), waiting: parser.waiting() }),
+          );
+          const ended = new Set<string>();
+          for (const [subagent, since] of waiting) {
+            if (SUBAGENT_ID.test(subagent) && !(await stillRuns(subagent, since))) {
+              ended.add(subagent);
             }
-            for (const line of appended.lines) state.parser.push(line);
-            tracked.set(path, { ...state, offset: appended.offset, usedAt: now });
-            const items = state.parser.background();
-            if (items.every((item) => item.kind !== 'subagent' || item.subagent !== undefined)) {
-              return items;
-            }
-            const ids = await subagentIds(path);
-            return items.map((item) => {
-              const subagent =
-                item.kind === 'subagent' ? (item.subagent ?? ids.get(item.id)) : undefined;
-              return subagent === undefined ? item : { ...item, subagent };
-            });
-          }),
+          }
+          const items = background.filter(
+            (item) => item.subagent === undefined || !ended.has(item.subagent),
+          );
+          if (items.every((item) => item.kind !== 'subagent' || item.subagent !== undefined)) {
+            return items;
+          }
+          const ids = await subagentIds(path);
+          return items.map((item) => {
+            const subagent =
+              item.kind === 'subagent' ? (item.subagent ?? ids.get(item.id)) : undefined;
+            return subagent === undefined ? item : { ...item, subagent };
+          });
+        },
         catch: failed(source),
       });
       return items;

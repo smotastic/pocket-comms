@@ -236,7 +236,7 @@ export const createClaudeParser = (
 
     const notice = taskNoticeOf(line);
     if (notice !== undefined) {
-      background.notification(notice);
+      background.notification(notice, at);
       return [];
     }
 
@@ -312,5 +312,5 @@ export const createClaudeParser = (
     return changed;
   };
 
-  return { push, entries: log.entries, background: background.items };
+  return { push, entries: log.entries, background: background.items, waiting: background.waiting };
 };
