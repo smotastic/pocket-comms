@@ -9,6 +9,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gitEnvironment } from '../repositories/git.js';
 import { layer } from './layer.js';
 
 const TOKEN = 'bot-token-0123456789';
@@ -167,9 +168,12 @@ describe('the mission bot', () => {
       const root = mkdtempSync(join(tmpdir(), 'bot-repo-'));
       const main = join(root, 'main');
       const worktree = join(root, 'mission');
+      // Without the variables that pick a repository: a git hook sets GIT_DIR, and git would
+      // otherwise write into the repository the hook runs for.
+      const env = gitEnvironment(process.env);
       const git = (cwd: string, ...args: ReadonlyArray<string>) =>
-        execFileSync('git', [...args], { cwd, encoding: 'utf8' }).trim();
-      execFileSync('git', ['init', '-q', main]);
+        execFileSync('git', [...args], { cwd, env, encoding: 'utf8' }).trim();
+      execFileSync('git', ['init', '-q', main], { env });
       git(main, 'config', 'user.name', 'Owner');
       git(main, 'config', 'user.email', 'owner@example.test');
       git(main, 'config', 'commit.gpgsign', 'false');
@@ -185,10 +189,7 @@ describe('the mission bot', () => {
       const helpers = execFileSync(
         'git',
         ['config', '--worktree', '--get-all', 'credential.helper'],
-        {
-          cwd: worktree,
-          encoding: 'utf8',
-        },
+        { cwd: worktree, env, encoding: 'utf8' },
       );
       expect(helpers.split('\n').slice(0, -1)).toEqual([
         '',
