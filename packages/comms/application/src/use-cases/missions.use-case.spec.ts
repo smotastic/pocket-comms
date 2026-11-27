@@ -150,6 +150,31 @@ describe('the mission queue', () => {
   );
 });
 
+describe('a mission that does not start', () => {
+  it.effect('fails with the reason, keeps its worktree, and a new send continues in it', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state);
+      const { send, advance, list } = yield* missions;
+      yield* send('app', 7, 'hop');
+      state.bot.failure = 'Gitea does not know the mission bot.';
+      yield* advance;
+
+      expect((yield* list).log[0]).toMatchObject({
+        state: 'failed',
+        reason: 'It did not start: Gitea does not know the mission bot.',
+      });
+
+      state.bot.failure = undefined;
+      state.gitCalls.length = 0;
+      yield* send('app', 7, 'hop');
+      yield* advance;
+      expect(state.gitCalls.some((call) => call.startsWith('addWorktree'))).toBe(false);
+      expect((yield* list).running?.state).toBe('working');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+});
+
 describe("Claude's folder trust", () => {
   it.effect('is answered yes in the worktree the server made, and the first prompt follows', () =>
     Effect.gen(function* () {

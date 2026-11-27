@@ -19,6 +19,7 @@ import {
   type Mission,
   type MissionFacts,
   type MissionsFile,
+  type MissionWorktree,
   type Repository,
 } from '@pocket-comms/comms-domain';
 import * as Clock from 'effect/Clock';
@@ -446,8 +447,10 @@ export const makeMissions = Effect.gen(function* () {
   });
 
   /** Starts a queued mission: its worktree as the bot, Claude with the mission settings. */
-  const start = (file: MissionsFile, mission: Mission, now: number) =>
-    Effect.gen(function* () {
+  const start = (file: MissionsFile, mission: Mission, now: number) => {
+    // The worktree once it exists, so a failure after it keeps it for the next send.
+    let made: MissionWorktree | undefined;
+    return Effect.gen(function* () {
       const preflight = yield* planets.preflight(mission.planet, true);
       if (preflight.autonomy.effective === 'manual') {
         const failed = preflight.checks
@@ -475,11 +478,13 @@ export const makeMissions = Effect.gen(function* () {
       const worktree = yield* kept === undefined
         ? addWorktree(planet, issueBranch(issue))
         : Effect.succeed({ path: kept.path, branch: kept.branch });
+      made = { ...worktree, workspaceId: worktree.path };
       const opened = yield* multiplexer.openWorktree({
         cwd: planet.path,
         path: worktree.path,
         label: issue.title,
       });
+      made = { ...worktree, workspaceId: opened.workspaceId };
       const started = {
         ...mission,
         state: 'working',
@@ -514,15 +519,18 @@ export const makeMissions = Effect.gen(function* () {
       );
       return { ...started, agent } satisfies Mission;
     }).pipe(
-      Effect.catch((error) =>
-        Effect.succeed({
+      Effect.catch((error) => {
+        const failed = {
           ...mission,
           state: 'failed',
           finishedAt: now,
           reason: `It did not start: ${reasonOf(error)}`,
-        } satisfies Mission),
-      ),
+          worktree: made,
+        } satisfies Mission;
+        return Effect.as(closeWorkspace(failed), failed);
+      }),
     );
+  };
 
   const addWorktree = (planet: Repository, branch: string) =>
     Effect.gen(function* () {
