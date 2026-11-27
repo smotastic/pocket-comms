@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  awaitingDeploy,
+  isFinished,
+  isRunning,
+  lastDeploy,
+  planetWaitsForOwner,
   keptWorktree,
   laneLabel,
   laneOfLabels,
@@ -241,5 +246,48 @@ describe('the first prompt', () => {
     const prompt = missionPrompt({ ...input, lane: 'full-flight', continued: true });
     expect(prompt).toContain('This is a full flight: flight-grill');
     expect(prompt).toContain('Continue from your branch');
+  });
+});
+
+describe('deploy (spec 036)', () => {
+  const file = (...missions: Array<Mission>) => ({ missions, seenAt: 0 });
+
+  it('keeps releasing and deploying running, and the deploy endings finished', () => {
+    expect(isRunning(mission({ state: 'releasing' }))).toBe(true);
+    expect(isRunning(mission({ state: 'deploying' }))).toBe(true);
+    for (const state of [
+      'deployed',
+      'rolled-back',
+      'not-deployed',
+      'nothing-to-release',
+      'awaiting-deploy',
+    ] as const) {
+      expect(isFinished(mission({ state }))).toBe(true);
+    }
+  });
+
+  it('knows a planet that waits for the owner to deploy, oldest first', () => {
+    const older = mission({ id: 'a', state: 'awaiting-deploy', finishedAt: 1 });
+    const newer = mission({ id: 'b', state: 'awaiting-deploy', finishedAt: 2 });
+    const other = mission({ id: 'c', planet: 'other', state: 'awaiting-deploy', finishedAt: 0 });
+    expect(awaitingDeploy(file(newer, other, older), older.planet).map((each) => each.id)).toEqual([
+      'a',
+      'b',
+    ]);
+    expect(planetWaitsForOwner(file(older), older.planet)).toBe(true);
+    expect(planetWaitsForOwner(file(other), older.planet)).toBe(false);
+    const queuedByDeploy = mission({
+      state: 'queued',
+      deploy: { releases: [], step: 0, phase: 'tag', since: 0, backup: true },
+    });
+    expect(planetWaitsForOwner(file(queuedByDeploy), queuedByDeploy.planet)).toBe(true);
+  });
+
+  it("names the planet's latest deploy, deployed or rolled back", () => {
+    const deployed = mission({ id: 'a', state: 'deployed', finishedAt: 1 });
+    const rolledBack = mission({ id: 'b', state: 'rolled-back', finishedAt: 2 });
+    const merged = mission({ id: 'c', state: 'merged', finishedAt: 3 });
+    expect(lastDeploy(file(deployed, rolledBack, merged), deployed.planet)?.id).toBe('b');
+    expect(lastDeploy(file(merged), merged.planet)).toBeUndefined();
   });
 });

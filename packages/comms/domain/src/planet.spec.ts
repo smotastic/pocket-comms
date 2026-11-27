@@ -8,7 +8,9 @@ import {
   seedPlanets,
   unregisterPlanet,
   type CiRun,
+  type DeployFacts,
   type PreflightFacts,
+  deployChecksOf,
 } from './planet.js';
 import { OTHER_GROUP, type Workspace } from './workspace.js';
 
@@ -22,6 +24,15 @@ const read = (
   runs: [{ status: 'completed', conclusion: 'success' }],
   packageJson: JSON.stringify({ scripts: { verify: 'pocket-ci verify' } }),
   bot: { _tag: 'Read', canPush: true },
+  deploy: {
+    settings: {
+      _tag: 'Settings',
+      settings: { releases: [{ tag: 'app-v', paths: [], app: 'pocket-app' }], migrations: [] },
+    },
+    script: true,
+    apps: [{ app: 'pocket-app', ready: true, reason: 'pocket-app is ready.' }],
+  },
+  lastDeploy: { _tag: 'Fine' },
   ...overrides,
 });
 
@@ -96,6 +107,7 @@ describe('preflight', () => {
       ['ci-green', true],
       ['verify-script', true],
       ['mission-bot', true],
+      ['last-deploy', true],
     ]);
   });
 
@@ -234,5 +246,81 @@ describe('choosing a level', () => {
   it('refuses autopilot, and a repository that is not a planet', () => {
     expect(chooseAutonomy(registry, 'app', 'autopilot')).toBeUndefined();
     expect(chooseAutonomy(registry, 'api', 'missions')).toBeUndefined();
+  });
+});
+
+describe('the deploy checks and the last deploy (spec 036)', () => {
+  const deploy = (facts: Partial<DeployFacts>): DeployFacts => ({
+    settings: {
+      _tag: 'Settings',
+      settings: { releases: [{ tag: 'app-v', paths: [], app: 'pocket-app' }], migrations: [] },
+    },
+    script: true,
+    apps: [{ app: 'pocket-app', ready: true, reason: 'ready' }],
+    ...facts,
+  });
+
+  it('deploys when the block, the script and every app pass, without changing go', () => {
+    const preflight = preflightOf(read());
+    expect(preflight.result).toBe('go');
+    expect(preflight.deploy.deploys).toBe(true);
+    expect(preflight.deploy.checks.map((each) => each.check)).toEqual([
+      'release-settings',
+      'deploy-script',
+      'deploy-apps',
+    ]);
+  });
+
+  it('does not deploy, but stays go, without a block, a script or a ready app', () => {
+    const none = preflightOf(
+      read({ deploy: deploy({ settings: { _tag: 'Invalid', reason: 'No block.' } }) }),
+    );
+    expect(none.result).toBe('go');
+    expect(none.deploy.deploys).toBe(false);
+    expect(none.deploy.checks[0]).toEqual({
+      check: 'release-settings',
+      passed: false,
+      reason: 'No block.',
+    });
+    expect(preflightOf(read({ deploy: deploy({ script: false }) })).deploy.deploys).toBe(false);
+    const unready = preflightOf(
+      read({
+        deploy: deploy({ apps: [{ app: 'pocket-app', ready: false, reason: 'No health URL.' }] }),
+      }),
+    );
+    expect(unready.deploy.checks[2]).toEqual({
+      check: 'deploy-apps',
+      passed: false,
+      reason: 'No health URL.',
+    });
+  });
+
+  it('deploys a published-only release without the script being asked', () => {
+    const published = deploy({
+      settings: {
+        _tag: 'Settings',
+        settings: { releases: [{ tag: 'design-v', paths: [] }], migrations: [] },
+      },
+      apps: [],
+      script: false,
+    });
+    expect(deployChecksOf(published).checks[2]?.passed).toBe(true);
+  });
+
+  it('is no-go while the last deploy rolled back', () => {
+    const preflight = preflightOf(
+      read({ lastDeploy: { _tag: 'RolledBack', what: 'app-v0.2.0', fixIssue: 7 } }),
+    );
+    expect(preflight.result).toBe('no-go');
+    expect(
+      check(
+        read({ lastDeploy: { _tag: 'RolledBack', what: 'app-v0.2.0', fixIssue: 7 } }),
+        'last-deploy',
+      ),
+    ).toEqual({
+      check: 'last-deploy',
+      passed: false,
+      reason: 'The last deploy (app-v0.2.0) rolled back; close #7 once it is fixed.',
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { OTHER_GROUP, type Workspace } from './workspace.js';
+import type { ReleaseSettingsResult } from './release.js';
 
 // The rules of planets and preflight (spec 034, ADR 0018): which repositories are planets, their
 // settings, and the checklist that says whether a planet is ready for missions. Preflight is
@@ -111,7 +112,30 @@ export type PreflightFacts =
       readonly packageJson: string | undefined;
       /** What the mission bot may do on the repository (spec 035). */
       readonly bot: BotFacts;
+      /** What the deploy checks read (spec 036). */
+      readonly deploy: DeployFacts;
+      /** The planet's latest deploy (spec 036). */
+      readonly lastDeploy: LastDeployFacts;
     };
+
+/** What the deploy checks read: the Mission Control block and pocket-cloud's deploy script. */
+export interface DeployFacts {
+  /** The releases of the AGENTS.md block, or why there are none. */
+  readonly settings: ReleaseSettingsResult;
+  /** Whether the server knows pocket-cloud's deploy script (`COMMS_DEPLOY_SCRIPT`). */
+  readonly script: boolean;
+  /** What the deploy script says of each app the releases name. */
+  readonly apps: ReadonlyArray<{
+    readonly app: string;
+    readonly ready: boolean;
+    readonly reason: string;
+  }>;
+}
+
+/** The planet's latest deploy, as the mission log and its fix issue say. */
+export type LastDeployFacts =
+  | { readonly _tag: 'Fine' }
+  | { readonly _tag: 'RolledBack'; readonly what: string; readonly fixIssue: number | undefined };
 
 /** Whether the mission bot may push to a repository, as its token on Gitea says. */
 export type BotFacts =
@@ -126,12 +150,18 @@ export const PREFLIGHT_CHECKS = [
   'ci-green',
   'verify-script',
   'mission-bot',
+  'last-deploy',
 ] as const;
+
+/** The checks that decide whether a planet deploys; they never change go or no-go (spec 036). */
+export const DEPLOY_CHECKS = ['release-settings', 'deploy-script', 'deploy-apps'] as const;
+
+export type DeployCheckName = (typeof DEPLOY_CHECKS)[number];
 
 export type PreflightCheckName = (typeof PREFLIGHT_CHECKS)[number];
 
 export interface PreflightCheck {
-  readonly check: PreflightCheckName;
+  readonly check: PreflightCheckName | DeployCheckName;
   readonly passed: boolean;
   /** One sentence that says why. */
   readonly reason: string;
@@ -142,7 +172,72 @@ export type PreflightResult = 'go' | 'no-go';
 export interface Preflight {
   readonly result: PreflightResult;
   readonly checks: ReadonlyArray<PreflightCheck>;
+  /** Whether the planet deploys its missions, and why (spec 036). */
+  readonly deploy: { readonly deploys: boolean; readonly checks: ReadonlyArray<PreflightCheck> };
 }
+
+const lastDeploy = (facts: LastDeployFacts): Omit<PreflightCheck, 'check'> =>
+  facts._tag === 'Fine'
+    ? { passed: true, reason: 'The last deploy did not roll back.' }
+    : {
+        passed: false,
+        reason:
+          facts.fixIssue === undefined
+            ? `The last deploy (${facts.what}) rolled back.`
+            : `The last deploy (${facts.what}) rolled back; close #${facts.fixIssue} once it is fixed.`,
+      };
+
+/** The deploy checks of a planet (spec 036, requirement 3). */
+export const deployChecksOf = (
+  facts: DeployFacts,
+): { readonly deploys: boolean; readonly checks: ReadonlyArray<PreflightCheck> } => {
+  const settings = facts.settings;
+  const apps =
+    settings._tag === 'Settings'
+      ? settings.settings.releases.flatMap((release) =>
+          release.app === undefined ? [] : [release.app],
+        )
+      : [];
+  const notReady = facts.apps.filter((each) => apps.includes(each.app) && !each.ready);
+  const checks: ReadonlyArray<PreflightCheck> = [
+    {
+      check: 'release-settings',
+      ...(settings._tag === 'Settings'
+        ? {
+            passed: true,
+            reason: `AGENTS.md names ${settings.settings.releases.length === 1 ? 'one release' : `${settings.settings.releases.length} releases`}.`,
+          }
+        : { passed: false, reason: settings.reason }),
+    },
+    {
+      check: 'deploy-script',
+      ...(facts.script
+        ? { passed: true, reason: "The server knows pocket-cloud's deploy script." }
+        : {
+            passed: false,
+            reason: 'The server has no deploy script (COMMS_DEPLOY_SCRIPT).',
+          }),
+    },
+    {
+      check: 'deploy-apps',
+      ...(settings._tag !== 'Settings'
+        ? { passed: false, reason: 'Not checked: AGENTS.md names no release.' }
+        : apps.length === 0
+          ? { passed: true, reason: 'Its releases are published only; nothing to deploy.' }
+          : !facts.script
+            ? { passed: false, reason: 'Not checked: the server has no deploy script.' }
+            : notReady.length > 0
+              ? { passed: false, reason: notReady.map((each) => each.reason).join(' ') }
+              : apps.some((app) => !facts.apps.some((each) => each.app === app))
+                ? { passed: false, reason: 'The deploy script was not asked about every app.' }
+                : {
+                    passed: true,
+                    reason: `The deploy script can deploy, check and roll back ${apps.join(', ')}.`,
+                  }),
+    },
+  ];
+  return { deploys: checks.every((each) => each.passed), checks };
+};
 
 const IGNORED_CONCLUSIONS: ReadonlySet<string> = new Set(['cancelled', 'skipped']);
 
@@ -221,6 +316,14 @@ export const preflightOf = (facts: PreflightFacts): Preflight => {
         passed: false,
         reason: check === 'gitea' ? reason : 'Not checked: Gitea cannot be read.',
       })),
+      deploy: {
+        deploys: false,
+        checks: DEPLOY_CHECKS.map((check) => ({
+          check,
+          passed: false,
+          reason: 'Not checked: Gitea cannot be read.',
+        })),
+      },
     };
   }
   const branch = facts.defaultBranch;
@@ -244,8 +347,13 @@ export const preflightOf = (facts: PreflightFacts): Preflight => {
     { check: 'ci-green', ...ciGreen(branch, facts.runs) },
     { check: 'verify-script', ...verifyScript(branch, facts.packageJson) },
     { check: 'mission-bot', ...missionBot(facts.bot) },
+    { check: 'last-deploy', ...lastDeploy(facts.lastDeploy) },
   ];
-  return { result: checks.every((each) => each.passed) ? 'go' : 'no-go', checks };
+  return {
+    result: checks.every((each) => each.passed) ? 'go' : 'no-go',
+    checks,
+    deploy: deployChecksOf(facts.deploy),
+  };
 };
 
 /** The level in effect: the chosen one, lowered to `manual` on no-go; never raised. */

@@ -7,14 +7,14 @@ Requirements are the spec's numbers (R1–R18).
 
 ## Domain
 
-- [ ] **T01** — `release.ts`: parse the `json mission-control` block of an `AGENTS.md` into
+- [x] **T01** — `release.ts`: parse the `json mission-control` block of an `AGENTS.md` into
   releases and migration paths, with a reason when it is missing or invalid; path patterns with
   `*` and `**`. (R1, R2, R3) Gate: domain unit tests.
-- [ ] **T02** — `release.ts`: the next version of a release from the commits since its last tag
+- [x] **T02** — `release.ts`: the next version of a release from the commits since its last tag
   (`feat`, `fix`, `perf`, breaking, none, no tag yet, 0.x), and the release plan of a merge:
   which releases ship, nothing to release, or a stop for a breaking change or a migration. (R6,
   R7, R15) Gate: domain unit tests.
-- [ ] **T03** — `mission.ts`: the new states and a mission's deploy (its releases, the step, the
+- [x] **T03** — `mission.ts`: the new states and a mission's deploy (its releases, the step, the
   versions, the fix issue); running and finished sets; a planet with a mission waiting for the
   owner; `planet.ts`: the last-deploy check and the deploy checks in the preflight. (R4, R5, R8,
   R17) Gate: domain unit tests.

@@ -1,4 +1,5 @@
 import type { GiteaRepository, Issue } from './issue.js';
+import type { PlannedRelease } from './release.js';
 
 // The rules of missions (spec 035, ADR 0019): the lanes and their labels, the mission record and
 // its file, what may be sent, the mission queue's next mission, the state a running mission is
@@ -25,9 +26,25 @@ export const LANE_LABEL_STYLE = {
 } as const;
 
 /** The states of a mission that is not finished. */
-export type OpenState = 'queued' | 'working' | 'waiting' | 'pull-request' | 'lost';
+export type OpenState =
+  | 'queued'
+  | 'working'
+  | 'waiting'
+  | 'pull-request'
+  | 'lost'
+  | 'releasing'
+  | 'deploying';
 /** The states of a finished mission. */
-export type FinishedState = 'merged' | 'failed' | 'aborted' | 'held';
+export type FinishedState =
+  | 'merged'
+  | 'failed'
+  | 'aborted'
+  | 'held'
+  | 'deployed'
+  | 'rolled-back'
+  | 'not-deployed'
+  | 'nothing-to-release'
+  | 'awaiting-deploy';
 export type MissionState = OpenState | FinishedState;
 
 /** The states in which a mission is running: at most one mission is in one of them. */
@@ -36,9 +53,21 @@ export const RUNNING_STATES: ReadonlySet<MissionState> = new Set([
   'waiting',
   'pull-request',
   'lost',
+  'releasing',
+  'deploying',
 ]);
 
-const FINISHED_STATES: ReadonlySet<MissionState> = new Set(['merged', 'failed', 'aborted', 'held']);
+const FINISHED_STATES: ReadonlySet<MissionState> = new Set([
+  'merged',
+  'failed',
+  'aborted',
+  'held',
+  'deployed',
+  'rolled-back',
+  'not-deployed',
+  'nothing-to-release',
+  'awaiting-deploy',
+]);
 
 export const isRunning = (mission: Mission): boolean => RUNNING_STATES.has(mission.state);
 export const isFinished = (mission: Mission): boolean => FINISHED_STATES.has(mission.state);
@@ -57,6 +86,22 @@ export interface MissionWorktree {
 }
 
 /** One mission as the missions file keeps it. Times are epoch milliseconds. */
+/** Where a mission's release and deploy are (spec 036). */
+export interface MissionDeploy {
+  /** The releases it ships, in order. */
+  readonly releases: ReadonlyArray<PlannedRelease>;
+  /** The release worked on now, an index into `releases`. */
+  readonly step: number;
+  /** Pushing the tags, waiting for their release runs, or deploying the release at `step`. */
+  readonly phase: 'tag' | 'build' | 'deploy';
+  /** When the current phase began, to give up on a run or a result that never comes. */
+  readonly since: number;
+  /** Whether the owner's Deploy asked for the database backup first. */
+  readonly backup: boolean;
+  /** The id of the deploy script's run of the release at `step`, once it was started. */
+  readonly job?: string | undefined;
+}
+
 export interface Mission {
   readonly id: string;
   readonly planet: string;
@@ -77,6 +122,16 @@ export interface Mission {
   readonly outcome?: string | undefined;
   /** Why it is held, failed, aborted or lost. */
   readonly reason?: string | undefined;
+  /** Its release and deploy while it is releasing or deploying, or queued by the owner's Deploy. */
+  readonly deploy?: MissionDeploy | undefined;
+  /** The tags it released, once deployed or rolled back. */
+  readonly versions?: ReadonlyArray<string> | undefined;
+  /** The deploy script's output of a rolled-back deploy. */
+  readonly output?: string | undefined;
+  /** The "fix the failed deploy" issue a rolled-back deploy opened. */
+  readonly fixIssue?: number | undefined;
+  /** The mission whose owner's Deploy this waiting mission ships with. */
+  readonly deployWith?: string | undefined;
 }
 
 /** The missions file: every mission, and when the owner last opened the mission log. */
@@ -252,3 +307,33 @@ export const endComment = (state: 'failed' | 'aborted', reason: string): string 
   state === 'aborted'
     ? `Mission aborted: ${reason} The branch and the worktree are kept; sending the issue again continues from them.`
     : `Mission failed: ${reason} The branch and the worktree are kept; sending the issue again continues from them.`;
+
+// ---- Deploy (spec 036) ---------------------------------------------------------------------
+
+/** The planet's missions that wait for the owner to deploy, oldest first. */
+export const awaitingDeploy = (file: MissionsFile, planet: string): ReadonlyArray<Mission> =>
+  file.missions
+    .filter((mission) => mission.planet === planet && mission.state === 'awaiting-deploy')
+    .sort((a, b) => (a.finishedAt ?? 0) - (b.finishedAt ?? 0));
+
+/**
+ * Whether the planet's next merge must wait for the owner too: a mission waits for the owner's
+ * Deploy, or one is queued by it (spec 036, requirement 8).
+ */
+export const planetWaitsForOwner = (file: MissionsFile, planet: string): boolean =>
+  file.missions.some(
+    (mission) =>
+      mission.planet === planet &&
+      (mission.state === 'awaiting-deploy' ||
+        (mission.deploy !== undefined && !isFinished(mission))),
+  );
+
+/** The planet's latest finished deploy, deployed or rolled back; none before the first. */
+export const lastDeploy = (file: MissionsFile, planet: string): Mission | undefined =>
+  file.missions
+    .filter(
+      (mission) =>
+        mission.planet === planet &&
+        (mission.state === 'deployed' || mission.state === 'rolled-back'),
+    )
+    .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];
