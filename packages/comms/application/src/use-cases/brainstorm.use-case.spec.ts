@@ -3,6 +3,7 @@ import type { BrainstormEntry, Issue, ProposalEntry } from '@pocket-comms/comms-
 import { emptyChat, foldChat, type ChatView } from '@smotastic/pocket-agent/chat';
 import * as Deferred from 'effect/Deferred';
 import * as Effect from 'effect/Effect';
+import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import * as Queue from 'effect/Queue';
 import * as Result from 'effect/Result';
@@ -23,6 +24,7 @@ import {
 import { MAX_ISSUE_BODY } from '@pocket-comms/comms-domain';
 import { fakeIssue, fakeLayer, FakeState } from '../testing/fakes.js';
 import { collect, settle } from '../testing/streams.js';
+import { MissionsInbound } from '../ports/missions.inbound.port.js';
 import { BRAINSTORM_INSTRUCTIONS, makeBrainstorm } from './brainstorm.use-case.js';
 
 type Brainstorm = Effect.Success<typeof makeBrainstorm>;
@@ -115,7 +117,10 @@ const run = (
     arrange(state);
     const brainstorm = yield* makeBrainstorm;
     yield* test(brainstorm, state);
-  }).pipe(Effect.scoped, Effect.provide(fakeLayer()));
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(MissionsInbound.layer.pipe(Layer.provideMerge(fakeLayer()))),
+  );
 
 const propose = (input: Record<string, string>) => ({ tool: 'propose_issue', input });
 const readIssue = (planet: string, number: number) => ({
@@ -1307,6 +1312,66 @@ describe('images in the brainstorm', () => {
           expect(gitea(state)).toEqual([
             'createIssue owner/app {"title":"Blue door","body":"Paint it."}',
           ]);
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('sends the created issue on a mission in the lane the owner chose (spec 035)', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          // The new issue #12 is open on Gitea, and app is ready for missions.
+          state.registry = { planets: [{ name: 'app', autonomy: 'missions' }] };
+          state.giteaRepositories.set('owner/app', {
+            defaultBranch: 'master',
+            files: new Map([
+              ['AGENTS.md', '# app'],
+              ['.github/workflows/ci.yml', 'on: push'],
+              ['package.json', '{"scripts":{"verify":"pocket-ci verify"}}'],
+            ]),
+            runs: [{ status: 'completed', conclusion: 'success' }],
+          });
+
+          yield* brainstorm.decide(proposal.id, {
+            _tag: 'Create',
+            issue: { planet: 'app', title: 'Blue door', body: 'Paint it.' },
+            images: [],
+            lane: 'hop',
+          });
+          yield* idle(brainstorm);
+
+          expect(state.bot.calls).toContain('setLane owner/app 12 hop');
+          expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
+            mission: 'Sent on a mission (hop).',
+          });
+          expect(turnInputs(state)[1]).toContain('Sent on a mission (hop).');
+        }),
+      arrange,
+    ),
+  );
+
+  it.effect('creates the issue and says why when the mission is refused', () =>
+    run(
+      (brainstorm, state) =>
+        Effect.gen(function* () {
+          const proposal = yield* proposed(brainstorm, state);
+          state.bot.configured = false;
+
+          yield* brainstorm.decide(proposal.id, {
+            _tag: 'Create',
+            issue: { planet: 'app', title: 'Blue door', body: 'Paint it.' },
+            images: [],
+            lane: 'full-flight',
+          });
+          yield* idle(brainstorm);
+
+          expect(proposalIn(yield* entries(brainstorm))).toMatchObject({
+            state: { _tag: 'created', number: 12 },
+            mission:
+              'Not sent on a mission: Missions have no bot token (COMMS_MISSION_GITEA_TOKEN).',
+          });
         }),
       arrange,
     ),

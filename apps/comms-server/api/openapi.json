@@ -2562,6 +2562,19 @@
               },
               "issue": {
                 "$ref": "#/components/schemas/ProposedIssue"
+              },
+              "lane": {
+                "anyOf": [
+                  {
+                    "enum": ["hop", "full-flight"],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Sends the issue on a mission in this lane once it is created or updated (spec 035).",
+                "examples": ["hop"]
               }
             },
             "required": ["_tag", "issue"],
@@ -2615,6 +2628,19 @@
                 ],
                 "description": "The brainstorm images to attach to the issue, by image id; none when left out. A Create on a proposal whose issue exists attaches its missing images instead.",
                 "examples": [["k5w3x7q2m4n6p3r2s4t6v5x2z4"]]
+              },
+              "lane": {
+                "anyOf": [
+                  {
+                    "enum": ["hop", "full-flight"],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Sends the issue on a mission in this lane once it is created or updated (spec 035).",
+                "examples": ["hop"]
               },
               "title": {
                 "description": "The issue's whole new title; it must not be blank.",

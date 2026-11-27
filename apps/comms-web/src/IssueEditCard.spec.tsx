@@ -39,7 +39,24 @@ describe('IssueEditCard', () => {
         body: 'Control agents from the brainstorm.',
       },
       [],
+      undefined,
     );
+  });
+
+  it("starts the lane at Pi's suggestion, shows its reason, and sends the chosen lane (spec 035)", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    render(
+      <IssueEditCard
+        {...props({ onApply, suggestedLane: { lane: 'hop', reason: 'A small wording change.' } })}
+      />,
+    );
+
+    expect(screen.getByText('Pi suggests hop: A small wording change.')).toBeTruthy();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Lane' }), 'full-flight');
+    await user.click(screen.getByRole('button', { name: 'Apply edit' }));
+
+    expect(onApply.mock.calls[0]?.[2]).toBe('full-flight');
   });
 
   it('shows the current version only when the owner opens it, keyboard included', async () => {

@@ -134,10 +134,17 @@ const Proposal = ({
         attached={proposal.attached}
         busy={busy || decide.isPending}
         {...(failed === null ? {} : { error: failed.message })}
-        onApply={(edit, chosen) =>
+        {...(proposal.suggestedLane === undefined ? {} : { suggestedLane: proposal.suggestedLane })}
+        {...(proposal.mission === undefined ? {} : { mission: proposal.mission })}
+        onApply={(edit, chosen, lane) =>
           decide.mutate({
             id: proposal.id,
-            decision: { _tag: 'Apply', ...edit, images: chosen },
+            decision: {
+              _tag: 'Apply',
+              ...edit,
+              images: chosen,
+              ...(lane === undefined ? {} : { lane }),
+            },
           })
         }
         onDiscard={() => decide.mutate({ id: proposal.id, decision: { _tag: 'Discard' } })}
@@ -156,8 +163,18 @@ const Proposal = ({
       attached={proposal.attached}
       busy={busy || decide.isPending}
       {...(failed === null ? {} : { error: failed.message })}
-      onCreate={(issue, chosen) =>
-        decide.mutate({ id: proposal.id, decision: { _tag: 'Create', issue, images: chosen } })
+      {...(proposal.suggestedLane === undefined ? {} : { suggestedLane: proposal.suggestedLane })}
+      {...(proposal.mission === undefined ? {} : { mission: proposal.mission })}
+      onCreate={(issue, chosen, lane) =>
+        decide.mutate({
+          id: proposal.id,
+          decision: {
+            _tag: 'Create',
+            issue,
+            images: chosen,
+            ...(lane === undefined ? {} : { lane }),
+          },
+        })
       }
       onDiscard={() => decide.mutate({ id: proposal.id, decision: { _tag: 'Discard' } })}
       onFinishWithout={() =>

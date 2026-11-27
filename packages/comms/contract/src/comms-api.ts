@@ -1280,6 +1280,30 @@ export const EditState = Schema.Union([
 });
 
 /** A proposal of Pi: a new issue or an edit of one, as it stands. */
+const ProposalLaneFields = {
+  suggestedLane: optional(
+    Schema.Struct({
+      lane: Schema.Literals(['none', 'hop', 'full-flight']).annotate({
+        description: 'none to only file the issue, or the lane of a mission.',
+        examples: ['hop'],
+      }),
+      reason: Schema.String.annotate({
+        description: 'One line: why Pi suggests it.',
+        examples: ['A small fix of the header; no grilling needed.'],
+      }),
+    }),
+    {
+      description: 'The lane Pi suggests (spec 035); the owner may choose another.',
+      examples: [{ lane: 'hop', reason: 'A small fix of the header; no grilling needed.' }],
+    },
+  ),
+  mission: optional(Schema.String, {
+    description:
+      'After the decision: whether the issue was sent on a mission, and why not when it was not.',
+    examples: ['Sent on a mission (hop).'],
+  }),
+};
+
 export const BrainstormProposal = Schema.Union([
   Schema.Struct({
     type: Schema.tag('proposal').annotate({
@@ -1295,6 +1319,7 @@ export const BrainstormProposal = Schema.Union([
     ...ProposedIssueFields,
     ...ImageFields,
     state: ProposalState,
+    ...ProposalLaneFields,
   }),
   Schema.Struct({
     type: Schema.tag('proposal').annotate({
@@ -1330,6 +1355,7 @@ export const BrainstormProposal = Schema.Union([
     }),
     ...ImageFields,
     state: EditState,
+    ...ProposalLaneFields,
   }),
 ]).annotate({ identifier: 'BrainstormProposal', description: 'A proposal of Pi, as it stands.' });
 
@@ -1442,6 +1468,11 @@ export const ProposalDecisionRequest = Schema.Union([
     }),
     issue: ProposedIssue,
     images: choice,
+    lane: optional(Schema.Literals(['hop', 'full-flight']), {
+      description:
+        'Sends the issue on a mission in this lane once it is created or updated (spec 035).',
+      examples: ['hop'],
+    }),
   }),
   Schema.Struct({
     _tag: Schema.tag('Discard').annotate({
@@ -1456,6 +1487,11 @@ export const ProposalDecisionRequest = Schema.Union([
     }),
     ...EditFields,
     images: choice,
+    lane: optional(Schema.Literals(['hop', 'full-flight']), {
+      description:
+        'Sends the issue on a mission in this lane once it is created or updated (spec 035).',
+      examples: ['hop'],
+    }),
   }),
   Schema.Struct({
     _tag: Schema.tag('FinishWithout').annotate({

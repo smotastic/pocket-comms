@@ -1,4 +1,10 @@
 import {
+  LanePicker,
+  missionLane,
+  type LaneSuggestionView,
+  type ProposalLane,
+} from './LanePicker.js';
+import {
   Alert,
   Button,
   Card,
@@ -40,7 +46,15 @@ export type IssueEditCardProps = IssueText & {
   /** The chosen images that are attached to the issue in Gitea. */
   readonly attached?: ReadonlyArray<{ readonly image: string }>;
   /** Called with the title and body as the owner edited them, and the chosen images. */
-  readonly onApply: (edit: IssueText, images: ReadonlyArray<string>) => void;
+  /** Pi's lane and its reason; the picker starts there (spec 035). */
+  readonly suggestedLane?: LaneSuggestionView | undefined;
+  /** After the decision: whether the issue went on a mission, and why not. */
+  readonly mission?: string | undefined;
+  readonly onApply: (
+    edit: IssueText,
+    images: ReadonlyArray<string>,
+    lane?: 'hop' | 'full-flight',
+  ) => void;
   readonly onDiscard: () => void;
   /** The decision is on its way, or the brainstorm takes none now: the actions are off. */
   readonly busy?: boolean;
@@ -72,7 +86,10 @@ export const IssueEditCard = ({
   onDiscard,
   busy = false,
   error,
+  suggestedLane,
+  mission,
 }: IssueEditCardProps) => {
+  const [lane, setLane] = useState<ProposalLane>(suggestedLane?.lane ?? 'none');
   const [edit, setEdit] = useState<IssueText>({ title, body });
   // A image the app no longer keeps cannot go along (spec 023, requirement 10).
   const [choice, setChoice] = useState<ReadonlyArray<string>>(() =>
@@ -99,6 +116,7 @@ export const IssueEditCard = ({
               )}
             </Inline>
             <Text>{title}</Text>
+            {mission === undefined ? null : <Text size="sm">{mission}</Text>}
             <ProposalAttachedImages images={images} attached={attached} />
           </Stack>
         </Card>
@@ -142,12 +160,13 @@ export const IssueEditCard = ({
             ) : null}
           </Disclosure>
           <ImageChoice images={images} chosen={choice} onChange={setChoice} disabled={busy} />
+          <LanePicker value={lane} suggestion={suggestedLane} onChange={setLane} />
           {error === undefined ? null : <Alert>{error}</Alert>}
           <Inline gap="sm" justify="end">
             <Button variant="secondary" disabled={busy} onClick={onDiscard}>
               Discard
             </Button>
-            <Button disabled={busy} onClick={() => onApply(edit, choice)}>
+            <Button disabled={busy} onClick={() => onApply(edit, choice, missionLane(lane))}>
               Apply edit
             </Button>
           </Inline>

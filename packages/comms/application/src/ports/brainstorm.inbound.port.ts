@@ -1,3 +1,4 @@
+import { MissionsInbound } from './missions.inbound.port.js';
 import type { InvalidInputError } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
@@ -65,5 +66,8 @@ export class BrainstormInbound extends Context.Service<
     readonly reset: () => Effect.Effect<void>;
   }
 >()('comms/application/BrainstormInbound') {
-  static readonly layer = Layer.effect(BrainstormInbound, makeBrainstorm);
+  // It sends issues on missions; the same missions layer the server provides, built once.
+  static readonly layer = Layer.effect(BrainstormInbound, makeBrainstorm).pipe(
+    Layer.provide(MissionsInbound.layer),
+  );
 }
