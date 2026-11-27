@@ -141,14 +141,23 @@ export const makeMissions = Effect.gen(function* () {
             ),
           );
 
-  /** Ends a running mission without a merge: its agent stops, its worktree and branch stay. */
-  const stop = (mission: Mission, state: 'failed' | 'aborted', reason: string, now: number) =>
+  /**
+   * What every ending of a running mission does, merged, failed or aborted: its agent stops, and
+   * the issue loses the in-progress label. The lane label stays as the record.
+   */
+  const finish = (mission: Mission) =>
     Effect.gen(function* () {
       yield* closeWorkspace(mission);
       yield* record(
         'remove the in-progress label',
         bot.unmarkInProgress(mission.repository, mission.issue.number),
       );
+    });
+
+  /** Ends a running mission without a merge: its worktree and branch stay. */
+  const stop = (mission: Mission, state: 'failed' | 'aborted', reason: string, now: number) =>
+    Effect.gen(function* () {
+      yield* finish(mission);
       yield* record(
         'comment on the issue',
         bot.comment(mission.repository, mission.issue.number, endComment(state, reason)),
@@ -156,10 +165,10 @@ export const makeMissions = Effect.gen(function* () {
       return { ...mission, state, reason, finishedAt: now, agent: undefined } satisfies Mission;
     });
 
-  /** The mission after a merge: its agent closed, its worktree removed unless it has changes. */
+  /** The mission after a merge: its worktree removed unless it has changes. */
   const land = (mission: Mission, now: number) =>
     Effect.gen(function* () {
-      yield* closeWorkspace(mission);
+      yield* finish(mission);
       const planet = yield* planetOf(mission);
       if (planet !== undefined && mission.worktree !== undefined) {
         const path = mission.worktree.path;

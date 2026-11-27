@@ -106,8 +106,8 @@ Deploying stays the owner's until step 4.
 ### Ending
 
 19. When the pull request is merged, the mission is **merged**: its agent is closed, its worktree
-    removed (kept when it has changes) and the next mission starts. Until step 4 it shows as
-    **merged, not deployed**.
+    removed (kept when it has changes), the in-progress label removed, and the next mission
+    starts. Until step 4 it shows as **merged, not deployed**.
 20. The agent reports its outcome, one paragraph, before it ends; an outcome that says the mission
     failed makes it **failed**. A pull request closed without merging also fails the mission.
 21. The owner may **abort** a running mission. Abort and failure both stop the agent, keep the

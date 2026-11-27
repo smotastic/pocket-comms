@@ -215,6 +215,22 @@ describe('the mission bot', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('unmarks an issue whose in-progress label is already gone', () =>
+    Effect.gen(function* () {
+      const removed = yield* fakeGitea((path, method) =>
+        method === 'DELETE'
+          ? { status: 404, body: {} }
+          : labelsRoute([{ id: 5, name: 'status/in-progress' }])(path, method),
+      );
+      yield* (yield* bot(removed.url)).unmarkInProgress(repository, 7);
+      expect(removed.seen.filter((each) => each.method === 'DELETE')).toHaveLength(1);
+
+      const never = yield* fakeGitea(labelsRoute([{ id: 3, name: 'mission:hop' }]));
+      yield* (yield* bot(never.url)).unmarkInProgress(repository, 7);
+      expect(never.seen.filter((each) => each.method !== 'GET')).toEqual([]);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect("sets the bot's git identity in the worktree only", () =>
     Effect.gen(function* () {
       const gitea = yield* fakeGitea((path) =>
