@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chooseAutonomy,
   effectiveAutonomy,
   planetWorkspaces,
   preflightOf,
@@ -20,6 +21,7 @@ const read = (
   workflows: true,
   runs: [{ status: 'completed', conclusion: 'success' }],
   packageJson: JSON.stringify({ scripts: { verify: 'pocket-ci verify' } }),
+  bot: { _tag: 'Read', canPush: true },
   ...overrides,
 });
 
@@ -93,6 +95,7 @@ describe('preflight', () => {
       ['ci-workflow', true],
       ['ci-green', true],
       ['verify-script', true],
+      ['mission-bot', true],
     ]);
   });
 
@@ -198,5 +201,38 @@ describe('the effective autonomy level', () => {
     expect(effectiveAutonomy('missions', 'go')).toBe('missions');
     expect(effectiveAutonomy('missions', 'no-go')).toBe('manual');
     expect(effectiveAutonomy('manual', 'go')).toBe('manual');
+  });
+});
+
+describe('the mission bot check', () => {
+  it('fails without a token, without push, and with the reason when Gitea cannot say', () => {
+    expect(check(read({ bot: { _tag: 'NoToken' } }), 'mission-bot')).toEqual({
+      check: 'mission-bot',
+      passed: false,
+      reason: 'Missions have no bot token (COMMS_MISSION_GITEA_TOKEN).',
+    });
+    expect(check(read({ bot: { _tag: 'Read', canPush: false } }), 'mission-bot')?.passed).toBe(
+      false,
+    );
+    expect(preflightOf(read({ bot: { _tag: 'Read', canPush: false } })).result).toBe('no-go');
+    expect(
+      check(read({ bot: { _tag: 'Unreadable', reason: 'Gitea refused the bot.' } }), 'mission-bot')
+        ?.reason,
+    ).toBe('Gitea refused the bot.');
+  });
+});
+
+describe('choosing a level', () => {
+  const registry = { planets: [{ name: 'app', autonomy: 'manual' as const }] };
+
+  it('lets the owner choose missions or manual on a planet', () => {
+    expect(chooseAutonomy(registry, 'app', 'missions')).toEqual({
+      planets: [{ name: 'app', autonomy: 'missions' }],
+    });
+  });
+
+  it('refuses autopilot, and a repository that is not a planet', () => {
+    expect(chooseAutonomy(registry, 'app', 'autopilot')).toBeUndefined();
+    expect(chooseAutonomy(registry, 'api', 'missions')).toBeUndefined();
   });
 });

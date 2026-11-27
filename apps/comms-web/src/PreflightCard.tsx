@@ -24,6 +24,7 @@ const CHECK_NAMES: Readonly<Record<Check, string>> = {
   'ci-workflow': 'CI workflow',
   'ci-green': 'CI green',
   'verify-script': 'Verify script',
+  'mission-bot': 'Mission bot',
 };
 
 const LEVELS: ReadonlyArray<{ readonly id: Level; readonly label: string }> = [

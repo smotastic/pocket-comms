@@ -417,7 +417,12 @@ describe('Hc.layerSocket acting', () => {
       const server = yield* fakeHcServer(acting([shellOfTask]));
 
       const started = yield* MultiplexerOutbound.use((hc) =>
-        hc.startAgent({ paneId: 't4', name: 'feat-x', kind: 'claude' }),
+        hc.startAgent({
+          paneId: 't4',
+          name: 'feat-x',
+          kind: 'claude',
+          args: ['--settings', '/mission.json'],
+        }),
       ).pipe(Effect.provide(layerSocket({ path: server.path, agentArgs: ['--model', 'opus'] })));
 
       expect(started).toEqual({ status: 'unknown', ready: false, paneId: 't9' });
@@ -425,7 +430,7 @@ describe('Hc.layerSocket acting', () => {
         [
           'terminal.run',
           {
-            argv: ['claude', '--model', 'opus'],
+            argv: ['claude', '--model', 'opus', '--settings', '/mission.json'],
             cwd: '/worktrees/app/feat-x',
             name: 'feat-x',
             labels: {

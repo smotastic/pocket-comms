@@ -62,7 +62,11 @@ mission.
 - Missions commit, push and comment as a bot user with its own Gitea token; manual task starts
   run as the owner.
 - The cockpit shows each mission's state: queued, working, waiting on you, pull request, merged,
-  deployed.
+  deployed; or held (preflight no-go when its turn came), failed, aborted and lost (its agent gone
+  after a restart).
+- The owner answers a mission's agent in the cockpit; Gitea keeps the questions as a record.
+- The mission log lists the finished missions with their outcome, marking what is new since the
+  owner last looked.
 
 ## Order
 
@@ -76,7 +80,8 @@ Each step is its own ADR or spec.
 3. **Missions to merge:** sending on a mission, from a brainstorm proposal accepted with a lane or
    by **Send on a mission** on an existing issue (next to Implement, with the same lane picker);
    the lane labels, the bot user, the mission queue, the mission's state in the cockpit. Sending
-   computes preflight again, without reusing it.
+   computes preflight again, without reusing it. The mission log shows what finished overnight;
+   a merged mission shows as "merged, not deployed" until step 4. Spec 035, ADR 0019.
 4. **Autonomous deploy:** deploy recipes, health checks and rollback in preflight.
 5. **Autopilot:** Mission Control chooses issues and their lanes by itself.
 

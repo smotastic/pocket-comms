@@ -1,3 +1,4 @@
+import type { AutonomyLevel, InvalidInputError } from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
@@ -28,7 +29,15 @@ export class PlanetsInbound extends Context.Service<
      * The planet's preflight, reused for 60 seconds; a Gitea that cannot be read makes it no-go,
      * never an error.
      */
-    readonly preflight: (name: string) => Effect.Effect<PreflightDto, PlanetNotFoundError>;
+    readonly preflight: (
+      name: string,
+      fresh?: boolean,
+    ) => Effect.Effect<PreflightDto, PlanetNotFoundError>;
+    /** Sets the planet's chosen autonomy level: manual or missions (spec 035). */
+    readonly choose: (
+      name: string,
+      level: AutonomyLevel,
+    ) => Effect.Effect<void, PlanetNotFoundError | InvalidInputError | PlanetsStoreError>;
   }
 >()('comms/application/PlanetsInbound') {
   static readonly layer = Layer.effect(PlanetsInbound, makePlanets);

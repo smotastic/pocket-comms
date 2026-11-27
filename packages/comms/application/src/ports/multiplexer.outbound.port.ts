@@ -33,11 +33,15 @@ export interface OpenedPane {
   readonly paneId: string;
 }
 
-/** What `startAgent` asks for: an agent of `kind`, named `name`, in the shell of `paneId`. */
+/**
+ * What `startAgent` asks for: an agent of `kind`, named `name`, in the shell of `paneId`; `args`
+ * go after the server's own agent arguments, such as a mission's settings (spec 035).
+ */
 export interface AgentStart {
   readonly paneId: string;
   readonly name: string;
   readonly kind: AgentToStart;
+  readonly args?: ReadonlyArray<string>;
 }
 
 /** A started agent: as `StartedAgent`, and the pane it runs in, which may be a new one. */

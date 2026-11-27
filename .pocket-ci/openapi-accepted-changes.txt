@@ -24,3 +24,4 @@ POST /api/v1/projects/{project}/issues/{number}/close api path removed without d
 POST /api/v1/projects/{project}/issues/{number}/implement api path removed without deprecation
 POST /api/v1/projects/{project}/issues/{number}/start-agent api path removed without deprecation
 POST /api/v1/tasks added the new required request property `planet`
+GET /api/v1/planets/{planet}/preflight added the new `mission-bot` enum value to the `checks/items/check` response property for the response status `200`

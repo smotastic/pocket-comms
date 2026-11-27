@@ -1,4 +1,4 @@
-import { IssuesInbound } from '@pocket-comms/comms-application';
+import { IssuesInbound, MissionsInbound } from '@pocket-comms/comms-application';
 import { CommsApi } from '@pocket-comms/comms-contract';
 import * as Effect from 'effect/Effect';
 import { HttpApiBuilder } from 'effect/http-api';
@@ -10,6 +10,7 @@ export const issuesHandlers = HttpApiBuilder.group(
   'issues',
   Effect.fn(function* (handlers) {
     const issuesInbound = yield* IssuesInbound;
+    const missionsInbound = yield* MissionsInbound;
 
     return handlers
       .handle('list', ({ params }) =>
@@ -43,6 +44,19 @@ export const issuesHandlers = HttpApiBuilder.group(
               MultiplexerRejectedError: problems.worktreeRefused,
             }),
           ),
+      )
+      .handle('sendOnMission', ({ params, payload }) =>
+        missionsInbound.send(params.planet, Number(params.number), payload.lane).pipe(
+          Effect.catchTags({
+            MissionRefusedError: problems.missionRefused,
+            PlanetNotFoundError: problems.planetNotFound,
+            NoGiteaRemoteError: problems.noGiteaRemote,
+            GiteaNotConfiguredError: problems.giteaNotConfigured,
+            GiteaUnavailableError: problems.giteaUnavailable,
+            IssueNotFoundError: problems.issueNotFound,
+            MissionsStoreError: problems.missionsUnavailable,
+          }),
+        ),
       )
       .handle('close', ({ params }) =>
         issuesInbound.close({ planet: params.planet, number: Number(params.number) }).pipe(

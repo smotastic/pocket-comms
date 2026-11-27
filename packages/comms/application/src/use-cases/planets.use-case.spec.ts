@@ -176,7 +176,14 @@ describe('PlanetsInbound.preflight', () => {
       const preflight = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
 
       expect(preflight.result).toBe('go');
-      expect(preflight.checks.map((check) => check.passed)).toEqual([true, true, true, true, true]);
+      expect(preflight.checks.map((check) => check.passed)).toEqual([
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+      ]);
       expect(preflight.autonomy).toEqual({ chosen: 'manual', effective: 'manual' });
     }).pipe(Effect.provide(layer())),
   );
@@ -266,6 +273,37 @@ describe('PlanetsInbound.preflight', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('reads again at once when asked for a fresh one (spec 035)', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state);
+
+      yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      const calls = state.giteaCalls.length;
+      yield* PlanetsInbound.use((inbound) => inbound.preflight('app', true));
+      expect(state.giteaCalls.length).toBeGreaterThan(calls);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('is no-go without the mission bot, and caps missions to manual', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state);
+      state.bot.configured = false;
+      state.registry = { planets: [{ name: 'app', autonomy: 'missions' }] };
+
+      const preflight = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+
+      expect(preflight.result).toBe('no-go');
+      expect(preflight.checks.at(-1)).toEqual({
+        check: 'mission-bot',
+        passed: false,
+        reason: 'Missions have no bot token (COMMS_MISSION_GITEA_TOKEN).',
+      });
+      expect(preflight.autonomy).toEqual({ chosen: 'missions', effective: 'manual' });
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('refuses a repository that is not a planet', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
@@ -276,6 +314,27 @@ describe('PlanetsInbound.preflight', () => {
       );
 
       expect(error).toEqual(new PlanetNotFoundError({ planet: 'app' }));
+    }).pipe(Effect.provide(layer())),
+  );
+});
+
+describe('PlanetsInbound.choose', () => {
+  it.effect('sets missions, and refuses autopilot and a repository that is not a planet', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      state.registry = { planets: [{ name: 'app', autonomy: 'manual' }] };
+
+      yield* PlanetsInbound.use((inbound) => inbound.choose('app', 'missions'));
+      const autopilot = yield* PlanetsInbound.use((inbound) =>
+        inbound.choose('app', 'autopilot'),
+      ).pipe(Effect.flip);
+      const unknown = yield* PlanetsInbound.use((inbound) => inbound.choose('beta', 'manual')).pipe(
+        Effect.flip,
+      );
+
+      expect(state.registry).toEqual({ planets: [{ name: 'app', autonomy: 'missions' }] });
+      expect(autopilot._tag).toBe('InvalidInputError');
+      expect(unknown).toEqual(new PlanetNotFoundError({ planet: 'beta' }));
     }).pipe(Effect.provide(layer())),
   );
 });

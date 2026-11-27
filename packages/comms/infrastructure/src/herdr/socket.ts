@@ -503,10 +503,10 @@ export const layerSocket = ({
           Effect.withSpan('Herdr.closeWorkspace'),
         ),
       // Herdr waits up to `timeout_ms` for the agent to take input; the request waits longer.
-      startAgent: ({ paneId, name, kind }) =>
+      startAgent: ({ paneId, name, kind, args = [] }) =>
         request(
           'agent.start',
-          { name, kind, pane_id: paneId, args: [...agentArgs], timeout_ms: 30_000 },
+          { name, kind, pane_id: paneId, args: [...agentArgs, ...args], timeout_ms: 30_000 },
           AgentStarted,
           name,
           '40 seconds',

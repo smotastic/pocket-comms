@@ -31,6 +31,15 @@ export const planetsHandlers = HttpApiBuilder.group(
           .preflight(params.planet)
           .pipe(Effect.catchTags({ PlanetNotFoundError: problems.planetNotFound })),
       )
+      .handle('chooseAutonomy', ({ params, payload }) =>
+        planetsInbound.choose(params.planet, payload.level).pipe(
+          Effect.catchTags({
+            PlanetNotFoundError: problems.planetNotFound,
+            InvalidInputError: problems.invalidInput,
+            PlanetsStoreError: problems.planetsUnavailable,
+          }),
+        ),
+      )
       .handle('unregister', ({ params }) =>
         planetsInbound.unregister(params.planet).pipe(
           Effect.catchTags({

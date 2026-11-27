@@ -138,6 +138,30 @@ export const problems = {
         detail: `${error.planet} is a planet already.`,
       }),
     ),
+  missionRefused: (error: { readonly reason: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'mission-refused',
+        title: 'The issue cannot be sent on a mission',
+        detail: error.reason,
+      }),
+    ),
+  missionNotFound: (error: { readonly id: string }) =>
+    Effect.fail(
+      notFoundProblem({
+        slug: 'mission-not-found',
+        title: 'Mission not found',
+        detail: `No mission ${error.id} allows this now.`,
+      }),
+    ),
+  missionsUnavailable: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'missions-unavailable',
+        title: 'The missions cannot be kept',
+        detail: error.reason,
+      }),
+    ),
   planetsUnavailable: (error: { readonly reason: string }) =>
     Effect.fail(
       serviceUnavailableProblem({

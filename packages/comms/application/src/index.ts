@@ -75,7 +75,15 @@ export {
   SubagentNotFoundError,
   ConversationUnavailableError,
   WorktreeHasChangesError,
+  MissionBotError,
+  MissionNotFoundError,
+  MissionRefusedError,
+  MissionsStoreError,
 } from './errors.js';
+export { MissionsOutbound } from './ports/missions.outbound.port.js';
+export { MissionsInbound } from './ports/missions.inbound.port.js';
+export type { MissionDto, MissionOutcomeInput, MissionsDto } from './dto/mission.dto.js';
+export { MissionBotOutbound } from './ports/mission-bot.outbound.port.js';
 export { ActivityInbound } from './ports/activity.inbound.port.js';
 export { ActivityStoreOutbound } from './ports/activity-store.outbound.port.js';
 export { AgentsInbound } from './ports/agents.inbound.port.js';

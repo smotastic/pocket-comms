@@ -10,7 +10,7 @@ export type AutonomyLevel = 'manual' | 'missions' | 'autopilot';
 /** A planet's settings, kept in the registry. */
 export interface PlanetSettings {
   readonly name: string;
-  /** The level the owner chose; spec 034 only lets them choose `manual`. */
+  /** The level the owner chose: `manual` or `missions` (spec 035); never `autopilot` yet. */
   readonly autonomy: AutonomyLevel;
 }
 
@@ -57,6 +57,26 @@ export const unregisterPlanet = (
     ? { planets: registry.planets.filter((planet) => planet.name !== name) }
     : undefined;
 
+/** The levels the owner may choose; `autopilot` is coming. */
+export const CHOOSABLE_LEVELS: ReadonlySet<AutonomyLevel> = new Set(['manual', 'missions']);
+
+/**
+ * The registry with the planet's chosen level set to `level`; none when it is not a planet or the
+ * level cannot be chosen yet.
+ */
+export const chooseAutonomy = (
+  registry: PlanetRegistry,
+  name: string,
+  level: AutonomyLevel,
+): PlanetRegistry | undefined =>
+  CHOOSABLE_LEVELS.has(level) && registry.planets.some((planet) => planet.name === name)
+    ? {
+        planets: registry.planets.map((planet) =>
+          planet.name === name ? { ...planet, autonomy: level } : planet,
+        ),
+      }
+    : undefined;
+
 /** The workspaces with every one on a repository that is not a planet moved to Other. */
 export const planetWorkspaces = (
   workspaces: ReadonlyArray<Workspace>,
@@ -89,7 +109,15 @@ export type PreflightFacts =
       readonly runs: ReadonlyArray<CiRun> | undefined;
       /** The text of the top-level `package.json`; none when there is none. */
       readonly packageJson: string | undefined;
+      /** What the mission bot may do on the repository (spec 035). */
+      readonly bot: BotFacts;
     };
+
+/** Whether the mission bot may push to a repository, as its token on Gitea says. */
+export type BotFacts =
+  | { readonly _tag: 'NoToken' }
+  | { readonly _tag: 'Unreadable'; readonly reason: string }
+  | { readonly _tag: 'Read'; readonly canPush: boolean };
 
 export const PREFLIGHT_CHECKS = [
   'gitea',
@@ -97,6 +125,7 @@ export const PREFLIGHT_CHECKS = [
   'ci-workflow',
   'ci-green',
   'verify-script',
+  'mission-bot',
 ] as const;
 
 export type PreflightCheckName = (typeof PREFLIGHT_CHECKS)[number];
@@ -139,6 +168,19 @@ const ciGreen = (
         passed: false,
         reason: `The newest finished run on ${branch} ended as ${run.conclusion ?? 'unknown'}${still}.`,
       };
+};
+
+const missionBot = (bot: BotFacts): Omit<PreflightCheck, 'check'> => {
+  switch (bot._tag) {
+    case 'NoToken':
+      return { passed: false, reason: 'Missions have no bot token (COMMS_MISSION_GITEA_TOKEN).' };
+    case 'Unreadable':
+      return { passed: false, reason: bot.reason };
+    case 'Read':
+      return bot.canPush
+        ? { passed: true, reason: 'The mission bot may push to the repository.' }
+        : { passed: false, reason: 'The mission bot may not push to the repository.' };
+  }
 };
 
 const verifyScript = (
@@ -201,6 +243,7 @@ export const preflightOf = (facts: PreflightFacts): Preflight => {
     },
     { check: 'ci-green', ...ciGreen(branch, facts.runs) },
     { check: 'verify-script', ...verifyScript(branch, facts.packageJson) },
+    { check: 'mission-bot', ...missionBot(facts.bot) },
   ];
   return { result: checks.every((each) => each.passed) ? 'go' : 'no-go', checks };
 };

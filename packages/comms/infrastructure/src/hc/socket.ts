@@ -480,10 +480,12 @@ export const layerSocket = ({
     paneId,
     name,
     kind,
+    args = [],
   }: {
     readonly paneId: string;
     readonly name: string;
     readonly kind: string;
+    readonly args?: ReadonlyArray<string> | undefined;
   }) =>
     Effect.gen(function* () {
       const shell = yield* request('terminal.get', { terminal: paneId }, TerminalRecord, paneId);
@@ -492,7 +494,7 @@ export const layerSocket = ({
       const agent = yield* request(
         'terminal.run',
         {
-          argv: [kind, ...agentArgs],
+          argv: [kind, ...agentArgs, ...args],
           cwd: workspace ?? orUndefined(shell.cwd),
           name,
           labels: {

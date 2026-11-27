@@ -30,6 +30,8 @@ import {
   PushStoreError,
   PlanetExistsError,
   PlanetsInbound,
+  MissionsInbound,
+  MissionRefusedError,
   PlanetsStoreError,
   QuickRepliesInbound,
   RepositoryNotFoundError,
@@ -122,6 +124,7 @@ const serve = (
   pullRequests: Partial<PullRequestsInbound['Service']> = {},
   taskStarts: Partial<TaskStartsInbound['Service']> = {},
   planets: Partial<PlanetsInbound['Service']> = {},
+  missions: Partial<MissionsInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -141,6 +144,7 @@ const serve = (
       Layer.provide(Layer.mock(PullRequestsInbound, pullRequests)),
       Layer.provide(Layer.mock(TaskStartsInbound, taskStarts)),
       Layer.provide(Layer.mock(PlanetsInbound, planets)),
+      Layer.provide(Layer.mock(MissionsInbound, missions)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -525,6 +529,8 @@ describe('the tasks API', () => {
   /** The server with only the planets use cases mocked. */
   const servePlanets = (planets: Partial<PlanetsInbound['Service']>) =>
     serve({}, undefined, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, planets);
+  const serveMissions = (missions: Partial<MissionsInbound['Service']>) =>
+    serve({}, undefined, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, missions);
 
   it('lists the planets and the other repositories', async () => {
     const call = servePlanets({
@@ -597,6 +603,74 @@ describe('the tasks API', () => {
 
     expect(await response.json()).toEqual(preflight);
     expect((await call('/api/v1/planets/nope/preflight')).status).toBe(404);
+  });
+
+  it("chooses a planet's autonomy level", async () => {
+    const chosen: Array<string> = [];
+    const call = servePlanets({
+      choose: (name, level) => Effect.sync(() => void chosen.push(`${name} ${level}`)),
+    });
+
+    const response = await call('/api/v1/planets/app/autonomy', {
+      ...json({ level: 'missions' }),
+      method: 'PUT',
+    });
+
+    expect(response.status).toBe(204);
+    expect(chosen).toEqual(['app missions']);
+  });
+
+  it('sends an issue on a mission, and answers 409 with the reason when it is refused', async () => {
+    const mission = {
+      id: '3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b',
+      planet: 'app',
+      issue: { number: 7, title: 'Fix the header', url: 'http://gitea/7' },
+      lane: 'hop' as const,
+      state: 'queued' as const,
+      sentAt: 1,
+    };
+    const call = serveMissions({
+      send: (_planet, number) =>
+        number === 7
+          ? Effect.succeed(mission)
+          : Effect.fail(new MissionRefusedError({ reason: '#8 is closed.' })),
+    });
+
+    const sent = await call('/api/v1/planets/app/issues/7/mission', json({ lane: 'hop' }));
+    const refused = await call('/api/v1/planets/app/issues/8/mission', json({ lane: 'hop' }));
+
+    expect(sent.status).toBe(201);
+    expect(await sent.json()).toEqual(mission);
+    expect(refused.status).toBe(409);
+    expect((await refused.json()).detail).toBe('#8 is closed.');
+  });
+
+  it('reads Mission Control and takes the owner and the agent requests', async () => {
+    const asked: Array<string> = [];
+    const call = serveMissions({
+      list: Effect.succeed({ queue: [], log: [], newCount: 2 }),
+      seen: () => Effect.sync(() => void asked.push('seen')),
+      abort: (id) => Effect.sync(() => void asked.push(`abort ${id}`)),
+      outcome: (agent, input) => Effect.sync(() => void asked.push(`${agent} ${input.result}`)),
+    });
+    const id = '3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b';
+
+    expect(await (await call('/api/v1/missions')).json()).toEqual({
+      queue: [],
+      log: [],
+      newCount: 2,
+    });
+    expect((await call('/api/v1/missions/seen', { method: 'POST' })).status).toBe(204);
+    expect((await call(`/api/v1/missions/${id}/abort`, { method: 'POST' })).status).toBe(204);
+    expect(
+      (
+        await call(
+          '/api/v1/agents/fix-7/mission/outcome',
+          json({ result: 'done', outcome: 'Fixed it.' }),
+        )
+      ).status,
+    ).toBe(204);
+    expect(asked).toEqual(['seen', `abort ${id}`, 'fix-7 done']);
   });
 
   it('unregisters a planet, and answers 404 for one that is not a planet', async () => {
