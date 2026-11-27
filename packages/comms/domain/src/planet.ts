@@ -113,11 +113,16 @@ export type PreflightFacts =
       readonly bot: BotFacts;
     };
 
-/** Whether the mission bot may push to a repository, as its token on Gitea says. */
+/** Whether the mission bot may push to a repository and write its issues, as Gitea says. */
 export type BotFacts =
   | { readonly _tag: 'NoToken' }
   | { readonly _tag: 'Unreadable'; readonly reason: string }
-  | { readonly _tag: 'Read'; readonly canPush: boolean };
+  | {
+      readonly _tag: 'Read';
+      readonly canPush: boolean;
+      /** Whether the token has `write:issue`, for a mission's labels and comments. */
+      readonly canWriteIssues: boolean;
+    };
 
 export const PREFLIGHT_CHECKS = [
   'gitea',
@@ -177,9 +182,18 @@ const missionBot = (bot: BotFacts): Omit<PreflightCheck, 'check'> => {
     case 'Unreadable':
       return { passed: false, reason: bot.reason };
     case 'Read':
-      return bot.canPush
-        ? { passed: true, reason: 'The mission bot may push to the repository.' }
-        : { passed: false, reason: 'The mission bot may not push to the repository.' };
+      if (!bot.canPush) {
+        return { passed: false, reason: 'The mission bot may not push to the repository.' };
+      }
+      return bot.canWriteIssues
+        ? {
+            passed: true,
+            reason: 'The mission bot may push to the repository and write its issues.',
+          }
+        : {
+            passed: false,
+            reason: "The mission bot's token lacks issue write access (write:issue).",
+          };
   }
 };
 

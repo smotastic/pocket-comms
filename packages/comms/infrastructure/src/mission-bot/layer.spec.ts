@@ -99,21 +99,78 @@ describe('the mission bot', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('reads whether it may push, with its own token', () =>
+  it.effect('reads whether it may push and write issues, with its own token', () =>
     Effect.gen(function* () {
-      const gitea = yield* fakeGitea((path) =>
-        path === '/repos/owner/app'
-          ? { status: 200, body: { permissions: { push: true } } }
-          : { status: 404, body: {} },
-      );
+      const gitea = yield* fakeGitea((path, method) => {
+        if (method === 'GET' && path === '/repos/owner/app') {
+          return { status: 200, body: { permissions: { push: true } } };
+        }
+        if (method === 'POST' && path === '/repos/owner/app/labels') {
+          return { status: 422, body: { message: '[Name]: Required' } };
+        }
+        return { status: 404, body: {} };
+      });
       const missions = yield* bot(gitea.url);
 
-      expect(yield* missions.facts(repository)).toEqual({ _tag: 'Read', canPush: true });
+      expect(yield* missions.facts(repository)).toEqual({
+        _tag: 'Read',
+        canPush: true,
+        canWriteIssues: true,
+      });
       expect(yield* missions.facts({ owner: 'owner', name: 'other' })).toEqual({
         _tag: 'Read',
         canPush: false,
+        canWriteIssues: false,
       });
       expect(gitea.seen[0]?.authorization).toBe(`token ${TOKEN}`);
+      // The probe has an empty body, which Gitea refuses after the scope check and before a write.
+      expect(gitea.seen[1]).toEqual(
+        expect.objectContaining({ method: 'POST', path: '/repos/owner/app/labels', body: {} }),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('reads that a token without write:issue may not write issues', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((_path, method) =>
+        method === 'GET'
+          ? { status: 200, body: { permissions: { push: true } } }
+          : {
+              status: 403,
+              body: {
+                message:
+                  'token does not have at least one of required scope(s), required=[write:issue]',
+              },
+            },
+      );
+
+      expect(yield* (yield* bot(gitea.url)).facts(repository)).toEqual({
+        _tag: 'Read',
+        canPush: true,
+        canWriteIssues: false,
+      });
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('does not probe issues without push, and names an unknown answer to the probe', () =>
+    Effect.gen(function* () {
+      const readOnly = yield* fakeGitea(() => ({ status: 200, body: { permissions: {} } }));
+      expect(yield* (yield* bot(readOnly.url)).facts(repository)).toEqual({
+        _tag: 'Read',
+        canPush: false,
+        canWriteIssues: false,
+      });
+      expect(readOnly.seen.map((each) => each.method)).toEqual(['GET']);
+
+      const broken = yield* fakeGitea((_path, method) =>
+        method === 'GET'
+          ? { status: 200, body: { permissions: { push: true } } }
+          : { status: 502, body: {} },
+      );
+      expect(yield* (yield* bot(broken.url)).facts(repository)).toEqual({
+        _tag: 'Unreadable',
+        reason: 'Gitea answered 502.',
+      });
     }).pipe(Effect.scoped),
   );
 

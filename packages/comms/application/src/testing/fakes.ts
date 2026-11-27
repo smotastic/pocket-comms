@@ -261,6 +261,8 @@ export class FakeState extends Context.Service<
     readonly bot: {
       configured: boolean;
       readonly noPush: Set<string>;
+      /** Repositories whose issues the bot's token may not write (no `write:issue`). */
+      readonly noIssueWrite: Set<string>;
       failure: string | undefined;
       readonly calls: Array<string>;
     };
@@ -805,7 +807,11 @@ const missionBot = (fake: FakeState['Service']): MissionBotOutbound['Service'] =
       Effect.sync(() =>
         !fake.bot.configured
           ? { _tag: 'NoToken' as const }
-          : { _tag: 'Read' as const, canPush: !fake.bot.noPush.has(name(repository)) },
+          : {
+              _tag: 'Read' as const,
+              canPush: !fake.bot.noPush.has(name(repository)),
+              canWriteIssues: !fake.bot.noIssueWrite.has(name(repository)),
+            },
       ),
     setLane: (repository, number, lane) => call(`setLane ${name(repository)} ${number} ${lane}`),
     markInProgress: (repository, number) => call(`markInProgress ${name(repository)} ${number}`),
@@ -889,7 +895,13 @@ export const fakeLayer = () => {
         speech: { available: true, text: '', failure: undefined, clips: [] },
         missions: EMPTY_MISSIONS,
         missionsFailure: undefined,
-        bot: { configured: true, noPush: new Set(), failure: undefined, calls: [] },
+        bot: {
+          configured: true,
+          noPush: new Set(),
+          noIssueWrite: new Set(),
+          failure: undefined,
+          calls: [],
+        },
       };
     }),
   );

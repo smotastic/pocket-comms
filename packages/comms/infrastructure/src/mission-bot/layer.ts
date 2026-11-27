@@ -90,11 +90,11 @@ export const layer = ({
   const repositoryPath = ({ owner, name }: GiteaRepository) =>
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
 
-  /** One request as the bot; a `404` is `undefined`, so the caller names what was missing. */
-  const send = (method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown) =>
+  /** One request as the bot, whatever Gitea answers. */
+  const request = (method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown) =>
     Effect.gen(function* () {
       if (Option.isNone(token)) return yield* fail(NO_TOKEN);
-      const response = yield* Effect.tryPromise({
+      return yield* Effect.tryPromise({
         // A redirect is not followed, so the token is never sent to another address.
         try: (signal) =>
           fetch(`${base}/api/v1${path}`, {
@@ -115,9 +115,17 @@ export const layer = ({
           orElse: () => Effect.fail(fail(`Gitea did not answer in time at ${base}.`)),
         }),
       );
+    });
+
+  const refused = (status: number) => fail(`Gitea refused the mission bot's token (${status}).`);
+
+  /** One request as the bot; a `404` is `undefined`, so the caller names what was missing. */
+  const send = (method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown) =>
+    Effect.gen(function* () {
+      const response = yield* request(method, path, body);
       if (response.status === 404) return undefined;
       if (response.status === 401 || response.status === 403) {
-        return yield* fail(`Gitea refused the mission bot's token (${response.status}).`);
+        return yield* refused(response.status);
       }
       if (!response.ok) return yield* fail(`Gitea answered ${response.status}.`);
       return response;
@@ -187,20 +195,50 @@ export const layer = ({
       Effect.flatMap(drop),
     );
 
+  /**
+   * Whether the token may write the repository's issues. Gitea checks a token's scope and the
+   * user's permission before it reads the body, so a new label with an empty body is refused with
+   * 403 without `write:issue` (Gitea names the scope in it), and otherwise as invalid (422).
+   * Nothing is written either way.
+   */
+  const canWriteIssues = (repository: GiteaRepository) =>
+    request('POST', `${repositoryPath(repository)}/labels`, {}).pipe(
+      Effect.tap(drop),
+      Effect.flatMap((answer) => {
+        if (answer.status === 400 || answer.status === 422) return Effect.succeed(true);
+        if (answer.status === 403 || answer.status === 404) return Effect.succeed(false);
+        return Effect.fail(
+          answer.status === 401 ? refused(401) : fail(`Gitea answered ${answer.status}.`),
+        );
+      }),
+    );
+
   const facts = (repository: GiteaRepository): Effect.Effect<BotFacts> =>
     Option.isNone(token)
       ? Effect.succeed({ _tag: 'NoToken' })
       : send('GET', repositoryPath(repository)).pipe(
           Effect.flatMap((answer) =>
             answer === undefined
-              ? Effect.succeed<BotFacts>({ _tag: 'Read', canPush: false })
+              ? Effect.succeed<BotFacts>({ _tag: 'Read', canPush: false, canWriteIssues: false })
               : json(answer).pipe(
                   Effect.flatMap((body) => decodeRepository(body).pipe(Effect.mapError(shape))),
-                  Effect.map(
-                    (read): BotFacts => ({
-                      _tag: 'Read',
-                      canPush: read.permissions?.push === true,
-                    }),
+                  Effect.flatMap((read) =>
+                    // Without push the check fails anyway, and the probe is not needed.
+                    read.permissions?.push === true
+                      ? canWriteIssues(repository).pipe(
+                          Effect.map(
+                            (issues): BotFacts => ({
+                              _tag: 'Read',
+                              canPush: true,
+                              canWriteIssues: issues,
+                            }),
+                          ),
+                        )
+                      : Effect.succeed<BotFacts>({
+                          _tag: 'Read',
+                          canPush: false,
+                          canWriteIssues: false,
+                        }),
                   ),
                 ),
           ),

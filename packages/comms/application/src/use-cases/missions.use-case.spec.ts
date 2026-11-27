@@ -68,6 +68,12 @@ describe('sending a mission', () => {
       );
       state.bot.noPush.clear();
 
+      state.bot.noIssueWrite.add('owner/app');
+      expect(refusal(yield* send('app', 7, 'hop').pipe(Effect.flip))).toBe(
+        "app is no-go: The mission bot's token lacks issue write access (write:issue).",
+      );
+      state.bot.noIssueWrite.clear();
+
       yield* send('app', 7, 'hop');
       expect(refusal(yield* send('app', 7, 'full-flight').pipe(Effect.flip))).toBe(
         '#7 is on a mission already (queued).',
