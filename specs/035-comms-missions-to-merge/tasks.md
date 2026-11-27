@@ -7,16 +7,16 @@ in the task's own commit. Requirements are the spec's numbers (R1–R26).
 
 ## Pull request A — the server
 
-- [ ] **T01** — Docs: ADR 0019, the glossary's new words, the vision's step 3, the service's
+- [x] **T01** — Docs: ADR 0019, the glossary's new words, the vision's step 3, the service's
       AGENTS.md.
   - Serves: R1, R2, R9, R10, R14
   - Gate: `pnpm format:check`, review
-- [ ] **T02** — Domain `mission.ts`: lanes and their labels, the mission and its file, send
+- [x] **T02** — Domain `mission.ts`: lanes and their labels, the mission and its file, send
       rules, the queue's next mission, facts → state, the log (order, 90 days, new count), first
       prompts.
   - Serves: R5–R7, R10–R12, R15, R17, R19–R22, R24, R25
   - Gate: `pnpm nx test comms-domain`
-- [ ] **T03** — Domain `planet.ts`: the sixth check **mission bot**, choosing a level (autopilot
+- [x] **T03** — Domain `planet.ts`: the sixth check **mission bot**, choosing a level (autopilot
       refused).
   - Serves: R3, R4
   - Gate: `pnpm nx test comms-domain`
