@@ -33,7 +33,9 @@ reads the pull requests they attach.
 - **Guardrails.** Claude runs with `--settings` pointing at a file in the release: auto mode and
   pocket-mission's deny list (force-push, pushes to the default branch or of tags, the
   pocket-cloud Docker context, colima stop and delete, compose down, `tea` with the owner's
-  login). The flight rules' stops still apply.
+  login). The flight rules' stops still apply. Claude's folder-trust dialog in a mission's
+  worktree is answered yes, because the server made that worktree, as pocket-mission did; any
+  other dialog at the start waits for the owner.
 - **One truth.** `missions.json` holds the queue and the states; the lane label, the in-progress
   label and comments on Gitea are records only. A mission's state follows facts the server reads:
   the agent's status in the multiplexer, the pull request it attached, and that pull request on
