@@ -209,6 +209,8 @@ export type ReleasePlan =
   | {
       readonly _tag: 'Stop';
       readonly reason: string;
+      /** Whether a database migration is among the stops: only then does Deploy back up first. */
+      readonly migration: boolean;
       /** What the owner's Deploy ships: a breaking change bumped as requirement 15 says. */
       readonly releases: ReadonlyArray<PlannedRelease>;
     };
@@ -224,6 +226,7 @@ export const releasePlan = (
 ): ReleasePlan => {
   const releases: Array<PlannedRelease> = [];
   const reasons: Array<string> = [];
+  let migration = false;
   for (const { release, last, commits } of histories) {
     const shipped = commits.filter((commit) => touches(release.paths, commit.files));
     const bump = bumpOfAll(shipped);
@@ -243,10 +246,11 @@ export const releasePlan = (
       )
     ) {
       reasons.push(`${release.tag}${version} holds a database migration.`);
+      migration = true;
     }
   }
   if (releases.length === 0) return { _tag: 'Nothing' };
   return reasons.length === 0
     ? { _tag: 'Ship', releases }
-    : { _tag: 'Stop', reason: reasons.join(' '), releases };
+    : { _tag: 'Stop', reason: reasons.join(' '), migration, releases };
 };

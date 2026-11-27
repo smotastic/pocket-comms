@@ -648,7 +648,7 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
           'awaiting-deploy',
         ]);
 
-        // Deploy ships both, with the backup.
+        // Deploy ships both, with the backup the migration needs.
         yield* service.deploy(second.id);
         yield* service.advance;
         const deploying = (yield* service.list).running;
@@ -683,6 +683,15 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
         yield* service.advance;
         yield* service.advance;
         expect(state.bot.calls).toContain('pushTag owner/app app-v0.4.0 c1');
+
+        // No migration, so no backup: a planet without a database deploys too.
+        state.tagRuns.set('owner/app release.yml app-v0.4.0', {
+          status: 'completed',
+          conclusion: 'success',
+        });
+        yield* service.advance;
+        yield* service.advance;
+        expect(state.deploy.started[0]).toMatchObject({ backup: false, version: '0.4.0' });
       }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 

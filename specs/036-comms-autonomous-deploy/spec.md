@@ -98,8 +98,9 @@ deploy still need the owner.
 
 ### The owner's Deploy
 
-15. A mission waiting for the owner to deploy offers **Deploy** in the mission log. Deploy runs
-    pocket-cloud's backup of the planet's database first, then releases and deploys as
+15. A mission waiting for the owner to deploy offers **Deploy** in the mission log. When the
+    releases hold a database migration, Deploy runs pocket-cloud's backup of the planet's
+    database first; a breaking change alone deploys without one. Then it releases and deploys as
     requirements 9 to 12 say. The mission joins the end of the mission queue as **queued** and
     does so when its turn comes. A breaking change raises the major number, or the minor number
     below 1.0.
@@ -127,7 +128,7 @@ deploy still need the owner.
 - Given a merged pull request that touches a migration path, then the mission waits for the owner
   to deploy, the next queued mission starts, and Deploy runs the backup, then releases and deploys.
 - Given a breaking commit since the last tag, then the mission waits for the owner; Deploy raises
-  the minor number of a 0.x version.
+  the minor number of a 0.x version and deploys without a backup.
 - Given a deploy whose health check fails, then the script deploys the previous version again, the
   mission is **rolled back**, an issue with the output is open on the planet, the owner gets a
   notification, and the planet is no-go until that issue is closed.

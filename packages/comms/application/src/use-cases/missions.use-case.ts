@@ -571,7 +571,7 @@ export const makeMissions = Effect.gen(function* () {
 
   /**
    * The owner's Deploy (spec 036, requirements 15 and 16): the planet's oldest waiting mission
-   * joins the queue with the backup; the others ship with it.
+   * joins the queue; the others ship with it. Whether it backs up is planned when it starts.
    */
   const deploy = Effect.fn('Missions.deploy')(function* (id: string) {
     yield* change((file, now) =>
@@ -585,7 +585,7 @@ export const makeMissions = Effect.gen(function* () {
           sentAt: now,
           finishedAt: undefined,
           reason: undefined,
-          deploy: { releases: [], step: 0, phase: 'tag', since: now, backup: true, target: '' },
+          deploy: { releases: [], step: 0, phase: 'tag', since: now, backup: false, target: '' },
         };
         const companions = new Set(others.map((each) => each.id));
         return [
@@ -606,7 +606,11 @@ export const makeMissions = Effect.gen(function* () {
     yield* wake;
   });
 
-  /** Starts a queued owner's Deploy: plans the releases and ships them, a stop included. */
+  /**
+   * Starts a queued owner's Deploy: plans the releases and ships them, a stop included. The
+   * database is backed up first only when a migration is among them: a breaking change alone needs
+   * the owner's attention, not a backup, and a planet without a database has nothing to back up.
+   */
   const startOwnerDeploy = (mission: Mission, now: number) =>
     Effect.gen(function* () {
       const planned = yield* planReleases(mission);
@@ -622,7 +626,13 @@ export const makeMissions = Effect.gen(function* () {
         );
       }
       return {
-        ...releasing(mission, planned.plan.releases, planned.target, true, now),
+        ...releasing(
+          mission,
+          planned.plan.releases,
+          planned.target,
+          planned.plan._tag === 'Stop' && planned.plan.migration,
+          now,
+        ),
         startedAt: now,
       } satisfies Mission;
     });

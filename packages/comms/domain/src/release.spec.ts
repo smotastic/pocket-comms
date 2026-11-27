@@ -157,6 +157,7 @@ describe('releasePlan', () => {
     expect(breaking).toEqual({
       _tag: 'Stop',
       reason: 'home-server-v0.10.0 holds a breaking change.',
+      migration: false,
       releases: [
         { tag: 'home-server-v0.10.0', version: '0.10.0', workflow: undefined, app: 'home-server' },
       ],
@@ -167,5 +168,6 @@ describe('releasePlan', () => {
     );
     expect(migration._tag).toBe('Stop');
     expect(migration._tag === 'Stop' ? migration.reason : '').toContain('database migration');
+    expect(migration._tag === 'Stop' ? migration.migration : false).toBe(true);
   });
 });
