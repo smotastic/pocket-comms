@@ -9,7 +9,7 @@ import {
   Stack,
   Text,
 } from '@smotastic/pocket-design';
-import type { KNOWN_PREFLIGHT_CHECKS } from '@pocket-comms/comms-contract';
+import type { KNOWN_DEPLOY_CHECKS, KNOWN_PREFLIGHT_CHECKS } from '@pocket-comms/comms-contract';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { CommsClient, PreflightView } from './comms-client.js';
@@ -26,7 +26,16 @@ const CHECK_NAMES: ReadonlyMap<string, string> = new Map(
     'ci-green': 'CI green',
     'verify-script': 'Verify script',
     'mission-bot': 'Mission bot',
+    'last-deploy': 'Last deploy',
   } satisfies Record<(typeof KNOWN_PREFLIGHT_CHECKS)[number], string>),
+);
+
+const DEPLOY_CHECK_NAMES: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    'release-settings': 'Releases',
+    'deploy-script': 'Deploy script',
+    'deploy-apps': 'Apps',
+  } satisfies Record<(typeof KNOWN_DEPLOY_CHECKS)[number], string>),
 );
 
 /** A check's name on the page; one a newer server added shows by its own name (issue #124). */
@@ -137,6 +146,22 @@ export const PreflightCard = ({ client, planet, onUnregistered }: PreflightCardP
                   details: `${passed ? 'Passed' : 'Failed'}: ${reason}`,
                 }))}
               />
+              {data.deploy === undefined ? null : (
+                <>
+                  <Text>
+                    {data.deploy.deploys
+                      ? 'Deploys its missions'
+                      : 'Does not deploy: its missions end merged'}
+                  </Text>
+                  <DescriptionList
+                    label="Deploy checks"
+                    items={data.deploy.checks.map(({ check, passed, reason }) => ({
+                      term: DEPLOY_CHECK_NAMES.get(check) ?? check,
+                      details: `${passed ? 'Passed' : 'Failed'}: ${reason}`,
+                    }))}
+                  />
+                </>
+              )}
               <SegmentedControl
                 label="Autonomy level"
                 options={LEVELS}

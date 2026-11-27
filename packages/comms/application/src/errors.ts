@@ -226,3 +226,8 @@ export class MissionNotFoundError extends Data.TaggedError('MissionNotFoundError
 export class MissionBotError extends Data.TaggedError('MissionBotError')<{
   readonly reason: string;
 }> {}
+
+/** pocket-cloud's deploy script could not be started (spec 036). */
+export class DeployError extends Data.TaggedError('DeployError')<{
+  readonly reason: string;
+}> {}

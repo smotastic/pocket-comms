@@ -157,6 +157,8 @@ export interface CommsClient {
   readonly removeMission: (id: string) => Promise<void>;
   readonly abortMission: (id: string) => Promise<void>;
   readonly resumeMission: (id: string) => Promise<void>;
+  /** The owner's Deploy of a mission that waits for it (spec 036). */
+  readonly deployMission: (id: string) => Promise<void>;
   /** Marks the mission log seen. */
   readonly missionsSeen: () => Promise<void>;
   readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
@@ -424,6 +426,8 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
       run((api) => api.missions.abort({ params: { mission: id } })).then(() => undefined),
     resumeMission: (id) =>
       run((api) => api.missions.resume({ params: { mission: id } })).then(() => undefined),
+    deployMission: (id) =>
+      run((api) => api.missions.deploy({ params: { mission: id } })).then(() => undefined),
     missionsSeen: () => run((api) => api.missions.seen()).then(() => undefined),
     createTask: (task) => run((api) => api.tasks.create({ payload: task })),
     issues: (planet) => run((api) => api.issues.list({ params: { planet } })),

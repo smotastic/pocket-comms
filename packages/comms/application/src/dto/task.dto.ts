@@ -17,6 +17,8 @@ export interface PreflightDto {
   readonly result: PreflightResult;
   readonly checks: ReadonlyArray<PreflightCheck>;
   readonly autonomy: { readonly chosen: AutonomyLevel; readonly effective: AutonomyLevel };
+  /** Whether the planet deploys its missions, with the deploy checks (spec 036). */
+  readonly deploy: { readonly deploys: boolean; readonly checks: ReadonlyArray<PreflightCheck> };
   /** When the checks were computed, in epoch milliseconds. */
   readonly checkedAt: number;
 }

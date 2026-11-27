@@ -24,6 +24,7 @@ import {
   Herdr,
   Images,
   MissionBot,
+  Deploy,
   Missions,
   Planets,
   Repositories,
@@ -43,7 +44,7 @@ import {
 } from '@smotastic/pocket-agent/speech';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import type * as Option from 'effect/Option';
+import * as Option from 'effect/Option';
 import type * as Redacted from 'effect/Redacted';
 import { join } from 'node:path';
 
@@ -80,6 +81,8 @@ export interface ServerOptions {
   readonly missionToken: Option.Option<Redacted.Redacted<string>>;
   /** The Claude settings of a mission's agent: auto mode and the deny list (ADR 0019). */
   readonly missionSettings: string;
+  /** pocket-cloud's deploy script; none leaves deploys off (spec 036). */
+  readonly deployScript?: Option.Option<string>;
   /**
    * The folder of the server's stored state: the brainstorm (spec 013), images (spec 014),
    * the activity timeline (spec 017), push devices (spec 018), quick replies (spec 025) and the attached pull requests (spec 031).
@@ -106,6 +109,7 @@ export const services = ({
   agentArgs,
   gitea,
   missionToken,
+  deployScript,
   missionSettings,
   stateDir,
   speech,
@@ -135,6 +139,7 @@ export const services = ({
       stateDir,
       settingsPath: missionSettings,
     }),
+    Deploy.layer({ script: deployScript ?? Option.none(), stateDir }),
     speech === undefined ? layerTranscriberNotSetUp : layerOpenAiTranscriber(speech),
     Seen.layerMemory,
     StatusHistory.layerMemory,

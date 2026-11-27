@@ -88,6 +88,15 @@ export class GiteaOutbound extends Context.Service<
       repository: GiteaRepository,
       branch: string,
     ) => Effect.Effect<Option.Option<ReadonlyArray<CiRun>>, Failure>;
+    /**
+     * The run of the release workflow `workflow` that the tag `tag` started (spec 036); none
+     * while Gitea lists no such run.
+     */
+    readonly tagRun: (
+      repository: GiteaRepository,
+      workflow: string,
+      tag: string,
+    ) => Effect.Effect<Option.Option<CiRun>, Failure>;
     /** The open issues and pull requests, in Gitea's order, up to 500. */
     readonly openIssues: (
       repository: GiteaRepository,

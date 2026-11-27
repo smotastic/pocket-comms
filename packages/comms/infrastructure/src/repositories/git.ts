@@ -163,6 +163,72 @@ export const layerGit = ({
       return base;
     }).pipe(Effect.withSpan('Planets.defaultBase'));
 
+  // ---- Releases (spec 036) ------------------------------------------------------------------
+
+  const fetchTags = (planet: Repository) =>
+    Effect.gen(function* () {
+      const fetched = yield* run(planet, ['fetch', '--tags', '--force', 'origin'], fetchTimeoutMs);
+      if (fetched.code !== 0) {
+        return yield* failed(planet, `git fetch --tags failed: ${lastLine(fetched.stderr)}`);
+      }
+    }).pipe(Effect.withSpan('Planets.fetchTags'));
+
+  const tags = (planet: Repository) =>
+    Effect.gen(function* () {
+      const listed = yield* run(planet, ['tag', '--list']);
+      if (listed.code !== 0)
+        return yield* failed(planet, `git tag failed: ${lastLine(listed.stderr)}`);
+      return listed.stdout.split('\n').filter((line) => line !== '');
+    });
+
+  const commitOf = (planet: Repository, ref: string) =>
+    Effect.gen(function* () {
+      const parsed = yield* run(planet, [
+        'rev-parse',
+        '--verify',
+        '--end-of-options',
+        `${ref}^{commit}`,
+      ]);
+      const sha = parsed.stdout.trim();
+      if (parsed.code !== 0 || sha === '') return yield* failed(planet, `${ref} names no commit.`);
+      return sha;
+    });
+
+  // One record per commit: the separators never occur in a subject, a body or a path.
+  const RECORD = '\u001e';
+  const FIELD = '\u001f';
+
+  const commits = (planet: Repository, from: string | undefined, to: string) =>
+    Effect.gen(function* () {
+      const range = from === undefined ? to : `${from}..${to}`;
+      const logged = yield* run(
+        planet,
+        [
+          'log',
+          '--reverse',
+          '--no-merges',
+          '--name-only',
+          `--format=${RECORD}%s${FIELD}%b${FIELD}`,
+          '--end-of-options',
+          range,
+        ],
+        fetchTimeoutMs,
+      );
+      if (logged.code !== 0)
+        return yield* failed(planet, `git log failed: ${lastLine(logged.stderr)}`);
+      return logged.stdout
+        .split(RECORD)
+        .filter((record) => record.trim() !== '')
+        .map((record) => {
+          const [subject = '', body = '', names = ''] = record.split(FIELD);
+          return {
+            subject: subject.trim(),
+            body: body.trim(),
+            files: names.split('\n').filter((line) => line.trim() !== ''),
+          };
+        });
+    });
+
   const branchExists = (planet: Repository, branch: string) =>
     Effect.gen(function* () {
       if (yield* exists(planet, `refs/heads/${branch}`)) return true;
@@ -258,6 +324,10 @@ export const layerGit = ({
       addWorktree,
       removeWorktree,
       readDoc,
+      fetchTags,
+      tags,
+      commitOf,
+      commits,
     }),
   );
 };

@@ -48,6 +48,10 @@ const NO_TOKEN = 'Missions have no bot token (COMMS_MISSION_GITEA_TOKEN).';
 const Label = Schema.Struct({ id: Schema.Number, name: Schema.String });
 const decodeLabels = Schema.decodeUnknownEffect(Schema.Array(Label));
 const decodeLabel = Schema.decodeUnknownEffect(Label);
+const decodeTag = Schema.decodeUnknownEffect(
+  Schema.Struct({ commit: Schema.Struct({ sha: Schema.String }) }),
+);
+const decodeNumber = Schema.decodeUnknownEffect(Schema.Struct({ number: Schema.Number }));
 const decodeUser = Schema.decodeUnknownEffect(
   Schema.Struct({ login: Schema.String, email: Schema.optional(Schema.String) }),
 );
@@ -285,6 +289,47 @@ export const layer = ({
       Effect.withSpan('MissionBot.comment'),
     );
 
+  // A tag that exists already is fine when it names the same commit, so a retry pushes nothing.
+  const pushTag = (repository: GiteaRepository, tag: string, target: string) =>
+    Effect.gen(function* () {
+      if (Option.isNone(token)) return yield* fail(NO_TOKEN);
+      const created = yield* request('POST', `${repositoryPath(repository)}/tags`, {
+        tag_name: tag,
+        target,
+        message: `Released by Mission Control (spec 036).`,
+      });
+      yield* drop(created);
+      if (created.ok) return;
+      if (created.status === 401 || created.status === 403) {
+        return yield* fail(`Gitea refused the mission bot's token (${created.status}).`);
+      }
+      const existing = yield* send(
+        'GET',
+        `${repositoryPath(repository)}/tags/${encodeURIComponent(tag)}`,
+      );
+      if (existing === undefined)
+        return yield* fail(`Gitea answered ${created.status} to the tag ${tag}.`);
+      const found = yield* json(existing).pipe(
+        Effect.flatMap((body) => decodeTag(body).pipe(Effect.mapError(shape))),
+      );
+      if (found.commit.sha !== target) {
+        return yield* fail(`The tag ${tag} exists already on another commit.`);
+      }
+    }).pipe(Effect.withSpan('MissionBot.pushTag'));
+
+  const openIssue = (
+    repository: GiteaRepository,
+    issue: { readonly title: string; readonly body: string },
+  ) =>
+    Effect.gen(function* () {
+      const answer = yield* send('POST', `${repositoryPath(repository)}/issues`, issue);
+      if (answer === undefined) return yield* missingRepository(repository);
+      const created = yield* json(answer).pipe(
+        Effect.flatMap((body) => decodeNumber(body).pipe(Effect.mapError(shape))),
+      );
+      return created.number;
+    }).pipe(Effect.withSpan('MissionBot.openIssue'));
+
   const prepareWorktree = (path: string, repository: GiteaRepository) =>
     Effect.gen(function* () {
       if (Option.isNone(token)) return yield* fail(NO_TOKEN);
@@ -334,6 +379,8 @@ export const layer = ({
       unmarkInProgress,
       comment,
       prepareWorktree,
+      pushTag,
+      openIssue,
     }),
   );
 };

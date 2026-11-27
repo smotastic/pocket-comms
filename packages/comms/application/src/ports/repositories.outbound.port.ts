@@ -1,4 +1,9 @@
-import type { Repository, RepositoryDoc, Worktree } from '@pocket-comms/comms-domain';
+import type {
+  ReleaseCommit,
+  Repository,
+  RepositoryDoc,
+  Worktree,
+} from '@pocket-comms/comms-domain';
 import * as Context from 'effect/Context';
 import type * as Effect from 'effect/Effect';
 import type * as Option from 'effect/Option';
@@ -61,5 +66,23 @@ export class RepositoriesOutbound extends Context.Service<
       planet: Repository,
       doc: RepositoryDoc,
     ) => Effect.Effect<Option.Option<string>>;
+    /** Fetches `origin` with its tags, so the tags and commits below are current (spec 036). */
+    readonly fetchTags: (planet: Repository) => Effect.Effect<void, RepositoryGitError>;
+    /** The planet's tags, as of the last fetch. */
+    readonly tags: (planet: Repository) => Effect.Effect<ReadonlyArray<string>, RepositoryGitError>;
+    /** The commit a ref names, such as `origin/master`. */
+    readonly commitOf: (
+      planet: Repository,
+      ref: string,
+    ) => Effect.Effect<string, RepositoryGitError>;
+    /**
+     * The commits after `from` up to `to`, oldest first, with the files each changed; every commit
+     * up to `to` when `from` is none.
+     */
+    readonly commits: (
+      planet: Repository,
+      from: string | undefined,
+      to: string,
+    ) => Effect.Effect<ReadonlyArray<ReleaseCommit>, RepositoryGitError>;
   }
 >()('comms/application/RepositoriesOutbound') {}

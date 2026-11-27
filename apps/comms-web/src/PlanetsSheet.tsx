@@ -359,7 +359,10 @@ const PlanetList = ({
           const planet = sending?.planet;
           setSending(undefined);
           if (planet === undefined) return;
-          setNotice({ planet, text: `#${mission.issue.number} is on a mission: ${mission.state}.` });
+          setNotice({
+            planet,
+            text: `#${mission.issue.number} is on a mission: ${mission.state}.`,
+          });
         }}
       />
       <NewTask

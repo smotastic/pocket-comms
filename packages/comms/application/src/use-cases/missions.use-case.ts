@@ -1,8 +1,16 @@
 import {
   agentNameFor,
+  awaitingDeploy,
+  latestTag,
+  planetWaitsForOwner,
+  releasePlan,
+  releaseSettingsOf,
+  type PlannedRelease,
+  type ReleaseHistory,
   endComment,
   isNewInLog,
   issueBranch,
+  isFinished,
   keptWorktree,
   missionLog,
   missionPrompt,
@@ -31,7 +39,9 @@ import * as Semaphore from 'effect/Semaphore';
 import * as Stream from 'effect/Stream';
 import type { MissionDto, MissionOutcomeInput, MissionsDto } from '../dto/mission.dto.js';
 import { MissionNotFoundError, MissionRefusedError, NoGiteaRemoteError } from '../errors.js';
+import { DeployOutbound } from '../ports/deploy.outbound.port.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
+import { PushSenderOutbound, PushSubscriptionsOutbound } from '../ports/push.outbound.port.js';
 import { MissionBotOutbound } from '../ports/mission-bot.outbound.port.js';
 import { MissionsOutbound } from '../ports/missions.outbound.port.js';
 import { MultiplexerOutbound, type StartedAgent } from '../ports/multiplexer.outbound.port.js';
@@ -67,8 +77,21 @@ const viewOf = (file: MissionsFile, mission: Mission): MissionDto => ({
   pullRequest: mission.pullRequest,
   outcome: mission.outcome,
   reason: mission.reason,
+  versions: mission.versions,
+  output: mission.output,
+  fixIssue: mission.fixIssue,
+  deployWith: mission.deployWith,
   isNew: isNewInLog(file, mission) ? true : undefined,
 });
+
+/** How long a release run may take to appear, and to finish (spec 036, requirement 9). */
+const RELEASE_RUN_APPEARS_MS = 10 * 60_000;
+const RELEASE_RUN_ENDS_MS = 60 * 60_000;
+/** How long a deploy may take to write its result (spec 036, requirement 14). */
+const DEPLOY_RESULT_MS = 15 * 60_000;
+
+const tagsOf = (releases: ReadonlyArray<PlannedRelease>): string =>
+  releases.map((release) => release.tag).join(', ');
 
 const reasonOf = (error: unknown): string =>
   typeof error === 'object' && error !== null
@@ -88,6 +111,9 @@ export const makeMissions = Effect.gen(function* () {
   const repositories = yield* RepositoriesOutbound;
   const multiplexer = yield* MultiplexerOutbound;
   const attached = yield* PullRequestsOutbound;
+  const deployer = yield* DeployOutbound;
+  const subscriptions = yield* PushSubscriptionsOutbound;
+  const pushSender = yield* PushSenderOutbound;
   const issuePlanet = yield* makeIssuePlanet;
   const planets = yield* makePlanets;
   const { deliver, keep } = yield* makeAgentLaunch;
@@ -190,6 +216,417 @@ export const makeMissions = Effect.gen(function* () {
       return { ...mission, state: 'merged', finishedAt: now, agent: undefined } satisfies Mission;
     });
 
+  // ---- Release and deploy (spec 036, ADR 0020) ---------------------------------------------
+
+  /** Tells every device of the owner; a device that cannot be reached is skipped. */
+  const notify = (mission: Mission, title: string, body: string) =>
+    Effect.gen(function* () {
+      const devices = yield* subscriptions.list;
+      yield* Effect.forEach(
+        devices,
+        (device) =>
+          pushSender.send(device, { title, body, tag: `mission-${mission.id}`, url: '/missions' }),
+        { concurrency: 'unbounded', discard: true },
+      );
+    }).pipe(Effect.catch(() => Effect.logWarning('The owner could not be told about a mission')));
+
+  /** The planet's release plan at the default branch's head, from its AGENTS.md and git. */
+  const planReleases = (mission: Mission) =>
+    Effect.gen(function* () {
+      const planet = yield* planetOf(mission);
+      if (planet === undefined) {
+        return yield* new MissionRefusedError({ reason: `${mission.planet} is not a planet now.` });
+      }
+      const branch = yield* gitea.defaultBranch(mission.repository);
+      const text = Option.isNone(branch)
+        ? Option.none<string>()
+        : yield* gitea.fileText(mission.repository, branch.value, 'AGENTS.md');
+      const settings = releaseSettingsOf(Option.getOrUndefined(text));
+      if (settings._tag === 'Invalid') {
+        return { _tag: 'Unsettled', reason: settings.reason } as const;
+      }
+      const base = yield* repositories.defaultBase(planet);
+      yield* repositories.fetchTags(planet);
+      const target = yield* repositories.commitOf(planet, base);
+      const tags = yield* repositories.tags(planet);
+      const histories = yield* Effect.forEach(settings.settings.releases, (release) =>
+        Effect.gen(function* () {
+          const last = latestTag(release.tag, tags);
+          return {
+            release,
+            last: last?.version,
+            commits: yield* repositories.commits(planet, last?.tag, target),
+          } satisfies ReleaseHistory;
+        }),
+      );
+      return {
+        _tag: 'Planned',
+        plan: releasePlan(settings.settings.migrations, histories),
+        target,
+      } as const;
+    });
+
+  /** Starts releasing: the tags go on `target`, then the release runs, then the deploys. */
+  const releasing = (
+    mission: Mission,
+    releases: ReadonlyArray<PlannedRelease>,
+    target: string,
+    backup: boolean,
+    now: number,
+  ): Mission => ({
+    ...mission,
+    state: 'releasing',
+    finishedAt: undefined,
+    reason: undefined,
+    deploy: { releases, step: 0, phase: 'tag', since: now, backup, target },
+  });
+
+  const finished = (
+    mission: Mission,
+    state: 'not-deployed' | 'nothing-to-release' | 'awaiting-deploy',
+    reason: string,
+    now: number,
+  ): Mission => ({ ...mission, state, reason, finishedAt: now, deploy: undefined });
+
+  /**
+   * After the merge (spec 036, requirements 5 to 9): a planet at missions whose deploy checks
+   * pass releases; otherwise the mission ends with why.
+   */
+  const afterMerge = (file: MissionsFile, mission: Mission, now: number) =>
+    Effect.gen(function* () {
+      const preflight = yield* planets.preflight(mission.planet, true).pipe(Effect.option);
+      if (Option.isNone(preflight)) {
+        return finished(mission, 'not-deployed', `${mission.planet} is not a planet now.`, now);
+      }
+      if (preflight.value.autonomy.effective !== 'missions') {
+        const failed = preflight.value.checks.filter((check) => !check.passed);
+        return finished(
+          mission,
+          'not-deployed',
+          failed.length === 0
+            ? `${mission.planet} is not at missions now.`
+            : `${mission.planet} is no-go: ${failed.map((check) => check.reason).join(' ')}`,
+          now,
+        );
+      }
+      if (!preflight.value.deploy.deploys) {
+        const failed = preflight.value.deploy.checks.filter((check) => !check.passed);
+        return finished(mission, 'not-deployed', failed[0]?.reason ?? 'It does not deploy.', now);
+      }
+      if (planetWaitsForOwner(file, mission.planet)) {
+        return finished(
+          mission,
+          'awaiting-deploy',
+          `It ships with an earlier change of ${mission.planet} that waits for your Deploy.`,
+          now,
+        );
+      }
+      const planned = yield* planReleases(mission).pipe(
+        Effect.catch((error) =>
+          Effect.succeed({ _tag: 'Unsettled', reason: reasonOf(error) } as const),
+        ),
+      );
+      if (planned._tag === 'Unsettled') {
+        return finished(
+          mission,
+          'not-deployed',
+          `The release could not be planned: ${planned.reason}`,
+          now,
+        );
+      }
+      switch (planned.plan._tag) {
+        case 'Nothing':
+          return finished(
+            mission,
+            'nothing-to-release',
+            'No feat, fix or perf commit to release.',
+            now,
+          );
+        case 'Stop':
+          return finished(mission, 'awaiting-deploy', planned.plan.reason, now);
+        case 'Ship':
+          return releasing(mission, planned.plan.releases, planned.target, false, now);
+      }
+    });
+
+  /** The missions that ship with `lead` take its ending (spec 036, requirement 16). */
+  const withCompanions = (file: MissionsFile, lead: Mission): MissionsFile => ({
+    ...file,
+    missions: file.missions.map((mission) =>
+      mission.id === lead.id
+        ? lead
+        : isFinished(lead) && mission.deployWith === lead.id && mission.state === 'awaiting-deploy'
+          ? {
+              ...mission,
+              state: lead.state,
+              finishedAt: lead.finishedAt,
+              versions: lead.versions,
+              output: lead.output,
+              fixIssue: lead.fixIssue,
+              reason: `It shipped with #${lead.issue.number}: ${lead.reason ?? lead.state}`,
+            }
+          : mission,
+    ),
+  });
+
+  const deployed = (mission: Mission, now: number) =>
+    Effect.gen(function* () {
+      const releases = mission.deploy?.releases ?? [];
+      yield* record(
+        'comment on the issue',
+        bot.comment(mission.repository, mission.issue.number, `Deployed ${tagsOf(releases)}.`),
+      );
+      return {
+        ...mission,
+        state: 'deployed',
+        finishedAt: now,
+        reason: undefined,
+        versions: releases.map((release) => release.tag),
+        deploy: undefined,
+      } satisfies Mission;
+    });
+
+  /**
+   * A release or deploy that failed (spec 036, requirements 9 and 12): the mission ends with why,
+   * an issue on the planet asks for the fix and pauses it, and the owner is told.
+   */
+  const broken = (
+    mission: Mission,
+    state: 'rolled-back' | 'failed',
+    reason: string,
+    output: string | undefined,
+    now: number,
+  ) =>
+    Effect.gen(function* () {
+      const releases = mission.deploy?.releases ?? [];
+      const body = [
+        `Mission Control could not deploy ${tagsOf(releases)} after #${mission.issue.number}.`,
+        '',
+        reason,
+        ...(output === undefined || output === '' ? [] : ['', '```text', output.trim(), '```']),
+        '',
+        `The planet is paused until this issue is closed. Master is not reverted.`,
+      ].join('\n');
+      const fixIssue = yield* bot
+        .openIssue(mission.repository, {
+          title: `Fix the failed deploy of ${tagsOf(releases)}`,
+          body,
+        })
+        .pipe(
+          Effect.map((number): number | undefined => number),
+          Effect.catch((error) =>
+            Effect.as(
+              Effect.logWarning('The mission bot could not open the fix issue').pipe(
+                Effect.annotateLogs({ reason: error.reason }),
+              ),
+              undefined,
+            ),
+          ),
+        );
+      yield* notify(
+        mission,
+        state === 'rolled-back'
+          ? `Deploy rolled back: ${mission.planet}`
+          : `Release failed: ${mission.planet}`,
+        reason,
+      );
+      return {
+        ...mission,
+        state,
+        reason,
+        output,
+        fixIssue,
+        finishedAt: now,
+        versions: releases.map((release) => release.tag),
+        deploy: undefined,
+      } satisfies Mission;
+    });
+
+  /** One step of a releasing mission: push its tags, then wait for their release runs. */
+  const releaseStep = (mission: Mission, now: number) =>
+    Effect.gen(function* () {
+      const deploy = mission.deploy;
+      if (deploy === undefined)
+        return yield* broken(mission, 'failed', 'It lost its release.', undefined, now);
+      if (deploy.phase === 'tag') {
+        for (const release of deploy.releases) {
+          const pushed = yield* bot
+            .pushTag(mission.repository, release.tag, deploy.target)
+            .pipe(Effect.result);
+          if (pushed._tag === 'Failure') {
+            return yield* broken(
+              mission,
+              'failed',
+              `The tag ${release.tag} could not be pushed: ${pushed.failure.reason}`,
+              undefined,
+              now,
+            );
+          }
+        }
+        return { ...mission, deploy: { ...deploy, phase: 'build', since: now } } satisfies Mission;
+      }
+      let pending = false;
+      for (const release of deploy.releases) {
+        if (release.workflow === undefined) continue;
+        const run = yield* gitea
+          .tagRun(mission.repository, release.workflow, release.tag)
+          .pipe(Effect.orElseSucceed(() => Option.none()));
+        const waited = now - deploy.since;
+        if (Option.isNone(run)) {
+          if (waited <= RELEASE_RUN_APPEARS_MS) {
+            pending = true;
+            continue;
+          }
+          return yield* broken(
+            mission,
+            'failed',
+            `The release workflow ${release.workflow} of ${release.tag} did not start within 10 minutes.`,
+            undefined,
+            now,
+          );
+        }
+        if (run.value.status !== 'completed') {
+          if (waited <= RELEASE_RUN_ENDS_MS) {
+            pending = true;
+            continue;
+          }
+          return yield* broken(
+            mission,
+            'failed',
+            `The release workflow ${release.workflow} of ${release.tag} did not finish within 60 minutes.`,
+            undefined,
+            now,
+          );
+        }
+        if (run.value.conclusion !== 'success') {
+          return yield* broken(
+            mission,
+            'failed',
+            `The release workflow ${release.workflow} of ${release.tag} ended as ${run.value.conclusion ?? 'unknown'}.`,
+            undefined,
+            now,
+          );
+        }
+      }
+      if (pending) return mission;
+      const first = deploy.releases.findIndex((release) => release.app !== undefined);
+      if (first < 0) return yield* deployed(mission, now);
+      return {
+        ...mission,
+        state: 'deploying',
+        deploy: { ...deploy, phase: 'deploy', step: first, since: now, job: undefined },
+      } satisfies Mission;
+    });
+
+  /** One step of a deploying mission: start the release's deploy, then read its result. */
+  const deployStep = (mission: Mission, now: number) =>
+    Effect.gen(function* () {
+      const deploy = mission.deploy;
+      const release = deploy?.releases[deploy.step];
+      if (deploy === undefined || release?.app === undefined) {
+        return yield* broken(mission, 'failed', 'It lost its deploy.', undefined, now);
+      }
+      if (deploy.job === undefined) {
+        const job = `${mission.id}-${deploy.step}`;
+        const started = yield* deployer
+          .start({ id: job, app: release.app, version: release.version, backup: deploy.backup })
+          .pipe(Effect.result);
+        if (started._tag === 'Failure') {
+          return yield* broken(mission, 'failed', started.failure.reason, undefined, now);
+        }
+        return { ...mission, deploy: { ...deploy, job, since: now } } satisfies Mission;
+      }
+      const result = yield* deployer.result(deploy.job);
+      if (Option.isNone(result)) {
+        return now - deploy.since <= DEPLOY_RESULT_MS
+          ? mission
+          : yield* broken(
+              mission,
+              'rolled-back',
+              `The deploy of ${release.tag} wrote no result within 15 minutes.`,
+              undefined,
+              now,
+            );
+      }
+      if (result.value.result !== 'deployed') {
+        return yield* broken(
+          mission,
+          'rolled-back',
+          result.value.result === 'rolled-back'
+            ? `${release.tag} failed its health check and was rolled back.`
+            : `The deploy of ${release.tag} failed.`,
+          result.value.output,
+          now,
+        );
+      }
+      const next = deploy.releases.findIndex(
+        (each, index) => index > deploy.step && each.app !== undefined,
+      );
+      if (next < 0) return yield* deployed(mission, now);
+      return {
+        ...mission,
+        deploy: { ...deploy, step: next, since: now, job: undefined },
+      } satisfies Mission;
+    });
+
+  /**
+   * The owner's Deploy (spec 036, requirements 15 and 16): the planet's oldest waiting mission
+   * joins the queue with the backup; the others ship with it.
+   */
+  const deploy = Effect.fn('Missions.deploy')(function* (id: string) {
+    yield* change((file, now) =>
+      Effect.gen(function* () {
+        const mission = yield* missionWith(file, id, (each) => each.state === 'awaiting-deploy');
+        const [lead, ...others] = awaitingDeploy(file, mission.planet);
+        if (lead === undefined) return yield* new MissionNotFoundError({ id });
+        const queued: Mission = {
+          ...lead,
+          state: 'queued',
+          sentAt: now,
+          finishedAt: undefined,
+          reason: undefined,
+          deploy: { releases: [], step: 0, phase: 'tag', since: now, backup: true, target: '' },
+        };
+        const companions = new Set(others.map((each) => each.id));
+        return [
+          {
+            ...file,
+            missions: file.missions.map((each) =>
+              each.id === lead.id
+                ? queued
+                : companions.has(each.id)
+                  ? { ...each, deployWith: lead.id }
+                  : each,
+            ),
+          },
+          undefined,
+        ] as const;
+      }),
+    );
+    yield* wake;
+  });
+
+  /** Starts a queued owner's Deploy: plans the releases and ships them, a stop included. */
+  const startOwnerDeploy = (mission: Mission, now: number) =>
+    Effect.gen(function* () {
+      const planned = yield* planReleases(mission);
+      if (planned._tag === 'Unsettled') {
+        return finished(mission, 'not-deployed', planned.reason, now);
+      }
+      if (planned.plan._tag === 'Nothing') {
+        return finished(
+          mission,
+          'nothing-to-release',
+          'No feat, fix or perf commit to release.',
+          now,
+        );
+      }
+      return {
+        ...releasing(mission, planned.plan.releases, planned.target, true, now),
+        startedAt: now,
+      } satisfies Mission;
+    });
+
   // ---- Sending ------------------------------------------------------------------------------
 
   const send = Effect.fn('Missions.send')(function* (
@@ -282,7 +719,11 @@ export const makeMissions = Effect.gen(function* () {
         const mission = yield* missionWith(
           file,
           id,
-          (each) => runningMission(file)?.id === each.id,
+          // A release or deploy runs on to its result; it has no agent to stop (spec 036).
+          (each) =>
+            runningMission(file)?.id === each.id &&
+            each.state !== 'releasing' &&
+            each.state !== 'deploying',
         );
         const stopped = yield* stop(mission, 'aborted', 'The owner aborted it.', now);
         return [updateMission(file, id, () => stopped), undefined] as const;
@@ -481,6 +922,7 @@ export const makeMissions = Effect.gen(function* () {
               : `${mission.planet} is no-go: ${failed.join(' ')}`,
         } satisfies Mission;
       }
+      if (mission.deploy !== undefined) return yield* startOwnerDeploy(mission, now);
       const planet = yield* planetOf(mission);
       if (planet === undefined) {
         return yield* new MissionRefusedError({ reason: `${mission.planet} is not a planet now.` });
@@ -563,7 +1005,18 @@ export const makeMissions = Effect.gen(function* () {
     Effect.gen(function* () {
       let next = file;
       const running = runningMission(next);
-      if (running !== undefined && running.state !== 'lost') {
+      if (running?.state === 'releasing' || running?.state === 'deploying') {
+        const moved =
+          running.state === 'releasing'
+            ? yield* releaseStep(running, now)
+            : yield* deployStep(running, now);
+        if (moved !== running) next = withCompanions(next, moved);
+        // A failed release or deploy pauses the planet; the next mission waits for the saved file,
+        // so its preflight sees the pause.
+        if (moved.fixIssue !== undefined || moved.state === 'rolled-back') {
+          return [next, undefined] as const;
+        }
+      } else if (running !== undefined && running.state !== 'lost') {
         const { session, facts } = yield* factsOf(running);
         const step = missionStep(running, facts);
         const known = session === running.session ? running : { ...running, session };
@@ -575,7 +1028,11 @@ export const makeMissions = Effect.gen(function* () {
               : step._tag === 'Lost'
                 ? { ...known, state: 'lost', reason: 'Its agent is gone.' }
                 : step._tag === 'Merged'
-                  ? yield* land({ ...known, pullRequest: step.pullRequest }, now)
+                  ? yield* afterMerge(
+                      next,
+                      yield* land({ ...known, pullRequest: step.pullRequest }, now),
+                      now,
+                    )
                   : {
                       ...(yield* stop(known, 'failed', step.reason, now)),
                       pullRequest: facts.pullRequest,
@@ -585,8 +1042,8 @@ export const makeMissions = Effect.gen(function* () {
       // A held mission frees the turn at once, so the one after it may start in the same step.
       for (let queued = nextMission(next); queued !== undefined; queued = nextMission(next)) {
         const started = yield* start(next, queued, now);
-        next = updateMission(next, queued.id, () => started);
-        if (started.state !== 'held' && started.state !== 'failed') break;
+        next = withCompanions(next, started);
+        if (!isFinished(started)) break;
       }
       return [next, undefined] as const;
     }),
@@ -622,5 +1079,5 @@ export const makeMissions = Effect.gen(function* () {
     Effect.forkScoped,
   );
 
-  return { send, list, remove, abort, resume, seen, outcome, advance };
+  return { send, list, remove, abort, resume, seen, outcome, deploy, advance };
 });

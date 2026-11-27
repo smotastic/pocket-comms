@@ -53,6 +53,10 @@ export const serverConfig = Config.all({
   missionToken: Config.option(Config.Redacted('COMMS_MISSION_GITEA_TOKEN')).pipe(
     Config.map(Option.filter((token) => Redacted.value(token).trim() !== '')),
   ),
+  // pocket-cloud's deploy script (spec 036, ADR 0020); none leaves deploys off.
+  deployScript: Config.option(Config.String('COMMS_DEPLOY_SCRIPT')).pipe(
+    Config.map(Option.filter((path) => path.trim() !== '')),
+  ),
   giteaHosts: Config.String('COMMS_GITEA_HOSTS').pipe(
     Config.withDefault('gitea'),
     Config.map((hosts) =>

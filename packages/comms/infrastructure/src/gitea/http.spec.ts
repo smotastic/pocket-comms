@@ -875,6 +875,13 @@ describe('Gitea.layerHttp, the reads of preflight (spec 034)', () => {
             workflow_runs: [
               { id: 2, status: 'in_progress', conclusion: '', head_branch: 'master' },
               { id: 1, status: 'completed', conclusion: 'success', head_branch: 'master' },
+              {
+                id: 0,
+                path: 'release.yml@refs/tags/app-v1.0.0',
+                status: 'completed',
+                conclusion: 'failure',
+                head_branch: null,
+              },
             ],
           },
         };
@@ -938,6 +945,7 @@ describe('Gitea.layerHttp, the reads of preflight (spec 034)', () => {
             Option.some([
               { status: 'in_progress', conclusion: '' },
               { status: 'completed', conclusion: 'success' },
+              { status: 'completed', conclusion: 'failure' },
             ]),
           );
           expect(yield* gitea.pushRuns({ owner: 'owner', name: 'gone' }, 'master')).toEqual(
@@ -947,6 +955,22 @@ describe('Gitea.layerHttp, the reads of preflight (spec 034)', () => {
       );
       expect(seen[0]?.url).toBe(
         '/api/v1/repos/owner/app/actions/runs?branch=master&event=push&limit=20',
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("finds the run a tag started by its workflow's path (spec 036)", () =>
+    Effect.gen(function* () {
+      const { url } = yield* fakeGitea(route);
+      yield* withGitea(url, (gitea) =>
+        Effect.gen(function* () {
+          expect(yield* gitea.tagRun(repository, 'release.yml', 'app-v1.0.0')).toEqual(
+            Option.some({ status: 'completed', conclusion: 'failure' }),
+          );
+          expect(yield* gitea.tagRun(repository, 'release.yml', 'app-v2.0.0')).toEqual(
+            Option.none(),
+          );
+        }),
       );
     }).pipe(Effect.scoped),
   );

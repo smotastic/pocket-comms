@@ -590,6 +590,7 @@ describe('the tasks API', () => {
         },
       ],
       autonomy: { chosen: 'manual' as const, effective: 'manual' as const },
+      deploy: { deploys: false, checks: [] },
       checkedAt: 5,
     };
     const call = servePlanets({
@@ -651,6 +652,7 @@ describe('the tasks API', () => {
       list: Effect.succeed({ queue: [], log: [], newCount: 2 }),
       seen: () => Effect.sync(() => void asked.push('seen')),
       abort: (id) => Effect.sync(() => void asked.push(`abort ${id}`)),
+      deploy: (id) => Effect.sync(() => void asked.push(`deploy ${id}`)),
       outcome: (agent, input) => Effect.sync(() => void asked.push(`${agent} ${input.result}`)),
     });
     const id = '3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b';
@@ -662,6 +664,7 @@ describe('the tasks API', () => {
     });
     expect((await call('/api/v1/missions/seen', { method: 'POST' })).status).toBe(204);
     expect((await call(`/api/v1/missions/${id}/abort`, { method: 'POST' })).status).toBe(204);
+    expect((await call(`/api/v1/missions/${id}/deploy`, { method: 'POST' })).status).toBe(204);
     expect(
       (
         await call(
@@ -670,7 +673,7 @@ describe('the tasks API', () => {
         )
       ).status,
     ).toBe(204);
-    expect(asked).toEqual(['seen', `abort ${id}`, 'fix-7 done']);
+    expect(asked).toEqual(['seen', `abort ${id}`, `deploy ${id}`, 'fix-7 done']);
   });
 
   it('unregisters a planet, and answers 404 for one that is not a planet', async () => {

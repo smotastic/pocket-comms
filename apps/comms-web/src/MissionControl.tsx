@@ -28,12 +28,37 @@ export const STATE_NAMES: Readonly<Record<MissionView['state'], string>> = {
   waiting: 'Waiting on you',
   'pull-request': 'Pull request',
   lost: 'Lost',
-  // Until step 4 a merge is not a deploy.
+  // A merge from before deploys existed (spec 035).
   merged: 'Merged, not deployed',
   failed: 'Failed',
   aborted: 'Aborted',
   held: 'Held',
+  // Spec 036.
+  releasing: 'Releasing',
+  deploying: 'Deploying',
+  deployed: 'Deployed',
+  'rolled-back': 'Rolled back',
+  'not-deployed': 'Merged, not deployed',
+  'nothing-to-release': 'Merged, nothing to release',
+  'awaiting-deploy': 'Merged, waiting for you to deploy',
 };
+
+/** The versions it shipped, the issue a failure opened, and what it ships with. */
+const DeployFacts = ({ mission }: { readonly mission: MissionView }) => (
+  <>
+    {mission.versions === undefined || mission.versions.length === 0 ? null : (
+      <Text size="sm">{mission.versions.join(', ')}</Text>
+    )}
+    {mission.fixIssue === undefined ? null : (
+      <Text size="sm">{`Fix issue #${mission.fixIssue}; the planet is paused until it is closed.`}</Text>
+    )}
+    {mission.output === undefined || mission.output === '' ? null : (
+      <Text size="sm" tone="muted">
+        {mission.output}
+      </Text>
+    )}
+  </>
+);
 
 const laneName = (mission: MissionView) => (mission.lane === 'hop' ? 'Hop' : 'Full flight');
 
@@ -112,6 +137,7 @@ const Running = ({
           )}
         </Inline>
         {mission.reason === undefined ? null : <Text size="sm">{mission.reason}</Text>}
+        <DeployFacts mission={mission} />
         <Inline gap="xs">
           {mission.state === 'lost' ? (
             <Action
@@ -120,7 +146,9 @@ const Running = ({
               action={() => client.resumeMission(mission.id)}
             />
           ) : null}
-          <Action label="Abort" variant="danger" action={() => client.abortMission(mission.id)} />
+          {mission.state === 'releasing' || mission.state === 'deploying' ? null : (
+            <Action label="Abort" variant="danger" action={() => client.abortMission(mission.id)} />
+          )}
         </Inline>
       </Stack>
     </section>
@@ -226,6 +254,18 @@ export const MissionControl = ({
                           {mission.outcome === undefined && mission.reason === undefined ? null : (
                             <Text size="sm">{mission.outcome ?? mission.reason}</Text>
                           )}
+                          {mission.outcome === undefined || mission.reason === undefined ? null : (
+                            <Text size="sm">{mission.reason}</Text>
+                          )}
+                          <DeployFacts mission={mission} />
+                          {mission.state === 'awaiting-deploy' &&
+                          mission.deployWith === undefined ? (
+                            <Action
+                              label="Deploy"
+                              variant="secondary"
+                              action={() => client.deployMission(mission.id)}
+                            />
+                          ) : null}
                         </Stack>
                       </ListItem>
                     ))}

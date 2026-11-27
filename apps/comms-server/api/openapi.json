@@ -1838,6 +1838,18 @@
             "description": "Its agent's name, while it has one.",
             "examples": ["fix-7-fix-the-header"]
           },
+          "deployWith": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The id of the waiting mission whose Deploy this one ships with.",
+            "examples": ["0b9f4c2e-5d2a-4c1e-9a52-3f7c1f0d1e6a"]
+          },
           "finishedAt": {
             "anyOf": [
               {
@@ -1851,6 +1863,18 @@
             ],
             "description": "When it finished, in epoch milliseconds.",
             "examples": [1795600000000]
+          },
+          "fixIssue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The issue a failed release or deploy opened; the planet is paused until it is closed.",
+            "examples": [42]
           },
           "id": {
             "description": "The mission's id.",
@@ -1917,6 +1941,18 @@
             ],
             "description": "What its agent reported at the end, one paragraph.",
             "examples": ["Fixed the header overlap and merged #12."]
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The deploy script's output of a failed deploy.",
+            "examples": ["health check failed: 503"]
           },
           "planet": {
             "description": "The planet.",
@@ -1986,7 +2022,7 @@
             "examples": [1795600000000]
           },
           "state": {
-            "description": "queued; running as working, waiting (on the owner), pull-request or lost (its agent gone); finished as merged (not deployed), failed, aborted or held (its planet was not ready when its turn came).",
+            "description": "queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy).",
             "enum": [
               "queued",
               "working",
@@ -1996,10 +2032,32 @@
               "merged",
               "failed",
               "aborted",
-              "held"
+              "held",
+              "releasing",
+              "deploying",
+              "deployed",
+              "rolled-back",
+              "not-deployed",
+              "nothing-to-release",
+              "awaiting-deploy"
             ],
             "examples": ["working"],
             "type": "string"
+          },
+          "versions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The release tags it shipped (spec 036).",
+            "examples": [["pocket-galaxy-v0.19.0"]]
           }
         },
         "required": ["id", "planet", "issue", "lane", "state", "sentAt"],
@@ -2042,6 +2100,18 @@
             "description": "Its agent's name, while it has one.",
             "examples": ["fix-7-fix-the-header"]
           },
+          "deployWith": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The id of the waiting mission whose Deploy this one ships with.",
+            "examples": ["0b9f4c2e-5d2a-4c1e-9a52-3f7c1f0d1e6a"]
+          },
           "finishedAt": {
             "anyOf": [
               {
@@ -2055,6 +2125,18 @@
             ],
             "description": "When it finished, in epoch milliseconds.",
             "examples": [1795600000000]
+          },
+          "fixIssue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The issue a failed release or deploy opened; the planet is paused until it is closed.",
+            "examples": [42]
           },
           "id": {
             "description": "The mission's id.",
@@ -2121,6 +2203,18 @@
             ],
             "description": "What its agent reported at the end, one paragraph.",
             "examples": ["Fixed the header overlap and merged #12."]
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The deploy script's output of a failed deploy.",
+            "examples": ["health check failed: 503"]
           },
           "planet": {
             "description": "The planet.",
@@ -2190,7 +2284,7 @@
             "examples": [1795600000000]
           },
           "state": {
-            "description": "queued; running as working, waiting (on the owner), pull-request or lost (its agent gone); finished as merged (not deployed), failed, aborted or held (its planet was not ready when its turn came).",
+            "description": "queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy).",
             "enum": [
               "queued",
               "working",
@@ -2200,10 +2294,32 @@
               "merged",
               "failed",
               "aborted",
-              "held"
+              "held",
+              "releasing",
+              "deploying",
+              "deployed",
+              "rolled-back",
+              "not-deployed",
+              "nothing-to-release",
+              "awaiting-deploy"
             ],
             "examples": ["working"],
             "type": "string"
+          },
+          "versions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The release tags it shipped (spec 036).",
+            "examples": [["pocket-galaxy-v0.19.0"]]
           }
         },
         "required": ["id", "planet", "issue", "lane", "state", "sentAt"],
@@ -2454,6 +2570,54 @@
             },
             "type": "array"
           },
+          "deploy": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "checks": {
+                    "description": "The deploy checks, in their fixed order: release-settings, deploy-script, deploy-apps. They never change go or no-go.",
+                    "examples": [
+                      [
+                        {
+                          "check": "release-settings",
+                          "passed": true,
+                          "reason": "AGENTS.md names one release."
+                        }
+                      ]
+                    ],
+                    "items": {
+                      "$ref": "#/components/schemas/PreflightCheck"
+                    },
+                    "type": "array"
+                  },
+                  "deploys": {
+                    "description": "The planet deploys its merged missions: every deploy check passed.",
+                    "examples": [true],
+                    "type": "boolean"
+                  }
+                },
+                "required": ["deploys", "checks"],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the planet deploys its missions, and why (spec 036).",
+            "examples": [
+              {
+                "checks": [
+                  {
+                    "check": "release-settings",
+                    "passed": false,
+                    "reason": "AGENTS.md has no `json mission-control` block."
+                  }
+                ],
+                "deploys": false
+              }
+            ]
+          },
           "result": {
             "description": "go when every check passed.",
             "enum": ["go", "no-go"],
@@ -2469,7 +2633,7 @@
         "description": "One check of preflight.",
         "properties": {
           "check": {
-            "description": "The check, in the fixed order of the list: gitea, agents-md, ci-workflow, ci-green, verify-script, mission-bot. A later server may add checks; a client shows one it does not know by this name.",
+            "description": "The check, in the fixed order of the list: gitea, agents-md, ci-workflow, ci-green, verify-script, mission-bot, last-deploy. A later server may add checks; a client shows one it does not know by this name.",
             "examples": ["ci-green"],
             "type": "string"
           },
@@ -6429,6 +6593,75 @@
         },
         "security": [],
         "summary": "Abort the running mission",
+        "tags": ["Missions"]
+      }
+    },
+    "/api/v1/missions/{mission}/deploy": {
+      "post": {
+        "description": "The planet's missions that wait for the owner join the mission queue together, to back up, release and deploy (spec 036).",
+        "operationId": "missions.deploy",
+        "parameters": [
+          {
+            "description": "The mission's id.",
+            "example": "3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b",
+            "in": "path",
+            "name": "mission",
+            "required": true,
+            "schema": {
+              "description": "The mission's id.",
+              "examples": ["3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b"],
+              "pattern": "^[0-9a-f-]{36}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Deploy a mission that waits for the owner",
         "tags": ["Missions"]
       }
     },

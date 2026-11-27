@@ -212,4 +212,38 @@ describe("the planet page's preflight", () => {
     const card = await preflightCard();
     expect(await within(card).findByText('Gitea is away.')).toBeDefined();
   });
+
+  it('shows the deploy checks and whether the planet deploys (spec 036)', async () => {
+    renderApp({
+      client: fakeClient({
+        overview,
+        preflights: new Map([
+          [
+            'pocket-home',
+            {
+              ...noGo,
+              deploy: {
+                deploys: false,
+                checks: [
+                  {
+                    check: 'release-settings',
+                    passed: false,
+                    reason: 'AGENTS.md has no `json mission-control` block.',
+                  },
+                ],
+              },
+            },
+          ],
+        ]),
+      }).client,
+      path: '/planets/pocket-home',
+    });
+
+    const card = await preflightCard();
+    expect(await within(card).findByText('Does not deploy: its missions end merged')).toBeDefined();
+    expect(within(card).getByText('Releases')).toBeDefined();
+    expect(
+      within(card).getByText('Failed: AGENTS.md has no `json mission-control` block.'),
+    ).toBeDefined();
+  });
 });

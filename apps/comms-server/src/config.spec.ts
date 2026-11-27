@@ -32,6 +32,7 @@ describe('serverConfig', () => {
         giteaHosts: ['gitea'],
         stateDir: `${homedir()}/.pocket-comms`,
         brainstormModel: Option.none(),
+        deployScript: Option.none(),
         speechUrl: Option.none(),
         speechModel: Option.none(),
       });
@@ -58,6 +59,7 @@ describe('serverConfig', () => {
         giteaHosts: ['gitea', 'git.example.com'],
         stateDir: '/srv/state',
         brainstormModel: Option.some('gpt-6-luna'),
+        deployScript: Option.some('/srv/pocket-cloud/scripts/deploy.sh'),
         speechUrl: Option.some('http://localhost:4430/v1'),
         speechModel: Option.some('Systran/faster-whisper-small'),
       });
@@ -75,6 +77,7 @@ describe('serverConfig', () => {
         COMMS_GITEA_URL: 'https://git.example.com',
         COMMS_GITEA_TOKEN: 'secret-token',
         COMMS_MISSION_GITEA_TOKEN: 'bot-token',
+        COMMS_DEPLOY_SCRIPT: '/srv/pocket-cloud/scripts/deploy.sh',
         COMMS_GITEA_HOSTS: ' gitea, git.example.com ,',
         COMMS_STATE_DIR: '/srv/state',
         COMMS_BRAINSTORM_MODEL: 'gpt-6-luna',

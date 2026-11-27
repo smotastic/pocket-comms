@@ -341,6 +341,9 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     resumeMission: async (id) => {
       calls.missionRequests.push(`resume ${id}`);
     },
+    deployMission: async (id) => {
+      calls.missionRequests.push(`deploy ${id}`);
+    },
     missionsSeen: async () => {
       calls.missionsSeen += 1;
     },

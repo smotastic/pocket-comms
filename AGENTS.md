@@ -54,4 +54,30 @@ Use pnpm. Run `pnpm install` before the first build.
 - For the flight skills themselves (`flight-rules` and the steps), change them in
   `apps/comms-server/skills/`; they reach the agents with the next deploy.
 
+## Releases and deploys
+
+Pocket Comms deploys itself on the home server through pocket-cloud (`scripts/deploy.sh
+pocket-comms <version>`, its health check and rollback). After a mission's merge, Mission Control
+cuts the next `comms-v` release as the mission bot and deploys it (spec 036, ADR 0020); there is
+no release workflow, the release is built from source. It has no database, so no migrations.
+
+```json mission-control
+{
+  "releases": [
+    {
+      "tag": "comms-v",
+      "paths": [
+        "apps/comms-server/",
+        "apps/comms-web/",
+        "packages/",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "app": "pocket-comms"
+    }
+  ],
+  "migrations": []
+}
+```
+
 If guidance conflicts or the task needs an exception, stop and ask the owner.

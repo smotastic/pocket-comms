@@ -33,6 +33,7 @@ const main = Layer.unwrap(
         gitea: config.giteaUrl,
         giteaToken: Option.isSome(config.giteaToken) ? 'set' : 'not set',
         missionToken: Option.isSome(config.missionToken) ? 'set' : 'not set',
+        deployScript: Option.getOrElse(config.deployScript, () => 'not set'),
         brainstorm: Option.getOrElse(config.brainstormModel, () => 'not set up'),
         speech: speech._tag === 'On' ? speech.model : 'not set up',
         state: config.stateDir,
@@ -50,6 +51,7 @@ const main = Layer.unwrap(
         agentArgs: config.agentArgs,
         gitea: { url: config.giteaUrl, token: config.giteaToken, hosts: config.giteaHosts },
         missionToken: config.missionToken,
+        deployScript: config.deployScript,
         // The settings ship beside the build, in the release's `mission` folder (ADR 0019).
         missionSettings: fileURLToPath(new URL('../mission/claude-settings.json', import.meta.url)),
         stateDir: config.stateDir,

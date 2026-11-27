@@ -52,6 +52,11 @@ export class MissionsInbound extends Context.Service<
       | MultiplexerUnavailableError
       | MultiplexerRejectedError
     >;
+    /**
+     * The owner's Deploy of a mission that waits for it (spec 036): the planet's waiting missions
+     * join the mission queue to release and deploy together, after a backup.
+     */
+    readonly deploy: (id: string) => Effect.Effect<void, MissionNotFoundError | MissionsStoreError>;
     /** Marks the mission log seen now. */
     readonly seen: () => Effect.Effect<void, MissionsStoreError>;
     /** The outcome the running mission's agent reports, by the agent's name. */

@@ -614,7 +614,11 @@ export const KNOWN_PREFLIGHT_CHECKS = [
   'ci-green',
   'verify-script',
   'mission-bot',
+  'last-deploy',
 ] as const;
+
+/** The deploy checks a server of this version computes (spec 036). */
+export const KNOWN_DEPLOY_CHECKS = ['release-settings', 'deploy-script', 'deploy-apps'] as const;
 
 export const PreflightCheck = Schema.Struct({
   // A string, not the known names alone, so a client built before the server added a check still
@@ -652,6 +656,35 @@ export const Preflight = Schema.Struct({
     description: 'How much Mission Control may do on the planet alone.',
     examples: [{ chosen: 'manual', effective: 'manual' }],
   }),
+  deploy: optional(
+    Schema.Struct({
+      deploys: Schema.Boolean.annotate({
+        description: 'The planet deploys its merged missions: every deploy check passed.',
+        examples: [true],
+      }),
+      checks: Schema.Array(PreflightCheck).annotate({
+        description: `The deploy checks, in their fixed order: ${KNOWN_DEPLOY_CHECKS.join(', ')}. They never change go or no-go.`,
+        examples: [
+          [{ check: 'release-settings', passed: true, reason: 'AGENTS.md names one release.' }],
+        ],
+      }),
+    }),
+    {
+      description: 'Whether the planet deploys its missions, and why (spec 036).',
+      examples: [
+        {
+          deploys: false,
+          checks: [
+            {
+              check: 'release-settings',
+              passed: false,
+              reason: 'AGENTS.md has no `json mission-control` block.',
+            },
+          ],
+        },
+      ],
+    },
+  ),
   checkedAt: Millis.annotate({
     description: 'When the checks were computed, in epoch milliseconds; reused for 60 seconds.',
     examples: [1_795_600_000_000],
@@ -808,9 +841,16 @@ export const Mission = Schema.Struct({
     'failed',
     'aborted',
     'held',
+    'releasing',
+    'deploying',
+    'deployed',
+    'rolled-back',
+    'not-deployed',
+    'nothing-to-release',
+    'awaiting-deploy',
   ]).annotate({
     description:
-      'queued; running as working, waiting (on the owner), pull-request or lost (its agent gone); finished as merged (not deployed), failed, aborted or held (its planet was not ready when its turn came).',
+      'queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy).',
     examples: ['working'],
   }),
   sentAt: Millis.annotate({ description: 'When it was sent, in epoch milliseconds.' }),
@@ -846,6 +886,23 @@ export const Mission = Schema.Struct({
   reason: optional(Schema.String, {
     description: 'Why it is held, failed, aborted or lost.',
     examples: ['The owner aborted it.'],
+  }),
+  versions: optional(Schema.Array(Schema.String), {
+    description: 'The release tags it shipped (spec 036).',
+    examples: [['pocket-galaxy-v0.19.0']],
+  }),
+  output: optional(Schema.String, {
+    description: "The deploy script's output of a failed deploy.",
+    examples: ['health check failed: 503'],
+  }),
+  fixIssue: optional(Schema.Int, {
+    description:
+      'The issue a failed release or deploy opened; the planet is paused until it is closed.',
+    examples: [42],
+  }),
+  deployWith: optional(Schema.String, {
+    description: 'The id of the waiting mission whose Deploy this one ships with.',
+    examples: ['0b9f4c2e-5d2a-4c1e-9a52-3f7c1f0d1e6a'],
   }),
   isNew: optional(Schema.Boolean, {
     description: 'In the log: finished since the owner last opened it.',
@@ -2592,6 +2649,17 @@ const missions = HttpApiGroup.make('missions')
       OpenApi.annotations({
         summary: 'Resume a lost mission',
         description: 'Starts Claude again with its conversation, in the same worktree.',
+      }),
+    ),
+    HttpApiEndpoint.post('deploy', '/missions/:mission/deploy', {
+      params: missionParam,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Deploy a mission that waits for the owner',
+        description:
+          "The planet's missions that wait for the owner join the mission queue together, to back up, release and deploy (spec 036).",
       }),
     ),
     HttpApiEndpoint.post('seen', '/missions/seen', {
