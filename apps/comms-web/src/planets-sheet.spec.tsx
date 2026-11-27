@@ -429,3 +429,52 @@ describe("the planets sheet's planets and other repositories", () => {
     expect(within(sheet).queryByRole('region', { name: 'Other repositories' })).toBeNull();
   });
 });
+
+describe('sending an issue on a mission from the planets sheet (issue #129)', () => {
+  const sendSheet = async (number: number, title: string) => {
+    const sheet = await openSheet();
+    await userEvent.click(entry(sheet, 'beta'));
+    const card = await within(sheet).findByRole('article', { name: `#${number} ${title}` });
+    await userEvent.click(
+      within(card).getByRole('button', { name: `Send #${number} on a mission` }),
+    );
+    return { sheet, send: screen.getByRole('dialog', { name: `Send #${number} on a mission` }) };
+  };
+
+  it('offers Send on a mission next to Implement, not on an issue an agent is on', async () => {
+    open();
+    const sheet = await openSheet();
+    await userEvent.click(entry(sheet, 'beta'));
+
+    const eight = await within(sheet).findByRole('article', { name: '#8 feat: issue list' });
+    expect(within(eight).getByRole('button', { name: 'Send #8 on a mission' })).toBeDefined();
+    const seven = within(sheet).getByRole('article', { name: '#7 Login breaks' });
+    expect(within(seven).queryByRole('button', { name: 'Send #7 on a mission' })).toBeNull();
+  });
+
+  it('sends the lane the owner picks and says so under the planet', async () => {
+    const { calls } = open();
+    const { sheet, send } = await sendSheet(8, 'feat: issue list');
+
+    await userEvent.click(within(send).getByRole('button', { name: 'Send as hop' }));
+
+    await waitFor(() => expect(calls.sentMissions).toEqual(['beta #8 hop']));
+    const panel = within(sheet).getByRole('group', { name: /^beta /u });
+    expect((await within(panel).findByRole('status')).textContent).toBe(
+      '#8 is on a mission: queued.',
+    );
+    expect(screen.queryByRole('dialog', { name: 'Send #8 on a mission' })).toBeNull();
+  });
+
+  it('shows why a send is refused', async () => {
+    const { calls } = open({
+      missionFailure: new RequestError('beta is at manual.', 409),
+    });
+    const { send } = await sendSheet(3, 'Dark mode');
+
+    await userEvent.click(within(send).getByRole('button', { name: 'Send as full flight' }));
+
+    expect(await within(send).findByText('beta is at manual.')).toBeDefined();
+    expect(calls.sentMissions).toEqual(['beta #3 full-flight']);
+  });
+});

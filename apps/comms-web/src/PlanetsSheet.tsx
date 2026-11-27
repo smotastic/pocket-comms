@@ -41,6 +41,7 @@ import { IssueCard } from './IssueCard.js';
 import { groupIssues, shownLabels } from './issue-groups.js';
 import { NewTask } from './NewTask.js';
 import { NotificationsRow } from './NotificationsRow.js';
+import { SendOnMission } from './SendOnMission.js';
 
 export interface PlanetsSheetProps {
   readonly client: CommsClient;
@@ -92,6 +93,7 @@ const IssueItem = ({
   asking,
   onAsk,
   onImplement,
+  onSend,
   onClosed,
 }: {
   readonly client: CommsClient;
@@ -102,6 +104,8 @@ const IssueItem = ({
   /** Starts or cancels the question. */
   readonly onAsk: (asking: boolean) => void;
   readonly onImplement: () => void;
+  /** Sends the issue on a mission (spec 035). */
+  readonly onSend: () => void;
   readonly onClosed: (number: number) => void;
 }) => {
   const close = useCloseIssue(client, planet, issue.number, onClosed);
@@ -119,14 +123,24 @@ const IssueItem = ({
       actions={
         <>
           {busy.length === 0 ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              aria-label={`Implement #${issue.number}`}
-              onClick={onImplement}
-            >
-              Implement
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-label={`Implement #${issue.number}`}
+                onClick={onImplement}
+              >
+                Implement
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-label={`Send #${issue.number} on a mission`}
+                onClick={onSend}
+              >
+                Send on a mission
+              </Button>
+            </>
           ) : null}
           <Button
             size="sm"
@@ -189,12 +203,14 @@ const IssueList = ({
   planet,
   issues,
   onImplement,
+  onSend,
   onClosed,
 }: {
   readonly client: CommsClient;
   readonly planet: string;
   readonly issues: UseQueryResult<IssueListView>;
   readonly onImplement: (issue: IssueView) => void;
+  readonly onSend: (issue: IssueView) => void;
   readonly onClosed: (number: number) => void;
 }) => {
   const [asking, setAsking] = useState<number | undefined>(undefined);
@@ -225,6 +241,7 @@ const IssueList = ({
               asking={asking === issue.number}
               onAsk={(ask) => setAsking(ask ? issue.number : undefined)}
               onImplement={() => onImplement(issue)}
+              onSend={() => onSend(issue)}
               onClosed={(number) => {
                 setAsking(undefined);
                 onClosed(number);
@@ -259,6 +276,9 @@ const PlanetList = ({
   });
   const [expanded, setExpanded] = useState<string | undefined>(undefined);
   const [implementing, setImplementing] = useState<
+    { readonly planet: string; readonly issue: IssueView } | undefined
+  >(undefined);
+  const [sending, setSending] = useState<
     { readonly planet: string; readonly issue: IssueView } | undefined
   >(undefined);
   const [creating, setCreating] = useState<string | undefined>(undefined);
@@ -296,6 +316,10 @@ const PlanetList = ({
                     planet={planet}
                     issues={list}
                     onImplement={(issue) => setImplementing({ planet, issue })}
+                    onSend={(issue) => {
+                      setNotice(undefined);
+                      setSending({ planet, issue });
+                    }}
                     onClosed={(number) => {
                       setNotice({ planet, text: `#${number} closed.` });
                       void queryClient.invalidateQueries({ queryKey: issuesKey(planet) });
@@ -324,6 +348,18 @@ const PlanetList = ({
           if (planet === undefined) return;
           void queryClient.invalidateQueries({ queryKey: issuesKey(planet) });
           onStarted(planet, created);
+        }}
+      />
+      <SendOnMission
+        client={client}
+        planet={sending?.planet ?? ''}
+        issue={sending?.issue}
+        onClose={() => setSending(undefined)}
+        onSent={(mission) => {
+          const planet = sending?.planet;
+          setSending(undefined);
+          if (planet === undefined) return;
+          setNotice({ planet, text: `#${mission.issue.number} is on a mission: ${mission.state}.` });
         }}
       />
       <NewTask
@@ -383,7 +419,7 @@ const OtherRepositories = ({ client }: { readonly client: CommsClient }) => {
 
 /**
  * Every planet, sliding in from the side, after a link to the activity timeline. A planet opens in place to its open
- * issues, with Implement, New task and a link to its page. This device's notifications sit at the
+ * issues, with Implement, Send on a mission, New task and a link to its page. This device's notifications sit at the
  * bottom.
  */
 export const PlanetsSheet = ({
