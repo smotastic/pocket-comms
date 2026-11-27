@@ -21,7 +21,7 @@ Requirements are the spec's numbers (R1–R18).
 
 ## Ports and adapters
 
-- [ ] **T04** — `DeployOutbound` and its infrastructure adapter: `check(app)` runs
+- [x] **T04** — `DeployOutbound` and its infrastructure adapter: `check(app)` runs
   `deploy.sh check`, `start` runs the script detached with a result file in the state folder,
   `result` reads it; `COMMS_DEPLOY_SCRIPT` in the config and composition. (R3, R13, R14) Gate:
   adapter tests against a fake script in a temporary folder.
@@ -34,17 +34,17 @@ Requirements are the spec's numbers (R1–R18).
 
 ## Use cases
 
-- [ ] **T07** — Preflight: read the block from `AGENTS.md` on the default branch, the deploy
+- [x] **T07** — Preflight: read the block from `AGENTS.md` on the default branch, the deploy
   checks through `DeployOutbound`, and the last-deploy check from the missions file and the fix
   issue's state. (R3, R4, R18) Gate: planets use-case tests.
-- [ ] **T08** — Missions after the merge: not deployed, nothing to release, waiting for the owner
+- [x] **T08** — Missions after the merge: not deployed, nothing to release, waiting for the owner
   (and a planet's later missions with it), releasing with tags and release runs, deploying one app
   at a time, deployed with the issue comment; the queue waits while releasing or deploying. (R5–R11)
   Gate: missions use-case tests.
-- [ ] **T09** — A rolled-back or failed deploy: the mission's state and output, the fix issue,
+- [x] **T09** — A rolled-back or failed deploy: the mission's state and output, the fix issue,
   the notification; a result that never comes after 15 minutes; a restart while deploying. (R12,
   R14, R4) Gate: missions use-case tests.
-- [ ] **T10** — The owner's Deploy: queue the planet's waiting missions with the backup, release
+- [x] **T10** — The owner's Deploy: queue the planet's waiting missions with the backup, release
   and deploy them together, a breaking change's bump. (R15, R16) Gate: missions use-case tests.
 
 ## API and cockpit

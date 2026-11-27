@@ -100,6 +100,8 @@ export interface MissionDeploy {
   readonly backup: boolean;
   /** The id of the deploy script's run of the release at `step`, once it was started. */
   readonly job?: string | undefined;
+  /** The commit the tags go on: the default branch's head when the release was planned. */
+  readonly target: string;
 }
 
 export interface Mission {

@@ -278,7 +278,7 @@ describe('deploy (spec 036)', () => {
     expect(planetWaitsForOwner(file(other), older.planet)).toBe(false);
     const queuedByDeploy = mission({
       state: 'queued',
-      deploy: { releases: [], step: 0, phase: 'tag', since: 0, backup: true },
+      deploy: { releases: [], step: 0, phase: 'tag', since: 0, backup: true, target: '' },
     });
     expect(planetWaitsForOwner(file(queuedByDeploy), queuedByDeploy.planet)).toBe(true);
   });

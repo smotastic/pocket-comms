@@ -15,6 +15,14 @@ export interface MissionDto {
   readonly pullRequest?: { readonly number: number; readonly url: string } | undefined;
   readonly outcome?: string | undefined;
   readonly reason?: string | undefined;
+  /** The tags it released (spec 036). */
+  readonly versions?: ReadonlyArray<string> | undefined;
+  /** The deploy script's output of a failed deploy. */
+  readonly output?: string | undefined;
+  /** The issue a failed release or deploy opened. */
+  readonly fixIssue?: number | undefined;
+  /** The mission whose Deploy it ships with. */
+  readonly deployWith?: string | undefined;
   /** In the log: finished since the owner last opened it. */
   readonly isNew?: boolean | undefined;
 }
