@@ -492,6 +492,8 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
       deploys(state, [{ subject: 'fix(web): the header', files: ['apps/web/header.ts'] }]);
       const { service, id } = yield* merged;
       expect((yield* service.list).running).toMatchObject({ id, state: 'releasing' });
+      const refused = yield* service.abort(id).pipe(Effect.flip);
+      expect(refused).toBeInstanceOf(MissionNotFoundError);
 
       yield* service.advance;
       expect(state.bot.calls).toContain('pushTag owner/app app-v0.3.1 c1');

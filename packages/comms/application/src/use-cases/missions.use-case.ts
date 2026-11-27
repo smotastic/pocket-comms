@@ -710,7 +710,11 @@ export const makeMissions = Effect.gen(function* () {
         const mission = yield* missionWith(
           file,
           id,
-          (each) => runningMission(file)?.id === each.id,
+          // A release or deploy runs on to its result; it has no agent to stop (spec 036).
+          (each) =>
+            runningMission(file)?.id === each.id &&
+            each.state !== 'releasing' &&
+            each.state !== 'deploying',
         );
         const stopped = yield* stop(mission, 'aborted', 'The owner aborted it.', now);
         return [updateMission(file, id, () => stopped), undefined] as const;
