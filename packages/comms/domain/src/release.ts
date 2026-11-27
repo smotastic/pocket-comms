@@ -190,8 +190,13 @@ export const nextVersion = (version: Version, bump: Exclude<Bump, 'none'>): Vers
 /** What one release has to ship: its commits since its last tag. */
 export interface ReleaseHistory {
   readonly release: Release;
-  /** The version of its last tag; none before the first release. */
+  /** The version of its last released tag; none before the first release. */
   readonly last: Version | undefined;
+  /**
+   * The version of its newest tag, released or not (issue 143): a failed release's tag is taken,
+   * so the next version goes past it.
+   */
+  readonly newest: Version | undefined;
   readonly commits: ReadonlyArray<ReleaseCommit>;
 }
 
@@ -217,8 +222,9 @@ export type ReleasePlan =
 
 /**
  * The releases a merge ships (spec 036, requirements 6 and 7): each release whose commits since
- * its last tag touch its paths and bump its version. A breaking change or a migration among them
- * stops for the owner.
+ * its last released tag touch its paths and bump its version. A version no newer than a failed
+ * release's tag ships as the next patch after that tag (issue 143). A breaking change or a
+ * migration among them stops for the owner.
  */
 export const releasePlan = (
   migrations: ReadonlyArray<string>,
@@ -227,11 +233,14 @@ export const releasePlan = (
   const releases: Array<PlannedRelease> = [];
   const reasons: Array<string> = [];
   let migration = false;
-  for (const { release, last, commits } of histories) {
+  for (const { release, last, newest, commits } of histories) {
     const shipped = commits.filter((commit) => touches(release.paths, commit.files));
     const bump = bumpOfAll(shipped);
     if (bump === 'none') continue;
-    const version = formatVersion(nextVersion(last ?? ZERO_VERSION, bump));
+    const next = nextVersion(last ?? ZERO_VERSION, bump);
+    const version = formatVersion(
+      newest !== undefined && compare(next, newest) <= 0 ? nextVersion(newest, 'patch') : next,
+    );
     releases.push({
       tag: `${release.tag}${version}`,
       version,

@@ -957,6 +957,92 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 
+  /**
+   * After #7's failed release, the pushed tags and a `ci:` fix land on master, the owner resumes
+   * the planet, and #8 merges (issue 143).
+   */
+  const fixedAndMergedAgain = (pushed: ReadonlyArray<string>) =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      const service = yield* missions;
+      const git = state.releaseGit.get('app');
+      if (git === undefined) return yield* Effect.die('no release git');
+      git.tags.push(...pushed);
+      for (const tag of pushed) git.refs.set(tag, 'c1');
+      git.commits.push({ sha: 'c2', subject: 'ci: fix the release', body: '', files: ['.ci'] });
+      git.refs.set('origin/master', 'c2');
+      yield* service.resumePlanet('app');
+      state.bot.calls.length = 0;
+      yield* service.send('app', 8, 'hop');
+      yield* service.advance;
+      const running = (yield* service.list).running;
+      if (running?.agent === undefined) return yield* Effect.die('#8 did not start.');
+      agentOf(state, running.agent);
+      state.attachedLists = {
+        s1: [{ owner: 'owner', name: 'app', number: 13, url: 'http://pr/13', attachedAt: 2 }],
+      };
+      state.pullRequests.set('owner/app#13', {
+        title: 'ci: fix the release',
+        state: 'merged',
+        url: 'http://pr/13',
+        diff: '',
+        files: [],
+      });
+      yield* TestClock.adjust('1 second');
+      yield* service.advance;
+      yield* service.advance;
+      return state.bot.calls.filter((call) => call.startsWith('pushTag'));
+    });
+
+  it.effect('releases a failed release again as the next patch after a ci fix (issue 143)', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(state, [{ subject: 'fix: a', files: ['apps/a.ts'] }]);
+      const { service, id } = yield* mergedWith(true);
+      yield* service.advance;
+      expect(state.bot.calls).toContain('pushTag owner/app app-v0.3.1 c1');
+      state.tagRuns.set('owner/app release.yml app-v0.3.1', {
+        status: 'completed',
+        conclusion: 'failure',
+      });
+      yield* service.advance;
+      expect((yield* service.list).log[0]).toMatchObject({ id, state: 'failed' });
+
+      expect(yield* fixedAndMergedAgain(['app-v0.3.1'])).toEqual([
+        'pushTag owner/app app-v0.3.2 c2',
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('releases both again after a partial tag push, past the pushed tag (issue 143)', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(
+        state,
+        [{ subject: 'fix: a', files: ['apps/a.ts', 'web/b.ts'] }],
+        block(`${RELEASES.slice(0, -1)},{"tag":"web-v","paths":["web/"]}]`),
+      );
+      const git = state.releaseGit.get('app');
+      git?.tags.push('web-v0.1.0');
+      git?.refs.set('web-v0.1.0', 'c0');
+      state.bot.refusedTags.add('web-v0.1.1');
+      const { service, id } = yield* mergedWith(true);
+      yield* service.advance;
+      expect(state.bot.calls).toContain('pushTag owner/app app-v0.3.1 c1');
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'failed',
+        reason: 'The tag web-v0.1.1 could not be pushed: web-v0.1.1 is refused.',
+      });
+
+      state.bot.refusedTags.clear();
+      expect(yield* fixedAndMergedAgain(['app-v0.3.1'])).toEqual([
+        'pushTag owner/app app-v0.3.2 c2',
+        'pushTag owner/app web-v0.1.1 c2',
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
   it.effect("waits for master's CI on the merge before any tag (spec 037)", () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

@@ -8,6 +8,7 @@ import {
   planetWaitsForOwner,
   releasePlan,
   releaseSettingsOf,
+  unreleasedTags,
   type PlannedRelease,
   type ReleaseHistory,
   endComment,
@@ -242,8 +243,12 @@ export const makeMissions = Effect.gen(function* () {
       );
     }).pipe(Effect.catch(() => Effect.logWarning('The owner could not be told about a mission')));
 
-  /** The planet's release plan at the default branch's head, from its AGENTS.md and git. */
-  const planReleases = (mission: Mission) =>
+  /**
+   * The planet's release plan at the default branch's head, from its AGENTS.md and git. It starts
+   * from the newest tag that was released: a tag the mission log records as a failed release or
+   * deploy only takes its version number (issue 143).
+   */
+  const planReleases = (file: MissionsFile, mission: Mission) =>
     Effect.gen(function* () {
       const planet = yield* planetOf(mission);
       if (planet === undefined) {
@@ -275,12 +280,15 @@ export const makeMissions = Effect.gen(function* () {
       yield* repositories.fetchTags(planet);
       const target = yield* repositories.commitOf(planet, base);
       const tags = yield* repositories.tags(planet);
+      const unreleased = unreleasedTags(file, mission.planet);
+      const released = tags.filter((tag) => !unreleased.has(tag));
       const histories = yield* Effect.forEach(settings.settings.releases, (release) =>
         Effect.gen(function* () {
-          const last = latestTag(release.tag, tags);
+          const last = latestTag(release.tag, released);
           return {
             release,
             last: last?.version,
+            newest: latestTag(release.tag, tags)?.version,
             commits: yield* repositories.commits(planet, last?.tag, target),
           } satisfies ReleaseHistory;
         }),
@@ -372,7 +380,7 @@ export const makeMissions = Effect.gen(function* () {
           now,
         );
       }
-      const planned = yield* planReleases(mission).pipe(
+      const planned = yield* planReleases(file, mission).pipe(
         Effect.catch((error) =>
           Effect.succeed({ _tag: 'Unsettled', reason: reasonOf(error) } as const),
         ),
@@ -845,9 +853,9 @@ export const makeMissions = Effect.gen(function* () {
    * database is backed up first only when a migration is among them: a breaking change alone needs
    * the owner's attention, not a backup, and a planet without a database has nothing to back up.
    */
-  const startOwnerDeploy = (mission: Mission, now: number) =>
+  const startOwnerDeploy = (file: MissionsFile, mission: Mission, now: number) =>
     Effect.gen(function* () {
-      const planned = yield* planReleases(mission).pipe(
+      const planned = yield* planReleases(file, mission).pipe(
         Effect.catch((error) =>
           Effect.succeed({ _tag: 'Unsettled', reason: reasonOf(error) } as const),
         ),
@@ -1220,7 +1228,7 @@ export const makeMissions = Effect.gen(function* () {
               : `${mission.planet} is no-go: ${failed.join(' ')}`,
         } satisfies Mission;
       }
-      if (mission.deploy !== undefined) return yield* startOwnerDeploy(mission, now);
+      if (mission.deploy !== undefined) return yield* startOwnerDeploy(file, mission, now);
       const planet = yield* planetOf(mission);
       if (planet === undefined) {
         return yield* new MissionRefusedError({ reason: `${mission.planet} is not a planet now.` });

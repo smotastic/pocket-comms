@@ -114,8 +114,8 @@ describe('releasePlan', () => {
       releasePlan(
         [],
         [
-          { release: server, last, commits },
-          { release: web, last, commits },
+          { release: server, last, newest: last, commits },
+          { release: web, last, newest: last, commits },
         ],
       ),
     ).toEqual({
@@ -130,7 +130,14 @@ describe('releasePlan', () => {
     expect(
       releasePlan(
         [],
-        [{ release: server, last, commits: [commit('refactor: a', 'apps/server/a.ts')] }],
+        [
+          {
+            release: server,
+            last,
+            newest: last,
+            commits: [commit('refactor: a', 'apps/server/a.ts')],
+          },
+        ],
       ),
     ).toEqual({ _tag: 'Nothing' });
   });
@@ -142,6 +149,7 @@ describe('releasePlan', () => {
         {
           release: { tag: 'design-v', paths: [] },
           last: undefined,
+          newest: undefined,
           commits: [commit('feat: a', 'x')],
         },
       ],
@@ -152,7 +160,7 @@ describe('releasePlan', () => {
   it('stops for a breaking change or a migration, keeping what Deploy ships', () => {
     const breaking = releasePlan(
       [],
-      [{ release: server, last, commits: [commit('feat!: a', 'apps/server/a.ts')] }],
+      [{ release: server, last, newest: last, commits: [commit('feat!: a', 'apps/server/a.ts')] }],
     );
     expect(breaking).toEqual({
       _tag: 'Stop',
@@ -164,10 +172,33 @@ describe('releasePlan', () => {
     });
     const migration = releasePlan(
       ['apps/server/migrations/'],
-      [{ release: server, last, commits: [commit('fix: a', 'apps/server/migrations/0002.sql')] }],
+      [
+        {
+          release: server,
+          last,
+          newest: last,
+          commits: [commit('fix: a', 'apps/server/migrations/0002.sql')],
+        },
+      ],
     );
     expect(migration._tag).toBe('Stop');
     expect(migration._tag === 'Stop' ? migration.reason : '').toContain('database migration');
     expect(migration._tag === 'Stop' ? migration.migration : false).toBe(true);
+  });
+
+  it('takes the next patch after a newer tag whose release failed (issue 143)', () => {
+    // 0.9.0 is released; 0.10.0 was tagged but failed. Its fix ships the feat again as 0.10.1.
+    const commits = [commit('feat: a', 'apps/server/a.ts'), commit('ci: fix', '.gitea/ci.yml')];
+    const newest = { major: 0, minor: 10, patch: 0 };
+    const plan = releasePlan([], [{ release: server, last, newest, commits }]);
+    expect(plan._tag === 'Ship' ? plan.releases.map((each) => each.tag) : []).toEqual([
+      'home-server-v0.10.1',
+    ]);
+    // A newer bump than the failed tag keeps its own number.
+    const breaking = releasePlan(
+      [],
+      [{ release: server, last, newest: { major: 0, minor: 9, patch: 1 }, commits }],
+    );
+    expect(breaking._tag === 'Ship' ? breaking.releases[0]?.tag : '').toBe('home-server-v0.10.0');
   });
 });

@@ -6,6 +6,7 @@ import {
   isFinished,
   isRunning,
   lastDeploy,
+  unreleasedTags,
   pausingDeploy,
   planetWaitsForOwner,
   keptWorktree,
@@ -305,6 +306,21 @@ describe('deploy (spec 036)', () => {
     expect(isDeployFailure(mission({ state: 'failed', versions: ['app-v0.2.0'] }))).toBe(true);
     expect(isDeployFailure(mission({ state: 'failed' }))).toBe(false);
     expect(isDeployFailure(mission({ state: 'deployed' }))).toBe(false);
+  });
+
+  it('knows the tags of failed releases and deploys as not released (issue 143)', () => {
+    const failed = mission({ id: 'a', state: 'failed', versions: ['app-v0.3.1', 'web-v0.1.1'] });
+    const rolledBack = mission({ id: 'b', state: 'rolled-back', versions: ['app-v0.3.2'] });
+    const deployed = mission({ id: 'c', state: 'deployed', versions: ['app-v0.3.3'] });
+    const other = mission({ id: 'd', planet: 'other', state: 'failed', versions: ['app-v0.9.0'] });
+    expect([...unreleasedTags(file(failed, rolledBack, deployed, other), failed.planet)]).toEqual([
+      'app-v0.3.1',
+      'web-v0.1.1',
+      'app-v0.3.2',
+    ]);
+    // web-v0.1.1 was refused; a later mission pushed and deployed it.
+    const later = mission({ id: 'e', state: 'deployed', versions: ['web-v0.1.1'] });
+    expect([...unreleasedTags(file(failed, later), failed.planet)]).toEqual(['app-v0.3.1']);
   });
 
   it('pauses the planet on its latest deploy failure until the owner resumes it (spec 037)', () => {

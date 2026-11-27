@@ -271,6 +271,8 @@ export class FakeState extends Context.Service<
       /** Repositories whose issues the bot's token may not write (no `write:issue`). */
       readonly noIssueWrite: Set<string>;
       failure: string | undefined;
+      /** Tags whose push Gitea refuses, for a partial tag push (issue 143). */
+      readonly refusedTags: Set<string>;
       readonly calls: Array<string>;
     };
     /**
@@ -895,7 +897,10 @@ const missionBot = (fake: FakeState['Service']): MissionBotOutbound['Service'] =
       call(`unmarkInProgress ${name(repository)} ${number}`),
     comment: (repository, number, body) => call(`comment ${name(repository)} ${number} ${body}`),
     prepareWorktree: (path, repository) => call(`prepareWorktree ${name(repository)} ${path}`),
-    pushTag: (repository, tag, target) => call(`pushTag ${name(repository)} ${tag} ${target}`),
+    pushTag: (repository, tag, target) =>
+      fake.bot.refusedTags.has(tag)
+        ? Effect.fail(new MissionBotError({ reason: `${tag} is refused.` }))
+        : call(`pushTag ${name(repository)} ${tag} ${target}`),
     openIssue: (repository, issue) =>
       Effect.map(
         call(`openIssue ${name(repository)} ${issue.title}`),
@@ -984,6 +989,7 @@ export const fakeLayer = () => {
           noPush: new Set(),
           noIssueWrite: new Set(),
           failure: undefined,
+          refusedTags: new Set(),
           calls: [],
         },
         deploy: {

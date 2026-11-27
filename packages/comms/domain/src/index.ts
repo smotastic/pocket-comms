@@ -223,6 +223,7 @@ export {
   failureWords,
   isDeployFailure,
   lastDeploy,
+  unreleasedTags,
   pausingDeploy,
   planetWaitsForOwner,
   type MissionDeploy,

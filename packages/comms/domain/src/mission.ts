@@ -360,6 +360,23 @@ export const isDeployFailure = (mission: Mission): boolean =>
   mission.state === 'deploy-lost' ||
   (mission.state === 'failed' && mission.versions !== undefined);
 
+/**
+ * The tags of the planet's failed releases and deploys (issue 143): pushed perhaps, but not
+ * released, so the next release plan does not start from them. A tag a later mission deployed,
+ * such as one whose push was refused before, is released.
+ */
+export const unreleasedTags = (file: MissionsFile, planet: string): ReadonlySet<string> => {
+  const ofPlanet = file.missions.filter((mission) => mission.planet === planet);
+  const deployed = new Set(
+    ofPlanet.flatMap((mission) => (mission.state === 'deployed' ? (mission.versions ?? []) : [])),
+  );
+  return new Set(
+    ofPlanet.flatMap((mission) =>
+      isDeployFailure(mission) ? (mission.versions ?? []).filter((tag) => !deployed.has(tag)) : [],
+    ),
+  );
+};
+
 /** The planet's latest finished deploy: deployed or a deploy failure; none before the first. */
 export const lastDeploy = (file: MissionsFile, planet: string): Mission | undefined =>
   file.missions
