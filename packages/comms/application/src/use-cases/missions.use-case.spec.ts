@@ -267,6 +267,7 @@ describe('a running mission', () => {
       });
       expect(state.calls.some((call) => call.method === 'closeWorkspace')).toBe(true);
       expect(state.gitCalls.some((call) => call.startsWith('removeWorktree app'))).toBe(true);
+      expect(state.bot.calls).toContain('unmarkInProgress owner/app 7');
       expect(running?.issue.number).toBe(8);
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
@@ -308,6 +309,7 @@ describe('a running mission', () => {
         state: 'failed',
         reason: 'Pull request #12 was closed without merging.',
       });
+      expect(state.bot.calls).toContain('unmarkInProgress owner/app 7');
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 
@@ -342,9 +344,10 @@ describe('a running mission', () => {
 
   it.effect('fails on a failed outcome, and keeps a done outcome for the log', () =>
     Effect.gen(function* () {
-      const { service, agent } = yield* started;
+      const { state, service, agent } = yield* started;
       yield* service.outcome(agent, { result: 'done', outcome: 'Fixed the header.' });
       expect((yield* service.list).running?.outcome).toBe('Fixed the header.');
+      expect(state.bot.calls).not.toContain('unmarkInProgress owner/app 7');
 
       // The skill names the agent by its pane.
       yield* service.outcome('w-/worktrees/x:p1', { result: 'failed', outcome: 'CI stays red.' });
@@ -352,6 +355,7 @@ describe('a running mission', () => {
         state: 'failed',
         reason: 'CI stays red.',
       });
+      expect(state.bot.calls).toContain('unmarkInProgress owner/app 7');
       expect(
         yield* service.outcome('stranger', { result: 'done', outcome: 'x' }).pipe(Effect.flip),
       ).toEqual(new MissionNotFoundError({ id: 'stranger' }));
