@@ -9,23 +9,28 @@ import {
   Stack,
   Text,
 } from '@smotastic/pocket-design';
+import type { KNOWN_PREFLIGHT_CHECKS } from '@pocket-comms/comms-contract';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { CommsClient, PreflightView } from './comms-client.js';
 import { planetsKey, preflightKey, preflightQuery } from './comms-queries.js';
 
-type Check = PreflightView['checks'][number]['check'];
 type Level = PreflightView['autonomy']['chosen'];
 
 /** What each check is called on the page, in the order preflight runs them. */
-const CHECK_NAMES: Readonly<Record<Check, string>> = {
-  gitea: 'Gitea',
-  'agents-md': 'AGENTS.md',
-  'ci-workflow': 'CI workflow',
-  'ci-green': 'CI green',
-  'verify-script': 'Verify script',
-  'mission-bot': 'Mission bot',
-};
+const CHECK_NAMES: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    gitea: 'Gitea',
+    'agents-md': 'AGENTS.md',
+    'ci-workflow': 'CI workflow',
+    'ci-green': 'CI green',
+    'verify-script': 'Verify script',
+    'mission-bot': 'Mission bot',
+  } satisfies Record<(typeof KNOWN_PREFLIGHT_CHECKS)[number], string>),
+);
+
+/** A check's name on the page; one a newer server added shows by its own name (issue #124). */
+const checkName = (check: string) => CHECK_NAMES.get(check) ?? check;
 
 const LEVELS: ReadonlyArray<{ readonly id: Level; readonly label: string }> = [
   { id: 'manual', label: 'Manual' },
@@ -128,7 +133,7 @@ export const PreflightCard = ({ client, planet, onUnregistered }: PreflightCardP
               <DescriptionList
                 label="Checks"
                 items={data.checks.map(({ check, passed, reason }) => ({
-                  term: CHECK_NAMES[check],
+                  term: checkName(check),
                   details: `${passed ? 'Passed' : 'Failed'}: ${reason}`,
                 }))}
               />

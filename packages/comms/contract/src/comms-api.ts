@@ -606,16 +606,21 @@ export const Planets = Schema.Struct({
 
 const AUTONOMY_LEVELS = ['manual', 'missions', 'autopilot'] as const;
 
+/** The preflight checks this contract knows, in their fixed order. */
+export const KNOWN_PREFLIGHT_CHECKS = [
+  'gitea',
+  'agents-md',
+  'ci-workflow',
+  'ci-green',
+  'verify-script',
+  'mission-bot',
+] as const;
+
 export const PreflightCheck = Schema.Struct({
-  check: Schema.Literals([
-    'gitea',
-    'agents-md',
-    'ci-workflow',
-    'ci-green',
-    'verify-script',
-    'mission-bot',
-  ]).annotate({
-    description: 'The check, in the fixed order of the list.',
+  // A string, not the known names alone, so a client built before the server added a check still
+  // reads the answer (issue #124).
+  check: Schema.String.annotate({
+    description: `The check, in the fixed order of the list: ${KNOWN_PREFLIGHT_CHECKS.join(', ')}. A later server may add checks; a client shows one it does not know by this name.`,
     examples: ['ci-green'],
   }),
   passed: Schema.Boolean.annotate({ description: 'The check passed.', examples: [true] }),

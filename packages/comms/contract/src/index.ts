@@ -50,6 +50,7 @@ export {
   Missions,
   SendOnMissionRequest,
   PreflightCheck,
+  KNOWN_PREFLIGHT_CHECKS,
   RegisterPlanetRequest,
   CloseRequest,
   PromptRequest,

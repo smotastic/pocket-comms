@@ -146,6 +146,30 @@ describe("the planet page's preflight", () => {
     expect(within(card).getByText('In effect: manual.')).toBeDefined();
   });
 
+  it('shows a check it does not know by its name, and keeps the rest of the card', async () => {
+    const go = {
+      result: 'go' as const,
+      checks: [
+        { check: 'gitea', passed: true, reason: "The repository is on the app's Gitea." },
+        { check: 'warp-drive', passed: false, reason: 'The warp drive is cold.' },
+      ],
+      autonomy: { chosen: 'missions' as const, effective: 'missions' as const },
+      checkedAt: Date.now(),
+    };
+    renderApp({
+      client: fakeClient({ overview, preflights: new Map([['pocket-home', go]]) }).client,
+      path: '/planets/pocket-home',
+    });
+
+    const card = await preflightCard();
+    expect(await within(card).findByText('Go')).toBeDefined();
+    expect(within(card).getByText('Gitea')).toBeDefined();
+    expect(within(card).getByText('warp-drive')).toBeDefined();
+    expect(within(card).getByText('Failed: The warp drive is cold.')).toBeDefined();
+    expect(within(card).getByText('In effect: missions.')).toBeDefined();
+    expect(within(card).getByRole('button', { name: 'Unregister' })).toBeDefined();
+  });
+
   it('chooses the missions level (spec 035)', async () => {
     const fake = fakeClient({ overview, preflights: new Map([['pocket-home', noGo]]) });
     renderApp({ client: fake.client, path: '/planets/pocket-home' });

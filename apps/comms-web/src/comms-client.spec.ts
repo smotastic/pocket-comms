@@ -142,6 +142,21 @@ describe('the tasks requests', () => {
     });
   });
 
+  it('reads a preflight with a check this app does not know yet', async () => {
+    const preflight = {
+      result: 'go',
+      checks: [
+        { check: 'gitea', passed: true, reason: "The repository is on the app's Gitea." },
+        { check: 'warp-drive', passed: true, reason: 'The warp drive is ready.' },
+      ],
+      autonomy: { chosen: 'missions', effective: 'missions' },
+      checkedAt: 1_795_600_000_000,
+    };
+    fetch.mockImplementation(async () => answer(200, preflight));
+
+    expect(await makeCommsClient('http://app').preflight('pocket-home')).toEqual(preflight);
+  });
+
   it('registers and unregisters a planet', async () => {
     fetch.mockImplementation(async () => new Response(null, { status: 204 }));
     const client = makeCommsClient('http://app');

@@ -2469,15 +2469,7 @@
         "description": "One check of preflight.",
         "properties": {
           "check": {
-            "description": "The check, in the fixed order of the list.",
-            "enum": [
-              "gitea",
-              "agents-md",
-              "ci-workflow",
-              "ci-green",
-              "verify-script",
-              "mission-bot"
-            ],
+            "description": "The check, in the fixed order of the list: gitea, agents-md, ci-workflow, ci-green, verify-script, mission-bot. A later server may add checks; a client shows one it does not know by this name.",
             "examples": ["ci-green"],
             "type": "string"
           },
