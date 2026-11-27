@@ -1,5 +1,10 @@
 import { MissionsOutbound, MissionsStoreError } from '@pocket-comms/comms-application';
-import { EMPTY_MISSIONS, type MissionsFile } from '@pocket-comms/comms-domain';
+import {
+  EMPTY_MISSIONS,
+  type Mission,
+  type MissionsFile,
+  type MissionState,
+} from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
@@ -32,6 +37,13 @@ const StoredMission = Schema.Struct({
     'failed',
     'aborted',
     'held',
+    'releasing',
+    'deploying',
+    'deployed',
+    'rolled-back',
+    'not-deployed',
+    'nothing-to-release',
+    'awaiting-deploy',
   ]),
   sentAt: Schema.Number,
   startedAt: optional(Schema.Number),
@@ -44,7 +56,39 @@ const StoredMission = Schema.Struct({
   pullRequest: optional(Schema.Struct({ number: Schema.Number, url: Schema.String })),
   outcome: optional(Schema.String),
   reason: optional(Schema.String),
+  deploy: optional(
+    Schema.Struct({
+      releases: Schema.Array(
+        Schema.Struct({
+          tag: Schema.String,
+          version: Schema.String,
+          workflow: optional(Schema.String),
+          app: optional(Schema.String),
+        }),
+      ),
+      step: Schema.Number,
+      phase: Schema.Literals(['tag', 'build', 'deploy']),
+      since: Schema.Number,
+      backup: Schema.Boolean,
+      job: optional(Schema.String),
+      target: Schema.String,
+    }),
+  ),
+  versions: optional(Schema.Array(Schema.String)),
+  output: optional(Schema.String),
+  fixIssue: optional(Schema.Number),
+  deployWith: optional(Schema.String),
 });
+
+// The stored shape must keep up with the domain's: every state a mission can reach must load
+// back, or the whole file is set aside as `.bad`. The compiler checks both directions.
+type Stored = typeof StoredMission.Type;
+const _everyStateLoads = (state: MissionState): Stored['state'] => state;
+const _everyFieldIsKept = (mission: Mission): Stored => mission;
+const _loadsAsAMission = (mission: Stored): Mission => mission;
+void _everyStateLoads;
+void _everyFieldIsKept;
+void _loadsAsAMission;
 
 const StoredFile = Schema.Struct({
   version: Schema.Literal(1),
