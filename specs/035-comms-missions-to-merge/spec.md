@@ -46,8 +46,9 @@ Deploying stays the owner's until step 4.
 ### Preflight and autonomy
 
 3. Preflight (spec 034) gains a sixth check, **mission bot**, after the other five: the bot token
-   is set, and the bot may push to the planet's repository on Gitea. Without a token it fails with
-   that reason; when Gitea cannot be read it fails as the others do.
+   is set, and the bot may push to the planet's repository on Gitea and write its issues (its token
+   has `write:issue`, issue #128). Without a token it fails with that reason; when Gitea cannot be
+   read it fails as the others do.
 4. The owner may choose **missions** as a planet's autonomy level; **autopilot** stays coming and
    cannot be chosen. The effective level stays as spec 034 says: the chosen level, lowered to
    **manual** on no-go.

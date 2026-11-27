@@ -23,7 +23,7 @@ const read = (
   workflows: true,
   runs: [{ status: 'completed', conclusion: 'success' }],
   packageJson: JSON.stringify({ scripts: { verify: 'pocket-ci verify' } }),
-  bot: { _tag: 'Read', canPush: true },
+  bot: { _tag: 'Read', canPush: true, canWriteIssues: true },
   deploy: {
     settings: {
       _tag: 'Settings',
@@ -223,14 +223,32 @@ describe('the mission bot check', () => {
       passed: false,
       reason: 'Missions have no bot token (COMMS_MISSION_GITEA_TOKEN).',
     });
-    expect(check(read({ bot: { _tag: 'Read', canPush: false } }), 'mission-bot')?.passed).toBe(
-      false,
-    );
-    expect(preflightOf(read({ bot: { _tag: 'Read', canPush: false } })).result).toBe('no-go');
+    expect(
+      check(read({ bot: { _tag: 'Read', canPush: false, canWriteIssues: true } }), 'mission-bot')
+        ?.passed,
+    ).toBe(false);
+    expect(
+      preflightOf(read({ bot: { _tag: 'Read', canPush: false, canWriteIssues: true } })).result,
+    ).toBe('no-go');
     expect(
       check(read({ bot: { _tag: 'Unreadable', reason: 'Gitea refused the bot.' } }), 'mission-bot')
         ?.reason,
     ).toBe('Gitea refused the bot.');
+  });
+
+  it('passes only when the token may push and write issues, and names a missing write:issue', () => {
+    expect(check(read({}), 'mission-bot')).toEqual({
+      check: 'mission-bot',
+      passed: true,
+      reason: 'The mission bot may push to the repository and write its issues.',
+    });
+    const noIssues = read({ bot: { _tag: 'Read', canPush: true, canWriteIssues: false } });
+    expect(check(noIssues, 'mission-bot')).toEqual({
+      check: 'mission-bot',
+      passed: false,
+      reason: "The mission bot's token lacks issue write access (write:issue).",
+    });
+    expect(preflightOf(noIssues).result).toBe('no-go');
   });
 });
 

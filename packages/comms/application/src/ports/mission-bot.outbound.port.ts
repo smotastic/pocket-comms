@@ -18,7 +18,10 @@ export class MissionBotOutbound extends Context.Service<
      * list that ship with the server (ADR 0019).
      */
     readonly settingsPath: string;
-    /** Whether the bot may push to the repository; it never fails, a failure is a fact too. */
+    /**
+     * Whether the bot may push to the repository and write its issues; it never fails, a failure
+     * is a fact too.
+     */
     readonly facts: (repository: GiteaRepository) => Effect.Effect<BotFacts>;
     /** Sets the lane's label on the issue, creating it when missing, and removes the other lane's. */
     readonly setLane: (
