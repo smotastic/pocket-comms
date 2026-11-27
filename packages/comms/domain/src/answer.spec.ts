@@ -61,6 +61,10 @@ describe('answerKeys', () => {
     expect(answerKeys([color, size], [[0]])).toEqual(invalid('Answer each of the 2 questions.'));
   });
 
+  it('refuses no answers for a single question in the singular', () => {
+    expect(answerKeys([color], [])).toEqual(invalid('Answer the question.'));
+  });
+
   it('refuses a question without a chosen option', () => {
     expect(answerKeys([color, pets], [[0], []])).toEqual(
       invalid('Choose an option for "Which pets?".'),

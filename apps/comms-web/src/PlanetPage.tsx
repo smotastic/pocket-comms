@@ -39,7 +39,7 @@ import { NewTask } from './NewTask.js';
 import { PreflightCard } from './PreflightCard.js';
 import { filterOverview } from './planet-agents.js';
 import { planetHue } from './rows.js';
-import { since } from './since.js';
+import { ago } from './since.js';
 import { StartAgentSheet, type WorktreeToStart } from './StartAgentSheet.js';
 import { startedNotice } from './started.js';
 import { StatusBadge } from './StatusBadge.js';
@@ -54,10 +54,7 @@ export interface PlanetPageProps {
   readonly onStarted: (ref: string, note: string | undefined) => void;
 }
 
-const updated = (at: number, now: number) => {
-  const ago = since(at, now);
-  return ago === 'now' ? 'Updated just now' : `Updated ${ago} ago`;
-};
+const updated = (at: number, now: number) => `Updated ${ago(at, now)}`;
 
 const agentHref = (ref: string, search = '') => `/agents/${encodeURIComponent(ref)}${search}`;
 

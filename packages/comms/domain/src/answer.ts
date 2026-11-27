@@ -47,7 +47,11 @@ export const answerKeys = (
   answers: ReadonlyArray<ReadonlyArray<number>>,
 ): Result.Result<ReadonlyArray<DialogKey>, InvalidInputError> => {
   if (answers.length !== questions.length) {
-    return invalid(`Answer each of the ${questions.length} questions.`);
+    return invalid(
+      questions.length === 1
+        ? 'Answer the question.'
+        : `Answer each of the ${questions.length} questions.`,
+    );
   }
   const keys: Array<DialogKey> = [];
   for (const [index, question] of questions.entries()) {

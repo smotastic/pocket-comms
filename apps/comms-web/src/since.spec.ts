@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { since } from './since.js';
+import { ago, since } from './since.js';
 
 describe('since', () => {
   it.each([
@@ -15,5 +15,16 @@ describe('since', () => {
 
   it('shows a moment slightly in the future as now', () => {
     expect(since(1_001, 1_000)).toBe('now');
+  });
+});
+
+describe('ago', () => {
+  it.each([
+    [0, 'just now'],
+    [4_999, 'just now'],
+    [12_000, '12s ago'],
+    [3 * 86_400_000, '3d ago'],
+  ])('words %i ms ago as %s', (elapsed, text) => {
+    expect(ago(1_000_000_000 - elapsed, 1_000_000_000)).toBe(text);
   });
 });

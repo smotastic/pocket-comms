@@ -9,3 +9,9 @@ export const since = (at: number, now: number): string => {
   if (hours < 24) return `${hours}h`;
   return `${Math.floor(hours / 24)}d`;
 };
+
+/** How long ago `at` was, as words read in a sentence: "just now", "12s ago" or "3d ago". */
+export const ago = (at: number, now: number): string => {
+  const elapsed = since(at, now);
+  return elapsed === 'now' ? 'just now' : `${elapsed} ago`;
+};

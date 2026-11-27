@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CommsClient, MissionView } from './comms-client.js';
 import { missionsKey, missionsQuery } from './comms-queries.js';
 import { useNow } from './live.js';
-import { since } from './since.js';
+import { ago } from './since.js';
 
 /** What each state is called on the screen (spec 035). */
 export const STATE_NAMES: Readonly<Record<MissionView['state'], string>> = {
@@ -207,7 +207,7 @@ export const MissionControl = ({
                           <Inline gap="xs">
                             <Tag>{laneName(mission)}</Tag>
                             <Text as="span" size="sm" tone="muted">
-                              {`sent ${since(mission.sentAt, now)} ago`}
+                              {`sent ${ago(mission.sentAt, now)}`}
                             </Text>
                             <Action
                               label="Remove"
@@ -245,7 +245,7 @@ export const MissionControl = ({
                                 ranFor(mission),
                                 mission.finishedAt === undefined
                                   ? undefined
-                                  : `finished ${since(mission.finishedAt, now)} ago`,
+                                  : `finished ${ago(mission.finishedAt, now)}`,
                               ]
                                 .filter((part) => part !== undefined)
                                 .join(' · ')}
