@@ -801,6 +801,67 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 
+  it.effect(
+    'keeps a deploy that went through when the next one rolls back, and says so (issue 144)',
+    () =>
+      Effect.gen(function* () {
+        const state = yield* FakeState;
+        deploys(
+          state,
+          [{ subject: 'fix: a', files: ['apps/a.ts', 'web/b.ts'] }],
+          block(
+            `${RELEASES.slice(0, -1)},{"tag":"web-v","paths":["web/"],"workflow":"release.yml","app":"pocket-web"}]`,
+          ),
+        );
+        state.registry = {
+          appsSeeded: true,
+          planets: [{ name: 'app', autonomy: 'missions', apps: ['pocket-app', 'pocket-web'] }],
+        };
+        const git = state.releaseGit.get('app');
+        git?.tags.push('web-v0.1.0');
+        git?.refs.set('web-v0.1.0', 'c0');
+        for (const tag of ['app-v0.3.1', 'web-v0.1.1']) {
+          state.tagRuns.set(`owner/app release.yml ${tag}`, {
+            status: 'completed',
+            conclusion: 'success',
+          });
+        }
+        const { service, id } = yield* mergedWith(true);
+        yield* service.advance;
+        yield* service.advance;
+        yield* service.advance;
+        state.deploy.results.set(`${id}-0`, { result: 'deployed', output: 'healthy' });
+        yield* service.advance;
+        yield* service.advance;
+        state.deploy.results.set(`${id}-1`, { result: 'rolled-back', output: '503' });
+        yield* service.advance;
+
+        const { log } = yield* service.list;
+        expect(log[0]).toMatchObject({
+          id,
+          state: 'rolled-back',
+          versions: ['app-v0.3.1', 'web-v0.1.1'],
+          releases: [
+            { tag: 'app-v0.3.1', outcome: 'deployed' },
+            { tag: 'web-v0.1.1', outcome: 'rolled-back' },
+          ],
+          reason:
+            'web-v0.1.1 failed its health check and was rolled back. app-v0.3.1 was deployed before it and stays.',
+        });
+        expect(state.bot.openedIssues).toHaveLength(1);
+        const issue = state.bot.openedIssues[0];
+        expect(issue?.title).toBe('Fix the failed deploy of web-v0.1.1');
+        expect(issue?.body).toContain('Mission Control could not deploy web-v0.1.1 after #7.');
+        expect(issue?.body).toContain('- app-v0.3.1: deployed');
+        expect(issue?.body).toContain('- web-v0.1.1: rolled back');
+
+        // The next release starts from app-v0.3.1, which runs, and releases web-v0.1.1 past.
+        expect(yield* fixedAndMergedAgain(['app-v0.3.1', 'web-v0.1.1'])).toEqual([
+          'pushTag owner/app web-v0.1.2 c2',
+        ]);
+      }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
   it.effect('fails a release whose run never appears, and a deploy without a result', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

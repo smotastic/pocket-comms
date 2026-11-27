@@ -282,6 +282,8 @@ export class FakeState extends Context.Service<
       /** Tags whose push Gitea refuses, for a partial tag push (issue 143). */
       readonly refusedTags: Set<string>;
       readonly calls: Array<string>;
+      /** Every issue it opened, with its words (issue 144). */
+      readonly openedIssues: Array<{ readonly title: string; readonly body: string }>;
     };
     /**
      * pocket-cloud's deploy script (spec 036): whether it is set up, what `check` says of each app
@@ -912,10 +914,10 @@ const missionBot = (fake: FakeState['Service']): MissionBotOutbound['Service'] =
         ? Effect.fail(new MissionBotError({ reason: `${tag} is refused.` }))
         : call(`pushTag ${name(repository)} ${tag} ${target}`),
     openIssue: (repository, issue) =>
-      Effect.map(
-        call(`openIssue ${name(repository)} ${issue.title}`),
-        () => 900 + fake.bot.calls.length,
-      ),
+      Effect.map(call(`openIssue ${name(repository)} ${issue.title}`), () => {
+        fake.bot.openedIssues.push(issue);
+        return 900 + fake.bot.calls.length;
+      }),
     closeIssue: (repository, number, body) =>
       call(`closeIssue ${name(repository)} ${number} ${body}`),
   };
@@ -1003,6 +1005,7 @@ export const fakeLayer = () => {
           failure: undefined,
           refusedTags: new Set(),
           calls: [],
+          openedIssues: [],
         },
         deploy: {
           configured: true,

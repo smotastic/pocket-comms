@@ -930,6 +930,39 @@ export const Mission = Schema.Struct({
     description: 'The release tags it shipped (spec 036).',
     examples: [['pocket-galaxy-v0.19.0']],
   }),
+  releases: optional(
+    Schema.Array(
+      Schema.Struct({
+        tag: Schema.String.annotate({
+          description: 'The release tag.',
+          examples: ['pocket-galaxy-v0.19.0'],
+        }),
+        outcome: Schema.Literals([
+          'deployed',
+          'released',
+          'not-started',
+          'rolled-back',
+          'down',
+          'deploy-lost',
+          'failed',
+        ]).annotate({
+          description:
+            'How it ended: deployed, released (it has no app to deploy), not-started (an earlier release or deploy failed), or the failure: rolled-back, down, deploy-lost or failed.',
+          examples: ['deployed'],
+        }),
+      }),
+    ),
+    {
+      description:
+        'How each release it shipped ended (issue 144); a deploy before a failed one stays deployed.',
+      examples: [
+        [
+          { tag: 'pocket-galaxy-v0.19.0', outcome: 'deployed' },
+          { tag: 'pocket-galaxy-web-v0.4.0', outcome: 'rolled-back' },
+        ],
+      ],
+    },
+  ),
   output: optional(Schema.String, {
     description: "The deploy script's output of a failed deploy.",
     examples: ['health check failed: 503'],

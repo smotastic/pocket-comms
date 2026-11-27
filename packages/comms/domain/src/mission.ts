@@ -121,6 +121,60 @@ export interface MissionDeploy {
   readonly target: string;
 }
 
+/**
+ * How one release of a mission ended (issue 144): deployed, released (it has no app to deploy),
+ * not started because an earlier one failed, or the mission's failure.
+ */
+export type ReleaseOutcome =
+  | 'deployed'
+  | 'released'
+  | 'not-started'
+  | 'rolled-back'
+  | 'down'
+  | 'deploy-lost'
+  | 'failed';
+
+export interface ReleaseResult {
+  readonly tag: string;
+  readonly outcome: ReleaseOutcome;
+}
+
+/**
+ * The outcome of each release of `deploy` when the mission ends as `state`, with `failing` the
+ * tag whose release or deploy failed (issue 144). Releases deploy one after the other: the
+ * deploys before the failing one stay, none after it starts. Before the deploys nothing deployed.
+ */
+export const releaseOutcomes = (
+  deploy: MissionDeploy,
+  state: 'deployed' | 'rolled-back' | 'down' | 'deploy-lost' | 'failed',
+  failing: string | undefined,
+): ReadonlyArray<ReleaseResult> =>
+  deploy.releases.map((release, index): ReleaseResult => {
+    const done = release.app === undefined ? 'released' : 'deployed';
+    if (state === 'deployed') return { tag: release.tag, outcome: done };
+    if (release.tag === failing) return { tag: release.tag, outcome: state };
+    if (deploy.phase !== 'deploy') return { tag: release.tag, outcome: 'not-started' };
+    // Every release run succeeded before the deploys began.
+    if (release.app === undefined) return { tag: release.tag, outcome: 'released' };
+    return { tag: release.tag, outcome: index < deploy.step ? 'deployed' : 'not-started' };
+  });
+
+/** The tags a finished mission made live: deployed, or released without a deploy (issue 144). */
+export const liveTags = (mission: Mission): ReadonlyArray<string> =>
+  mission.releases === undefined
+    ? mission.state === 'deployed'
+      ? (mission.versions ?? [])
+      : []
+    : mission.releases.flatMap((release) =>
+        release.outcome === 'deployed' || release.outcome === 'released' ? [release.tag] : [],
+      );
+
+/** The tags a finished mission released but did not make live (issue 144). */
+export const notLiveTags = (mission: Mission): ReadonlyArray<string> => {
+  const live = new Set(liveTags(mission));
+  return (mission.versions ?? []).filter((tag) => !live.has(tag));
+};
+
 export interface Mission {
   readonly id: string;
   readonly planet: string;
@@ -145,6 +199,8 @@ export interface Mission {
   readonly deploy?: MissionDeploy | undefined;
   /** The tags it released, once deployed or rolled back. */
   readonly versions?: ReadonlyArray<string> | undefined;
+  /** How each of those releases ended (issue 144); none on a mission saved before. */
+  readonly releases?: ReadonlyArray<ReleaseResult> | undefined;
   /** The deploy script's output of a rolled-back deploy. */
   readonly output?: string | undefined;
   /** The "fix the failed deploy" issue a rolled-back deploy opened. */
@@ -381,16 +437,15 @@ export const isDeployFailure = (mission: Mission): boolean =>
 /**
  * The tags of the planet's failed releases and deploys (issue 143): pushed perhaps, but not
  * released, so the next release plan does not start from them. A tag a later mission deployed,
- * such as one whose push was refused before, is released.
+ * such as one whose push was refused before, is released, and so is one a failed mission
+ * deployed before its failure (issue 144).
  */
 export const unreleasedTags = (file: MissionsFile, planet: string): ReadonlySet<string> => {
   const ofPlanet = file.missions.filter((mission) => mission.planet === planet);
-  const deployed = new Set(
-    ofPlanet.flatMap((mission) => (mission.state === 'deployed' ? (mission.versions ?? []) : [])),
-  );
+  const live = new Set(ofPlanet.flatMap(liveTags));
   return new Set(
     ofPlanet.flatMap((mission) =>
-      isDeployFailure(mission) ? (mission.versions ?? []).filter((tag) => !deployed.has(tag)) : [],
+      isDeployFailure(mission) ? notLiveTags(mission).filter((tag) => !live.has(tag)) : [],
     ),
   );
 };
@@ -413,6 +468,49 @@ export const pausingDeploy = (file: MissionsFile, planet: string): Mission | und
   return latest !== undefined && isDeployFailure(latest) && latest.resumedAt === undefined
     ? latest
     : undefined;
+};
+
+/** How each release outcome is worded in the mission log and a fix issue (issue 144). */
+export const RELEASE_OUTCOME_WORDS: Readonly<Record<ReleaseOutcome, string>> = {
+  deployed: 'deployed',
+  released: 'released',
+  'not-started': 'not started',
+  'rolled-back': 'rolled back',
+  down: 'down',
+  'deploy-lost': 'deploy lost',
+  failed: 'failed',
+};
+
+/**
+ * What a failed mission's other releases did (issue 144): the deploys before the failure stay,
+ * and the deploys after it did not start.
+ */
+export const otherReleasesWords = (
+  results: ReadonlyArray<ReleaseResult>,
+): ReadonlyArray<string> => {
+  const tagsWith = (outcome: ReleaseOutcome) =>
+    results.flatMap((result) => (result.outcome === outcome ? [result.tag] : []));
+  const deployed = tagsWith('deployed');
+  const notStarted = tagsWith('not-started');
+  const failing = results.some(
+    (result) =>
+      result.outcome !== 'deployed' &&
+      result.outcome !== 'released' &&
+      result.outcome !== 'not-started',
+  );
+  return [
+    ...(deployed.length === 0
+      ? []
+      : [
+          deployed.length === 1
+            ? `${deployed.join(', ')} was deployed before it and stays.`
+            : `${deployed.join(', ')} were deployed before it and stay.`,
+        ]),
+    // Not started says something only next to a deploy that went through.
+    ...(notStarted.length === 0 || deployed.length === 0 || !failing
+      ? []
+      : [`${notStarted.join(', ')} ${notStarted.length === 1 ? 'was' : 'were'} not deployed.`]),
+  ];
 };
 
 /** What a deploy failure tells: the title of its notification and the words of its fix issue. */

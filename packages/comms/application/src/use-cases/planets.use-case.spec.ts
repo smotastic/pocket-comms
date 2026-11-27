@@ -454,6 +454,39 @@ describe('PlanetsInbound.preflight: deploy (spec 036)', () => {
     }).pipe(Effect.provide(layer())),
   );
 
+  it.effect('names only the release that rolled back, not one deployed before it (issue 144)', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state, agentsMd(block));
+      state.issues.set('owner/app', [fakeIssue({ number: 9 })]);
+      state.missions = {
+        seenAt: 0,
+        missions: [
+          {
+            id: 'm-1',
+            planet: 'app',
+            repository: { owner: 'owner', name: 'app' },
+            issue: { number: 3, title: 'Three', url: 'http://gitea.test/owner/app/issues/3' },
+            lane: 'hop',
+            state: 'rolled-back',
+            sentAt: 1,
+            finishedAt: 2,
+            versions: ['app-v0.2.0', 'web-v0.1.1'],
+            releases: [
+              { tag: 'app-v0.2.0', outcome: 'deployed' },
+              { tag: 'web-v0.1.1', outcome: 'rolled-back' },
+            ],
+            fixIssue: 9,
+          },
+        ],
+      };
+      const paused = yield* PlanetsInbound.use((inbound) => inbound.preflight('app', true));
+      expect(paused.checks.find((check) => check.check === 'last-deploy')?.reason).toBe(
+        'The last deploy (web-v0.1.1) rolled back; close #9 or resume the planet once it is fixed.',
+      );
+    }).pipe(Effect.provide(layer())),
+  );
+
   it.effect('pauses on any deploy failure, without a fix issue too, and sees it at once', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

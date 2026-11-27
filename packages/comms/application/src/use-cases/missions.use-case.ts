@@ -4,6 +4,11 @@ import {
   failureWords,
   isDeployFailure,
   latestTag,
+  liveTags,
+  notLiveTags,
+  otherReleasesWords,
+  RELEASE_OUTCOME_WORDS,
+  releaseOutcomes,
   pausingDeploy,
   planetWaitsForOwner,
   releasePlan,
@@ -96,6 +101,7 @@ const viewOf = (file: MissionsFile, mission: Mission): MissionDto => ({
   outcome: mission.outcome,
   reason: mission.limitedUntil === undefined ? mission.reason : limitReason(mission.limitedUntil),
   versions: mission.versions,
+  releases: mission.releases,
   output: mission.output,
   fixIssue: mission.fixIssue,
   deployWith: mission.deployWith,
@@ -440,6 +446,7 @@ export const makeMissions = Effect.gen(function* () {
                 state: lead.state,
                 finishedAt: lead.finishedAt,
                 versions: lead.versions,
+                releases: lead.releases,
                 output: lead.output,
                 fixIssue: lead.fixIssue,
                 reason: `It shipped with #${lead.issue.number}: ${lead.reason ?? lead.state}`,
@@ -461,26 +468,44 @@ export const makeMissions = Effect.gen(function* () {
         finishedAt: now,
         reason: undefined,
         versions: releases.map((release) => release.tag),
+        releases:
+          mission.deploy === undefined
+            ? undefined
+            : releaseOutcomes(mission.deploy, 'deployed', undefined),
         deploy: undefined,
       } satisfies Mission;
     });
 
-  /** The words of a deploy failure's fix issue. */
-  const fixIssueOf = (mission: Mission, releases: ReadonlyArray<string>) => {
+  /**
+   * The words of a deploy failure's fix issue: it names the releases that did not go live, and
+   * lists how each release ended (issue 144).
+   */
+  const fixIssueOf = (mission: Mission) => {
     const state =
       mission.state === 'down' || mission.state === 'deploy-lost' || mission.state === 'rolled-back'
         ? mission.state
         : 'failed';
     const words = failureWords(state, mission.planet);
     const output = mission.output;
+    const failed = notLiveTags(mission).join(', ');
+    const results = mission.releases ?? [];
     return {
-      title: `Fix the failed deploy of ${releases.join(', ') || `#${mission.issue.number}`}`,
+      title: `Fix the failed deploy of ${failed || `#${mission.issue.number}`}`,
       body: [
-        `Mission Control could not deploy ${releases.join(', ') || 'the release'} after #${mission.issue.number}.`,
+        `Mission Control could not deploy ${failed || 'the release'} after #${mission.issue.number}.`,
         '',
         mission.reason ?? state,
         '',
-        words.next,
+        // A failed release deployed nothing of its own; what deployed before it is listed below.
+        ...(state === 'failed' && liveTags(mission).length > 0 ? [] : [words.next]),
+        ...(results.length === 0
+          ? []
+          : [
+              '',
+              ...results.map(
+                (result) => `- ${result.tag}: ${RELEASE_OUTCOME_WORDS[result.outcome]}`,
+              ),
+            ]),
         ...(output === undefined || output === '' ? [] : ['', '```text', output.trim(), '```']),
         '',
         `The planet is paused until this issue is closed or the owner resumes it. Master is not reverted.`,
@@ -490,7 +515,7 @@ export const makeMissions = Effect.gen(function* () {
 
   /** Opens a deploy failure's fix issue; none when Gitea refuses now, and the loop tries again. */
   const openFixIssue = (mission: Mission) =>
-    bot.openIssue(mission.repository, fixIssueOf(mission, mission.versions ?? [])).pipe(
+    bot.openIssue(mission.repository, fixIssueOf(mission)).pipe(
       Effect.map((number): number | undefined => number),
       Effect.catch((error) =>
         Effect.as(
@@ -512,20 +537,25 @@ export const makeMissions = Effect.gen(function* () {
     reason: string,
     output: string | undefined,
     now: number,
+    failing?: string,
   ) =>
     Effect.gen(function* () {
       const releases = mission.deploy?.releases ?? [];
+      const results =
+        mission.deploy === undefined ? undefined : releaseOutcomes(mission.deploy, state, failing);
+      const why = [reason, ...otherReleasesWords(results ?? [])].join(' ');
       const ended: Mission = {
         ...mission,
         state,
-        reason,
+        reason: why,
         output,
         finishedAt: now,
         versions: releases.map((release) => release.tag),
+        releases: results,
         deploy: undefined,
       };
       const fixIssue = yield* openFixIssue(ended);
-      yield* notify(mission, failureWords(state, mission.planet).title, reason);
+      yield* notify(mission, failureWords(state, mission.planet).title, why);
       return { ...ended, fixIssue } satisfies Mission;
     });
 
@@ -593,6 +623,7 @@ export const makeMissions = Effect.gen(function* () {
               `The tag ${release.tag} could not be pushed: ${pushed.failure.reason}`,
               undefined,
               now,
+              release.tag,
             );
           }
         }
@@ -651,6 +682,7 @@ export const makeMissions = Effect.gen(function* () {
             `The release workflow ${workflow} of ${release.tag} did not start within 10 minutes.`,
             undefined,
             now,
+            release.tag,
           );
         }
         if (run.value.status !== 'completed') {
@@ -664,6 +696,7 @@ export const makeMissions = Effect.gen(function* () {
             `The release workflow ${workflow} of ${release.tag} did not finish within 60 minutes.`,
             undefined,
             now,
+            release.tag,
           );
         }
         if (run.value.conclusion !== 'success') {
@@ -673,6 +706,7 @@ export const makeMissions = Effect.gen(function* () {
             `The release workflow ${workflow} of ${release.tag} ended as ${run.value.conclusion ?? 'unknown'}.`,
             undefined,
             now,
+            release.tag,
           );
         }
       }
@@ -698,7 +732,14 @@ export const makeMissions = Effect.gen(function* () {
       const deploy = mission.deploy;
       const release = deploy?.releases[deploy.step];
       if (deploy === undefined || release?.app === undefined) {
-        return yield* broken(mission, 'failed', 'It lost its deploy.', undefined, now);
+        return yield* broken(
+          mission,
+          'failed',
+          'It lost its deploy.',
+          undefined,
+          now,
+          deploy?.releases[deploy.step]?.tag,
+        );
       }
       if (deploy.job === undefined) {
         const job = `${mission.id}-${deploy.step}`;
@@ -706,7 +747,14 @@ export const makeMissions = Effect.gen(function* () {
           .start({ id: job, app: release.app, version: release.version, backup: deploy.backup })
           .pipe(Effect.result);
         if (started._tag === 'Failure') {
-          return yield* broken(mission, 'failed', started.failure.reason, undefined, now);
+          return yield* broken(
+            mission,
+            'failed',
+            started.failure.reason,
+            undefined,
+            now,
+            release.tag,
+          );
         }
         return {
           ...mission,
@@ -727,6 +775,7 @@ export const makeMissions = Effect.gen(function* () {
                 `The deploy of ${release.tag} wrote no result within 15 minutes.`,
                 undefined,
                 now,
+                release.tag,
               );
         }
         if (yield* deployer.running(deploy.pid)) {
@@ -738,6 +787,7 @@ export const makeMissions = Effect.gen(function* () {
                 `The deploy of ${release.tag} still runs after 2 hours.`,
                 undefined,
                 now,
+                release.tag,
               );
         }
         // It ended: a result written right before its end is read once more.
@@ -749,6 +799,7 @@ export const makeMissions = Effect.gen(function* () {
             `The deploy of ${release.tag} ended without a result.`,
             undefined,
             now,
+            release.tag,
           );
         }
       }
@@ -760,6 +811,7 @@ export const makeMissions = Effect.gen(function* () {
             `${release.tag} failed its health check and was rolled back.`,
             result.value.output,
             now,
+            release.tag,
           );
         case 'down':
           return yield* broken(
@@ -768,6 +820,7 @@ export const makeMissions = Effect.gen(function* () {
             `${release.tag} failed its health check, and the rollback was not healthy either.`,
             result.value.output,
             now,
+            release.tag,
           );
         case 'failed':
           return yield* broken(
@@ -776,6 +829,7 @@ export const makeMissions = Effect.gen(function* () {
             `The deploy of ${release.tag} failed before it deployed anything.`,
             result.value.output,
             now,
+            release.tag,
           );
         case 'deployed':
           break;

@@ -25,11 +25,39 @@ import { STATE_NAMES } from './mission-states.js';
 
 export { STATE_NAMES } from './mission-states.js';
 
+/** What each release outcome is called on the screen (issue 144). */
+const RELEASE_OUTCOME_NAMES: Readonly<
+  Record<NonNullable<MissionView['releases']>[number]['outcome'], string>
+> = {
+  deployed: 'deployed',
+  released: 'released',
+  'not-started': 'not started',
+  'rolled-back': 'rolled back',
+  down: 'down',
+  'deploy-lost': 'deploy lost',
+  failed: 'failed',
+};
+
+/** The versions it shipped, with how each ended when that is known (issue 144). */
+export const shippedVersions = (mission: MissionView): string | undefined => {
+  if (mission.releases !== undefined && mission.releases.length > 0) {
+    // One deployed release says no more than the Deployed state does.
+    return mission.releases.every((release) => release.outcome === 'deployed')
+      ? mission.releases.map((release) => release.tag).join(', ')
+      : mission.releases
+          .map((release) => `${release.tag} ${RELEASE_OUTCOME_NAMES[release.outcome]}`)
+          .join(', ');
+  }
+  return mission.versions === undefined || mission.versions.length === 0
+    ? undefined
+    : mission.versions.join(', ');
+};
+
 /** The versions it shipped, the issue a failure opened, and what it ships with. */
 const DeployFacts = ({ mission }: { readonly mission: MissionView }) => (
   <>
-    {mission.versions === undefined || mission.versions.length === 0 ? null : (
-      <Text size="sm">{mission.versions.join(', ')}</Text>
+    {shippedVersions(mission) === undefined ? null : (
+      <Text size="sm">{shippedVersions(mission)}</Text>
     )}
     {mission.fixIssue === undefined ? null : (
       <Text size="sm">{`Fix issue #${mission.fixIssue}; the planet is paused until it is closed.`}</Text>

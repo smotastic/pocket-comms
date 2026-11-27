@@ -9,6 +9,10 @@ import {
   unreleasedTags,
   pausingDeploy,
   planetWaitsForOwner,
+  releaseOutcomes,
+  otherReleasesWords,
+  liveTags,
+  notLiveTags,
   keptWorktree,
   laneLabel,
   laneOfLabels,
@@ -22,6 +26,7 @@ import {
   runningMission,
   sendRefusal,
   type Mission,
+  type MissionDeploy,
   type MissionsFile,
 } from './mission.js';
 
@@ -349,6 +354,89 @@ describe('deploy (spec 036)', () => {
     // web-v0.1.1 was refused; a later mission pushed and deployed it.
     const later = mission({ id: 'e', state: 'deployed', versions: ['web-v0.1.1'] });
     expect([...unreleasedTags(file(failed, later), failed.planet)]).toEqual(['app-v0.3.1']);
+  });
+
+  it('knows a release a failed mission deployed before its failure as released (issue 144)', () => {
+    const rolledBack = mission({
+      id: 'a',
+      state: 'rolled-back',
+      versions: ['app-v0.3.1', 'web-v0.1.1', 'docs-v0.2.0'],
+      releases: [
+        { tag: 'app-v0.3.1', outcome: 'deployed' },
+        { tag: 'web-v0.1.1', outcome: 'rolled-back' },
+        { tag: 'docs-v0.2.0', outcome: 'not-started' },
+      ],
+    });
+    expect([...unreleasedTags(file(rolledBack), rolledBack.planet)]).toEqual([
+      'web-v0.1.1',
+      'docs-v0.2.0',
+    ]);
+    expect(liveTags(rolledBack)).toEqual(['app-v0.3.1']);
+    expect(notLiveTags(rolledBack)).toEqual(['web-v0.1.1', 'docs-v0.2.0']);
+    // A mission saved before issue 144 knows only its versions.
+    const before = mission({ state: 'rolled-back', versions: ['app-v0.3.1'] });
+    expect(liveTags(before)).toEqual([]);
+    expect(notLiveTags(before)).toEqual(['app-v0.3.1']);
+    expect(liveTags(mission({ state: 'deployed', versions: ['app-v0.3.1'] }))).toEqual([
+      'app-v0.3.1',
+    ]);
+  });
+
+  describe('the outcome of each release (issue 144)', () => {
+    const deploy = (overrides: Partial<MissionDeploy>): MissionDeploy => ({
+      releases: [
+        { tag: 'app-v0.3.1', version: '0.3.1', app: 'pocket-app' },
+        { tag: 'lib-v1.0.1', version: '1.0.1' },
+        { tag: 'web-v0.1.1', version: '0.1.1', app: 'pocket-web' },
+        { tag: 'api-v0.5.1', version: '0.5.1', app: 'pocket-api' },
+      ],
+      step: 2,
+      phase: 'deploy',
+      since: 0,
+      backup: false,
+      target: 'c1',
+      ...overrides,
+    });
+
+    it('keeps the deploys before a failing deploy and starts none after it', () => {
+      expect(releaseOutcomes(deploy({}), 'rolled-back', 'web-v0.1.1')).toEqual([
+        { tag: 'app-v0.3.1', outcome: 'deployed' },
+        { tag: 'lib-v1.0.1', outcome: 'released' },
+        { tag: 'web-v0.1.1', outcome: 'rolled-back' },
+        { tag: 'api-v0.5.1', outcome: 'not-started' },
+      ]);
+    });
+
+    it('deploys nothing when a release fails before the deploys', () => {
+      expect(releaseOutcomes(deploy({ phase: 'build', step: 0 }), 'failed', 'lib-v1.0.1')).toEqual([
+        { tag: 'app-v0.3.1', outcome: 'not-started' },
+        { tag: 'lib-v1.0.1', outcome: 'failed' },
+        { tag: 'web-v0.1.1', outcome: 'not-started' },
+        { tag: 'api-v0.5.1', outcome: 'not-started' },
+      ]);
+    });
+
+    it('words the deploys that stay and the ones that did not start', () => {
+      expect(otherReleasesWords(releaseOutcomes(deploy({}), 'rolled-back', 'web-v0.1.1'))).toEqual([
+        'app-v0.3.1 was deployed before it and stays.',
+        'api-v0.5.1 was not deployed.',
+      ]);
+      expect(
+        otherReleasesWords(releaseOutcomes(deploy({ step: 3 }), 'down', 'api-v0.5.1')),
+      ).toEqual(['app-v0.3.1, web-v0.1.1 were deployed before it and stay.']);
+      expect(
+        otherReleasesWords(releaseOutcomes(deploy({ phase: 'tag' }), 'failed', 'lib-v1.0.1')),
+      ).toEqual([]);
+    });
+
+    it('marks every release of a deployed mission as deployed or released', () => {
+      expect(releaseOutcomes(deploy({ step: 3 }), 'deployed', undefined)).toEqual([
+        { tag: 'app-v0.3.1', outcome: 'deployed' },
+        { tag: 'lib-v1.0.1', outcome: 'released' },
+        { tag: 'web-v0.1.1', outcome: 'deployed' },
+        { tag: 'api-v0.5.1', outcome: 'deployed' },
+      ]);
+    });
   });
 
   it('pauses the planet on its latest deploy failure until the owner resumes it (spec 037)', () => {

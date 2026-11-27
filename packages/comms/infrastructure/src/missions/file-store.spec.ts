@@ -76,7 +76,12 @@ const file: MissionsFile = {
       state: 'rolled-back',
       sentAt: 8,
       finishedAt: 9,
-      versions: ['coach-v0.14.1'],
+      versions: ['coach-web-v0.3.0', 'coach-v0.14.1'],
+      // Issue 144: the first deploy stays when the second rolls back.
+      releases: [
+        { tag: 'coach-web-v0.3.0', outcome: 'deployed' },
+        { tag: 'coach-v0.14.1', outcome: 'rolled-back' },
+      ],
       output: 'The health check failed.',
       fixIssue: 41,
       resumedAt: 10,

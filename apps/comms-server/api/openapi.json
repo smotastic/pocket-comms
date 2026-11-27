@@ -2287,6 +2287,55 @@
             "description": "Why it is held, failed, aborted or lost.",
             "examples": ["The owner aborted it."]
           },
+          "releases": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "outcome": {
+                      "description": "How it ended: deployed, released (it has no app to deploy), not-started (an earlier release or deploy failed), or the failure: rolled-back, down, deploy-lost or failed.",
+                      "enum": [
+                        "deployed",
+                        "released",
+                        "not-started",
+                        "rolled-back",
+                        "down",
+                        "deploy-lost",
+                        "failed"
+                      ],
+                      "examples": ["deployed"],
+                      "type": "string"
+                    },
+                    "tag": {
+                      "description": "The release tag.",
+                      "examples": ["pocket-galaxy-v0.19.0"],
+                      "type": "string"
+                    }
+                  },
+                  "required": ["tag", "outcome"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How each release it shipped ended (issue 144); a deploy before a failed one stays deployed.",
+            "examples": [
+              [
+                {
+                  "outcome": "deployed",
+                  "tag": "pocket-galaxy-v0.19.0"
+                },
+                {
+                  "outcome": "rolled-back",
+                  "tag": "pocket-galaxy-web-v0.4.0"
+                }
+              ]
+            ]
+          },
           "sentAt": {
             "description": "When it was sent, in epoch milliseconds.",
             "examples": [1793391381245],
@@ -2562,6 +2611,55 @@
             ],
             "description": "Why it is held, failed, aborted or lost.",
             "examples": ["The owner aborted it."]
+          },
+          "releases": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "outcome": {
+                      "description": "How it ended: deployed, released (it has no app to deploy), not-started (an earlier release or deploy failed), or the failure: rolled-back, down, deploy-lost or failed.",
+                      "enum": [
+                        "deployed",
+                        "released",
+                        "not-started",
+                        "rolled-back",
+                        "down",
+                        "deploy-lost",
+                        "failed"
+                      ],
+                      "examples": ["deployed"],
+                      "type": "string"
+                    },
+                    "tag": {
+                      "description": "The release tag.",
+                      "examples": ["pocket-galaxy-v0.19.0"],
+                      "type": "string"
+                    }
+                  },
+                  "required": ["tag", "outcome"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How each release it shipped ended (issue 144); a deploy before a failed one stays deployed.",
+            "examples": [
+              [
+                {
+                  "outcome": "deployed",
+                  "tag": "pocket-galaxy-v0.19.0"
+                },
+                {
+                  "outcome": "rolled-back",
+                  "tag": "pocket-galaxy-web-v0.4.0"
+                }
+              ]
+            ]
           },
           "sentAt": {
             "description": "When it was sent, in epoch milliseconds.",

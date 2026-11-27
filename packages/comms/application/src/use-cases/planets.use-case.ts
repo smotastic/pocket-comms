@@ -3,6 +3,7 @@ import {
   effectiveAutonomy,
   allowApps,
   lastDeploy,
+  notLiveTags,
   pausingDeploy,
   releaseSettingsOf,
   type DeployFacts,
@@ -104,7 +105,7 @@ export const makePlanets = Effect.gen(function* () {
     Effect.gen(function* () {
       const latest = pausingDeploy(yield* missionsOutbound.load, planet);
       if (latest === undefined) return { _tag: 'Fine' } satisfies LastDeployFacts;
-      const what = (latest.versions ?? []).join(', ') || `#${latest.issue.number}`;
+      const what = notLiveTags(latest).join(', ') || `#${latest.issue.number}`;
       const how =
         latest.state === 'down'
           ? 'is down'

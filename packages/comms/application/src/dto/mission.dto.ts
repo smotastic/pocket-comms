@@ -1,4 +1,4 @@
-import type { Lane, MissionState } from '@pocket-comms/comms-domain';
+import type { Lane, MissionState, ReleaseResult } from '@pocket-comms/comms-domain';
 
 /** A mission as the cockpit shows it (spec 035). Times are epoch milliseconds. */
 export interface MissionDto {
@@ -17,6 +17,8 @@ export interface MissionDto {
   readonly reason?: string | undefined;
   /** The tags it released (spec 036). */
   readonly versions?: ReadonlyArray<string> | undefined;
+  /** How each of those releases ended: deployed, rolled back, not started and so on (issue 144). */
+  readonly releases?: ReadonlyArray<ReleaseResult> | undefined;
   /** The deploy script's output of a failed deploy. */
   readonly output?: string | undefined;
   /** The issue a failed release or deploy opened. */

@@ -118,6 +118,42 @@ describe('Mission Control (spec 035)', () => {
     await userEvent.click(within(log).getByRole('button', { name: 'Deploy' }));
     await waitFor(() => expect(fake.calls.missionRequests).toEqual(['deploy w']));
   });
+
+  it('shows how each release of a mission with several releases ended (issue 144)', async () => {
+    const fake = fakeClient({
+      missions: {
+        queue: [],
+        log: [
+          mission({
+            id: 'r',
+            state: 'rolled-back',
+            finishedAt: Date.now(),
+            versions: ['app-v0.3.1', 'web-v0.1.1'],
+            releases: [
+              { tag: 'app-v0.3.1', outcome: 'deployed' },
+              { tag: 'web-v0.1.1', outcome: 'rolled-back' },
+            ],
+          }),
+          mission({
+            id: 'd',
+            state: 'deployed',
+            finishedAt: Date.now(),
+            versions: ['app-v0.3.0', 'web-v0.1.0'],
+            releases: [
+              { tag: 'app-v0.3.0', outcome: 'deployed' },
+              { tag: 'web-v0.1.0', outcome: 'deployed' },
+            ],
+          }),
+        ],
+        newCount: 0,
+      },
+    });
+    renderApp({ client: fake.client, path: '/missions' });
+
+    const log = await screen.findByRole('list', { name: 'Mission log' });
+    expect(within(log).getByText('app-v0.3.1 deployed, web-v0.1.1 rolled back')).toBeDefined();
+    expect(within(log).getByText('app-v0.3.0, web-v0.1.0')).toBeDefined();
+  });
 });
 
 describe('Autopilot in Mission Control (spec 038)', () => {

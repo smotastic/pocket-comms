@@ -80,6 +80,22 @@ const StoredMission = Schema.Struct({
     }),
   ),
   versions: optional(Schema.Array(Schema.String)),
+  releases: optional(
+    Schema.Array(
+      Schema.Struct({
+        tag: Schema.String,
+        outcome: Schema.Literals([
+          'deployed',
+          'released',
+          'not-started',
+          'rolled-back',
+          'down',
+          'deploy-lost',
+          'failed',
+        ]),
+      }),
+    ),
+  ),
   output: optional(Schema.String),
   fixIssue: optional(Schema.Number),
   deployWith: optional(Schema.String),
