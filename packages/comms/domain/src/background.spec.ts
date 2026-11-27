@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { runningAt, type BackgroundItem } from './background.js';
+import { isStale, runningAt, STALE_SUBAGENT_MS, type BackgroundItem } from './background.js';
 
 const item = (overrides: Partial<BackgroundItem> & Pick<BackgroundItem, 'id'>): BackgroundItem => ({
   kind: 'shell',
@@ -31,5 +31,19 @@ describe('runningAt', () => {
     const shell = item({ id: 's' });
 
     expect(runningAt([shell], Number.MAX_SAFE_INTEGER)).toEqual([shell]);
+  });
+});
+
+describe('isStale', () => {
+  it('keeps a subagent whose latest entry is within the limit', () => {
+    expect(isStale(1_000, 1_000 + STALE_SUBAGENT_MS)).toBe(false);
+  });
+
+  it('ends a subagent with no new entry for longer than the limit', () => {
+    expect(isStale(1_000, 1_001 + STALE_SUBAGENT_MS)).toBe(true);
+  });
+
+  it('allows a few hours of silence', () => {
+    expect(STALE_SUBAGENT_MS).toBe(3 * 60 * 60_000);
   });
 });

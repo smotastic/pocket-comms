@@ -67,8 +67,10 @@ A shell, monitor or subagent an agent keeps running while it is otherwise done.
 _Avoid_: job, task, process
 
 **Subagent**:
-An agent another agent delegated work to, with its own conversation.
-_Avoid_: child agent, worker
+An agent another agent delegated work to, with its own conversation. It is **running** until it
+reports back, or **ended**; one with no new entry in its conversation for three hours has ended
+until a new entry arrives.
+_Avoid_: child agent, worker, stale
 
 **Activity**:
 The timeline of what happened across all agents over the last day.

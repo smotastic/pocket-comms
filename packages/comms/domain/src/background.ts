@@ -24,3 +24,15 @@ export const runningAt = (
   items
     .filter((item) => item.expiresAt === undefined || item.expiresAt > now)
     .sort((a, b) => a.startedAt - b.startedAt);
+
+/**
+ * How long a subagent may go without a new entry in its own conversation before it counts as
+ * ended. A working subagent writes an entry on every step, and its longest quiet stretch is a
+ * wait on its own background work, such as a CI run; one quiet for hours stopped without saying
+ * so, such as when its parent stopped it or its parent's session ended.
+ */
+export const STALE_SUBAGENT_MS = 3 * 60 * 60_000;
+
+/** Whether a subagent whose latest entry was at `lastEntryAt` has ended by `now`. */
+export const isStale = (lastEntryAt: number, now: number): boolean =>
+  now - lastEntryAt > STALE_SUBAGENT_MS;

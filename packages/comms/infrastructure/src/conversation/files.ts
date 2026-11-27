@@ -4,7 +4,12 @@ import {
   type SubagentMeta,
   type ConversationSource,
 } from '@pocket-comms/comms-application';
-import { runningAt, type BackgroundItem, type ConversationEntry } from '@pocket-comms/comms-domain';
+import {
+  isStale,
+  runningAt,
+  type BackgroundItem,
+  type ConversationEntry,
+} from '@pocket-comms/comms-domain';
 import * as Clock from 'effect/Clock';
 import type * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -344,6 +349,18 @@ export const layerFiles = ({
         );
         return runningAt(own, now).length > 0;
       };
+      // A subagent ends once its own file shows no new entry for long, whatever its parent's file
+      // says: Claude writes no end for one stopped with its parent. A new entry runs it again.
+      const stale = async (item: BackgroundItem) => {
+        // One whose id is not known yet has no file to read, so its start is its latest entry.
+        const info =
+          item.subagent === undefined
+            ? undefined
+            : await stat(join(subagentsFolder(path), `agent-${item.subagent}.jsonl`)).catch(
+                () => undefined,
+              );
+        return isStale(Math.max(item.startedAt, info?.mtimeMs ?? 0), now);
+      };
       const items = yield* Effect.tryPromise({
         try: async (): Promise<ReadonlyArray<BackgroundItem>> => {
           const { background, waiting } = await parsedFrom(
@@ -357,18 +374,21 @@ export const layerFiles = ({
               ended.add(subagent);
             }
           }
-          const items = background.filter(
+          const kept = background.filter(
             (item) => item.subagent === undefined || !ended.has(item.subagent),
           );
-          if (items.every((item) => item.kind !== 'subagent' || item.subagent !== undefined)) {
-            return items;
-          }
-          const ids = await subagentIds(path);
-          return items.map((item) => {
+          const ids = kept.every((item) => item.kind !== 'subagent' || item.subagent !== undefined)
+            ? new Map<string, string>()
+            : await subagentIds(path);
+          const named = kept.map((item) => {
             const subagent =
               item.kind === 'subagent' ? (item.subagent ?? ids.get(item.id)) : undefined;
             return subagent === undefined ? item : { ...item, subagent };
           });
+          const fresh = await Promise.all(
+            named.map(async (item) => item.kind !== 'subagent' || !(await stale(item))),
+          );
+          return named.filter((_, index) => fresh[index]);
         },
         catch: failed(source),
       });

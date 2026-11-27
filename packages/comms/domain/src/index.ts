@@ -8,7 +8,13 @@ export {
 } from './agent.js';
 export { isAllowedLogin } from './access.js';
 export { Multiplexer, multiplexerName, statusOf } from './multiplexer.js';
-export { runningAt, type BackgroundItem, type BackgroundKind } from './background.js';
+export {
+  isStale,
+  runningAt,
+  STALE_SUBAGENT_MS,
+  type BackgroundItem,
+  type BackgroundKind,
+} from './background.js';
 export {
   IMAGE_EXTENSIONS,
   IMAGE_MEDIA_TYPES,

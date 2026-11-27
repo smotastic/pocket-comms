@@ -4,6 +4,7 @@ import * as Effect from 'effect/Effect';
 import * as Fiber from 'effect/Fiber';
 import * as Option from 'effect/Option';
 import * as Stream from 'effect/Stream';
+import { TestClock } from 'effect/testing';
 import {
   appendFileSync,
   rmSync,
@@ -15,6 +16,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { STALE_SUBAGENT_MS } from '@pocket-comms/comms-domain';
 import { claudeSessionPath } from './claude.js';
 import { layerFiles } from './files.js';
 import { piSessionFolder } from './pi.js';
@@ -381,29 +383,123 @@ describe('Conversation.layerFiles background', () => {
       }),
     ].join('');
     const idle = entry('s-1', 'assistant', [{ type: 'text', text: 'Waiting.' }], sidechain);
-    const ids = (root: string) =>
-      ConversationOutbound.use((port) => port.background(claude)).pipe(
-        Effect.map((items) => items.map((item) => item.id)),
-        Effect.provide(layerFiles({ home: root })),
-      );
+    const ids = (root: string, now = NOTICE_AT + 60_000) =>
+      Effect.gen(function* () {
+        yield* TestClock.setTime(now);
+        const items = yield* ConversationOutbound.use((port) => port.background(claude));
+        return items.map((item) => item.id);
+      }).pipe(Effect.provide(layerFiles({ home: root })));
 
-    it.live('runs while its own file shows work running', () =>
+    it.effect('runs while its own file shows work running', () =>
       Effect.gen(function* () {
         expect(yield* ids(waitingHome(ownShell, NOTICE_AT - 1_000))).toEqual(['toolu-w']);
       }),
     );
 
-    it.live('runs once its file goes on after the notice', () =>
+    it.effect('runs once its file goes on after the notice', () =>
       Effect.gen(function* () {
         expect(yield* ids(waitingHome(idle, NOTICE_AT + 5_000))).toEqual(['toolu-w']);
       }),
     );
 
-    it.live('has ended when neither shows', () =>
+    it.effect('has ended when neither shows', () =>
       Effect.gen(function* () {
         expect(yield* ids(waitingHome(idle, NOTICE_AT - 1_000))).toEqual([]);
       }),
     );
+
+    it.effect('has ended when its own work shows no new entry for too long', () =>
+      Effect.gen(function* () {
+        const root = waitingHome(ownShell, NOTICE_AT - 1_000);
+        expect(yield* ids(root, NOTICE_AT + STALE_SUBAGENT_MS)).toEqual([]);
+      }),
+    );
+  });
+
+  describe('a subagent with no new entry for a long time', () => {
+    const STALE = 'b4c6bf9edfb3e2cac';
+    const STARTED_AT = Date.parse('2026-10-30T16:00:10.000Z');
+    const json = (value: unknown) => `${JSON.stringify(value)}\n`;
+    const entry = (uuid: string, type: string, content: unknown, extra = {}) =>
+      json({
+        type,
+        uuid,
+        timestamp: new Date(STARTED_AT).toISOString(),
+        message: { role: type, content },
+        ...extra,
+      });
+    // A session with a background subagent, and that subagent's own file when given.
+    const staleHome = (modifiedAt?: number, named = true) => {
+      const { root, claudeFile } = home();
+      writeFileSync(
+        claudeFile,
+        [
+          entry('a-1', 'assistant', [
+            { type: 'tool_use', id: 'toolu-s', name: 'Agent', input: { description: 'Cut' } },
+          ]),
+          entry('r-1', 'user', [{ type: 'tool_result', tool_use_id: 'toolu-s', content: 'ok' }], {
+            toolUseResult: { isAsync: true, ...(named ? { agentId: STALE } : {}) },
+          }),
+        ].join(''),
+      );
+      const folder = join(claudeFile.replace(/\.jsonl$/u, ''), 'subagents');
+      mkdirSync(folder, { recursive: true });
+      const file = join(folder, `agent-${STALE}.jsonl`);
+      if (modifiedAt !== undefined) {
+        writeFileSync(file, entry('s-1', 'assistant', [{ type: 'text', text: 'On it.' }]));
+        utimesSync(file, new Date(modifiedAt), new Date(modifiedAt));
+      }
+      return { root, file };
+    };
+    const idsAt = (now: number) =>
+      Effect.gen(function* () {
+        yield* TestClock.setTime(now);
+        const items = yield* ConversationOutbound.use((port) => port.background(claude));
+        return items.map((item) => item.id);
+      });
+    const lastEntryAt = STARTED_AT + 60_000;
+
+    it.effect('runs while its latest entry is recent', () => {
+      const { root } = staleHome(lastEntryAt);
+      return Effect.gen(function* () {
+        expect(yield* idsAt(lastEntryAt + STALE_SUBAGENT_MS)).toEqual(['toolu-s']);
+      }).pipe(Effect.provide(layerFiles({ home: root })));
+    });
+
+    it.effect('has ended once its latest entry is older than the limit', () => {
+      const { root } = staleHome(lastEntryAt);
+      return Effect.gen(function* () {
+        expect(yield* idsAt(lastEntryAt + STALE_SUBAGENT_MS + 1)).toEqual([]);
+      }).pipe(Effect.provide(layerFiles({ home: root })));
+    });
+
+    it.effect('has ended without a file of its own long after it started', () => {
+      const { root } = staleHome();
+      return Effect.gen(function* () {
+        expect(yield* idsAt(STARTED_AT + STALE_SUBAGENT_MS + 1)).toEqual([]);
+      }).pipe(Effect.provide(layerFiles({ home: root })));
+    });
+
+    it.effect('has ended without a known id long after it started', () => {
+      const { root } = staleHome(undefined, false);
+      return Effect.gen(function* () {
+        expect(yield* idsAt(STARTED_AT + STALE_SUBAGENT_MS)).toEqual(['toolu-s']);
+        expect(yield* idsAt(STARTED_AT + STALE_SUBAGENT_MS + 1)).toEqual([]);
+      }).pipe(Effect.provide(layerFiles({ home: root })));
+    });
+
+    it.effect('runs again once a new entry arrives', () => {
+      const { root, file } = staleHome(lastEntryAt);
+      return Effect.gen(function* () {
+        const later = lastEntryAt + STALE_SUBAGENT_MS + 60_000;
+        expect(yield* idsAt(later)).toEqual([]);
+
+        appendFileSync(file, entry('s-2', 'assistant', [{ type: 'text', text: 'Back.' }]));
+        utimesSync(file, new Date(later), new Date(later));
+
+        expect(yield* idsAt(later + 1_000)).toEqual(['toolu-s']);
+      }).pipe(Effect.provide(layerFiles({ home: root })));
+    });
   });
 
   it.effect('has no background work for a Pi session', () => {
