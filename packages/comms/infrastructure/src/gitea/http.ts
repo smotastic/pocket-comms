@@ -159,6 +159,10 @@ const decodeCommitStatus = Schema.decodeUnknownEffect(
   Schema.Struct({ state: Schema.optional(Schema.String) }),
 );
 
+const decodeTag = Schema.decodeUnknownEffect(
+  Schema.Struct({ commit: Schema.Struct({ sha: Schema.String }) }),
+);
+
 const decodeTagRuns = Schema.decodeUnknownEffect(
   Schema.Struct({
     workflow_runs: Schema.NullOr(
@@ -177,6 +181,7 @@ const decodeTagRuns = Schema.decodeUnknownEffect(
 const MAX_FILE_BYTES = 256 * 1024;
 /** The push runs preflight looks back on. */
 const RUNS_PAGE = 20;
+const TAG_RUNS_PAGE = 50;
 const decodeLabels = Schema.decodeUnknownEffect(Schema.Array(GiteaLabel));
 const decodeIssue = Schema.decodeUnknownEffect(GiteaIssue);
 const decodeIssues = Schema.decodeUnknownEffect(Schema.Array(GiteaIssue));
@@ -338,10 +343,16 @@ export const layerHttp = ({
       );
     }).pipe(Effect.withSpan('Gitea.pushRuns'));
 
-  // Gitea names a tag's run by its path, `<workflow>@refs/tags/<tag>`; the newest runs come first.
+  // Gitea names a tag's run by its path, `<workflow>@refs/tags/<tag>`. It is looked for among the
+  // runs of the tag's commit, not the newest of the repository, which other pushes push out of
+  // reach while the runner is busy (issue 142). A commit has few push runs, so one page holds them.
   const tagRun = (repository: GiteaRepository, workflow: string, tag: string) =>
     Effect.gen(function* () {
-      const answer = yield* get(`${repositoryPath(repository)}/actions/runs?event=push&limit=50`);
+      const tagged = yield* get(`${repositoryPath(repository)}/tags/${encodeURIComponent(tag)}`);
+      if (tagged === undefined) return Option.none<CiRun>();
+      const { commit } = yield* decodeTag(tagged).pipe(Effect.mapError(unknownShape));
+      const query = `event=push&head_sha=${encodeURIComponent(commit.sha)}&limit=${TAG_RUNS_PAGE}`;
+      const answer = yield* get(`${repositoryPath(repository)}/actions/runs?${query}`);
       if (answer === undefined) return Option.none<CiRun>();
       const decoded = yield* decodeTagRuns(answer).pipe(Effect.mapError(unknownShape));
       const run = (decoded.workflow_runs ?? []).find(

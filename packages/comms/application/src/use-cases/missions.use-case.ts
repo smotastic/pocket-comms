@@ -578,13 +578,45 @@ export const makeMissions = Effect.gen(function* () {
           deploy: { ...deploy, phase: 'build', since: now },
         } satisfies Mission;
       }
-      let pending = false;
+      const reads = [];
       for (const release of deploy.releases) {
         if (release.workflow === undefined) continue;
-        const run = yield* gitea
+        const read = yield* gitea
           .tagRun(mission.repository, release.workflow, release.tag)
-          .pipe(Effect.orElseSucceed(() => Option.none()));
-        const waited = now - deploy.since;
+          .pipe(Effect.result);
+        reads.push({ release, workflow: release.workflow, read });
+      }
+      // While Gitea cannot answer, the runs are waited for and the outage does not count (issue
+      // 142); an outage of 60 minutes in a row, such as a refused token, ends the mission.
+      const failure = reads.flatMap(({ read }) =>
+        read._tag === 'Failure' ? [read.failure] : [],
+      )[0];
+      if (failure !== undefined) {
+        const unansweredSince = deploy.unansweredSince ?? now;
+        if (now - unansweredSince > RELEASE_RUN_ENDS_MS) {
+          return yield* broken(
+            mission,
+            'failed',
+            `Gitea could not say for 60 minutes how the release runs go: ${reasonOf(failure)}`,
+            undefined,
+            now,
+          );
+        }
+        if (deploy.unansweredSince !== undefined) return mission;
+        return { ...mission, deploy: { ...deploy, unansweredSince } } satisfies Mission;
+      }
+      if (deploy.unansweredSince !== undefined) {
+        deploy = {
+          ...deploy,
+          since: deploy.since + now - deploy.unansweredSince,
+          unansweredSince: undefined,
+        };
+      }
+      const waited = now - deploy.since;
+      let pending = false;
+      for (const { release, workflow, read } of reads) {
+        if (read._tag === 'Failure') continue;
+        const run = read.success;
         if (Option.isNone(run)) {
           if (waited <= RELEASE_RUN_APPEARS_MS) {
             pending = true;
@@ -593,7 +625,7 @@ export const makeMissions = Effect.gen(function* () {
           return yield* broken(
             mission,
             'failed',
-            `The release workflow ${release.workflow} of ${release.tag} did not start within 10 minutes.`,
+            `The release workflow ${workflow} of ${release.tag} did not start within 10 minutes.`,
             undefined,
             now,
           );
@@ -606,7 +638,7 @@ export const makeMissions = Effect.gen(function* () {
           return yield* broken(
             mission,
             'failed',
-            `The release workflow ${release.workflow} of ${release.tag} did not finish within 60 minutes.`,
+            `The release workflow ${workflow} of ${release.tag} did not finish within 60 minutes.`,
             undefined,
             now,
           );
@@ -615,19 +647,25 @@ export const makeMissions = Effect.gen(function* () {
           return yield* broken(
             mission,
             'failed',
-            `The release workflow ${release.workflow} of ${release.tag} ended as ${run.value.conclusion ?? 'unknown'}.`,
+            `The release workflow ${workflow} of ${release.tag} ended as ${run.value.conclusion ?? 'unknown'}.`,
             undefined,
             now,
           );
         }
       }
-      if (pending) return mission;
+      if (pending) return deploy === mission.deploy ? mission : { ...mission, deploy };
       const first = deploy.releases.findIndex((release) => release.app !== undefined);
       if (first < 0) return yield* deployed(mission, now);
       return {
         ...mission,
         state: 'deploying',
-        deploy: { ...deploy, phase: 'deploy', step: first, since: now, job: undefined },
+        deploy: {
+          ...deploy,
+          phase: 'deploy',
+          step: first,
+          since: now,
+          job: undefined,
+        },
       } satisfies Mission;
     });
 

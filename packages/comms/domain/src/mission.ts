@@ -101,8 +101,14 @@ export interface MissionDeploy {
    * runs, or deploying the release at `step`.
    */
   readonly phase: 'ci' | 'tag' | 'build' | 'deploy';
-  /** When the current phase began, to give up on a run or a result that never comes. */
+  /**
+   * When the current phase began, to give up on a run or a result that never comes. While the
+   * release runs are awaited it moves on by every outage of Gitea, so an outage does not count
+   * toward giving up (issue 142).
+   */
   readonly since: number;
+  /** Since when Gitea has not answered about the release runs, while it does not. */
+  readonly unansweredSince?: number | undefined;
   /** Whether the owner's Deploy asked for the database backup first. */
   readonly backup: boolean;
   /** The id of the deploy script's run of the release at `step`, once it was started. */

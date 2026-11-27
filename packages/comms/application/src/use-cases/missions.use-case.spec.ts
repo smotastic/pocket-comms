@@ -755,6 +755,55 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 
+  it.effect('does not count the time Gitea cannot answer toward a release run appearing', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(state, [{ subject: 'fix: a', files: ['apps/a.ts'] }]);
+      const { service, id } = yield* merged;
+      yield* service.advance;
+      state.tagRunFailure = 'Gitea is down.';
+      yield* service.advance;
+      yield* TestClock.adjust('11 minutes');
+      yield* service.advance;
+      expect((yield* service.list).running).toMatchObject({ id, state: 'releasing' });
+
+      state.tagRunFailure = undefined;
+      yield* service.advance;
+      yield* TestClock.adjust('9 minutes');
+      yield* service.advance;
+      expect((yield* service.list).running).toMatchObject({ id, state: 'releasing' });
+
+      yield* TestClock.adjust('2 minutes');
+      yield* service.advance;
+      expect((yield* service.list).log.find((mission) => mission.id === id)).toMatchObject({
+        state: 'failed',
+        reason: 'The release workflow release.yml of app-v0.3.1 did not start within 10 minutes.',
+      });
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('fails a release whose runs Gitea cannot read for 60 minutes in a row', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(state, [{ subject: 'fix: a', files: ['apps/a.ts'] }]);
+      const { service, id } = yield* merged;
+      yield* service.advance;
+      state.tagRunFailure = 'Gitea refused the token (403).';
+      yield* service.advance;
+      yield* TestClock.adjust('30 minutes');
+      yield* service.advance;
+      expect((yield* service.list).running).toMatchObject({ id, state: 'releasing' });
+
+      yield* TestClock.adjust('31 minutes');
+      yield* service.advance;
+      expect((yield* service.list).log.find((mission) => mission.id === id)).toMatchObject({
+        state: 'failed',
+        reason:
+          'Gitea could not say for 60 minutes how the release runs go: Gitea refused the token (403).',
+      });
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
   /** Merges #7 and runs it to a started deploy of app-v0.3.1. */
   const deploying = Effect.gen(function* () {
     const state = yield* FakeState;

@@ -71,6 +71,7 @@ const StoredMission = Schema.Struct({
       step: Schema.Number,
       phase: Schema.Literals(['ci', 'tag', 'build', 'deploy']),
       since: Schema.Number,
+      unansweredSince: optional(Schema.Number),
       backup: Schema.Boolean,
       job: optional(Schema.String),
       pid: optional(Schema.Number),

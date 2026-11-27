@@ -302,6 +302,8 @@ export class FakeState extends Context.Service<
     >;
     /** The runs of release workflows, by `<owner>/<name> <workflow> <tag>`. */
     readonly tagRuns: Map<string, CiRun>;
+    /** Why reading a release run fails, when it does. */
+    tagRunFailure: string | undefined;
     /** The speech service: whether it is set up, what it hears, why it fails and the voice messages it got (`clips`, as the agent package names them). */
     readonly speech: {
       available: boolean;
@@ -711,9 +713,11 @@ const gitea = (state: FakeState['Service']) => {
       }),
     tagRun: ({ owner, name }, workflow, tag) =>
       request(`tagRun ${owner}/${name} ${workflow} ${tag}`, () =>
-        Effect.succeed(
-          Option.fromNullishOr(state.tagRuns.get(`${owner}/${name} ${workflow} ${tag}`)),
-        ),
+        state.tagRunFailure === undefined
+          ? Effect.succeed(
+              Option.fromNullishOr(state.tagRuns.get(`${owner}/${name} ${workflow} ${tag}`)),
+            )
+          : Effect.fail(new GiteaUnavailableError({ reason: state.tagRunFailure })),
       ),
     commitStatus: ({ owner, name }, sha) =>
       request(`commitStatus ${owner}/${name} ${sha}`, () =>
@@ -993,6 +997,7 @@ export const fakeLayer = () => {
         commitStatuses: new Map(),
         releaseGit: new Map(),
         tagRuns: new Map(),
+        tagRunFailure: undefined,
       };
     }),
   );

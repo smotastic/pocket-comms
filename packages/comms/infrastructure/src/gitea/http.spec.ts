@@ -875,7 +875,34 @@ describe('Gitea.layerHttp, the reads of preflight (spec 034)', () => {
         return { status: 200, body: { state: '', total_count: 0 } };
       case '/api/v1/repos/owner/app/commits/c-going/status':
         return { status: 200, body: { state: 'pending', total_count: 1 } };
+      case '/api/v1/repos/owner/app/tags/app-v1.0.0':
+        return { status: 200, body: { name: 'app-v1.0.0', commit: { sha: 'c-tagged' } } };
+      case '/api/v1/repos/owner/app/tags/app-v1.1.0':
+        return { status: 200, body: { name: 'app-v1.1.0', commit: { sha: 'c-quiet' } } };
+      case '/api/v1/repos/owner/app/tags/app-v3.0.0':
+        return { status: 502, body: { message: 'Bad gateway' } };
       case '/api/v1/repos/owner/app/actions/runs':
+        if (url.searchParams.get('head_sha') === 'c-quiet') {
+          return { status: 200, body: { total_count: 0, workflow_runs: null } };
+        }
+        if (url.searchParams.get('head_sha') === 'c-tagged') {
+          return {
+            status: 200,
+            body: {
+              total_count: 2,
+              workflow_runs: [
+                {
+                  id: 9,
+                  path: 'release.yml@refs/tags/app-v1.0.0',
+                  status: 'completed',
+                  conclusion: 'failure',
+                  head_branch: null,
+                },
+                { id: 8, path: 'ci.yml@refs/heads/master', status: 'completed' },
+              ],
+            },
+          };
+        }
         return {
           status: 200,
           body: {
@@ -885,7 +912,7 @@ describe('Gitea.layerHttp, the reads of preflight (spec 034)', () => {
               { id: 1, status: 'completed', conclusion: 'success', head_branch: 'master' },
               {
                 id: 0,
-                path: 'release.yml@refs/tags/app-v1.0.0',
+                path: 'release.yml@refs/tags/app-v1.1.0',
                 status: 'completed',
                 conclusion: 'failure',
                 head_branch: null,
@@ -967,19 +994,31 @@ describe('Gitea.layerHttp, the reads of preflight (spec 034)', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect("finds the run a tag started by its workflow's path (spec 036)", () =>
+  it.effect("finds the run a tag started among its commit's runs, not the newest (issue 142)", () =>
     Effect.gen(function* () {
-      const { url } = yield* fakeGitea(route);
+      const { url, seen } = yield* fakeGitea(route);
       yield* withGitea(url, (gitea) =>
         Effect.gen(function* () {
           expect(yield* gitea.tagRun(repository, 'release.yml', 'app-v1.0.0')).toEqual(
             Option.some({ status: 'completed', conclusion: 'failure' }),
           );
+          // Its commit has no run yet, though one of the newest runs names it.
+          expect(yield* gitea.tagRun(repository, 'release.yml', 'app-v1.1.0')).toEqual(
+            Option.none(),
+          );
           expect(yield* gitea.tagRun(repository, 'release.yml', 'app-v2.0.0')).toEqual(
             Option.none(),
           );
+          const failed = yield* gitea
+            .tagRun(repository, 'release.yml', 'app-v3.0.0')
+            .pipe(Effect.flip);
+          expect(failed).toBeInstanceOf(GiteaUnavailableError);
         }),
       );
+      expect(seen.slice(0, 2).map((request) => request.url)).toEqual([
+        '/api/v1/repos/owner/app/tags/app-v1.0.0',
+        '/api/v1/repos/owner/app/actions/runs?event=push&head_sha=c-tagged&limit=50',
+      ]);
     }).pipe(Effect.scoped),
   );
   it.effect("reads a commit's combined CI state (spec 037)", () =>
