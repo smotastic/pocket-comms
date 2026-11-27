@@ -1,6 +1,6 @@
 # Spec 036 — pocket-comms: autonomous deploy
 
-- **Status:** `Approved` — grilling of 2026-11-27, verified
+- **Status:** `Done` — grilling of 2026-11-27, verified; built in this pull request
 - **Grilling:** confirmed by the owner on 2026-11-27
 - **Changes:** [spec 035](../035-comms-missions-to-merge/spec.md) (a merged mission goes on to
   release and deploy), [spec 034](../034-comms-planets-and-preflight/spec.md) (preflight gains the
