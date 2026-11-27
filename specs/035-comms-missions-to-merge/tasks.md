@@ -20,10 +20,10 @@ in the task's own commit. Requirements are the spec's numbers (R1–R26).
       refused).
   - Serves: R3, R4
   - Gate: `pnpm nx test comms-domain`
-- [ ] **T04** — Ports and the missions file store; `AgentStart.args` passed by hc and Herdr.
+- [x] **T04** — Ports and the missions file store; `AgentStart.args` passed by hc and Herdr.
   - Serves: R9, R14, R22
   - Gate: `pnpm nx test comms-infrastructure`
-- [ ] **T05** — The bot adapter: Gitea as the bot (labels, comments, push permission, its user)
+- [x] **T05** — The bot adapter: Gitea as the bot (labels, comments, push permission, its user)
       and the worktree's git identity with the credential file.
   - Serves: R1, R2, R3, R7, R13, R16, R21
   - Gate: `pnpm nx test comms-infrastructure`

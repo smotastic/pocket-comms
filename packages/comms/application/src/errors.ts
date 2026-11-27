@@ -206,3 +206,23 @@ export class PushStoreError extends Data.TaggedError('PushStoreError')<{
 export class QuickRepliesStoreError extends Data.TaggedError('QuickRepliesStoreError')<{
   readonly reason: string;
 }> {}
+
+/** The missions file cannot be written. */
+export class MissionsStoreError extends Data.TaggedError('MissionsStoreError')<{
+  readonly reason: string;
+}> {}
+
+/** An issue cannot be sent on a mission now; `reason` says why (spec 035). */
+export class MissionRefusedError extends Data.TaggedError('MissionRefusedError')<{
+  readonly reason: string;
+}> {}
+
+/** No mission has this id, or none is in a state that allows the request. */
+export class MissionNotFoundError extends Data.TaggedError('MissionNotFoundError')<{
+  readonly id: string;
+}> {}
+
+/** The mission bot could not do something on Gitea or in git; `reason` says what. */
+export class MissionBotError extends Data.TaggedError('MissionBotError')<{
+  readonly reason: string;
+}> {}

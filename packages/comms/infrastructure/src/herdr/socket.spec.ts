@@ -515,6 +515,14 @@ describe('Herdr.layerSocket', () => {
       yield* start('pi').pipe(
         Effect.provide(layerSocket({ path: server.path, agentArgs: ['--model', 'x'] })),
       );
+      yield* MultiplexerOutbound.use((herdr) =>
+        herdr.startAgent({
+          paneId: 'wK:p1',
+          name: 'feat-new',
+          kind: 'claude',
+          args: ['--resume', 's1'],
+        }),
+      ).pipe(Effect.provide(layerSocket({ path: server.path, agentArgs: ['--model', 'x'] })));
 
       expect(started).toEqual({ status: 'idle', ready: true, paneId: 'wK:p1' });
       expect(server.requests.map((request) => request.params)).toEqual([
@@ -524,6 +532,13 @@ describe('Herdr.layerSocket', () => {
           kind: 'pi',
           pane_id: 'wK:p1',
           args: ['--model', 'x'],
+          timeout_ms: 30_000,
+        },
+        {
+          name: 'feat-new',
+          kind: 'claude',
+          pane_id: 'wK:p1',
+          args: ['--model', 'x', '--resume', 's1'],
           timeout_ms: 30_000,
         },
       ]);
