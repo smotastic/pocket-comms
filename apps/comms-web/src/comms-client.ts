@@ -20,6 +20,7 @@ import {
   type Preflight,
   type Mission,
   type Missions,
+  type Autopilot,
   type ProposalDecisionRequest,
   type AttachedPullRequest,
   type PullRequestChanges,
@@ -55,6 +56,8 @@ export type AutonomyLevel = PreflightView['autonomy']['chosen'];
 export type MissionView = typeof Mission.Type;
 export type MissionsView = typeof Missions.Type;
 export type Lane = MissionView['lane'];
+export type AutopilotView = typeof Autopilot.Type;
+export type AutopilotSettingsView = AutopilotView['settings'];
 export type NewTask = typeof CreateTaskRequest.Type;
 export type TaskCreatedView = typeof TaskCreated.Type;
 export type AgentToStart = (typeof AGENTS_TO_START)[number];
@@ -148,7 +151,7 @@ export interface CommsClient {
   readonly unregisterPlanet: (planet: string) => Promise<void>;
   /** Whether the planet is ready for missions: its checks, go or no-go and the levels. */
   readonly preflight: (planet: string) => Promise<PreflightView>;
-  /** Sets a planet's chosen autonomy level: manual or missions (spec 035). */
+  /** Sets a planet's chosen autonomy level: manual, missions or autopilot (specs 035, 038). */
   readonly chooseAutonomy: (planet: string, level: AutonomyLevel) => Promise<void>;
   /** Lifts the pause of a planet's failed deploy and closes its fix issue (spec 037). */
   readonly resumePlanet: (planet: string) => Promise<void>;
@@ -165,6 +168,10 @@ export interface CommsClient {
   readonly deployMission: (id: string) => Promise<void>;
   /** Marks the mission log seen. */
   readonly missionsSeen: () => Promise<void>;
+  /** Autopilot: its settings and the current or latest window (spec 038). */
+  readonly autopilot: () => Promise<AutopilotView>;
+  /** Keeps the Autopilot switch, window and budget. */
+  readonly updateAutopilot: (settings: AutopilotSettingsView) => Promise<AutopilotView>;
   readonly createTask: (task: NewTask) => Promise<TaskCreatedView>;
   readonly issues: (planet: string) => Promise<IssueListView>;
   /** `additionalInformation` goes into the agent's first prompt for this launch (spec 021). */
@@ -439,6 +446,9 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     deployMission: (id) =>
       run((api) => api.missions.deploy({ params: { mission: id } })).then(() => undefined),
     missionsSeen: () => run((api) => api.missions.seen()).then(() => undefined),
+    autopilot: () => run((api) => api.autopilot.read()),
+    updateAutopilot: (settings) =>
+      run((api) => api.autopilot.updateSettings({ payload: settings })),
     createTask: (task) => run((api) => api.tasks.create({ payload: task })),
     issues: (planet) => run((api) => api.issues.list({ params: { planet } })),
     implementIssue: (planet, number, branch, additionalInformation) =>

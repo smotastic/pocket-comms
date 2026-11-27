@@ -44,15 +44,16 @@ const checkName = (check: string) => CHECK_NAMES.get(check) ?? check;
 const LEVELS: ReadonlyArray<{ readonly id: Level; readonly label: string }> = [
   { id: 'manual', label: 'Manual' },
   { id: 'missions', label: 'Missions' },
-  // Autopilot comes with step 5 of Mission Control.
-  { id: 'autopilot', label: 'Autopilot (coming)' },
+  { id: 'autopilot', label: 'Autopilot' },
 ];
 
 /** The sentence under the levels: the level in effect, and why when preflight lowered it. */
 const inEffect = ({ autonomy, result }: PreflightView) =>
   autonomy.effective === autonomy.chosen
     ? `In effect: ${autonomy.effective}.`
-    : `In effect: ${autonomy.effective}, lowered from ${autonomy.chosen} because preflight is ${result}.`;
+    : result === 'go'
+      ? `In effect: ${autonomy.effective}, lowered from ${autonomy.chosen} because the planet does not deploy.`
+      : `In effect: ${autonomy.effective}, lowered from ${autonomy.chosen} because preflight is ${result}.`;
 
 /** Unregister, which asks in place before it unregisters (spec 034, requirement 14). */
 const Unregister = ({
@@ -253,7 +254,7 @@ export const PreflightCard = ({ client, planet, onUnregistered }: PreflightCardP
                 options={LEVELS}
                 selected={data.autonomy.chosen}
                 onSelect={(level) => {
-                  if (level === 'autopilot' || level === data.autonomy.chosen) return;
+                  if (level === data.autonomy.chosen) return;
                   setChoosing(undefined);
                   client
                     .chooseAutonomy(planet, level)

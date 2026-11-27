@@ -4,13 +4,13 @@ import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Redacted from 'effect/Redacted';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gitEnvironment } from '../repositories/git.js';
-import { layer } from './layer.js';
+import { layer, missionSettings } from './layer.js';
 
 const TOKEN = 'bot-token-0123456789';
 const repository = { owner: 'owner', name: 'app' };
@@ -193,6 +193,65 @@ describe('the mission bot', () => {
         }),
       ]);
     }).pipe(Effect.scoped),
+  );
+
+  it.effect('relabels: removes the named labels it has, adds one, creating it (spec 038)', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea(
+        labelsRoute([
+          { id: 3, name: 'mission:hop' },
+          { id: 4, name: 'bug' },
+        ]),
+      );
+      yield* (yield* bot(gitea.url)).relabel(
+        repository,
+        7,
+        'autopilot:not-ready',
+        { color: '#0e8a16', description: 'Autopilot' },
+        ['mission:hop', 'mission:full-flight', 'autopilot:not-ready'],
+      );
+
+      expect(gitea.seen.filter((each) => each.method !== 'GET')).toEqual([
+        expect.objectContaining({ method: 'DELETE', path: '/repos/owner/app/issues/7/labels/3' }),
+        expect.objectContaining({
+          method: 'POST',
+          path: '/repos/owner/app/labels',
+          body: expect.objectContaining({ name: 'autopilot:not-ready' }),
+        }),
+        expect.objectContaining({
+          method: 'POST',
+          path: '/repos/owner/app/issues/7/labels',
+          body: { labels: [99] },
+        }),
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('writes the mission settings with the usage status line (spec 038)', () =>
+    Effect.gen(function* () {
+      const stateDir = mkdtempSync(join(tmpdir(), 'comms-state-'));
+      const shipped = join(stateDir, 'shipped.json');
+      writeFileSync(shipped, '{"permissions":{"defaultMode":"auto"}}');
+      const path = yield* missionSettings(shipped, stateDir, [
+        '/usr/bin/node',
+        "/release/it's/mission-statusline.js",
+        join(stateDir, 'limits'),
+      ]);
+
+      expect(path).toBe(join(stateDir, 'mission', 'claude-settings.json'));
+      expect(JSON.parse(readFileSync(path, 'utf-8'))).toEqual({
+        permissions: { defaultMode: 'auto' },
+        statusLine: {
+          type: 'command',
+          command: `'/usr/bin/node' '/release/it'\\''s/mission-statusline.js' '${join(stateDir, 'limits')}'`,
+          padding: 0,
+        },
+      });
+      expect(statSync(path).mode & 0o777).toBe(0o600);
+      expect(yield* missionSettings(join(stateDir, 'missing.json'), stateDir, ['s'])).toBe(
+        join(stateDir, 'missing.json'),
+      );
+    }),
   );
 
   it.effect('marks and unmarks the issue in progress, and comments', () =>

@@ -54,6 +54,11 @@ const main = Layer.unwrap(
         deployScript: config.deployScript,
         // The settings ship beside the build, in the release's `mission` folder (ADR 0019).
         missionSettings: fileURLToPath(new URL('../mission/claude-settings.json', import.meta.url)),
+        // The status line that reports Claude's usage limits runs on this Node (spec 038).
+        missionStatusLine: [
+          process.execPath,
+          fileURLToPath(new URL('./mission-statusline.js', import.meta.url)),
+        ],
         stateDir: config.stateDir,
         ...(speech._tag === 'On' ? { speech: { url: speech.url, model: speech.model } } : {}),
         ...Option.match(config.webDist, { onNone: () => ({}), onSome: (webDist) => ({ webDist }) }),

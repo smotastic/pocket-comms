@@ -6,6 +6,8 @@
   the **missions** level can be chosen), [spec 006](../006-comms-gitea-issues/spec.md) (an
   issue offers **Send on a mission** beside Implement), [spec 013](../013-comms-brainstorm-chat/spec.md)
   (a proposal carries a lane)
+- **Changed by:** [spec 038](../038-comms-autopilot/spec.md) (a mission Autopilot sent is marked;
+  a mission waits while Claude's usage limit holds it)
 - **Decision:** [ADR 0019](../../docs/architecture/adr/0019-missions-run-as-a-bot-in-the-planets-worktrees-queued-by-comms.md)
 
 ## 1. Problem / intent (WHY)

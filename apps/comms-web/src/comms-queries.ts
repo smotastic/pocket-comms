@@ -11,6 +11,7 @@ export const screenKey = (ref: string) => ['screen', ref] as const;
 export const subagentKey = (ref: string, id: string) => ['subagent', ref, id] as const;
 export const planetsKey = ['planets'] as const;
 export const missionsKey = ['missions'] as const;
+export const autopilotKey = ['autopilot'] as const;
 export const issuesKey = (planet: string) => ['issues', planet] as const;
 export const brainstormKey = ['brainstorm'] as const;
 export const activityKey = ['activity'] as const;
@@ -30,6 +31,13 @@ export const missionsQuery = (client: CommsClient) =>
     queryKey: missionsKey,
     queryFn: () => client.missions(),
     refetchInterval: 10_000,
+  });
+
+export const autopilotQuery = (client: CommsClient) =>
+  queryOptions({
+    queryKey: autopilotKey,
+    queryFn: () => client.autopilot(),
+    refetchInterval: 30_000,
   });
 
 export const overviewQuery = (client: CommsClient) =>

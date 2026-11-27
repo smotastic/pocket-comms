@@ -63,6 +63,17 @@ export class MissionBotOutbound extends Context.Service<
       repository: GiteaRepository,
       issue: { readonly title: string; readonly body: string },
     ) => Effect.Effect<number, MissionBotError>;
+    /**
+     * Adds the label `add` to the issue, created with `style` when the repository has none, and
+     * removes the labels named in `remove` that it has (spec 038).
+     */
+    readonly relabel: (
+      repository: GiteaRepository,
+      number: number,
+      add: string,
+      style: { readonly color: string; readonly description: string },
+      remove: ReadonlyArray<string>,
+    ) => Effect.Effect<void, MissionBotError>;
     /** Closes an issue with a comment first (spec 037). */
     readonly closeIssue: (
       repository: GiteaRepository,

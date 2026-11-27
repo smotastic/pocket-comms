@@ -214,9 +214,16 @@ describe('preflight', () => {
 
 describe('the effective autonomy level', () => {
   it('is the chosen level on go, and manual on no-go', () => {
-    expect(effectiveAutonomy('missions', 'go')).toBe('missions');
-    expect(effectiveAutonomy('missions', 'no-go')).toBe('manual');
-    expect(effectiveAutonomy('manual', 'go')).toBe('manual');
+    expect(effectiveAutonomy('missions', 'go', true)).toBe('missions');
+    expect(effectiveAutonomy('missions', 'go', false)).toBe('missions');
+    expect(effectiveAutonomy('missions', 'no-go', true)).toBe('manual');
+    expect(effectiveAutonomy('manual', 'go', true)).toBe('manual');
+  });
+
+  it('keeps autopilot only when the planet deploys, else missions (spec 038)', () => {
+    expect(effectiveAutonomy('autopilot', 'go', true)).toBe('autopilot');
+    expect(effectiveAutonomy('autopilot', 'go', false)).toBe('missions');
+    expect(effectiveAutonomy('autopilot', 'no-go', true)).toBe('manual');
   });
 });
 
@@ -265,8 +272,13 @@ describe('choosing a level', () => {
     });
   });
 
-  it('refuses autopilot, and a repository that is not a planet', () => {
-    expect(chooseAutonomy(registry, 'app', 'autopilot')).toBeUndefined();
+  it('lets the owner choose autopilot (spec 038)', () => {
+    expect(chooseAutonomy(registry, 'app', 'autopilot')).toEqual({
+      planets: [{ name: 'app', autonomy: 'autopilot' }],
+    });
+  });
+
+  it('refuses a repository that is not a planet', () => {
     expect(chooseAutonomy(registry, 'api', 'missions')).toBeUndefined();
   });
 });

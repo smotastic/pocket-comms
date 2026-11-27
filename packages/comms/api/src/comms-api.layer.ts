@@ -5,6 +5,7 @@ import * as Layer from 'effect/Layer';
 import { HttpApiBuilder, HttpApiScalar } from 'effect/http-api';
 import { activityHandlers } from './activity.handlers.js';
 import { agentsHandlers } from './agents.handlers.js';
+import { autopilotHandlers } from './autopilot.handlers.js';
 import { bodyLimit } from './body-limit.js';
 import { brainstormHandlers } from './brainstorm.handlers.js';
 import { issuesHandlers } from './issues.handlers.js';
@@ -47,6 +48,7 @@ export const commsApiLayer = (allowedLogin: string) =>
       pullRequestsHandlers,
       taskStartsHandlers,
       missionsHandlers,
+      autopilotHandlers,
     ]),
     Layer.provide(tailscaleIdentityLayer(allowedLogin)),
     Layer.provide(validationMiddlewareLayer),

@@ -119,3 +119,103 @@ describe('Mission Control (spec 035)', () => {
     await waitFor(() => expect(fake.calls.missionRequests).toEqual(['deploy w']));
   });
 });
+
+describe('Autopilot in Mission Control (spec 038)', () => {
+  const night = {
+    window: '2026-11-27',
+    triaged: true,
+    triage: [
+      {
+        planet: 'pocket-lens',
+        verdicts: [
+          {
+            number: 40,
+            title: 'Albums of albums',
+            url: 'http://gitea.test/40',
+            verdict: 'full-flight' as const,
+            reason: 'A new screen.',
+          },
+          {
+            number: 41,
+            title: 'Wrong plural',
+            url: 'http://gitea.test/41',
+            verdict: 'hop' as const,
+            reason: 'One string.',
+          },
+        ],
+      },
+      { planet: 'pocket-coach', verdicts: [], skipped: 'Pi is not set up.' },
+    ],
+    sent: [
+      {
+        id: 'a1',
+        planet: 'pocket-lens',
+        issue: { number: 41, title: 'Wrong plural', url: 'http://gitea.test/41' },
+        state: 'deployed' as const,
+      },
+    ],
+    stopped: 'two missions in a row failed.',
+  };
+
+  it('shows the window, the planets, the triage and what it sent, and marks its missions', async () => {
+    const fake = fakeClient({
+      missions: {
+        queue: [],
+        log: [mission({ id: 'a1', state: 'deployed', autopilot: true, finishedAt: Date.now() })],
+        newCount: 0,
+      },
+      autopilot: {
+        settings: { enabled: true, start: '23:00', end: '07:00', budget: 5 },
+        open: false,
+        planets: ['pocket-lens'],
+        night,
+      },
+    });
+    renderApp({ client: fake.client, path: '/missions' });
+
+    const section = await screen.findByRole('region', { name: 'Autopilot' });
+    expect(
+      await within(section).findByText(
+        'Window 23:00–07:00, closed now. At autopilot: pocket-lens.',
+      ),
+    ).toBeDefined();
+    expect(within(section).getByText('Stopped: two missions in a row failed.')).toBeDefined();
+    expect(
+      within(section).getByText('Triage of pocket-coach skipped: Pi is not set up.'),
+    ).toBeDefined();
+    const grilling = within(section).getByRole('list', { name: 'Ready for your grilling' });
+    expect(within(grilling).getByText('pocket-lens #40 Albums of albums')).toBeDefined();
+    expect(within(grilling).getByText('A new screen.')).toBeDefined();
+    const sent = within(section).getByRole('list', { name: 'Sent by Autopilot' });
+    expect(within(sent).getByText('Deployed')).toBeDefined();
+    const log = screen.getByRole('list', { name: 'Mission log' });
+    expect(within(log).getByText('Autopilot')).toBeDefined();
+  });
+
+  it('switches Autopilot off at once, and saves the window and budget', async () => {
+    const fake = fakeClient();
+    renderApp({ client: fake.client, path: '/missions' });
+    const section = await screen.findByRole('region', { name: 'Autopilot' });
+
+    await userEvent.click(await within(section).findByRole('switch', { name: /Autopilot/u }));
+    await waitFor(() =>
+      expect(fake.calls.autopilotSettings).toEqual([
+        { enabled: false, start: '23:00', end: '07:00', budget: 5 },
+      ]),
+    );
+
+    const opens = within(section).getByLabelText('Window opens');
+    await userEvent.clear(opens);
+    await userEvent.type(opens, '22:30');
+    await userEvent.click(within(section).getByRole('button', { name: 'Save window and budget' }));
+
+    await waitFor(() =>
+      expect(fake.calls.autopilotSettings.at(-1)).toEqual({
+        enabled: false,
+        start: '22:30',
+        end: '07:00',
+        budget: 5,
+      }),
+    );
+  });
+});

@@ -142,7 +142,7 @@ describe("the planet page's preflight", () => {
     const levels = within(card).getByRole('radiogroup', { name: 'Autonomy level' });
     const manual = within(levels).getByRole('radio', { name: 'Manual' });
     expect(manual.getAttribute('aria-checked')).toBe('true');
-    expect(within(levels).getByRole('radio', { name: 'Autopilot (coming)' })).toBeDefined();
+    expect(within(levels).getByRole('radio', { name: 'Autopilot' })).toBeDefined();
     expect(within(card).getByText('In effect: manual.')).toBeDefined();
   });
 
@@ -178,6 +178,29 @@ describe("the planet page's preflight", () => {
     await userEvent.click(await within(card).findByRole('radio', { name: 'Missions' }));
 
     expect(fake.calls.chosenLevels).toEqual(['pocket-home missions']);
+  });
+
+  it('chooses autopilot, and says when it is at missions because it does not deploy (spec 038)', async () => {
+    const atMissions = {
+      result: 'go' as const,
+      checks: [{ check: 'gitea', passed: true, reason: "The repository is on the app's Gitea." }],
+      autonomy: { chosen: 'autopilot' as const, effective: 'missions' as const },
+      checkedAt: Date.now(),
+    };
+    const fake = fakeClient({ overview, preflights: new Map([['pocket-home', noGo]]) });
+    renderApp({ client: fake.client, path: '/planets/pocket-home' });
+    const card = await preflightCard();
+
+    await userEvent.click(await within(card).findByRole('radio', { name: 'Autopilot' }));
+    expect(fake.calls.chosenLevels).toEqual(['pocket-home autopilot']);
+
+    fake.state.preflights.set('pocket-home', atMissions);
+    renderApp({ client: fake.client, path: '/planets/pocket-home' });
+    expect(
+      await screen.findByText(
+        'In effect: missions, lowered from autopilot because the planet does not deploy.',
+      ),
+    ).toBeDefined();
   });
 
   it('unregisters the planet only once the owner confirms, then goes back', async () => {

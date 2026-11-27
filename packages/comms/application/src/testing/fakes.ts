@@ -20,7 +20,9 @@ import {
   type PlanetRegistry,
   type CiRun,
   type ReleaseCommit,
+  EMPTY_AUTOPILOT,
   EMPTY_MISSIONS,
+  type AutopilotFile,
   type GiteaRepository,
   type MissionsFile,
 } from '@pocket-comms/comms-domain';
@@ -62,6 +64,8 @@ import {
   type DeployResult,
 } from '../ports/deploy.outbound.port.js';
 import { MissionsOutbound } from '../ports/missions.outbound.port.js';
+import { AutopilotOutbound } from '../ports/autopilot.outbound.port.js';
+import { UsageLimitsOutbound } from '../ports/usage-limits.outbound.port.js';
 import { ActivityStoreOutbound } from '../ports/activity-store.outbound.port.js';
 import {
   BrainstormStoreOutbound,
@@ -260,6 +264,10 @@ export class FakeState extends Context.Service<
     quickReplies: ReadonlyArray<string> | undefined;
     /** Why the quick replies store fails, when it does. */
     quickRepliesFailure: string | undefined;
+    /** The Autopilot file (spec 038). */
+    autopilot: AutopilotFile;
+    /** The reached usage limits by Claude session, their reset in epoch ms (spec 038). */
+    readonly usageLimits: Map<string, number>;
     /** The missions file. */
     missions: MissionsFile;
     /** When set, saving the missions file fails with this reason. */
@@ -892,6 +900,8 @@ const missionBot = (fake: FakeState['Service']): MissionBotOutbound['Service'] =
             },
       ),
     setLane: (repository, number, lane) => call(`setLane ${name(repository)} ${number} ${lane}`),
+    relabel: (repository, number, add, _style, remove) =>
+      call(`relabel ${name(repository)} ${number} +${add} -${remove.join(',')}`),
     markInProgress: (repository, number) => call(`markInProgress ${name(repository)} ${number}`),
     unmarkInProgress: (repository, number) =>
       call(`unmarkInProgress ${name(repository)} ${number}`),
@@ -982,6 +992,8 @@ export const fakeLayer = () => {
         quickReplies: undefined,
         quickRepliesFailure: undefined,
         speech: { available: true, text: '', failure: undefined, clips: [] },
+        autopilot: EMPTY_AUTOPILOT,
+        usageLimits: new Map(),
         missions: EMPTY_MISSIONS,
         missionsFailure: undefined,
         bot: {
@@ -1010,162 +1022,175 @@ export const fakeLayer = () => {
   const ports = Layer.effectContext(
     Effect.gen(function* () {
       const fake = yield* FakeState;
-      return Context.make(MultiplexerOutbound, herdr(fake)).pipe(
-        Context.add(ConversationOutbound, conversations(fake)),
-        Context.add(RepositoriesOutbound, planets(fake)),
-        Context.add(GiteaOutbound, gitea(fake)),
-        Context.add(PlanetsOutbound, {
-          load: Effect.sync(() =>
-            fake.registry === 'none'
-              ? Option.none<PlanetRegistry>()
-              : Option.some(
-                  fake.registry ?? {
-                    planets: fake.planets.map(({ name }) => ({
-                      name,
-                      autonomy: 'manual' as const,
-                    })),
-                  },
-                ),
-          ),
-          save: (registry) =>
-            Effect.suspend(() =>
-              fake.registryFailure === undefined
-                ? Effect.sync(() => void (fake.registry = registry)).pipe(
-                    Effect.andThen(PubSub.publish(fake.registryChanges, undefined)),
-                    Effect.asVoid,
-                  )
-                : Effect.fail(new PlanetsStoreError({ reason: fake.registryFailure })),
+      return Context.make(MultiplexerOutbound, herdr(fake))
+        .pipe(
+          Context.add(ConversationOutbound, conversations(fake)),
+          Context.add(RepositoriesOutbound, planets(fake)),
+          Context.add(GiteaOutbound, gitea(fake)),
+          Context.add(PlanetsOutbound, {
+            load: Effect.sync(() =>
+              fake.registry === 'none'
+                ? Option.none<PlanetRegistry>()
+                : Option.some(
+                    fake.registry ?? {
+                      planets: fake.planets.map(({ name }) => ({
+                        name,
+                        autonomy: 'manual' as const,
+                      })),
+                    },
+                  ),
             ),
-          changes: Stream.fromPubSub(fake.registryChanges),
-        }),
-        Context.add(AgentRuntime, {
-          get notSetUp() {
-            return Option.fromNullishOr(fake.notSetUp);
-          },
-          get seesImages() {
-            return fake.seesImages;
-          },
-          runTurn: (turn) => scriptedTurn({ turns: fake.script, received: fake.turns }, turn),
-        }),
-        Context.add(BrainstormStoreOutbound, {
-          load: Effect.sync(() => Option.fromNullishOr(fake.storedBrainstorm)),
-          save: (brainstorm) =>
-            fake.saveDies?.(brainstorm) === true
-              ? Effect.die('The disk is full.')
-              : Effect.sync(() => {
-                  fake.storedBrainstorm = brainstorm;
-                  fake.saves += 1;
-                }),
-        }),
-        Context.add(ImagesOutbound, images(fake)),
-        Context.add(ActivityStoreOutbound, {
-          events: Effect.sync(() => fake.activity),
-          update: (change) =>
-            Effect.suspend(() => {
-              fake.activity = change(fake.activity);
-              return PubSub.publish(fake.activityChanges, undefined);
-            }).pipe(Effect.asVoid),
-          changes: Stream.fromPubSub(fake.activityChanges),
-        }),
-        Context.add(PushSubscriptionsOutbound, pushSubscriptions(fake)),
-        Context.add(PushKeysOutbound, {
-          publicKey: Effect.suspend(() => pushStore(fake, () => fake.pushPublicKey)),
-        }),
-        Context.add(PushSenderOutbound, {
-          send: (subscription, notification) =>
-            Effect.gen(function* () {
-              if (fake.goneEndpoints.has(subscription.endpoint)) return 'gone' as const;
-              const at = yield* Clock.currentTimeMillis;
-              fake.pushes.push({ endpoint: subscription.endpoint, notification, at });
-              return 'sent' as const;
-            }),
-        }),
-        Context.add(TaskStartsOutbound, {
-          load: Effect.suspend(() => taskStartsStore(fake, () => [...fake.taskStarts.values()])),
-          put: (start) =>
-            Effect.suspend(() =>
-              taskStartsStore(fake, () => void fake.taskStarts.set(start.folder, start)),
-            ),
-          forget: (folder) =>
-            Effect.suspend(() => taskStartsStore(fake, () => void fake.taskStarts.delete(folder))),
-        }),
-        Context.add(PullRequestsOutbound, {
-          load: Effect.suspend(() => {
-            const reason = fake.attachedListsFailure ?? fake.attachedListsLoadFailure;
-            return reason === undefined
-              ? Effect.succeed(fake.attachedLists)
-              : Effect.fail(new PullRequestsStoreError({ reason }));
+            save: (registry) =>
+              Effect.suspend(() =>
+                fake.registryFailure === undefined
+                  ? Effect.sync(() => void (fake.registry = registry)).pipe(
+                      Effect.andThen(PubSub.publish(fake.registryChanges, undefined)),
+                      Effect.asVoid,
+                    )
+                  : Effect.fail(new PlanetsStoreError({ reason: fake.registryFailure })),
+              ),
+            changes: Stream.fromPubSub(fake.registryChanges),
           }),
-          save: (lists) =>
-            Effect.suspend(() =>
-              fake.attachedListsFailure === undefined
-                ? Effect.sync(() => {
-                    fake.attachedLists = lists;
-                    fake.attachedListsLoadFailure = undefined;
-                  })
-                : Effect.fail(new PullRequestsStoreError({ reason: fake.attachedListsFailure })),
-            ),
-        }),
-        Context.add(QuickRepliesOutbound, {
-          load: Effect.suspend(() =>
-            fake.quickRepliesFailure === undefined
-              ? Effect.succeed(Option.fromNullishOr(fake.quickReplies))
-              : Effect.fail(new QuickRepliesStoreError({ reason: fake.quickRepliesFailure })),
-          ),
-          save: (replies) =>
-            Effect.suspend(() =>
+          Context.add(AgentRuntime, {
+            get notSetUp() {
+              return Option.fromNullishOr(fake.notSetUp);
+            },
+            get seesImages() {
+              return fake.seesImages;
+            },
+            runTurn: (turn) => scriptedTurn({ turns: fake.script, received: fake.turns }, turn),
+          }),
+          Context.add(BrainstormStoreOutbound, {
+            load: Effect.sync(() => Option.fromNullishOr(fake.storedBrainstorm)),
+            save: (brainstorm) =>
+              fake.saveDies?.(brainstorm) === true
+                ? Effect.die('The disk is full.')
+                : Effect.sync(() => {
+                    fake.storedBrainstorm = brainstorm;
+                    fake.saves += 1;
+                  }),
+          }),
+          Context.add(ImagesOutbound, images(fake)),
+          Context.add(ActivityStoreOutbound, {
+            events: Effect.sync(() => fake.activity),
+            update: (change) =>
+              Effect.suspend(() => {
+                fake.activity = change(fake.activity);
+                return PubSub.publish(fake.activityChanges, undefined);
+              }).pipe(Effect.asVoid),
+            changes: Stream.fromPubSub(fake.activityChanges),
+          }),
+          Context.add(PushSubscriptionsOutbound, pushSubscriptions(fake)),
+          Context.add(PushKeysOutbound, {
+            publicKey: Effect.suspend(() => pushStore(fake, () => fake.pushPublicKey)),
+          }),
+          Context.add(PushSenderOutbound, {
+            send: (subscription, notification) =>
+              Effect.gen(function* () {
+                if (fake.goneEndpoints.has(subscription.endpoint)) return 'gone' as const;
+                const at = yield* Clock.currentTimeMillis;
+                fake.pushes.push({ endpoint: subscription.endpoint, notification, at });
+                return 'sent' as const;
+              }),
+          }),
+          Context.add(TaskStartsOutbound, {
+            load: Effect.suspend(() => taskStartsStore(fake, () => [...fake.taskStarts.values()])),
+            put: (start) =>
+              Effect.suspend(() =>
+                taskStartsStore(fake, () => void fake.taskStarts.set(start.folder, start)),
+              ),
+            forget: (folder) =>
+              Effect.suspend(() =>
+                taskStartsStore(fake, () => void fake.taskStarts.delete(folder)),
+              ),
+          }),
+          Context.add(PullRequestsOutbound, {
+            load: Effect.suspend(() => {
+              const reason = fake.attachedListsFailure ?? fake.attachedListsLoadFailure;
+              return reason === undefined
+                ? Effect.succeed(fake.attachedLists)
+                : Effect.fail(new PullRequestsStoreError({ reason }));
+            }),
+            save: (lists) =>
+              Effect.suspend(() =>
+                fake.attachedListsFailure === undefined
+                  ? Effect.sync(() => {
+                      fake.attachedLists = lists;
+                      fake.attachedListsLoadFailure = undefined;
+                    })
+                  : Effect.fail(new PullRequestsStoreError({ reason: fake.attachedListsFailure })),
+              ),
+          }),
+          Context.add(QuickRepliesOutbound, {
+            load: Effect.suspend(() =>
               fake.quickRepliesFailure === undefined
-                ? Effect.sync(() => void (fake.quickReplies = replies))
+                ? Effect.succeed(Option.fromNullishOr(fake.quickReplies))
                 : Effect.fail(new QuickRepliesStoreError({ reason: fake.quickRepliesFailure })),
             ),
-        }),
-        Context.add(SeenOutbound, {
-          seen: Effect.sync(() => new Set(fake.seen)),
-          markSeen: (key) =>
-            Effect.suspend(() => {
-              fake.seen.add(key);
-              return PubSub.publish(fake.seenChanges, undefined);
-            }).pipe(Effect.asVoid),
-          changes: Stream.fromPubSub(fake.seenChanges),
-        }),
-        Context.add(MissionsOutbound, {
-          load: Effect.sync(() => fake.missions),
-          save: (file) =>
-            Effect.suspend(() =>
-              fake.missionsFailure === undefined
-                ? Effect.sync(() => void (fake.missions = file))
-                : Effect.fail(new MissionsStoreError({ reason: fake.missionsFailure })),
-            ),
-        }),
-        Context.add(MissionBotOutbound, missionBot(fake)),
-        Context.add(DeployOutbound, {
-          get configured() {
-            return fake.deploy.configured;
-          },
-          check: (app) =>
-            Effect.sync(() => ({
-              app,
-              ...(fake.deploy.configured
-                ? (fake.deploy.checks.get(app) ?? { ready: true, reason: `${app} is ready.` })
-                : {
-                    ready: false,
-                    reason: 'The server has no deploy script (COMMS_DEPLOY_SCRIPT).',
-                  }),
-            })),
-          start: (job) =>
-            Effect.suspend(() =>
-              fake.deploy.startFailure === undefined
-                ? Effect.sync(() => ({ pid: 5000 + fake.deploy.started.push(job) }))
-                : Effect.fail(new DeployError({ reason: fake.deploy.startFailure })),
-            ),
-          running: (pid) => Effect.sync(() => !fake.deploy.ended.has(pid)),
-          result: (id) => Effect.sync(() => Option.fromNullishOr(fake.deploy.results.get(id))),
-        }),
-        Context.add(StatusHistoryOutbound, {
-          get: (paneId) => Effect.sync(() => Option.fromNullishOr(fake.history.get(paneId))),
-          set: (paneId, mark) => Effect.sync(() => void fake.history.set(paneId, mark)),
-        }),
-      );
+            save: (replies) =>
+              Effect.suspend(() =>
+                fake.quickRepliesFailure === undefined
+                  ? Effect.sync(() => void (fake.quickReplies = replies))
+                  : Effect.fail(new QuickRepliesStoreError({ reason: fake.quickRepliesFailure })),
+              ),
+          }),
+          Context.add(SeenOutbound, {
+            seen: Effect.sync(() => new Set(fake.seen)),
+            markSeen: (key) =>
+              Effect.suspend(() => {
+                fake.seen.add(key);
+                return PubSub.publish(fake.seenChanges, undefined);
+              }).pipe(Effect.asVoid),
+            changes: Stream.fromPubSub(fake.seenChanges),
+          }),
+          Context.add(MissionsOutbound, {
+            load: Effect.sync(() => fake.missions),
+            save: (file) =>
+              Effect.suspend(() =>
+                fake.missionsFailure === undefined
+                  ? Effect.sync(() => void (fake.missions = file))
+                  : Effect.fail(new MissionsStoreError({ reason: fake.missionsFailure })),
+              ),
+          }),
+          Context.add(MissionBotOutbound, missionBot(fake)),
+          Context.add(DeployOutbound, {
+            get configured() {
+              return fake.deploy.configured;
+            },
+            check: (app) =>
+              Effect.sync(() => ({
+                app,
+                ...(fake.deploy.configured
+                  ? (fake.deploy.checks.get(app) ?? { ready: true, reason: `${app} is ready.` })
+                  : {
+                      ready: false,
+                      reason: 'The server has no deploy script (COMMS_DEPLOY_SCRIPT).',
+                    }),
+              })),
+            start: (job) =>
+              Effect.suspend(() =>
+                fake.deploy.startFailure === undefined
+                  ? Effect.sync(() => ({ pid: 5000 + fake.deploy.started.push(job) }))
+                  : Effect.fail(new DeployError({ reason: fake.deploy.startFailure })),
+              ),
+            running: (pid) => Effect.sync(() => !fake.deploy.ended.has(pid)),
+            result: (id) => Effect.sync(() => Option.fromNullishOr(fake.deploy.results.get(id))),
+          }),
+          Context.add(StatusHistoryOutbound, {
+            get: (paneId) => Effect.sync(() => Option.fromNullishOr(fake.history.get(paneId))),
+            set: (paneId, mark) => Effect.sync(() => void fake.history.set(paneId, mark)),
+          }),
+        )
+        .pipe(
+          // A pipe takes at most 20 steps; the ports of spec 038 go on here.
+          Context.add(AutopilotOutbound, {
+            load: Effect.sync(() => fake.autopilot),
+            save: (file) => Effect.sync(() => void (fake.autopilot = file)),
+          }),
+          Context.add(UsageLimitsOutbound, {
+            limits: Effect.sync(() => new Map(fake.usageLimits)),
+          }),
+        );
     }),
   );
   const transcriber = Layer.unwrap(

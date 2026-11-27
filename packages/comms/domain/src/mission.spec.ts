@@ -212,6 +212,34 @@ describe('the step of a running mission', () => {
     ).toEqual({ _tag: 'Failed', reason: 'Pull request #12 was closed without merging.' });
   });
 
+  it("waits while Claude's usage limit is reached, and goes on after it (spec 038)", () => {
+    const limited = { agent: { status: 'working' }, pullRequest: undefined, limitedUntil: 5_000 };
+    expect(missionStep(working, limited)).toEqual({
+      _tag: 'Move',
+      state: 'waiting',
+      limitedUntil: 5_000,
+    });
+    const waiting = mission({ state: 'waiting', limitedUntil: 5_000 });
+    expect(missionStep(waiting, limited)).toEqual({ _tag: 'Stay' });
+    expect(
+      missionStep(mission({ state: 'pull-request' }), {
+        ...limited,
+        pullRequest: { ...pull, state: 'open' },
+      }),
+    ).toEqual({ _tag: 'Move', state: 'waiting', limitedUntil: 5_000 });
+    expect(missionStep(waiting, { agent: { status: 'working' }, pullRequest: undefined })).toEqual({
+      _tag: 'Move',
+      state: 'working',
+      limitedUntil: undefined,
+    });
+    expect(
+      missionStep(mission({ state: 'working', limitedUntil: 5_000 }), {
+        agent: { status: 'working' },
+        pullRequest: undefined,
+      }),
+    ).toEqual({ _tag: 'Move', state: 'working', limitedUntil: undefined });
+  });
+
   it('is lost when its agent is gone, and stays lost', () => {
     expect(missionStep(working, { agent: undefined, pullRequest: undefined })).toEqual({
       _tag: 'Lost',

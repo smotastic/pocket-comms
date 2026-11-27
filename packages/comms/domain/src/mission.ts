@@ -153,6 +153,10 @@ export interface Mission {
   readonly deployWith?: string | undefined;
   /** When the owner resumed the planet this failed deploy paused (spec 037). */
   readonly resumedAt?: number | undefined;
+  /** Whether Autopilot sent it (spec 038). */
+  readonly autopilot?: boolean | undefined;
+  /** When Claude's reached usage limit resets, while it waits on it (spec 038). */
+  readonly limitedUntil?: number | undefined;
 }
 
 /** The missions file: every mission, and when the owner last opened the mission log. */
@@ -238,12 +242,19 @@ export interface MissionFacts {
   readonly pullRequest:
     | (MissionPullRequest & { readonly state: 'open' | 'closed' | 'merged' })
     | undefined;
+  /** When its Claude's reached usage limit resets; none while no limit is reached (spec 038). */
+  readonly limitedUntil?: number | undefined;
 }
 
 /** The next step of a running mission. */
 export type MissionStep =
   | { readonly _tag: 'Stay' }
-  | { readonly _tag: 'Move'; readonly state: 'working' | 'waiting' | 'pull-request' }
+  | {
+      readonly _tag: 'Move';
+      readonly state: 'working' | 'waiting' | 'pull-request';
+      /** Set while Claude's usage limit holds it, cleared after (spec 038). */
+      readonly limitedUntil?: number | undefined;
+    }
   | { readonly _tag: 'Lost' }
   | { readonly _tag: 'Merged'; readonly pullRequest: MissionPullRequest }
   | { readonly _tag: 'Failed'; readonly reason: string };
@@ -263,8 +274,15 @@ export const missionStep = (mission: Mission, facts: MissionFacts): MissionStep 
     return { _tag: 'Failed', reason: `Pull request #${pull.number} was closed without merging.` };
   }
   if (facts.agent === undefined) return { _tag: 'Lost' };
+  // Claude waits for its usage limit to reset and goes on by itself (spec 038, requirement 17).
+  if (facts.limitedUntil !== undefined) {
+    return mission.state === 'waiting' && mission.limitedUntil === facts.limitedUntil
+      ? { _tag: 'Stay' }
+      : { _tag: 'Move', state: 'waiting', limitedUntil: facts.limitedUntil };
+  }
   const state =
     pull !== undefined ? 'pull-request' : facts.agent.status === 'blocked' ? 'waiting' : 'working';
+  if (mission.limitedUntil !== undefined) return { _tag: 'Move', state, limitedUntil: undefined };
   return state === mission.state ? { _tag: 'Stay' } : { _tag: 'Move', state };
 };
 

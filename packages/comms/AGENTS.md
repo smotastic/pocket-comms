@@ -27,8 +27,9 @@ pull requests agents attach to their conversation and reads their changes from G
 [spec 030](../../specs/030-comms-answer-questions-in-chat/spec.md),
 [spec 031](../../specs/031-comms-attached-pull-requests/spec.md) and
 [spec 032](../../specs/032-comms-recover-task-starts/spec.md),
-[spec 034](../../specs/034-comms-planets-and-preflight/spec.md) and
-[spec 035](../../specs/035-comms-missions-to-merge/spec.md).
+[spec 034](../../specs/034-comms-planets-and-preflight/spec.md),
+[spec 035](../../specs/035-comms-missions-to-merge/spec.md) and
+[spec 038](../../specs/038-comms-autopilot/spec.md).
 It has no database. Seen completions, last status changes and the background work read from each
 session file live in server memory; the brainstorm and the activity timeline are JSON files in
 the state folder, attached images are files in its `images` folder, the push devices and the
@@ -38,7 +39,10 @@ VAPID key pair are two JSON files in its `push` folder, the owner's quick replie
 whose first prompt is not yet delivered are `task-starts.json` there, by worktree folder, and
 the planets the owner registered, with their settings, are `planets.json` there (ADR 0018), and
 the mission queue with every mission's state is `missions.json` there; the mission bot's git
-credential file is `mission/git-credentials` there, mode 600 (ADR 0019).
+credential file is `mission/git-credentials` there, mode 600 (ADR 0019), and the mission
+settings with the usage status line are `mission/claude-settings.json` there; Autopilot's
+settings, triage record and current window are `autopilot.json` there, and the usage limits the
+missions' Claude reports are `limits/<session>.json` there (ADR 0021).
 The older files still name a planet `project`, the word from before spec 034.
 
 ## Where each file type goes

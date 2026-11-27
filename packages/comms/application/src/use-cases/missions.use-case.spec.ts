@@ -97,6 +97,68 @@ describe('sending a mission', () => {
   );
 });
 
+describe('Autopilot and the usage limit (spec 038)', () => {
+  it.effect('keeps that Autopilot sent a mission, and shows it', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state);
+      const { send, list } = yield* missions;
+
+      const sent = yield* send('app', 7, 'hop', { autopilot: true });
+      const owner = yield* send('app', 8, 'hop');
+
+      expect(sent.autopilot).toBe(true);
+      expect(owner.autopilot).toBeUndefined();
+      expect(state.missions.missions.find((each) => each.issue.number === 7)?.autopilot).toBe(true);
+      expect((yield* list).queue.map((each) => each.autopilot)).toEqual([true, undefined]);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect("waits while Claude's usage limit holds a mission, and works on after it", () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state);
+      const { send, advance, list } = yield* missions;
+      yield* send('app', 7, 'hop');
+      yield* advance;
+      const running = (yield* list).running;
+      if (running?.agent === undefined) return yield* Effect.die('#7 did not start.');
+      agentOf(state, running.agent);
+      yield* advance;
+
+      const resets = new Date(2026, 10, 28, 4, 5).getTime();
+      state.usageLimits.set('s1', resets);
+      yield* advance;
+      const limited = (yield* list).running;
+      expect(limited).toMatchObject({ state: 'waiting' });
+      expect(limited?.reason).toBe("Claude's usage limit is reached; it resets at 04:05.");
+      expect(state.missions.missions[0]?.limitedUntil).toBe(resets);
+
+      state.usageLimits.clear();
+      yield* advance;
+      expect((yield* list).running).toMatchObject({ state: 'working', reason: undefined });
+      expect(state.missions.missions[0]?.limitedUntil).toBeUndefined();
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('counts a limit only until it resets', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state);
+      const { send, advance, list } = yield* missions;
+      yield* send('app', 7, 'hop');
+      yield* advance;
+      const running = (yield* list).running;
+      if (running?.agent === undefined) return yield* Effect.die('#7 did not start.');
+      agentOf(state, running.agent);
+      state.usageLimits.set('s1', -1);
+      yield* advance;
+
+      expect((yield* list).running).toMatchObject({ state: 'working' });
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+});
+
 describe('the mission queue', () => {
   it.effect('starts the oldest mission as the bot with the mission settings, one at a time', () =>
     Effect.gen(function* () {

@@ -89,10 +89,15 @@ Each step is its own ADR or spec.
    only the apps the owner allows, a deploy that ends without a result is **deploy lost** and one
    whose rollback failed is **down**, and every failure pauses the planet until its fix issue is
    closed or the owner taps **Resume** (spec 037).
-5. **Autopilot:** Mission Control chooses issues and their lanes by itself.
+5. **Autopilot:** Mission Control chooses issues and their lanes by itself. Inside the owner's
+   **Autopilot window** it triages the planets at autopilot once with Pi (read-only tools; the
+   mission bot labels hop, full flight or not ready, with the reason), then sends only hops, one
+   at a time while the queue is empty, within a budget; failed issues are skipped, two failures in
+   a row or Claude's usage limit stop the window, and the owner gets one summary when it closes.
+   Full flights wait for the owner's grilling. Spec 038, ADR 0021.
 
 ## Not now
 
-Autopilot, missions side by side, autonomous deploy before a planet's preflight has a rollback,
+Autopilot starting full flights, triage during the day, missions side by side, autonomous deploy before a planet's preflight has a rollback,
 and agents started outside Pocket Comms. pocket-mission is retired; it remains a reference for
 the Claude trust dialog, shared dev ports, usage limits, the bot user and the deny list.

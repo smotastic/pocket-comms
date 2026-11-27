@@ -17,7 +17,7 @@ import * as Option from 'effect/Option';
 import * as Redacted from 'effect/Redacted';
 import * as Schema from 'effect/Schema';
 import { execFile } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gitEnvironment } from '../repositories/git.js';
 
@@ -35,8 +35,14 @@ export interface MissionBotOptions {
   readonly token: Option.Option<Redacted.Redacted<string>>;
   /** The server's state folder; the credential file goes in its `mission` folder. */
   readonly stateDir: string;
-  /** The Claude settings file of a mission's agent. */
+  /** The Claude settings file of a mission's agent, as the server ships it. */
   readonly settingsPath: string;
+  /**
+   * The command, word by word, of the status line that reports Claude's usage limits (spec 038).
+   * When set, the layer writes the mission settings with it to the `mission` folder and gives
+   * Claude those.
+   */
+  readonly statusLine?: ReadonlyArray<string> | undefined;
   /** How long one request may take. Default 10 seconds. */
   readonly timeout?: Duration.Input;
 }
@@ -82,7 +88,61 @@ const runGit = (cwd: string, args: ReadonlyArray<string>) =>
     return Effect.sync(() => void child.kill());
   });
 
-export const layer = ({
+/** A word as one shell word. */
+const shellWord = (path: string) => `'${path.replaceAll("'", `'\\''`)}'`;
+
+/**
+ * The mission settings with the usage status line (spec 038), written to the state folder's
+ * `mission` folder; the shipped file when they cannot be written.
+ */
+export const missionSettings = (
+  shipped: string,
+  stateDir: string,
+  statusLine: ReadonlyArray<string>,
+) =>
+  Effect.tryPromise(async () => {
+    const settings: unknown = JSON.parse(await readFile(shipped, 'utf-8'));
+    const folder = join(stateDir, 'mission');
+    const path = join(folder, 'claude-settings.json');
+    await mkdir(folder, { recursive: true, mode: 0o700 });
+    await writeFile(
+      path,
+      `${JSON.stringify(
+        {
+          ...(typeof settings === 'object' && settings !== null ? settings : {}),
+          statusLine: {
+            type: 'command',
+            command: statusLine.map(shellWord).join(' '),
+            padding: 0,
+          },
+        },
+        undefined,
+        2,
+      )}\n`,
+      { encoding: 'utf-8', mode: 0o600 },
+    );
+    return path;
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.logWarning('The mission settings with the status line cannot be written').pipe(
+        Effect.annotateLogs({ error: String(error.cause) }),
+        Effect.as(shipped),
+      ),
+    ),
+  );
+
+export const layer = (options: MissionBotOptions) =>
+  Layer.effect(
+    MissionBotOutbound,
+    Effect.map(
+      options.statusLine === undefined
+        ? Effect.succeed(options.settingsPath)
+        : missionSettings(options.settingsPath, options.stateDir, options.statusLine),
+      (settingsPath) => makeBot({ ...options, settingsPath }),
+    ),
+  );
+
+const makeBot = ({
   url,
   token,
   stateDir,
@@ -263,6 +323,23 @@ export const layer = ({
       yield* addLabel(repository, number, id);
     }).pipe(Effect.withSpan('MissionBot.setLane'));
 
+  const relabel = (
+    repository: GiteaRepository,
+    number: number,
+    add: string,
+    style: { readonly color: string; readonly description: string },
+    remove: ReadonlyArray<string>,
+  ) =>
+    Effect.gen(function* () {
+      const all = yield* labels(repository);
+      for (const name of remove.filter((each) => each !== add)) {
+        const found = all.find((label) => label.name === name);
+        if (found !== undefined) yield* removeLabel(repository, number, found.id);
+      }
+      const id = yield* labelId(repository, add, style);
+      yield* addLabel(repository, number, id);
+    }).pipe(Effect.withSpan('MissionBot.relabel'));
+
   const markInProgress = (repository: GiteaRepository, number: number) =>
     labelId(repository, IN_PROGRESS_LABEL, IN_PROGRESS_LABEL_STYLE, isInProgressLabel).pipe(
       Effect.flatMap((id) => addLabel(repository, number, id)),
@@ -378,20 +455,18 @@ export const layer = ({
       yield* config('--add', 'credential.helper', `store --file ${credentials}`);
     }).pipe(Effect.withSpan('MissionBot.prepareWorktree'));
 
-  return Layer.succeed(
-    MissionBotOutbound,
-    MissionBotOutbound.of({
-      configured: Option.isSome(token),
-      settingsPath,
-      facts,
-      setLane,
-      markInProgress,
-      unmarkInProgress,
-      comment,
-      prepareWorktree,
-      pushTag,
-      openIssue,
-      closeIssue,
-    }),
-  );
+  return MissionBotOutbound.of({
+    configured: Option.isSome(token),
+    settingsPath,
+    facts,
+    setLane,
+    markInProgress,
+    unmarkInProgress,
+    relabel,
+    comment,
+    prepareWorktree,
+    pushTag,
+    openIssue,
+    closeIssue,
+  });
 };

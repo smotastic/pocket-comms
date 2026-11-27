@@ -767,6 +767,260 @@
         "required": ["pullRequests"],
         "type": "object"
       },
+      "Autopilot": {
+        "additionalProperties": false,
+        "description": "Autopilot in Mission Control (spec 038).",
+        "properties": {
+          "night": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "description": "The current or latest Autopilot window.",
+                "properties": {
+                  "sent": {
+                    "description": "The missions Autopilot sent, in order.",
+                    "examples": [[]],
+                    "items": {
+                      "additionalProperties": false,
+                      "description": "A mission Autopilot sent.",
+                      "properties": {
+                        "id": {
+                          "description": "The mission's id.",
+                          "examples": ["3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b"],
+                          "pattern": "^[0-9a-f-]{36}$",
+                          "type": "string"
+                        },
+                        "issue": {
+                          "additionalProperties": false,
+                          "description": "The issue it carries out.",
+                          "examples": [
+                            {
+                              "number": 38,
+                              "title": "Fix",
+                              "url": "http://localhost:3000/o/r/issues/38"
+                            }
+                          ],
+                          "properties": {
+                            "number": {
+                              "description": "The issue's number.",
+                              "examples": [38],
+                              "type": "integer"
+                            },
+                            "title": {
+                              "description": "The issue's title.",
+                              "examples": ["Fix"],
+                              "type": "string"
+                            },
+                            "url": {
+                              "description": "The issue's page in Gitea.",
+                              "examples": ["http://localhost:3000/o/r/issues/38"],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["number", "title", "url"],
+                          "type": "object"
+                        },
+                        "planet": {
+                          "description": "The planet.",
+                          "examples": ["pocket-lens"],
+                          "type": "string"
+                        },
+                        "state": {
+                          "description": "queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy), deploy-lost (its deploy ended without a result; spec 037) or down (its rollback failed too; spec 037).",
+                          "enum": [
+                            "queued",
+                            "working",
+                            "waiting",
+                            "pull-request",
+                            "lost",
+                            "merged",
+                            "failed",
+                            "aborted",
+                            "held",
+                            "releasing",
+                            "deploying",
+                            "deployed",
+                            "rolled-back",
+                            "not-deployed",
+                            "nothing-to-release",
+                            "awaiting-deploy",
+                            "deploy-lost",
+                            "down"
+                          ],
+                          "examples": ["working"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["id", "planet", "issue", "state"],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "stopped": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Why Autopilot sends nothing more in this window.",
+                    "examples": ["two missions in a row failed."]
+                  },
+                  "triage": {
+                    "description": "Each planet at autopilot and its triage.",
+                    "examples": [[]],
+                    "items": {
+                      "additionalProperties": false,
+                      "description": "A planet's triage in the window.",
+                      "properties": {
+                        "planet": {
+                          "description": "The planet.",
+                          "examples": ["pocket-lens"],
+                          "type": "string"
+                        },
+                        "skipped": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Why the triage of the planet was skipped.",
+                          "examples": ["Pi is not set up: COMMS_BRAINSTORM_MODEL is not set."]
+                        },
+                        "verdicts": {
+                          "description": "The verdicts, by issue number.",
+                          "examples": [[]],
+                          "items": {
+                            "additionalProperties": false,
+                            "description": "One verdict of the triage.",
+                            "properties": {
+                              "number": {
+                                "description": "The issue's number.",
+                                "examples": [38],
+                                "type": "integer"
+                              },
+                              "reason": {
+                                "description": "Why, in one line.",
+                                "examples": ["One function and its test."],
+                                "type": "string"
+                              },
+                              "title": {
+                                "description": "The issue's title.",
+                                "examples": ["The viewer shows 1/1 s"],
+                                "type": "string"
+                              },
+                              "url": {
+                                "description": "The issue's page in Gitea.",
+                                "examples": ["http://localhost:3000/o/r/issues/38"],
+                                "type": "string"
+                              },
+                              "verdict": {
+                                "description": "hop (small, clear, testable), full-flight (needs the owner's grilling) or not-ready.",
+                                "enum": ["hop", "full-flight", "not-ready"],
+                                "examples": ["hop"],
+                                "type": "string"
+                              }
+                            },
+                            "required": ["number", "title", "url", "verdict", "reason"],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": ["planet", "verdicts"],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "triaged": {
+                    "description": "Whether the planets were triaged in this window.",
+                    "examples": [true],
+                    "type": "boolean"
+                  },
+                  "window": {
+                    "description": "The window, by the date it opened (YYYY-MM-DD).",
+                    "examples": ["2026-11-27"],
+                    "type": "string"
+                  }
+                },
+                "required": ["window", "triaged", "triage", "sent"],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The current or latest window; none before the first.",
+            "examples": [
+              {
+                "sent": [],
+                "triage": [],
+                "triaged": true,
+                "window": "2026-11-27"
+              }
+            ]
+          },
+          "open": {
+            "description": "Whether the time is inside the Autopilot window now.",
+            "examples": [false],
+            "type": "boolean"
+          },
+          "planets": {
+            "description": "The planets at autopilot in effect.",
+            "examples": [["pocket-lens"]],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/AutopilotSettings"
+          }
+        },
+        "required": ["settings", "open", "planets"],
+        "type": "object"
+      },
+      "AutopilotSettings": {
+        "additionalProperties": false,
+        "description": "The owner's settings of Autopilot.",
+        "examples": [
+          {
+            "budget": 5,
+            "enabled": true,
+            "end": "07:00",
+            "start": "23:00"
+          }
+        ],
+        "properties": {
+          "budget": {
+            "description": "The most missions Autopilot sends in one window, across all planets (0 to 50).",
+            "examples": [5],
+            "type": "integer"
+          },
+          "enabled": {
+            "description": "The Autopilot switch, for all planets.",
+            "examples": [true],
+            "type": "boolean"
+          },
+          "end": {
+            "description": "When it closes, HH:MM; a window may cross midnight.",
+            "examples": ["07:00"],
+            "type": "string"
+          },
+          "start": {
+            "description": "When the Autopilot window opens, HH:MM.",
+            "examples": ["23:00"],
+            "type": "string"
+          }
+        },
+        "required": ["enabled", "start", "end", "budget"],
+        "type": "object"
+      },
       "BackgroundItem": {
         "additionalProperties": false,
         "description": "Work an agent left running while it carries on or waits at its prompt.",
@@ -1051,7 +1305,7 @@
         "description": "The planet's chosen autonomy level (spec 035).",
         "properties": {
           "level": {
-            "description": "The level to choose: manual or missions; autopilot cannot be chosen yet.",
+            "description": "The level to choose: manual, missions or autopilot (spec 038).",
             "enum": ["manual", "missions", "autopilot"],
             "examples": ["missions"],
             "type": "string"
@@ -1857,6 +2111,18 @@
             "description": "Its agent's name, while it has one.",
             "examples": ["fix-7-fix-the-header"]
           },
+          "autopilot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether Autopilot sent it (spec 038).",
+            "examples": [true]
+          },
           "deployWith": {
             "anyOf": [
               {
@@ -2120,6 +2386,18 @@
             ],
             "description": "Its agent's name, while it has one.",
             "examples": ["fix-7-fix-the-header"]
+          },
+          "autopilot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether Autopilot sent it (spec 038).",
+            "examples": [true]
           },
           "deployWith": {
             "anyOf": [
@@ -2563,7 +2841,7 @@
                 "type": "string"
               },
               "effective": {
-                "description": "The chosen level, lowered to manual on no-go; never stored.",
+                "description": "The chosen level, lowered to manual on no-go, and autopilot to missions when the deploy checks fail; never stored.",
                 "enum": ["manual", "missions", "autopilot"],
                 "examples": ["manual"],
                 "type": "string"
@@ -5814,6 +6092,120 @@
         "tags": ["Agents"]
       }
     },
+    "/api/v1/autopilot": {
+      "get": {
+        "description": "Its settings, whether the window is open, the planets at autopilot, and the current or latest window with its triage and the missions it sent (spec 038).",
+        "operationId": "autopilot.read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Autopilot"
+                }
+              }
+            },
+            "description": "Autopilot in Mission Control (spec 038)."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read Autopilot",
+        "tags": ["Autopilot"]
+      }
+    },
+    "/api/v1/autopilot/settings": {
+      "put": {
+        "description": "Keeps the switch, the window (two different HH:MM times) and the budget (0 to 50).",
+        "operationId": "autopilot.updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutopilotSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Autopilot"
+                }
+              }
+            },
+            "description": "Autopilot in Mission Control (spec 038)."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Change the Autopilot settings",
+        "tags": ["Autopilot"]
+      }
+    },
     "/api/v1/brainstorm": {
       "get": {
         "description": "The one brainstorm with Pi, or why it is not set up.",
@@ -7078,7 +7470,7 @@
     },
     "/api/v1/planets/{planet}/autonomy": {
       "put": {
-        "description": "Sets the level the owner chose: manual or missions. Preflight still lowers it to manual on no-go; autopilot cannot be chosen yet.",
+        "description": "Sets the level the owner chose: manual, missions or autopilot. Preflight still lowers it to manual on no-go, and autopilot to missions when the planet does not deploy (spec 038).",
         "operationId": "planets.chooseAutonomy",
         "parameters": [
           {
@@ -8290,6 +8682,10 @@
     {
       "description": "Recover a task start whose agent did not get its first prompt, into the same worktree and agent.",
       "name": "Task starts"
+    },
+    {
+      "description": "Mission Control choosing hops by itself inside the owner's Autopilot window (spec 038).",
+      "name": "Autopilot"
     }
   ]
 }

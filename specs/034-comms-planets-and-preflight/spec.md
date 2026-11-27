@@ -6,6 +6,8 @@
   [spec 007](../007-comms-sessions-by-project/spec.md) (cards by project),
   [spec 008](../008-comms-project-home/spec.md) (the project page),
   [spec 013](../013-comms-brainstorm-chat/spec.md) (the projects the brainstorm knows)
+- **Changed by:** [spec 038](../038-comms-autopilot/spec.md) (the **autopilot** level can be chosen,
+  and is at missions in effect when the planet does not deploy)
 - **Decision:** [ADR 0018](../../docs/architecture/adr/0018-planets-are-registered-and-preflight-is-computed-from-facts.md)
 
 ## 1. Problem / intent (WHY)

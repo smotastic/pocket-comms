@@ -23,10 +23,12 @@ import { makeMissions } from '../use-cases/missions.use-case.js';
 export class MissionsInbound extends Context.Service<
   MissionsInbound,
   {
+    /** Sends an issue on a mission; `autopilot` marks one Autopilot sent (spec 038). */
     readonly send: (
       planet: string,
       number: number,
       lane: Lane,
+      options?: { readonly autopilot?: boolean },
     ) => Effect.Effect<
       MissionDto,
       | MissionRefusedError

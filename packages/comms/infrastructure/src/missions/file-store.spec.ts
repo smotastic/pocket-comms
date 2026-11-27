@@ -80,6 +80,18 @@ const file: MissionsFile = {
       output: 'The health check failed.',
       fixIssue: 41,
       resumedAt: 10,
+      autopilot: true,
+    },
+    {
+      id: 'm7',
+      planet: 'pocket-lens',
+      repository: { owner: 'smotastic', name: 'pocket-lens' },
+      issue: { number: 12, title: 'Limited', url: 'http://gitea/12' },
+      lane: 'hop',
+      state: 'waiting',
+      sentAt: 12,
+      autopilot: true,
+      limitedUntil: 13,
     },
     {
       id: 'm6',

@@ -49,6 +49,8 @@ export {
   MissionOutcomeRequest,
   MissionParam,
   Missions,
+  Autopilot,
+  AutopilotSettings,
   SendOnMissionRequest,
   PreflightCheck,
   KNOWN_DEPLOY_CHECKS,

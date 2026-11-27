@@ -11,6 +11,7 @@ import {
   PushInbound,
   makePlanetRegistry,
   MissionsInbound,
+  AutopilotInbound,
   PlanetsInbound,
   QuickRepliesInbound,
   SpeechInbound,
@@ -18,6 +19,8 @@ import {
 } from '@pocket-comms/comms-application';
 import {
   Activity,
+  Autopilot,
+  UsageLimits,
   Brainstorm,
   Gitea,
   Hc,
@@ -81,6 +84,11 @@ export interface ServerOptions {
   readonly missionToken: Option.Option<Redacted.Redacted<string>>;
   /** The Claude settings of a mission's agent: auto mode and the deny list (ADR 0019). */
   readonly missionSettings: string;
+  /**
+   * The command of the mission status line that reports Claude's usage limits into the state
+   * folder's `limits` folder, which is added as its last word (spec 038); none leaves it out.
+   */
+  readonly missionStatusLine?: ReadonlyArray<string>;
   /** pocket-cloud's deploy script; none leaves deploys off (spec 036). */
   readonly deployScript?: Option.Option<string>;
   /**
@@ -111,6 +119,7 @@ export const services = ({
   missionToken,
   deployScript,
   missionSettings,
+  missionStatusLine,
   stateDir,
   speech,
 }: Omit<ServerOptions, 'allowedLogin' | 'webDist'>) =>
@@ -138,7 +147,13 @@ export const services = ({
       token: missionToken,
       stateDir,
       settingsPath: missionSettings,
+      statusLine:
+        missionStatusLine === undefined
+          ? undefined
+          : [...missionStatusLine, join(stateDir, UsageLimits.LIMITS_FOLDER)],
     }),
+    UsageLimits.layer({ stateDir }),
+    Autopilot.layerFile({ folder: stateDir }),
     Deploy.layer({ script: deployScript ?? Option.none(), stateDir }),
     speech === undefined ? layerTranscriberNotSetUp : layerOpenAiTranscriber(speech),
     Seen.layerMemory,
@@ -183,6 +198,7 @@ export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
       TaskStartsInbound.layer,
       PlanetsInbound.layer,
       MissionsInbound.layer,
+      AutopilotInbound.layer,
       seedPlanetsLayer,
     ]),
     Layer.provideMerge(services(adapters)),

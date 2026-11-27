@@ -20,31 +20,10 @@ import type { CommsClient, MissionView } from './comms-client.js';
 import { missionsKey, missionsQuery } from './comms-queries.js';
 import { useNow } from './live.js';
 import { ago } from './since.js';
+import { AutopilotSection } from './AutopilotSection.js';
+import { STATE_NAMES } from './mission-states.js';
 
-/** What each state is called on the screen (spec 035). */
-export const STATE_NAMES: Readonly<Record<MissionView['state'], string>> = {
-  queued: 'Queued',
-  working: 'Working',
-  waiting: 'Waiting on you',
-  'pull-request': 'Pull request',
-  lost: 'Lost',
-  // A merge from before deploys existed (spec 035).
-  merged: 'Merged, not deployed',
-  failed: 'Failed',
-  aborted: 'Aborted',
-  held: 'Held',
-  // Spec 036.
-  releasing: 'Releasing',
-  deploying: 'Deploying',
-  deployed: 'Deployed',
-  'rolled-back': 'Rolled back',
-  'not-deployed': 'Merged, not deployed',
-  'nothing-to-release': 'Merged, nothing to release',
-  'awaiting-deploy': 'Merged, waiting for you to deploy',
-  // Spec 037.
-  'deploy-lost': 'Deploy lost',
-  down: 'Down',
-};
+export { STATE_NAMES } from './mission-states.js';
 
 /** The versions it shipped, the issue a failure opened, and what it ships with. */
 const DeployFacts = ({ mission }: { readonly mission: MissionView }) => (
@@ -64,6 +43,10 @@ const DeployFacts = ({ mission }: { readonly mission: MissionView }) => (
 );
 
 const laneName = (mission: MissionView) => (mission.lane === 'hop' ? 'Hop' : 'Full flight');
+
+/** The mark of a mission Autopilot sent (spec 038). */
+const AutopilotTag = ({ mission }: { readonly mission: MissionView }) =>
+  mission.autopilot === true ? <Tag>Autopilot</Tag> : null;
 
 /** How long a finished mission ran, in minutes or hours. */
 export const ranFor = (mission: MissionView): string | undefined => {
@@ -130,6 +113,7 @@ const Running = ({
         <Inline gap="xs">
           <Tag>{STATE_NAMES[mission.state]}</Tag>
           <Tag>{laneName(mission)}</Tag>
+          <AutopilotTag mission={mission} />
           {mission.agent === undefined ? null : (
             <Link href={`/agents/${encodeURIComponent(mission.agent)}`}>Open its agent</Link>
           )}
@@ -160,7 +144,7 @@ const Running = ({
 
 /**
  * Mission Control (spec 035): the running mission with Abort and Resume, the mission queue with
- * Remove, and the mission log with what finished since the owner last looked. Opening it marks the
+ * Remove, the mission log with what finished since the owner last looked, and Autopilot (spec 038). Opening it marks the
  * log seen; the marks stay on this screen until it reads the missions again.
  */
 export const MissionControl = ({
@@ -209,6 +193,7 @@ export const MissionControl = ({
                           <IssueLink mission={mission} />
                           <Inline gap="xs">
                             <Tag>{laneName(mission)}</Tag>
+                            <AutopilotTag mission={mission} />
                             <Text as="span" size="sm" tone="muted">
                               {`sent ${ago(mission.sentAt, now)}`}
                             </Text>
@@ -238,6 +223,7 @@ export const MissionControl = ({
                             {mission.isNew === true ? <Tag>New</Tag> : null}
                             <Tag>{STATE_NAMES[mission.state]}</Tag>
                             <Tag>{laneName(mission)}</Tag>
+                            <AutopilotTag mission={mission} />
                             {mission.pullRequest === undefined ? null : (
                               <Link external href={mission.pullRequest.url}>
                                 {`Pull request #${mission.pullRequest.number}`}
@@ -277,6 +263,7 @@ export const MissionControl = ({
               </Stack>
             </>
           )}
+          <AutopilotSection client={client} />
         </Stack>
       </Page>
     </>

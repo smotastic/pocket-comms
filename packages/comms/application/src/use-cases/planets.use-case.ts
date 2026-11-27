@@ -1,7 +1,6 @@
 import {
   chooseAutonomy,
   effectiveAutonomy,
-  InvalidInputError,
   allowApps,
   lastDeploy,
   pausingDeploy,
@@ -228,24 +227,27 @@ export const makePlanets = Effect.gen(function* () {
     return {
       result: computed.preflight.result,
       checks: computed.preflight.checks,
-      autonomy: { chosen, effective: effectiveAutonomy(chosen, computed.preflight.result) },
+      autonomy: {
+        chosen,
+        effective: effectiveAutonomy(
+          chosen,
+          computed.preflight.result,
+          computed.preflight.deploy.deploys,
+        ),
+      },
       deploy: computed.preflight.deploy,
       checkedAt: computed.at,
     } satisfies PreflightDto;
   });
 
-  /** Sets the planet's chosen autonomy level; autopilot cannot be chosen yet (spec 035). */
+  /** Sets the planet's chosen autonomy level (spec 035, autopilot since spec 038). */
   const choose = Effect.fn('Planets.choose')(function* (name: string, level: AutonomyLevel) {
     const { registry } = yield* split;
     if (!registry.planets.some((planet) => planet.name === name)) {
       return yield* new PlanetNotFoundError({ planet: name });
     }
     const next = chooseAutonomy(registry, name, level);
-    if (next === undefined) {
-      return yield* new InvalidInputError({
-        issues: [{ field: 'level', message: `${level} cannot be chosen yet.` }],
-      });
-    }
+    if (next === undefined) return yield* new PlanetNotFoundError({ planet: name });
     yield* planetsOutbound.save(next);
   });
 

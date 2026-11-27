@@ -23,6 +23,8 @@ import {
   type PlanetView,
   type PreflightView,
   type MissionsView,
+  type AutopilotView,
+  type AutopilotSettingsView,
   type ProposalDecision,
   type SubagentEventView,
   type SubagentView,
@@ -134,6 +136,8 @@ export interface FakeState {
   missions: MissionsView;
   /** What the next send on a mission answers; without it the mission is queued. */
   missionFailure?: RequestError;
+  /** Autopilot as the server holds it (spec 038). */
+  autopilot: AutopilotView;
 }
 
 /**
@@ -175,6 +179,11 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     taskStartSent: { delivery: 'delivered' },
     startedInWorktree: { workspace: 'w5', branch: 'fix/12-login', path: '/worktrees/fix-12-login' },
     missions: { queue: [], log: [], newCount: 0 },
+    autopilot: {
+      settings: { enabled: true, start: '23:00', end: '07:00', budget: 5 },
+      open: false,
+      planets: [],
+    },
     ...initial,
   };
   const calls = {
@@ -198,6 +207,8 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     /** Every abort, remove and resume, as `<request> <id>`. */
     missionRequests: [] as Array<string>,
     missionsSeen: 0,
+    /** Every Autopilot settings change, in order. */
+    autopilotSettings: [] as Array<AutopilotSettingsView>,
     unregistered: [] as Array<string>,
     tasks: [] as Array<NewTask>,
     implemented: [] as Array<[string, number, string, string?]>,
@@ -352,6 +363,12 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     },
     missionsSeen: async () => {
       calls.missionsSeen += 1;
+    },
+    autopilot: async () => state.autopilot,
+    updateAutopilot: async (settings) => {
+      calls.autopilotSettings.push(settings);
+      state.autopilot = { ...state.autopilot, settings };
+      return state.autopilot;
     },
     preflight: async (planet) => {
       const preflight = state.preflights.get(planet);

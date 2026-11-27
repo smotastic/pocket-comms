@@ -6,6 +6,8 @@ export * as Herdr from './herdr/index.js';
 export * as Images from './images/index.js';
 export * as Planets from './planets/index.js';
 export * as Missions from './missions/index.js';
+export * as Autopilot from './autopilot/index.js';
+export * as UsageLimits from './usage-limits/index.js';
 export * as MissionBot from './mission-bot/index.js';
 export * as Deploy from './deploy/index.js';
 export * as Push from './push/index.js';

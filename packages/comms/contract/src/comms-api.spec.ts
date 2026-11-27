@@ -76,6 +76,8 @@ describe('CommsApi', () => {
       '/api/v1/agents/{agent}/task-start/dismiss',
       '/api/v1/agents/{agent}/task-start/send',
       '/api/v1/agents/{agent}/text',
+      '/api/v1/autopilot',
+      '/api/v1/autopilot/settings',
       '/api/v1/brainstorm',
       '/api/v1/brainstorm/events',
       '/api/v1/brainstorm/messages',

@@ -52,6 +52,7 @@ import { PlanetsOutbound } from '../ports/planets.outbound.port.js';
 import { MultiplexerOutbound, type StartedAgent } from '../ports/multiplexer.outbound.port.js';
 import { PullRequestsOutbound, type AttachedLists } from '../ports/pull-requests.outbound.port.js';
 import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
+import { UsageLimitsOutbound } from '../ports/usage-limits.outbound.port.js';
 import { makeAgentLaunch, type StartBase } from './agent-launch.js';
 import { makeIssuePlanet } from './issue-planet.js';
 import { makePlanets } from './planets.use-case.js';
@@ -69,6 +70,18 @@ const LOOP_TICK = '30 seconds';
 const SETTLE_PAUSE = '500 millis';
 const SETTLE_TRIES = 20;
 
+const twoDigits = (value: number) => String(value).padStart(2, '0');
+
+/** `HH:MM` of a moment in the server's local time. */
+export const localClock = (at: number): string => {
+  const date = new Date(at);
+  return `${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`;
+};
+
+/** Why a mission waits on Claude's usage limit (spec 038, requirement 17). */
+const limitReason = (until: number) =>
+  `Claude's usage limit is reached; it resets at ${localClock(until)}.`;
+
 const viewOf = (file: MissionsFile, mission: Mission): MissionDto => ({
   id: mission.id,
   planet: mission.planet,
@@ -81,11 +94,12 @@ const viewOf = (file: MissionsFile, mission: Mission): MissionDto => ({
   agent: mission.agent,
   pullRequest: mission.pullRequest,
   outcome: mission.outcome,
-  reason: mission.reason,
+  reason: mission.limitedUntil === undefined ? mission.reason : limitReason(mission.limitedUntil),
   versions: mission.versions,
   output: mission.output,
   fixIssue: mission.fixIssue,
   deployWith: mission.deployWith,
+  autopilot: mission.autopilot,
   isNew: isNewInLog(file, mission) ? true : undefined,
 });
 
@@ -127,6 +141,7 @@ export const makeMissions = Effect.gen(function* () {
   const planetsStore = yield* PlanetsOutbound;
   const subscriptions = yield* PushSubscriptionsOutbound;
   const pushSender = yield* PushSenderOutbound;
+  const usageLimits = yield* UsageLimitsOutbound;
   const issuePlanet = yield* makeIssuePlanet;
   const planets = yield* makePlanets;
   const { deliver, keep } = yield* makeAgentLaunch;
@@ -888,6 +903,7 @@ export const makeMissions = Effect.gen(function* () {
     planetName: string,
     number: number,
     lane: Lane,
+    options: { readonly autopilot?: boolean } = {},
   ) {
     if (!bot.configured) {
       return yield* new MissionRefusedError({
@@ -923,6 +939,7 @@ export const makeMissions = Effect.gen(function* () {
         lane,
         state: 'queued',
         sentAt: now,
+        ...(options.autopilot === true ? { autopilot: true } : {}),
       };
       return Effect.succeed([{ ...file, missions: [...file.missions, sent] }, sent] as const);
     });
@@ -1112,7 +1129,7 @@ export const makeMissions = Effect.gen(function* () {
   // ---- The loop -----------------------------------------------------------------------------
 
   /** What the server reads about the running mission now. */
-  const factsOf = (mission: Mission) =>
+  const factsOf = (mission: Mission, now: number) =>
     Effect.gen(function* () {
       const snapshot = yield* multiplexer.snapshot;
       const agent = snapshot.agents.find(
@@ -1136,10 +1153,12 @@ export const makeMissions = Effect.gen(function* () {
               Effect.option,
               Effect.map(Option.getOrUndefined),
             );
+      const limit = session === undefined ? undefined : (yield* usageLimits.limits).get(session);
       return {
         session,
         facts: {
           agent: agent === undefined ? undefined : { status: agent.status },
+          limitedUntil: limit !== undefined && limit > now ? limit : undefined,
           pullRequest:
             pullRequest === undefined
               ? undefined
@@ -1326,14 +1345,14 @@ export const makeMissions = Effect.gen(function* () {
           return [next, undefined] as const;
         }
       } else if (running !== undefined && running.state !== 'lost') {
-        const { session, facts } = yield* factsOf(running);
+        const { session, facts } = yield* factsOf(running, now);
         const step = missionStep(running, facts);
         const known = session === running.session ? running : { ...running, session };
         const moved: Mission =
           step._tag === 'Stay'
             ? known
             : step._tag === 'Move'
-              ? { ...known, state: step.state }
+              ? { ...known, state: step.state, limitedUntil: step.limitedUntil }
               : step._tag === 'Lost'
                 ? { ...known, state: 'lost', reason: 'Its agent is gone.' }
                 : step._tag === 'Merged'

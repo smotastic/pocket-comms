@@ -649,7 +649,8 @@ export const Preflight = Schema.Struct({
       examples: ['manual'],
     }),
     effective: Schema.Literals(AUTONOMY_LEVELS).annotate({
-      description: 'The chosen level, lowered to manual on no-go; never stored.',
+      description:
+        'The chosen level, lowered to manual on no-go, and autopilot to missions when the deploy checks fail; never stored.',
       examples: ['manual'],
     }),
   }).annotate({
@@ -716,7 +717,7 @@ export const Preflight = Schema.Struct({
 
 export const ChooseAutonomyRequest = Schema.Struct({
   level: Schema.Literals(AUTONOMY_LEVELS).annotate({
-    description: 'The level to choose: manual or missions; autopilot cannot be chosen yet.',
+    description: 'The level to choose: manual, missions or autopilot (spec 038).',
     examples: ['missions'],
   }),
 }).annotate({
@@ -847,6 +848,31 @@ export const MissionParam = Schema.String.check(Schema.isPattern(/^[0-9a-f-]{36}
   examples: ['3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b'],
 });
 
+const MissionStateSchema = Schema.Literals([
+  'queued',
+  'working',
+  'waiting',
+  'pull-request',
+  'lost',
+  'merged',
+  'failed',
+  'aborted',
+  'held',
+  'releasing',
+  'deploying',
+  'deployed',
+  'rolled-back',
+  'not-deployed',
+  'nothing-to-release',
+  'awaiting-deploy',
+  'deploy-lost',
+  'down',
+]).annotate({
+  description:
+    'queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy), deploy-lost (its deploy ended without a result; spec 037) or down (its rollback failed too; spec 037).',
+  examples: ['working'],
+});
+
 export const Mission = Schema.Struct({
   id: MissionParam,
   planet: Schema.String.annotate({ description: 'The planet.', examples: ['pocket-home'] }),
@@ -865,30 +891,7 @@ export const Mission = Schema.Struct({
     examples: [{ number: 7, title: 'Fix the header', url: 'http://localhost:3000/o/r/issues/7' }],
   }),
   lane: MissionLane,
-  state: Schema.Literals([
-    'queued',
-    'working',
-    'waiting',
-    'pull-request',
-    'lost',
-    'merged',
-    'failed',
-    'aborted',
-    'held',
-    'releasing',
-    'deploying',
-    'deployed',
-    'rolled-back',
-    'not-deployed',
-    'nothing-to-release',
-    'awaiting-deploy',
-    'deploy-lost',
-    'down',
-  ]).annotate({
-    description:
-      'queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy), deploy-lost (its deploy ended without a result; spec 037) or down (its rollback failed too; spec 037).',
-    examples: ['working'],
-  }),
+  state: MissionStateSchema,
   sentAt: Millis.annotate({ description: 'When it was sent, in epoch milliseconds.' }),
   startedAt: optional(Millis, {
     description: 'When it started, in epoch milliseconds.',
@@ -942,6 +945,10 @@ export const Mission = Schema.Struct({
   }),
   isNew: optional(Schema.Boolean, {
     description: 'In the log: finished since the owner last opened it.',
+    examples: [true],
+  }),
+  autopilot: optional(Schema.Boolean, {
+    description: 'Whether Autopilot sent it (spec 038).',
     examples: [true],
   }),
 }).annotate({ identifier: 'Mission', description: 'One issue an agent carries out on its own.' });
@@ -1845,7 +1852,7 @@ const planets = HttpApiGroup.make('planets')
       OpenApi.annotations({
         summary: "Choose a planet's autonomy level",
         description:
-          'Sets the level the owner chose: manual or missions. Preflight still lowers it to manual on no-go; autopilot cannot be chosen yet.',
+          'Sets the level the owner chose: manual, missions or autopilot. Preflight still lowers it to manual on no-go, and autopilot to missions when the planet does not deploy (spec 038).',
       }),
     ),
     HttpApiEndpoint.put('allowApps', '/planets/:planet/apps', {
@@ -2653,6 +2660,156 @@ const taskStarts = HttpApiGroup.make('taskStarts')
     }),
   );
 
+// ---- Autopilot (spec 038) ----------------------------------------------------------------------
+
+const ClockTime = Schema.String.annotate({
+  description: "A time of day, HH:MM, in the server's local time.",
+  examples: ['23:00'],
+});
+
+export const AutopilotSettings = Schema.Struct({
+  enabled: Schema.Boolean.annotate({
+    description: 'The Autopilot switch, for all planets.',
+    examples: [true],
+  }),
+  start: ClockTime.annotate({ description: 'When the Autopilot window opens, HH:MM.' }),
+  end: ClockTime.annotate({
+    description: 'When it closes, HH:MM; a window may cross midnight.',
+    examples: ['07:00'],
+  }),
+  budget: Schema.Int.annotate({
+    description: 'The most missions Autopilot sends in one window, across all planets (0 to 50).',
+    examples: [5],
+  }),
+}).annotate({
+  identifier: 'AutopilotSettings',
+  description: "The owner's settings of Autopilot.",
+  examples: [{ enabled: true, start: '23:00', end: '07:00', budget: 5 }],
+});
+
+const TriageVerdict = Schema.Literals(['hop', 'full-flight', 'not-ready']).annotate({
+  description:
+    "hop (small, clear, testable), full-flight (needs the owner's grilling) or not-ready.",
+  examples: ['hop'],
+});
+
+const AutopilotTriage = Schema.Struct({
+  planet: Schema.String.annotate({ description: 'The planet.', examples: ['pocket-lens'] }),
+  verdicts: Schema.Array(
+    Schema.Struct({
+      number: Schema.Int.annotate({ description: "The issue's number.", examples: [38] }),
+      title: Schema.String.annotate({
+        description: "The issue's title.",
+        examples: ['The viewer shows 1/1 s'],
+      }),
+      url: Schema.String.annotate({
+        description: "The issue's page in Gitea.",
+        examples: ['http://localhost:3000/o/r/issues/38'],
+      }),
+      verdict: TriageVerdict,
+      reason: Schema.String.annotate({
+        description: 'Why, in one line.',
+        examples: ['One function and its test.'],
+      }),
+    }).annotate({ description: 'One verdict of the triage.' }),
+  ).annotate({ description: 'The verdicts, by issue number.', examples: [[]] }),
+  skipped: optional(Schema.String, {
+    description: 'Why the triage of the planet was skipped.',
+    examples: ['Pi is not set up: COMMS_BRAINSTORM_MODEL is not set.'],
+  }),
+}).annotate({ description: "A planet's triage in the window." });
+
+const AutopilotNight = Schema.Struct({
+  window: Schema.String.annotate({
+    description: 'The window, by the date it opened (YYYY-MM-DD).',
+    examples: ['2026-11-27'],
+  }),
+  triaged: Schema.Boolean.annotate({
+    description: 'Whether the planets were triaged in this window.',
+    examples: [true],
+  }),
+  triage: Schema.Array(AutopilotTriage).annotate({
+    description: 'Each planet at autopilot and its triage.',
+    examples: [[]],
+  }),
+  sent: Schema.Array(
+    Schema.Struct({
+      id: MissionParam,
+      planet: Schema.String.annotate({ description: 'The planet.', examples: ['pocket-lens'] }),
+      issue: Schema.Struct({
+        number: Schema.Int.annotate({ description: "The issue's number.", examples: [38] }),
+        title: Schema.String.annotate({ description: "The issue's title.", examples: ['Fix'] }),
+        url: Schema.String.annotate({
+          description: "The issue's page in Gitea.",
+          examples: ['http://localhost:3000/o/r/issues/38'],
+        }),
+      }).annotate({
+        description: 'The issue it carries out.',
+        examples: [{ number: 38, title: 'Fix', url: 'http://localhost:3000/o/r/issues/38' }],
+      }),
+      state: MissionStateSchema,
+    }).annotate({ description: 'A mission Autopilot sent.' }),
+  ).annotate({ description: 'The missions Autopilot sent, in order.', examples: [[]] }),
+  stopped: optional(Schema.String, {
+    description: 'Why Autopilot sends nothing more in this window.',
+    examples: ['two missions in a row failed.'],
+  }),
+}).annotate({ description: 'The current or latest Autopilot window.' });
+
+export const Autopilot = Schema.Struct({
+  settings: AutopilotSettings,
+  open: Schema.Boolean.annotate({
+    description: 'Whether the time is inside the Autopilot window now.',
+    examples: [false],
+  }),
+  planets: Schema.Array(Schema.String).annotate({
+    description: 'The planets at autopilot in effect.',
+    examples: [['pocket-lens']],
+  }),
+  night: optional(AutopilotNight, {
+    description: 'The current or latest window; none before the first.',
+    examples: [{ window: '2026-11-27', triaged: true, triage: [], sent: [] }],
+  }),
+}).annotate({
+  identifier: 'Autopilot',
+  description: 'Autopilot in Mission Control (spec 038).',
+});
+
+const autopilot = HttpApiGroup.make('autopilot')
+  .add(
+    HttpApiEndpoint.get('read', '/autopilot', {
+      success: Autopilot,
+      error: Problems.ServiceUnavailable,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Read Autopilot',
+        description:
+          'Its settings, whether the window is open, the planets at autopilot, and the current or latest window with its triage and the missions it sent (spec 038).',
+      }),
+    ),
+    HttpApiEndpoint.put('updateSettings', '/autopilot/settings', {
+      payload: AutopilotSettings,
+      success: Autopilot,
+      error: [Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Change the Autopilot settings',
+        description:
+          'Keeps the switch, the window (two different HH:MM times) and the budget (0 to 50).',
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Autopilot',
+      description:
+        "Mission Control choosing hops by itself inside the owner's Autopilot window (spec 038).",
+    }),
+  );
+
 /** The comms API v1, shared by the server and the web app. */
 const missionParam = { mission: MissionParam };
 
@@ -2767,6 +2924,7 @@ export const CommsApi = HttpApi.make('comms')
   .add(pullRequests)
   .add(missions)
   .add(taskStarts)
+  .add(autopilot)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation
   // replaces `ParseOptions`, so it repeats `errors`.

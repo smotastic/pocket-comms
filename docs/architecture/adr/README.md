@@ -46,3 +46,4 @@ spec and plan approval became the grilling (ADR 0016).
 | [0018](0018-planets-are-registered-and-preflight-is-computed-from-facts.md)               | Planets are registered, and preflight is computed from facts                | Accepted                              |
 | [0019](0019-missions-run-as-a-bot-in-the-planets-worktrees-queued-by-comms.md)            | Missions run as a bot in the planets' worktrees, queued by Pocket Comms     | Accepted                              |
 | [0020](0020-missions-deploy-through-pocket-clouds-deploy-script-with-bot-cut-releases.md) | Missions deploy through pocket-cloud's deploy script, with bot-cut releases | Accepted                              |
+| [0021](0021-autopilot-triages-with-pi-and-sends-hops-in-a-night-window.md)                | Autopilot triages with Pi and sends hops in a night window                  | Accepted                              |

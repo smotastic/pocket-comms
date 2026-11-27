@@ -23,6 +23,8 @@ export interface MissionDto {
   readonly fixIssue?: number | undefined;
   /** The mission whose Deploy it ships with. */
   readonly deployWith?: string | undefined;
+  /** Whether Autopilot sent it (spec 038). */
+  readonly autopilot?: boolean | undefined;
   /** In the log: finished since the owner last opened it. */
   readonly isNew?: boolean | undefined;
 }

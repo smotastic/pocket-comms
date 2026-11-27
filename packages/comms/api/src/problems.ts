@@ -162,6 +162,14 @@ export const problems = {
         detail: `No mission ${error.id} allows this now.`,
       }),
     ),
+  autopilotUnavailable: (error: { readonly reason: string }) =>
+    Effect.fail(
+      serviceUnavailableProblem({
+        slug: 'autopilot-unavailable',
+        title: 'Autopilot cannot be kept',
+        detail: error.reason,
+      }),
+    ),
   missionsUnavailable: (error: { readonly reason: string }) =>
     Effect.fail(
       serviceUnavailableProblem({

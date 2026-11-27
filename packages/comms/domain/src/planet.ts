@@ -11,7 +11,7 @@ export type AutonomyLevel = 'manual' | 'missions' | 'autopilot';
 /** A planet's settings, kept in the registry. */
 export interface PlanetSettings {
   readonly name: string;
-  /** The level the owner chose: `manual` or `missions` (spec 035); never `autopilot` yet. */
+  /** The level the owner chose: `manual`, `missions` (spec 035) or `autopilot` (spec 038). */
   readonly autonomy: AutonomyLevel;
   /** The apps its releases may deploy (spec 037); none until the owner allows one. */
   readonly apps?: ReadonlyArray<string> | undefined;
@@ -62,13 +62,14 @@ export const unregisterPlanet = (
     ? { ...registry, planets: registry.planets.filter((planet) => planet.name !== name) }
     : undefined;
 
-/** The levels the owner may choose; `autopilot` is coming. */
-export const CHOOSABLE_LEVELS: ReadonlySet<AutonomyLevel> = new Set(['manual', 'missions']);
+/** The levels the owner may choose: every level since spec 038. */
+export const CHOOSABLE_LEVELS: ReadonlySet<AutonomyLevel> = new Set([
+  'manual',
+  'missions',
+  'autopilot',
+]);
 
-/**
- * The registry with the planet's chosen level set to `level`; none when it is not a planet or the
- * level cannot be chosen yet.
- */
+/** The registry with the planet's chosen level set to `level`; none when it is not a planet. */
 export const chooseAutonomy = (
   registry: PlanetRegistry,
   name: string,
@@ -441,6 +442,13 @@ export const preflightOf = (facts: PreflightFacts): Preflight => {
   };
 };
 
-/** The level in effect: the chosen one, lowered to `manual` on no-go; never raised. */
-export const effectiveAutonomy = (chosen: AutonomyLevel, result: PreflightResult): AutonomyLevel =>
-  result === 'go' ? chosen : 'manual';
+/**
+ * The level in effect: the chosen one, lowered to `manual` on no-go, and autopilot to `missions`
+ * when the planet does not deploy (spec 038, requirement 2); never raised.
+ */
+export const effectiveAutonomy = (
+  chosen: AutonomyLevel,
+  result: PreflightResult,
+  deploys: boolean,
+): AutonomyLevel =>
+  result !== 'go' ? 'manual' : chosen === 'autopilot' && !deploys ? 'missions' : chosen;

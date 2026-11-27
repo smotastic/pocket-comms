@@ -199,6 +199,18 @@ _Avoid_: mode, trust level
 The autonomy level at which Mission Control chooses issues and their lanes by itself.
 _Avoid_: watchdog, scout, auto mode
 
+**Autopilot window**:
+The time of day, set by the owner, in which Autopilot may triage and send missions.
+_Avoid_: night mode, schedule, shift
+
+**Triage**:
+Autopilot's reading of a planet's open issues, which labels each a hop, a full flight or not ready.
+_Avoid_: grooming, classification, sorting
+
+**Budget**:
+The most missions Autopilot may send in one Autopilot window.
+_Avoid_: quota, limit (that is Claude's usage limit), cap
+
 ### Brainstorm
 
 **Brainstorm**:

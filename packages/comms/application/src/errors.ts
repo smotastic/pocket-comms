@@ -212,6 +212,11 @@ export class MissionsStoreError extends Data.TaggedError('MissionsStoreError')<{
   readonly reason: string;
 }> {}
 
+/** The Autopilot file cannot be written (spec 038). */
+export class AutopilotStoreError extends Data.TaggedError('AutopilotStoreError')<{
+  readonly reason: string;
+}> {}
+
 /** An issue cannot be sent on a mission now; `reason` says why (spec 035). */
 export class MissionRefusedError extends Data.TaggedError('MissionRefusedError')<{
   readonly reason: string;

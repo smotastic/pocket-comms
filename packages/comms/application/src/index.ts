@@ -80,8 +80,13 @@ export {
   MissionNotFoundError,
   MissionRefusedError,
   MissionsStoreError,
+  AutopilotStoreError,
 } from './errors.js';
 export { MissionsOutbound } from './ports/missions.outbound.port.js';
+export { AutopilotOutbound } from './ports/autopilot.outbound.port.js';
+export { AutopilotInbound } from './ports/autopilot.inbound.port.js';
+export type { AutopilotDto, AutopilotMissionDto, AutopilotNightDto } from './dto/autopilot.dto.js';
+export { UsageLimitsOutbound } from './ports/usage-limits.outbound.port.js';
 export { MissionsInbound } from './ports/missions.inbound.port.js';
 export type { MissionDto, MissionOutcomeInput, MissionsDto } from './dto/mission.dto.js';
 export { MissionBotOutbound } from './ports/mission-bot.outbound.port.js';

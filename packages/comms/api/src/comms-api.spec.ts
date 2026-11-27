@@ -31,6 +31,7 @@ import {
   PlanetExistsError,
   PlanetsInbound,
   MissionsInbound,
+  AutopilotInbound,
   MissionRefusedError,
   PlanetsStoreError,
   QuickRepliesInbound,
@@ -125,6 +126,7 @@ const serve = (
   taskStarts: Partial<TaskStartsInbound['Service']> = {},
   planets: Partial<PlanetsInbound['Service']> = {},
   missions: Partial<MissionsInbound['Service']> = {},
+  autopilot: Partial<AutopilotInbound['Service']> = {},
 ) => {
   const app = HttpRouter.toWebHandler(
     commsServerLayer({
@@ -145,6 +147,7 @@ const serve = (
       Layer.provide(Layer.mock(TaskStartsInbound, taskStarts)),
       Layer.provide(Layer.mock(PlanetsInbound, planets)),
       Layer.provide(Layer.mock(MissionsInbound, missions)),
+      Layer.provide(Layer.mock(AutopilotInbound, autopilot)),
       Layer.provide(HttpServer.layerServices),
     ),
     { disableLogger: true },
@@ -619,6 +622,92 @@ describe('the tasks API', () => {
 
     expect(response.status).toBe(204);
     expect(chosen).toEqual(['app missions']);
+  });
+
+  const serveAutopilot = (autopilot: Partial<AutopilotInbound['Service']>) =>
+    serve({}, undefined, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, autopilot);
+  const autopilotView = {
+    settings: { enabled: true, start: '23:00', end: '07:00', budget: 5 },
+    open: false,
+    planets: ['app'],
+    night: {
+      window: '2026-11-27',
+      triaged: true,
+      triage: [
+        {
+          planet: 'app',
+          verdicts: [
+            {
+              number: 4,
+              title: 'Wrong plural',
+              url: 'http://gitea/4',
+              verdict: 'hop' as const,
+              reason: 'One string.',
+            },
+          ],
+        },
+      ],
+      sent: [
+        {
+          id: '3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b',
+          planet: 'app',
+          issue: { number: 4, title: 'Wrong plural', url: 'http://gitea/4' },
+          state: 'deployed' as const,
+        },
+      ],
+      stopped: 'two missions in a row failed.',
+    },
+  };
+
+  it('reads Autopilot (spec 038)', async () => {
+    const call = serveAutopilot({ view: Effect.succeed(autopilotView) });
+
+    const response = await call('/api/v1/autopilot');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(autopilotView);
+  });
+
+  it('changes the Autopilot settings, and answers 422 for invalid ones (spec 038)', async () => {
+    const kept: Array<unknown> = [];
+    const call = serveAutopilot({
+      update: (settings) =>
+        settings.budget > 50
+          ? Effect.fail(
+              new InvalidInputError({ issues: [{ field: 'budget', message: 'Too many.' }] }),
+            )
+          : Effect.sync(() => {
+              kept.push(settings);
+              return { ...autopilotView, settings };
+            }),
+    });
+    const settings = { enabled: false, start: '22:00', end: '06:00', budget: 2 };
+
+    const changed = await call('/api/v1/autopilot/settings', { ...json(settings), method: 'PUT' });
+    const refused = await call('/api/v1/autopilot/settings', {
+      ...json({ ...settings, budget: 99 }),
+      method: 'PUT',
+    });
+
+    expect(changed.status).toBe(200);
+    expect(((await changed.json()) as { settings: unknown }).settings).toEqual(settings);
+    expect(kept).toEqual([settings]);
+    expect(refused.status).toBe(422);
+  });
+
+  it('chooses autopilot on a planet (spec 038)', async () => {
+    const chosen: Array<string> = [];
+    const call = servePlanets({
+      choose: (name, level) => Effect.sync(() => void chosen.push(`${name} ${level}`)),
+    });
+
+    const response = await call('/api/v1/planets/app/autonomy', {
+      ...json({ level: 'autopilot' }),
+      method: 'PUT',
+    });
+
+    expect(response.status).toBe(204);
+    expect(chosen).toEqual(['app autopilot']);
   });
 
   it('sends an issue on a mission, and answers 409 with the reason when it is refused', async () => {

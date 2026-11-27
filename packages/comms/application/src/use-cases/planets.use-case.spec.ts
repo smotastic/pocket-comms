@@ -348,21 +348,19 @@ describe('PlanetsInbound.preflight', () => {
 });
 
 describe('PlanetsInbound.choose', () => {
-  it.effect('sets missions, and refuses autopilot and a repository that is not a planet', () =>
+  it.effect('sets missions or autopilot, and refuses a repository that is not a planet', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
       state.registry = { planets: [{ name: 'app', autonomy: 'manual' }] };
 
       yield* PlanetsInbound.use((inbound) => inbound.choose('app', 'missions'));
-      const autopilot = yield* PlanetsInbound.use((inbound) =>
-        inbound.choose('app', 'autopilot'),
-      ).pipe(Effect.flip);
+      expect(state.registry).toEqual({ planets: [{ name: 'app', autonomy: 'missions' }] });
+      yield* PlanetsInbound.use((inbound) => inbound.choose('app', 'autopilot'));
       const unknown = yield* PlanetsInbound.use((inbound) => inbound.choose('beta', 'manual')).pipe(
         Effect.flip,
       );
 
-      expect(state.registry).toEqual({ planets: [{ name: 'app', autonomy: 'missions' }] });
-      expect(autopilot._tag).toBe('InvalidInputError');
+      expect(state.registry).toEqual({ planets: [{ name: 'app', autonomy: 'autopilot' }] });
       expect(unknown).toEqual(new PlanetNotFoundError({ planet: 'beta' }));
     }).pipe(Effect.provide(layer())),
   );

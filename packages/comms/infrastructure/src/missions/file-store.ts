@@ -84,6 +84,8 @@ const StoredMission = Schema.Struct({
   fixIssue: optional(Schema.Number),
   deployWith: optional(Schema.String),
   resumedAt: optional(Schema.Number),
+  autopilot: optional(Schema.Boolean),
+  limitedUntil: optional(Schema.Number),
 });
 
 // The stored shape must keep up with the domain's: every state a mission can reach must load
