@@ -155,6 +155,22 @@ _Avoid_: interview, clarification, Q&A
 The missions waiting for their turn.
 _Avoid_: countdown, backlog, queue (unqualified)
 
+**Mission bot**:
+The Gitea user as whom every mission commits, pushes, comments and merges.
+_Avoid_: bot account, service user, agent user
+
+**Held mission**:
+A mission that did not start when its turn came, because its planet was no longer ready.
+_Avoid_: skipped, paused, blocked
+
+**Lost mission**:
+A running mission whose agent is gone, such as after a restart; it waits for the owner.
+_Avoid_: dead, crashed, orphan
+
+**Mission log**:
+The finished missions, newest first, with their outcomes.
+_Avoid_: history, report, finished list
+
 **Preflight**:
 The checklist that tells whether a planet is ready for missions; its result is **go** or **no-go**.
 _Avoid_: readiness check, agent readiness, health check
