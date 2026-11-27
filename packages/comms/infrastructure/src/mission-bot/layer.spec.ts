@@ -66,6 +66,7 @@ const bot = (
       layer({
         url,
         stateDir,
+        settingsPath: '/release/mission/claude-settings.json',
         token: token === null ? Option.none() : Option.some(Redacted.make(token)),
       }),
     ),

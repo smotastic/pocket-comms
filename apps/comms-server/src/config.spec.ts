@@ -14,9 +14,10 @@ const withEnv =
 describe('serverConfig', () => {
   it.effect('listens on port 4410 and lets smotastic@ in by default', () =>
     Effect.gen(function* () {
-      const { giteaToken, ...config } = yield* serverConfig;
+      const { giteaToken, missionToken, ...config } = yield* serverConfig;
 
       expect(Option.isNone(giteaToken)).toBe(true);
+      expect(Option.isNone(missionToken)).toBe(true);
       expect(config).toEqual({
         port: 4410,
         allowedLogin: 'smotastic@',
@@ -39,9 +40,10 @@ describe('serverConfig', () => {
 
   it.effect('reads its settings from the environment', () =>
     Effect.gen(function* () {
-      const { giteaToken, ...config } = yield* serverConfig;
+      const { giteaToken, missionToken, ...config } = yield* serverConfig;
 
       expect(Option.map(giteaToken, Redacted.value)).toEqual(Option.some('secret-token'));
+      expect(Option.map(missionToken, Redacted.value)).toEqual(Option.some('bot-token'));
       expect(config).toEqual({
         port: 5000,
         allowedLogin: 'someone@github',
@@ -72,6 +74,7 @@ describe('serverConfig', () => {
         COMMS_AGENT_ARGS: ' --model   opus ',
         COMMS_GITEA_URL: 'https://git.example.com',
         COMMS_GITEA_TOKEN: 'secret-token',
+        COMMS_MISSION_GITEA_TOKEN: 'bot-token',
         COMMS_GITEA_HOSTS: ' gitea, git.example.com ,',
         COMMS_STATE_DIR: '/srv/state',
         COMMS_BRAINSTORM_MODEL: 'gpt-6-luna',

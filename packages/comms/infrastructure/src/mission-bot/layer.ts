@@ -35,6 +35,8 @@ export interface MissionBotOptions {
   readonly token: Option.Option<Redacted.Redacted<string>>;
   /** The server's state folder; the credential file goes in its `mission` folder. */
   readonly stateDir: string;
+  /** The Claude settings file of a mission's agent. */
+  readonly settingsPath: string;
   /** How long one request may take. Default 10 seconds. */
   readonly timeout?: Duration.Input;
 }
@@ -76,7 +78,13 @@ const runGit = (cwd: string, args: ReadonlyArray<string>) =>
     return Effect.sync(() => void child.kill());
   });
 
-export const layer = ({ url, token, stateDir, timeout = '10 seconds' }: MissionBotOptions) => {
+export const layer = ({
+  url,
+  token,
+  stateDir,
+  settingsPath,
+  timeout = '10 seconds',
+}: MissionBotOptions) => {
   const base = url.replace(/\/+$/u, '');
   const fail = (reason: string) => new MissionBotError({ reason });
   const repositoryPath = ({ owner, name }: GiteaRepository) =>
@@ -281,6 +289,7 @@ export const layer = ({ url, token, stateDir, timeout = '10 seconds' }: MissionB
     MissionBotOutbound,
     MissionBotOutbound.of({
       configured: Option.isSome(token),
+      settingsPath,
       facts,
       setLane,
       markInProgress,

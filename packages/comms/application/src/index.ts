@@ -82,7 +82,6 @@ export {
 } from './errors.js';
 export { MissionsOutbound } from './ports/missions.outbound.port.js';
 export { MissionsInbound } from './ports/missions.inbound.port.js';
-export { MissionSettings } from './ports/mission-settings.port.js';
 export type { MissionDto, MissionOutcomeInput, MissionsDto } from './dto/mission.dto.js';
 export { MissionBotOutbound } from './ports/mission-bot.outbound.port.js';
 export { ActivityInbound } from './ports/activity.inbound.port.js';

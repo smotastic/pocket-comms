@@ -14,10 +14,10 @@ request forwards the new setting; the owner merges and installs it with the bot 
 | `packages/comms/domain` (`src/mission.ts`) | Lanes and their labels, the mission record and file, its states, what may be sent, the queue's next mission, the log (order, 90 days, new count), the state a running mission is in from facts, the first prompts; `planet.ts`: the sixth check, choosing a level                                                                                   | `scope:comms`, `type:domain`         |
 | `packages/comms/application`               | Ports `MissionsOutbound` (the file), `MissionBotOutbound` (Gitea as the bot, and the worktree's git identity); `AgentStart.args` on the multiplexer port; `makeMissions` use case (send, remove, abort, resume, outcome, list, seen, the advance loop); `MissionsInbound`; preflight reads the bot; `Planets.choose`; overview marks mission agents | `scope:comms`, `type:application`    |
 | `packages/comms/infrastructure`            | `missions` file store; `mission-bot` (Gitea over HTTP with the bot token, git `config --worktree`, the credential file); hc and Herdr pass `args` after the configured ones                                                                                                                                                                         | `scope:comms`, `type:infrastructure` |
-| `packages/comms/contract`                  | `Missions` group; `sendOnMission`, `chooseAutonomy`, `missionOutcome` endpoints; `mission-bot` check; `mission` on an agent; proposal lane (C)                                                                                                                                                                                                      | `scope:comms`, `type:contract`       |
+| `packages/comms/contract`                  | `Missions` group; `sendOnMission`, `chooseAutonomy`, `missionOutcome` endpoints; `mission-bot` check; proposal lane (C)                                                                                                                                                                                                                             | `scope:comms`, `type:contract`       |
 | `packages/comms/api`                       | Handlers and problems for the new endpoints                                                                                                                                                                                                                                                                                                         | `scope:comms`, `type:api`            |
 | `apps/comms-server`                        | Setting `COMMS_MISSION_GITEA_TOKEN`; `mission/claude-settings.json` (auto mode, deny list); skill `skills/comms-mission`; composition starts the advance loop                                                                                                                                                                                       | `scope:comms`, `type:app`            |
-| `apps/comms-web` (B, C)                    | Mission Control route `/missions` with running, queue and log; start-screen entry with the new count; **Send on a mission** with the lane picker on issues; the **missions** level in the Preflight card; a mission tag on agents; the proposal's lane picker (C)                                                                                   | `scope:comms`, `type:app`            |
+| `apps/comms-web` (B, C)                    | Mission Control route `/missions` with running, queue and log; start-screen entry with the new count; **Send on a mission** with the lane picker on issues; the **missions** level in the Preflight card; a mission tag on the agent whose name is the running mission's agent; the proposal's lane picker (C)                                      | `scope:comms`, `type:app`            |
 | docs                                       | ADR 0019; glossary (mission bot, mission log, held, lost); `docs/mission-control.md`; `packages/comms/AGENTS.md`                                                                                                                                                                                                                                    | —                                    |
 
 ### How (A)
@@ -67,9 +67,10 @@ request forwards the new setting; the owner merges and installs it with the bot 
 ## 2. Contract changes
 
 All additive except one: the `mission-bot` check makes preflight report six checks, and a planet
-without the bot setup becomes no-go. No client reads the number of checks. New endpoints and the
-optional `mission` field on an agent are compatible. The OpenAPI diff reports no breaking change;
-every new field has a description and an example (the lint).
+without the bot setup becomes no-go. No client reads the number of checks. New endpoints are compatible;
+the cockpit tags a mission's agent from `GET /missions`, so the agent shape stays. The OpenAPI diff reports the new check value
+as breaking; it is accepted with one line in `.pocket-ci` (spec notes). Every new field has a
+description and an example (the lint).
 
 ## 3. Migrations
 

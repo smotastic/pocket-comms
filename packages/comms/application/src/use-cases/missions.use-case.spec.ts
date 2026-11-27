@@ -1,18 +1,12 @@
 import { describe, expect, it } from '@effect/vitest';
 import * as Effect from 'effect/Effect';
 import * as Fiber from 'effect/Fiber';
-import * as Layer from 'effect/Layer';
 import { TestClock } from 'effect/testing';
 import { MissionNotFoundError, MissionRefusedError } from '../errors.js';
-import { MissionSettings } from '../ports/mission-settings.port.js';
 import { fakeAgent, fakeIssue, fakeLayer, FakeState } from '../testing/fakes.js';
 import { makeMissions } from './missions.use-case.js';
 
-const layer = () =>
-  Layer.mergeAll(
-    fakeLayer(),
-    Layer.succeed(MissionSettings, { settingsPath: '/release/mission/claude-settings.json' }),
-  );
+const layer = () => fakeLayer();
 
 const SETTINGS = ['--settings', '/release/mission/claude-settings.json'];
 
@@ -35,6 +29,10 @@ const ready = (state: FakeState['Service']) => {
 };
 
 const missions = makeMissions;
+
+/** Why a send was refused. */
+const refusal = (error: { readonly _tag: string }) =>
+  error instanceof MissionRefusedError ? error.reason : error._tag;
 
 /** The running mission's agent as the multiplexer reports it. */
 const agentOf = (state: FakeState['Service'], name: string, status = 'working' as const) => {
@@ -59,19 +57,19 @@ describe('sending a mission', () => {
       state.bot.configured = true;
 
       state.registry = { planets: [{ name: 'app', autonomy: 'manual' }] };
-      expect((yield* send('app', 7, 'hop').pipe(Effect.flip)).reason).toBe(
+      expect(refusal(yield* send('app', 7, 'hop').pipe(Effect.flip))).toBe(
         'app is at manual; choose missions on its planet page first.',
       );
       state.registry = { planets: [{ name: 'app', autonomy: 'missions' }] };
 
       state.bot.noPush.add('owner/app');
-      expect((yield* send('app', 7, 'hop').pipe(Effect.flip)).reason).toBe(
+      expect(refusal(yield* send('app', 7, 'hop').pipe(Effect.flip))).toBe(
         'app is no-go: The mission bot may not push to the repository.',
       );
       state.bot.noPush.clear();
 
       yield* send('app', 7, 'hop');
-      expect((yield* send('app', 7, 'full-flight').pipe(Effect.flip)).reason).toBe(
+      expect(refusal(yield* send('app', 7, 'full-flight').pipe(Effect.flip))).toBe(
         '#7 is on a mission already (queued).',
       );
     }).pipe(Effect.scoped, Effect.provide(layer())),
@@ -341,7 +339,8 @@ describe('a running mission', () => {
       yield* service.outcome(agent, { result: 'done', outcome: 'Fixed the header.' });
       expect((yield* service.list).running?.outcome).toBe('Fixed the header.');
 
-      yield* service.outcome(agent, { result: 'failed', outcome: 'CI stays red.' });
+      // The skill names the agent by its pane.
+      yield* service.outcome('w-/worktrees/x:p1', { result: 'failed', outcome: 'CI stays red.' });
       expect((yield* service.list).log[0]).toMatchObject({
         state: 'failed',
         reason: 'CI stays red.',

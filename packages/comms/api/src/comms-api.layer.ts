@@ -8,6 +8,7 @@ import { agentsHandlers } from './agents.handlers.js';
 import { bodyLimit } from './body-limit.js';
 import { brainstormHandlers } from './brainstorm.handlers.js';
 import { issuesHandlers } from './issues.handlers.js';
+import { missionsHandlers } from './missions.handlers.js';
 import { planetsHandlers } from './planets.handlers.js';
 import { tasksHandlers } from './tasks.handlers.js';
 import { healthLayer } from './health.handlers.js';
@@ -45,6 +46,7 @@ export const commsApiLayer = (allowedLogin: string) =>
       speechHandlers,
       pullRequestsHandlers,
       taskStartsHandlers,
+      missionsHandlers,
     ]),
     Layer.provide(tailscaleIdentityLayer(allowedLogin)),
     Layer.provide(validationMiddlewareLayer),

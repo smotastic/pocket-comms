@@ -49,6 +49,10 @@ export const serverConfig = Config.all({
   giteaToken: Config.option(Config.Redacted('COMMS_GITEA_TOKEN')).pipe(
     Config.map(Option.filter((token) => Redacted.value(token).trim() !== '')),
   ),
+  // The mission bot's own token (spec 035, ADR 0019); none leaves missions off.
+  missionToken: Config.option(Config.Redacted('COMMS_MISSION_GITEA_TOKEN')).pipe(
+    Config.map(Option.filter((token) => Redacted.value(token).trim() !== '')),
+  ),
   giteaHosts: Config.String('COMMS_GITEA_HOSTS').pipe(
     Config.withDefault('gitea'),
     Config.map((hosts) =>

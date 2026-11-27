@@ -13,6 +13,11 @@ export class MissionBotOutbound extends Context.Service<
   {
     /** Whether the server has the bot's token. */
     readonly configured: boolean;
+    /**
+     * The Claude settings of a mission's agent, passed with `--settings`: auto mode and the deny
+     * list that ship with the server (ADR 0019).
+     */
+    readonly settingsPath: string;
     /** Whether the bot may push to the repository; it never fails, a failure is a fact too. */
     readonly facts: (repository: GiteaRepository) => Effect.Effect<BotFacts>;
     /** Sets the lane's label on the issue, creating it when missing, and removes the other lane's. */

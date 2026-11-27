@@ -170,4 +170,7 @@ Deploying stays the owner's until step 4.
   `pull-request`, `lost`, and the finished `merged`, `failed`, `aborted`, `held`.
 - The agent reports its outcome and posts on Gitea through a comms skill that ships with the flight
   skills; it reads the bot token through git in its worktree, never from the owner's tools.
+- The sixth check widens the enum of a preflight check in the response of
+  `GET /planets/{planet}/preflight`; the owner's rule of spec 022 accepts it with one line in
+  `.pocket-ci/openapi-accepted-changes.txt`.
 - Step 4 adds **deployed** after **merged** and turns "merged, not deployed" into deployed on its own.

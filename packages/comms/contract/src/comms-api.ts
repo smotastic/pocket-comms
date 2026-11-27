@@ -613,6 +613,7 @@ export const PreflightCheck = Schema.Struct({
     'ci-workflow',
     'ci-green',
     'verify-script',
+    'mission-bot',
   ]).annotate({
     description: 'The check, in the fixed order of the list.',
     examples: ['ci-green'],
@@ -654,6 +655,16 @@ export const Preflight = Schema.Struct({
   identifier: 'Preflight',
   description:
     "Whether the planet is ready for missions, computed from facts on the planet's Gitea.",
+});
+
+export const ChooseAutonomyRequest = Schema.Struct({
+  level: Schema.Literals(AUTONOMY_LEVELS).annotate({
+    description: 'The level to choose: manual or missions; autopilot cannot be chosen yet.',
+    examples: ['missions'],
+  }),
+}).annotate({
+  identifier: 'ChooseAutonomyRequest',
+  description: "The planet's chosen autonomy level (spec 035).",
 });
 
 export const RegisterPlanetRequest = Schema.Struct({
@@ -744,6 +755,143 @@ export const PlanetParam = Schema.String.check(Schema.isPattern(/^[^/]{1,200}$/u
 export const IssueNumberParam = Schema.String.check(
   Schema.isPattern(/^[1-9][0-9]{0,8}$/u),
 ).annotate({ description: "The issue's number in its repository.", examples: ['8'] });
+
+const LANE_VALUES = ['hop', 'full-flight'] as const;
+
+const MissionLane = Schema.Literals(LANE_VALUES).annotate({
+  description: 'The lane: hop, or full flight with a grilling first.',
+  examples: ['hop'],
+});
+
+export const SendOnMissionRequest = Schema.Struct({
+  lane: MissionLane,
+}).annotate({
+  identifier: 'SendOnMissionRequest',
+  description: 'The lane the mission takes (spec 035).',
+});
+
+export const MissionParam = Schema.String.check(Schema.isPattern(/^[0-9a-f-]{36}$/u)).annotate({
+  description: "The mission's id.",
+  examples: ['3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b'],
+});
+
+export const Mission = Schema.Struct({
+  id: MissionParam,
+  planet: Schema.String.annotate({ description: 'The planet.', examples: ['pocket-home'] }),
+  issue: Schema.Struct({
+    number: Schema.Int.annotate({ description: "The issue's number.", examples: [7] }),
+    title: Schema.String.annotate({
+      description: "The issue's title.",
+      examples: ['Fix the header'],
+    }),
+    url: Schema.String.annotate({
+      description: "The issue's page in Gitea.",
+      examples: ['http://localhost:3000/smotastic/pocket-home/issues/7'],
+    }),
+  }).annotate({
+    description: 'The issue the mission carries out.',
+    examples: [{ number: 7, title: 'Fix the header', url: 'http://localhost:3000/o/r/issues/7' }],
+  }),
+  lane: MissionLane,
+  state: Schema.Literals([
+    'queued',
+    'working',
+    'waiting',
+    'pull-request',
+    'lost',
+    'merged',
+    'failed',
+    'aborted',
+    'held',
+  ]).annotate({
+    description:
+      'queued; running as working, waiting (on the owner), pull-request or lost (its agent gone); finished as merged (not deployed), failed, aborted or held (its planet was not ready when its turn came).',
+    examples: ['working'],
+  }),
+  sentAt: Millis.annotate({ description: 'When it was sent, in epoch milliseconds.' }),
+  startedAt: optional(Millis, {
+    description: 'When it started, in epoch milliseconds.',
+    examples: [1_795_600_000_000],
+  }),
+  finishedAt: optional(Millis, {
+    description: 'When it finished, in epoch milliseconds.',
+    examples: [1_795_600_000_000],
+  }),
+  agent: optional(Schema.String, {
+    description: "Its agent's name, while it has one.",
+    examples: ['fix-7-fix-the-header'],
+  }),
+  pullRequest: optional(
+    Schema.Struct({
+      number: Schema.Int.annotate({ description: "The pull request's number.", examples: [12] }),
+      url: Schema.String.annotate({
+        description: "The pull request's page in Gitea.",
+        examples: ['http://localhost:3000/smotastic/pocket-home/pulls/12'],
+      }),
+    }),
+    {
+      description: 'The pull request its agent attached.',
+      examples: [{ number: 12, url: 'http://localhost:3000/o/r/pulls/12' }],
+    },
+  ),
+  outcome: optional(Schema.String, {
+    description: 'What its agent reported at the end, one paragraph.',
+    examples: ['Fixed the header overlap and merged #12.'],
+  }),
+  reason: optional(Schema.String, {
+    description: 'Why it is held, failed, aborted or lost.',
+    examples: ['The owner aborted it.'],
+  }),
+  isNew: optional(Schema.Boolean, {
+    description: 'In the log: finished since the owner last opened it.',
+    examples: [true],
+  }),
+}).annotate({ identifier: 'Mission', description: 'One issue an agent carries out on its own.' });
+
+export const Missions = Schema.Struct({
+  running: optional(Mission, {
+    description: 'The running mission, if any.',
+    examples: [
+      {
+        id: '3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b',
+        planet: 'pocket-home',
+        issue: { number: 7, title: 'Fix the header', url: 'http://localhost:3000/o/r/issues/7' },
+        lane: 'hop',
+        state: 'working',
+        sentAt: 1_795_600_000_000,
+      },
+    ],
+  }),
+  queue: Schema.Array(Mission).annotate({
+    description: 'The mission queue, oldest first.',
+    examples: [[]],
+  }),
+  log: Schema.Array(Mission).annotate({
+    description: 'The mission log: finished missions of the last 90 days, newest first.',
+    examples: [[]],
+  }),
+  newCount: Schema.Int.annotate({
+    description: 'How many finished missions are new since the owner last opened the log.',
+    examples: [0],
+  }),
+}).annotate({
+  identifier: 'Missions',
+  description: 'Mission Control: the running mission, the mission queue and the mission log.',
+});
+
+export const MissionOutcomeRequest = Schema.Struct({
+  result: Schema.Literals(['done', 'failed']).annotate({
+    description: 'done after the merge; failed when the agent cannot go on.',
+    examples: ['done'],
+  }),
+  outcome: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(4_000)).annotate({
+    description: 'One paragraph for the mission log.',
+    examples: ['Fixed the header overlap and merged #12.'],
+  }),
+}).annotate({
+  identifier: 'MissionOutcomeRequest',
+  description: "What a mission's agent reports at its end.",
+});
 
 export const IssueWork = Schema.Struct({
   branch: Schema.String.annotate({
@@ -1554,6 +1702,18 @@ const planets = HttpApiGroup.make('planets')
           "Checks the planet's default branch and CI on Gitea; a Gitea that cannot be read makes the result no-go.",
       }),
     ),
+    HttpApiEndpoint.put('chooseAutonomy', '/planets/:planet/autonomy', {
+      params: { planet: PlanetParam },
+      payload: ChooseAutonomyRequest,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Choose a planet's autonomy level",
+        description:
+          'Sets the level the owner chose: manual or missions. Preflight still lowers it to manual on no-go; autopilot cannot be chosen yet.',
+      }),
+    ),
     HttpApiEndpoint.delete('unregister', '/planets/:planet', {
       params: { planet: PlanetParam },
       success: HttpApiSchema.NoContent,
@@ -1630,6 +1790,23 @@ const issues = HttpApiGroup.make('issues')
         summary: 'Implement an issue with Claude',
         description:
           'Reads the open issue from Gitea and starts a task as `POST /tasks` does, with a Claude agent and the issue as its first prompt. Then it adds the `status/in-progress` label to the issue, creating the label when the repository has none; a failed label write leaves the task started and is reported in `markNote`.',
+      }),
+    ),
+    HttpApiEndpoint.post('sendOnMission', '/planets/:planet/issues/:number/mission', {
+      params: { ...planet, number: IssueNumberParam },
+      payload: SendOnMissionRequest,
+      success: Mission.pipe(HttpApiSchema.status(201)),
+      error: [
+        Problems.NotFound,
+        Problems.Conflict,
+        Problems.Validation,
+        Problems.ServiceUnavailable,
+      ],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Send an issue on a mission',
+        description:
+          "Computes the planet's preflight again and, when its autonomy level in effect is missions, sets the lane label as the mission bot and queues the mission (spec 035). Refused without the bot token, at manual, on no-go, or when the issue is closed or on a mission already.",
       }),
     ),
     HttpApiEndpoint.post('close', '/planets/:planet/issues/:number/close', {
@@ -2331,6 +2508,83 @@ const taskStarts = HttpApiGroup.make('taskStarts')
   );
 
 /** The comms API v1, shared by the server and the web app. */
+const missionParam = { mission: MissionParam };
+
+const missions = HttpApiGroup.make('missions')
+  .add(
+    HttpApiEndpoint.get('list', '/missions', {
+      success: Missions,
+      error: Problems.ServiceUnavailable,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Read Mission Control',
+        description: 'The running mission, the mission queue and the mission log (spec 035).',
+      }),
+    ),
+    HttpApiEndpoint.delete('remove', '/missions/:mission', {
+      params: missionParam,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Remove a queued mission',
+        description:
+          'Takes a queued mission out of the mission queue; it leaves no trace in the log.',
+      }),
+    ),
+    HttpApiEndpoint.post('abort', '/missions/:mission/abort', {
+      params: missionParam,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Abort the running mission',
+        description:
+          'Stops its agent, keeps its branch and worktree, removes the in-progress label and says why on the issue.',
+      }),
+    ),
+    HttpApiEndpoint.post('resume', '/missions/:mission/resume', {
+      params: missionParam,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Resume a lost mission',
+        description: 'Starts Claude again with its conversation, in the same worktree.',
+      }),
+    ),
+    HttpApiEndpoint.post('seen', '/missions/seen', {
+      success: HttpApiSchema.NoContent,
+      error: Problems.ServiceUnavailable,
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Mark the mission log seen',
+        description: 'No finished mission counts as new afterwards.',
+      }),
+    ),
+    HttpApiEndpoint.post('outcome', '/agents/:agent/mission/outcome', {
+      params: { agent: AgentParam },
+      payload: MissionOutcomeRequest,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: "Report a mission's outcome",
+        description:
+          "Called by the running mission's agent at its end; failed ends the mission as failed.",
+      }),
+    ),
+  )
+  .middleware(TailscaleIdentity)
+  .middleware(ValidationMiddleware)
+  .prefix('/api/v1')
+  .annotateMerge(
+    OpenApi.annotations({
+      title: 'Missions',
+      description: 'Issues an agent carries out on its own, one at a time (spec 035).',
+    }),
+  );
+
 export const CommsApi = HttpApi.make('comms')
   .add(group)
   .add(planets)
@@ -2343,6 +2597,7 @@ export const CommsApi = HttpApi.make('comms')
   .add(quickReplies)
   .add(speech)
   .add(pullRequests)
+  .add(missions)
   .add(taskStarts)
   .annotate(HttpApi.ParseOptions, { errors: 'all' })
   // A body field the contract does not declare fails instead of being dropped. A slot annotation

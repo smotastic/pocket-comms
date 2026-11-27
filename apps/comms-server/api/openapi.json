@@ -1027,6 +1027,20 @@
         "required": ["path", "kind", "additions", "deletions", "shown"],
         "type": "object"
       },
+      "ChooseAutonomyRequest": {
+        "additionalProperties": false,
+        "description": "The planet's chosen autonomy level (spec 035).",
+        "properties": {
+          "level": {
+            "description": "The level to choose: manual or missions; autopilot cannot be chosen yet.",
+            "enum": ["manual", "missions", "autopilot"],
+            "examples": ["missions"],
+            "type": "string"
+          }
+        },
+        "required": ["level"],
+        "type": "object"
+      },
       "CloseRequest": {
         "additionalProperties": false,
         "description": "How to close the agent.",
@@ -1808,6 +1822,447 @@
         "required": ["keys"],
         "type": "object"
       },
+      "Mission": {
+        "additionalProperties": false,
+        "description": "One issue an agent carries out on its own.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its agent's name, while it has one.",
+            "examples": ["fix-7-fix-the-header"]
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "description": "A moment in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it finished, in epoch milliseconds.",
+            "examples": [1795600000000]
+          },
+          "id": {
+            "description": "The mission's id.",
+            "examples": ["3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b"],
+            "pattern": "^[0-9a-f-]{36}$",
+            "type": "string"
+          },
+          "isNew": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "In the log: finished since the owner last opened it.",
+            "examples": [true]
+          },
+          "issue": {
+            "additionalProperties": false,
+            "description": "The issue the mission carries out.",
+            "examples": [
+              {
+                "number": 7,
+                "title": "Fix the header",
+                "url": "http://localhost:3000/o/r/issues/7"
+              }
+            ],
+            "properties": {
+              "number": {
+                "description": "The issue's number.",
+                "examples": [7],
+                "type": "integer"
+              },
+              "title": {
+                "description": "The issue's title.",
+                "examples": ["Fix the header"],
+                "type": "string"
+              },
+              "url": {
+                "description": "The issue's page in Gitea.",
+                "examples": ["http://localhost:3000/smotastic/pocket-home/issues/7"],
+                "type": "string"
+              }
+            },
+            "required": ["number", "title", "url"],
+            "type": "object"
+          },
+          "lane": {
+            "description": "The lane: hop, or full flight with a grilling first.",
+            "enum": ["hop", "full-flight"],
+            "examples": ["hop"],
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What its agent reported at the end, one paragraph.",
+            "examples": ["Fixed the header overlap and merged #12."]
+          },
+          "planet": {
+            "description": "The planet.",
+            "examples": ["pocket-home"],
+            "type": "string"
+          },
+          "pullRequest": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "number": {
+                    "description": "The pull request's number.",
+                    "examples": [12],
+                    "type": "integer"
+                  },
+                  "url": {
+                    "description": "The pull request's page in Gitea.",
+                    "examples": ["http://localhost:3000/smotastic/pocket-home/pulls/12"],
+                    "type": "string"
+                  }
+                },
+                "required": ["number", "url"],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pull request its agent attached.",
+            "examples": [
+              {
+                "number": 12,
+                "url": "http://localhost:3000/o/r/pulls/12"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it is held, failed, aborted or lost.",
+            "examples": ["The owner aborted it."]
+          },
+          "sentAt": {
+            "description": "When it was sent, in epoch milliseconds.",
+            "examples": [1793391381245],
+            "type": "integer"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "description": "A moment in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it started, in epoch milliseconds.",
+            "examples": [1795600000000]
+          },
+          "state": {
+            "description": "queued; running as working, waiting (on the owner), pull-request or lost (its agent gone); finished as merged (not deployed), failed, aborted or held (its planet was not ready when its turn came).",
+            "enum": [
+              "queued",
+              "working",
+              "waiting",
+              "pull-request",
+              "lost",
+              "merged",
+              "failed",
+              "aborted",
+              "held"
+            ],
+            "examples": ["working"],
+            "type": "string"
+          }
+        },
+        "required": ["id", "planet", "issue", "lane", "state", "sentAt"],
+        "type": "object"
+      },
+      "MissionOutcomeRequest": {
+        "additionalProperties": false,
+        "description": "What a mission's agent reports at its end.",
+        "properties": {
+          "outcome": {
+            "description": "One paragraph for the mission log.",
+            "examples": ["Fixed the header overlap and merged #12."],
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "result": {
+            "description": "done after the merge; failed when the agent cannot go on.",
+            "enum": ["done", "failed"],
+            "examples": ["done"],
+            "type": "string"
+          }
+        },
+        "required": ["result", "outcome"],
+        "type": "object"
+      },
+      "Mission_1": {
+        "additionalProperties": false,
+        "description": "One issue an agent carries out on its own.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its agent's name, while it has one.",
+            "examples": ["fix-7-fix-the-header"]
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "description": "A moment in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it finished, in epoch milliseconds.",
+            "examples": [1795600000000]
+          },
+          "id": {
+            "description": "The mission's id.",
+            "examples": ["3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b"],
+            "pattern": "^[0-9a-f-]{36}$",
+            "type": "string"
+          },
+          "isNew": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "In the log: finished since the owner last opened it.",
+            "examples": [true]
+          },
+          "issue": {
+            "additionalProperties": false,
+            "description": "The issue the mission carries out.",
+            "examples": [
+              {
+                "number": 7,
+                "title": "Fix the header",
+                "url": "http://localhost:3000/o/r/issues/7"
+              }
+            ],
+            "properties": {
+              "number": {
+                "description": "The issue's number.",
+                "examples": [7],
+                "type": "integer"
+              },
+              "title": {
+                "description": "The issue's title.",
+                "examples": ["Fix the header"],
+                "type": "string"
+              },
+              "url": {
+                "description": "The issue's page in Gitea.",
+                "examples": ["http://localhost:3000/smotastic/pocket-home/issues/7"],
+                "type": "string"
+              }
+            },
+            "required": ["number", "title", "url"],
+            "type": "object"
+          },
+          "lane": {
+            "description": "The lane: hop, or full flight with a grilling first.",
+            "enum": ["hop", "full-flight"],
+            "examples": ["hop"],
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What its agent reported at the end, one paragraph.",
+            "examples": ["Fixed the header overlap and merged #12."]
+          },
+          "planet": {
+            "description": "The planet.",
+            "examples": ["pocket-home"],
+            "type": "string"
+          },
+          "pullRequest": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "number": {
+                    "description": "The pull request's number.",
+                    "examples": [12],
+                    "type": "integer"
+                  },
+                  "url": {
+                    "description": "The pull request's page in Gitea.",
+                    "examples": ["http://localhost:3000/smotastic/pocket-home/pulls/12"],
+                    "type": "string"
+                  }
+                },
+                "required": ["number", "url"],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pull request its agent attached.",
+            "examples": [
+              {
+                "number": 12,
+                "url": "http://localhost:3000/o/r/pulls/12"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it is held, failed, aborted or lost.",
+            "examples": ["The owner aborted it."]
+          },
+          "sentAt": {
+            "description": "When it was sent, in epoch milliseconds.",
+            "examples": [1793391381245],
+            "type": "integer"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "description": "A moment in epoch milliseconds.",
+                "examples": [1793391381245],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it started, in epoch milliseconds.",
+            "examples": [1795600000000]
+          },
+          "state": {
+            "description": "queued; running as working, waiting (on the owner), pull-request or lost (its agent gone); finished as merged (not deployed), failed, aborted or held (its planet was not ready when its turn came).",
+            "enum": [
+              "queued",
+              "working",
+              "waiting",
+              "pull-request",
+              "lost",
+              "merged",
+              "failed",
+              "aborted",
+              "held"
+            ],
+            "examples": ["working"],
+            "type": "string"
+          }
+        },
+        "required": ["id", "planet", "issue", "lane", "state", "sentAt"],
+        "type": "object"
+      },
+      "Missions": {
+        "additionalProperties": false,
+        "description": "Mission Control: the running mission, the mission queue and the mission log.",
+        "properties": {
+          "log": {
+            "description": "The mission log: finished missions of the last 90 days, newest first.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/Mission_1"
+            },
+            "type": "array"
+          },
+          "newCount": {
+            "description": "How many finished missions are new since the owner last opened the log.",
+            "examples": [0],
+            "type": "integer"
+          },
+          "queue": {
+            "description": "The mission queue, oldest first.",
+            "examples": [[]],
+            "items": {
+              "$ref": "#/components/schemas/Mission_1"
+            },
+            "type": "array"
+          },
+          "running": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Mission_1"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The running mission, if any.",
+            "examples": [
+              {
+                "id": "3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b",
+                "issue": {
+                  "number": 7,
+                  "title": "Fix the header",
+                  "url": "http://localhost:3000/o/r/issues/7"
+                },
+                "lane": "hop",
+                "planet": "pocket-home",
+                "sentAt": 1795600000000,
+                "state": "working"
+              }
+            ]
+          }
+        },
+        "required": ["queue", "log", "newCount"],
+        "type": "object"
+      },
       "NotFoundProblemEncoded": {
         "additionalProperties": false,
         "properties": {
@@ -2015,7 +2470,14 @@
         "properties": {
           "check": {
             "description": "The check, in the fixed order of the list.",
-            "enum": ["gitea", "agents-md", "ci-workflow", "ci-green", "verify-script"],
+            "enum": [
+              "gitea",
+              "agents-md",
+              "ci-workflow",
+              "ci-green",
+              "verify-script",
+              "mission-bot"
+            ],
             "examples": ["ci-green"],
             "type": "string"
           },
@@ -2475,6 +2937,20 @@
           }
         },
         "required": ["text"],
+        "type": "object"
+      },
+      "SendOnMissionRequest": {
+        "additionalProperties": false,
+        "description": "The lane the mission takes (spec 035).",
+        "properties": {
+          "lane": {
+            "description": "The lane: hop, or full flight with a grilling first.",
+            "enum": ["hop", "full-flight"],
+            "examples": ["hop"],
+            "type": "string"
+          }
+        },
+        "required": ["lane"],
         "type": "object"
       },
       "SendTaskStartRequest": {
@@ -3774,6 +4250,85 @@
         "security": [],
         "summary": "Press keys",
         "tags": ["Agents"]
+      }
+    },
+    "/api/v1/agents/{agent}/mission/outcome": {
+      "post": {
+        "description": "Called by the running mission's agent at its end; failed ends the mission as failed.",
+        "operationId": "missions.outcome",
+        "parameters": [
+          {
+            "description": "The agent's Herdr name, or its pane id when it has none.",
+            "example": "kirk-ingestor-mvp",
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "description": "The agent's Herdr name, or its pane id when it has none.",
+              "examples": ["kirk-ingestor-mvp"],
+              "pattern": "^[A-Za-z0-9:._-]{1,100}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MissionOutcomeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Report a mission's outcome",
+        "tags": ["Missions"]
       }
     },
     "/api/v1/agents/{agent}/prompt": {
@@ -5624,6 +6179,310 @@
         "tags": ["Images"]
       }
     },
+    "/api/v1/missions": {
+      "get": {
+        "description": "The running mission, the mission queue and the mission log (spec 035).",
+        "operationId": "missions.list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Missions"
+                }
+              }
+            },
+            "description": "Mission Control: the running mission, the mission queue and the mission log."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Read Mission Control",
+        "tags": ["Missions"]
+      }
+    },
+    "/api/v1/missions/seen": {
+      "post": {
+        "description": "No finished mission counts as new afterwards.",
+        "operationId": "missions.seen",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Mark the mission log seen",
+        "tags": ["Missions"]
+      }
+    },
+    "/api/v1/missions/{mission}": {
+      "delete": {
+        "description": "Takes a queued mission out of the mission queue; it leaves no trace in the log.",
+        "operationId": "missions.remove",
+        "parameters": [
+          {
+            "description": "The mission's id.",
+            "example": "3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b",
+            "in": "path",
+            "name": "mission",
+            "required": true,
+            "schema": {
+              "description": "The mission's id.",
+              "examples": ["3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b"],
+              "pattern": "^[0-9a-f-]{36}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Remove a queued mission",
+        "tags": ["Missions"]
+      }
+    },
+    "/api/v1/missions/{mission}/abort": {
+      "post": {
+        "description": "Stops its agent, keeps its branch and worktree, removes the in-progress label and says why on the issue.",
+        "operationId": "missions.abort",
+        "parameters": [
+          {
+            "description": "The mission's id.",
+            "example": "3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b",
+            "in": "path",
+            "name": "mission",
+            "required": true,
+            "schema": {
+              "description": "The mission's id.",
+              "examples": ["3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b"],
+              "pattern": "^[0-9a-f-]{36}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Abort the running mission",
+        "tags": ["Missions"]
+      }
+    },
+    "/api/v1/missions/{mission}/resume": {
+      "post": {
+        "description": "Starts Claude again with its conversation, in the same worktree.",
+        "operationId": "missions.resume",
+        "parameters": [
+          {
+            "description": "The mission's id.",
+            "example": "3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b",
+            "in": "path",
+            "name": "mission",
+            "required": true,
+            "schema": {
+              "description": "The mission's id.",
+              "examples": ["3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b"],
+              "pattern": "^[0-9a-f-]{36}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Resume a lost mission",
+        "tags": ["Missions"]
+      }
+    },
     "/api/v1/planets": {
       "get": {
         "description": "The planets, the registered git repositories below the repositories root that work can start in, and the other repositories there.",
@@ -5815,6 +6674,85 @@
         },
         "security": [],
         "summary": "Unregister a planet",
+        "tags": ["Planets"]
+      }
+    },
+    "/api/v1/planets/{planet}/autonomy": {
+      "put": {
+        "description": "Sets the level the owner chose: manual or missions. Preflight still lowers it to manual on no-go; autopilot cannot be chosen yet.",
+        "operationId": "planets.chooseAutonomy",
+        "parameters": [
+          {
+            "description": "The planet's folder name below the repositories root.",
+            "example": "pocket-comms",
+            "in": "path",
+            "name": "planet",
+            "required": true,
+            "schema": {
+              "description": "The planet's folder name below the repositories root.",
+              "examples": ["pocket-comms"],
+              "pattern": "^[^/]{1,200}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChooseAutonomyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Choose a planet's autonomy level",
         "tags": ["Planets"]
       }
     },
@@ -6092,6 +7030,115 @@
         },
         "security": [],
         "summary": "Implement an issue with Claude",
+        "tags": ["Issues"]
+      }
+    },
+    "/api/v1/planets/{planet}/issues/{number}/mission": {
+      "post": {
+        "description": "Computes the planet's preflight again and, when its autonomy level in effect is missions, sets the lane label as the mission bot and queues the mission (spec 035). Refused without the bot token, at manual, on no-go, or when the issue is closed or on a mission already.",
+        "operationId": "issues.sendOnMission",
+        "parameters": [
+          {
+            "description": "The planet's folder name below the repositories root.",
+            "example": "pocket-comms",
+            "in": "path",
+            "name": "planet",
+            "required": true,
+            "schema": {
+              "description": "The planet's folder name below the repositories root.",
+              "examples": ["pocket-comms"],
+              "pattern": "^[^/]{1,200}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The issue's number in its repository.",
+            "example": "8",
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "description": "The issue's number in its repository.",
+              "examples": ["8"],
+              "pattern": "^[1-9][0-9]{0,8}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendOnMissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mission"
+                }
+              }
+            },
+            "description": "One issue an agent carries out on its own."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Send an issue on a mission",
         "tags": ["Issues"]
       }
     },
@@ -6767,6 +7814,10 @@
     {
       "description": "The pull requests attached to an agent's conversation, and their changes.",
       "name": "Pull requests"
+    },
+    {
+      "description": "Issues an agent carries out on its own, one at a time (spec 035).",
+      "name": "Missions"
     },
     {
       "description": "Recover a task start whose agent did not get its first prompt, into the same worktree and agent.",

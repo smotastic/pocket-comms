@@ -800,6 +800,7 @@ const missionBot = (fake: FakeState['Service']): MissionBotOutbound['Service'] =
     get configured() {
       return fake.bot.configured;
     },
+    settingsPath: '/release/mission/claude-settings.json',
     facts: (repository) =>
       Effect.sync(() =>
         !fake.bot.configured

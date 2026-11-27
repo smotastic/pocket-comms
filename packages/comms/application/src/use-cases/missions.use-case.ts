@@ -33,7 +33,6 @@ import type { MissionDto, MissionOutcomeInput, MissionsDto } from '../dto/missio
 import { MissionNotFoundError, MissionRefusedError, NoGiteaRemoteError } from '../errors.js';
 import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { MissionBotOutbound } from '../ports/mission-bot.outbound.port.js';
-import { MissionSettings } from '../ports/mission-settings.port.js';
 import { MissionsOutbound } from '../ports/missions.outbound.port.js';
 import { MultiplexerOutbound, type StartedAgent } from '../ports/multiplexer.outbound.port.js';
 import { PullRequestsOutbound, type AttachedLists } from '../ports/pull-requests.outbound.port.js';
@@ -89,7 +88,6 @@ export const makeMissions = Effect.gen(function* () {
   const repositories = yield* RepositoriesOutbound;
   const multiplexer = yield* MultiplexerOutbound;
   const attached = yield* PullRequestsOutbound;
-  const { settingsPath } = yield* MissionSettings;
   const issuePlanet = yield* makeIssuePlanet;
   const planets = yield* makePlanets;
   const { deliver, keep } = yield* makeAgentLaunch;
@@ -97,7 +95,7 @@ export const makeMissions = Effect.gen(function* () {
   const trigger = yield* PubSub.unbounded<void>();
   const lastRun = yield* Ref.make(0);
 
-  const settings = ['--settings', settingsPath];
+  const settings = ['--settings', bot.settingsPath];
 
   /** Changes the file under the lock, dropping finished missions older than the log keeps. */
   const change = <A, E, R>(
@@ -334,10 +332,18 @@ export const makeMissions = Effect.gen(function* () {
     input: MissionOutcomeInput,
   ) {
     const text = input.outcome.trim();
+    // The agent names itself by its pane, as the skill sends it, or by its name.
+    const live = yield* multiplexer.snapshot.pipe(
+      Effect.map((snapshot) =>
+        snapshot.agents.find((each) => each.paneId === agent || each.name === agent),
+      ),
+      Effect.orElseSucceed(() => undefined),
+    );
+    const name = live?.name ?? agent;
     yield* change((file, now) =>
       Effect.gen(function* () {
         const mission = runningMission(file);
-        if (mission === undefined || mission.agent !== agent) {
+        if (mission === undefined || mission.agent !== name) {
           return yield* new MissionNotFoundError({ id: agent });
         }
         if (input.result === 'failed') {

@@ -5,6 +5,7 @@ import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { server } from './composition.js';
 import { HOST, serverConfig, speechSettings } from './config.js';
 
@@ -31,6 +32,7 @@ const main = Layer.unwrap(
         socket: config.multiplexer === 'hc' ? config.hcSocketPath : config.socketPath,
         gitea: config.giteaUrl,
         giteaToken: Option.isSome(config.giteaToken) ? 'set' : 'not set',
+        missionToken: Option.isSome(config.missionToken) ? 'set' : 'not set',
         brainstorm: Option.getOrElse(config.brainstormModel, () => 'not set up'),
         speech: speech._tag === 'On' ? speech.model : 'not set up',
         state: config.stateDir,
@@ -47,6 +49,9 @@ const main = Layer.unwrap(
         worktreesRoot: config.worktreesRoot,
         agentArgs: config.agentArgs,
         gitea: { url: config.giteaUrl, token: config.giteaToken, hosts: config.giteaHosts },
+        missionToken: config.missionToken,
+        // The settings ship beside the build, in the release's `mission` folder (ADR 0019).
+        missionSettings: fileURLToPath(new URL('../mission/claude-settings.json', import.meta.url)),
         stateDir: config.stateDir,
         ...(speech._tag === 'On' ? { speech: { url: speech.url, model: speech.model } } : {}),
         ...Option.match(config.webDist, { onNone: () => ({}), onSome: (webDist) => ({ webDist }) }),

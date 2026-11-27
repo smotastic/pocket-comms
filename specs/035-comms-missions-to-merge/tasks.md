@@ -40,11 +40,11 @@ in the task's own commit. Requirements are the spec's numbers (R1–R26).
 - [x] **T09** — Abort, outcome (done, failed), a closed pull request, lost and resume.
   - Serves: R20–R22
   - Gate: `pnpm nx test comms-application`
-- [ ] **T10** — Contract, handlers and problems: send, choose autonomy, missions (list, remove,
+- [x] **T10** — Contract, handlers and problems: send, choose autonomy, missions (list, remove,
       abort, resume, seen), outcome; `mission` on an agent.
   - Serves: R4–R6, R11, R16, R20–R22, R24–R26
   - Gate: `pnpm nx test comms-api`, `pnpm verify:local` (OpenAPI lint and diff)
-- [ ] **T11** — Server: the token setting, the mission settings file with the deny list, the
+- [x] **T11** — Server: the token setting, the mission settings file with the deny list, the
       `comms-mission` skill, the composition and the loop.
   - Serves: R1, R14, R15, R20
   - Gate: `pnpm nx test comms-server`, `pnpm verify:local`

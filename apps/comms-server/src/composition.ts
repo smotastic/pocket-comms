@@ -10,6 +10,7 @@ import {
   TaskStartsInbound,
   PushInbound,
   makePlanetRegistry,
+  MissionsInbound,
   PlanetsInbound,
   QuickRepliesInbound,
   SpeechInbound,
@@ -22,6 +23,8 @@ import {
   Hc,
   Herdr,
   Images,
+  MissionBot,
+  Missions,
   Planets,
   Repositories,
   PullRequests,
@@ -40,6 +43,8 @@ import {
 } from '@smotastic/pocket-agent/speech';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import type * as Option from 'effect/Option';
+import type * as Redacted from 'effect/Redacted';
 import { join } from 'node:path';
 
 // The composition root of the server: it wires the adapters. It holds no business logic.
@@ -71,6 +76,10 @@ export interface ServerOptions {
   readonly agentArgs: ReadonlyArray<string>;
   /** The Gitea server whose issues the app reads (spec 006). */
   readonly gitea: Gitea.HttpOptions;
+  /** The mission bot's token on that Gitea; none leaves missions off (spec 035). */
+  readonly missionToken: Option.Option<Redacted.Redacted<string>>;
+  /** The Claude settings of a mission's agent: auto mode and the deny list (ADR 0019). */
+  readonly missionSettings: string;
   /**
    * The folder of the server's stored state: the brainstorm (spec 013), images (spec 014),
    * the activity timeline (spec 017), push devices (spec 018), quick replies (spec 025) and the attached pull requests (spec 031).
@@ -96,6 +105,8 @@ export const services = ({
   worktreesRoot,
   agentArgs,
   gitea,
+  missionToken,
+  missionSettings,
   stateDir,
   speech,
 }: Omit<ServerOptions, 'allowedLogin' | 'webDist'>) =>
@@ -117,6 +128,13 @@ export const services = ({
     PullRequests.layerFile({ folder: stateDir }),
     TaskStarts.layerFile({ folder: stateDir }),
     Planets.layerFile({ folder: stateDir }),
+    Missions.layerFile({ folder: stateDir }),
+    MissionBot.layer({
+      url: gitea.url,
+      token: missionToken,
+      stateDir,
+      settingsPath: missionSettings,
+    }),
     speech === undefined ? layerTranscriberNotSetUp : layerOpenAiTranscriber(speech),
     Seen.layerMemory,
     StatusHistory.layerMemory,
@@ -159,6 +177,7 @@ export const server = ({ allowedLogin, webDist, ...adapters }: ServerOptions) =>
       PullRequestsInbound.layer,
       TaskStartsInbound.layer,
       PlanetsInbound.layer,
+      MissionsInbound.layer,
       seedPlanetsLayer,
     ]),
     Layer.provideMerge(services(adapters)),

@@ -48,6 +48,8 @@ const serve = (
       worktreesRoot: mkdtempSync(join(tmpdir(), 'worktrees-')),
       agentArgs: [],
       gitea: { url: 'http://127.0.0.1:9', token: Option.none(), hosts: ['gitea'] },
+      missionToken: Option.none(),
+      missionSettings: '/release/mission/claude-settings.json',
       stateDir,
       ...(speech === undefined ? {} : { speech }),
     }).pipe(
