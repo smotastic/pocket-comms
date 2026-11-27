@@ -9,7 +9,7 @@ import {
   RepositoryNotFoundError,
 } from '../errors.js';
 import { PlanetsInbound } from '../ports/planets.inbound.port.js';
-import { fakeLayer, FakeState } from '../testing/fakes.js';
+import { fakeIssue, fakeLayer, FakeState } from '../testing/fakes.js';
 import { makePlanetRegistry } from './planet-registry.js';
 
 const layer = () => PlanetsInbound.layer.pipe(Layer.provideMerge(fakeLayer()));
@@ -183,6 +183,7 @@ describe('PlanetsInbound.preflight', () => {
         true,
         true,
         true,
+        true,
       ]);
       expect(preflight.autonomy).toEqual({ chosen: 'manual', effective: 'manual' });
     }).pipe(Effect.provide(layer())),
@@ -295,7 +296,7 @@ describe('PlanetsInbound.preflight', () => {
       const preflight = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
 
       expect(preflight.result).toBe('no-go');
-      expect(preflight.checks.at(-1)).toEqual({
+      expect(preflight.checks.find((check) => check.check === 'mission-bot')).toEqual({
         check: 'mission-bot',
         passed: false,
         reason: 'Missions have no bot token (COMMS_MISSION_GITEA_TOKEN).',
@@ -335,6 +336,92 @@ describe('PlanetsInbound.choose', () => {
       expect(state.registry).toEqual({ planets: [{ name: 'app', autonomy: 'missions' }] });
       expect(autopilot._tag).toBe('InvalidInputError');
       expect(unknown).toEqual(new PlanetNotFoundError({ planet: 'beta' }));
+    }).pipe(Effect.provide(layer())),
+  );
+});
+
+describe('PlanetsInbound.preflight: deploy (spec 036)', () => {
+  const agentsMd = (block: string) => `# app\n\n\`\`\`json mission-control\n${block}\n\`\`\`\n`;
+  const ready = (state: FakeState['Service'], agents: string) => {
+    state.giteaRepositories.set('owner/app', {
+      defaultBranch: 'master',
+      files: new Map([
+        ['AGENTS.md', agents],
+        ['.github/workflows/ci.yml', 'on: push'],
+        ['package.json', '{"scripts":{"verify":"pocket-ci verify"}}'],
+      ]),
+      runs: [{ status: 'completed', conclusion: 'success' }],
+    });
+  };
+  const block = '{"releases":[{"tag":"app-v","app":"pocket-app"}]}';
+
+  it.effect('deploys when AGENTS.md names a release whose app the script can deploy', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state, agentsMd(block));
+      const preflight = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      expect(preflight.deploy.deploys).toBe(true);
+      expect(preflight.deploy.checks.map((check) => check.passed)).toEqual([true, true, true]);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('does not deploy without a block, without a script, or with an unready app', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state, '# app');
+      const none = yield* PlanetsInbound.use((inbound) => inbound.preflight('app', true));
+      expect(none.result).toBe('go');
+      expect(none.deploy.deploys).toBe(false);
+      expect(none.deploy.checks[0]?.reason).toContain('no `json mission-control` block');
+
+      ready(state, agentsMd(block));
+      state.deploy.checks.set('pocket-app', { ready: false, reason: 'No health URL.' });
+      const unready = yield* PlanetsInbound.use((inbound) => inbound.preflight('app', true));
+      expect(unready.deploy.checks[2]).toEqual({
+        check: 'deploy-apps',
+        passed: false,
+        reason: 'No health URL.',
+      });
+
+      state.deploy.configured = false;
+      const noScript = yield* PlanetsInbound.use((inbound) => inbound.preflight('app', true));
+      expect(noScript.deploy.checks[1]?.passed).toBe(false);
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('is no-go after a rolled-back deploy until its fix issue is closed', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state, agentsMd(block));
+      state.registry = { planets: [{ name: 'app', autonomy: 'missions' }] };
+      state.issues.set('owner/app', [fakeIssue({ number: 9 })]);
+      state.missions = {
+        seenAt: 0,
+        missions: [
+          {
+            id: 'm-1',
+            planet: 'app',
+            repository: { owner: 'owner', name: 'app' },
+            issue: { number: 3, title: 'Three', url: 'http://gitea.test/owner/app/issues/3' },
+            lane: 'hop',
+            state: 'rolled-back',
+            sentAt: 1,
+            finishedAt: 2,
+            versions: ['app-v0.2.0'],
+            fixIssue: 9,
+          },
+        ],
+      };
+      const paused = yield* PlanetsInbound.use((inbound) => inbound.preflight('app', true));
+      expect(paused.result).toBe('no-go');
+      expect(paused.autonomy.effective).toBe('manual');
+      expect(paused.checks.find((check) => check.check === 'last-deploy')?.reason).toBe(
+        'The last deploy (app-v0.2.0) rolled back; close #9 once it is fixed.',
+      );
+
+      state.issues.set('owner/app', [fakeIssue({ number: 9, state: 'closed' })]);
+      const fixed = yield* PlanetsInbound.use((inbound) => inbound.preflight('app', true));
+      expect(fixed.result).toBe('go');
     }).pipe(Effect.provide(layer())),
   );
 });

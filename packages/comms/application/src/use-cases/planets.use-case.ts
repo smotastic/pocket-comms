@@ -81,7 +81,9 @@ export const makePlanets = Effect.gen(function* () {
   const lastDeployFacts = (planet: string, repository: LinkedRepository) =>
     Effect.gen(function* () {
       const latest = lastDeploy(yield* missionsOutbound.load, planet);
-      if (latest?.state !== 'rolled-back') return { _tag: 'Fine' } satisfies LastDeployFacts;
+      if (latest === undefined || latest.state === 'deployed') {
+        return { _tag: 'Fine' } satisfies LastDeployFacts;
+      }
       const what = (latest.versions ?? []).join(', ') || `#${latest.issue.number}`;
       const fixIssue = latest.fixIssue;
       if (fixIssue !== undefined) {

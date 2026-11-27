@@ -328,12 +328,17 @@ export const planetWaitsForOwner = (file: MissionsFile, planet: string): boolean
         (mission.deploy !== undefined && !isFinished(mission))),
   );
 
-/** The planet's latest finished deploy, deployed or rolled back; none before the first. */
+/**
+ * The planet's latest finished deploy: deployed, rolled back, or a release that failed and opened
+ * a fix issue; none before the first.
+ */
 export const lastDeploy = (file: MissionsFile, planet: string): Mission | undefined =>
   file.missions
     .filter(
       (mission) =>
         mission.planet === planet &&
-        (mission.state === 'deployed' || mission.state === 'rolled-back'),
+        (mission.state === 'deployed' ||
+          mission.state === 'rolled-back' ||
+          (mission.state === 'failed' && mission.fixIssue !== undefined)),
     )
     .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];

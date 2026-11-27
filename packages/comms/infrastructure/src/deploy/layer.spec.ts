@@ -71,7 +71,11 @@ describe('the deploy script adapter', () => {
       }),
     );
     expect(checks[0]).toEqual({ app: 'ready', ready: true, reason: 'ready can deploy.' });
-    expect(checks[1]).toEqual({ app: 'unready', ready: false, reason: 'No health URL for unready.' });
+    expect(checks[1]).toEqual({
+      app: 'unready',
+      ready: false,
+      reason: 'No health URL for unready.',
+    });
     expect(checks[2]?.ready).toBe(false);
     expect(checks[2]?.reason).toContain('did not answer about broken');
   });
