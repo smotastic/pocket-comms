@@ -53,3 +53,11 @@ POST /api/v1/planets/{planet}/issues/{number}/mission added the new `not-deploye
 POST /api/v1/planets/{planet}/issues/{number}/mission added the new `nothing-to-release` enum value to the `state` response property for the response status `201`
 POST /api/v1/planets/{planet}/issues/{number}/mission added the new `releasing` enum value to the `state` response property for the response status `201`
 POST /api/v1/planets/{planet}/issues/{number}/mission added the new `rolled-back` enum value to the `state` response property for the response status `201`
+GET /api/v1/missions added the new `deploy-lost` enum value to the `log/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `deploy-lost` enum value to the `queue/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `deploy-lost` enum value to the `running/anyOf[#/components/schemas/Mission_1]/state` response property for the response status `200`
+POST /api/v1/planets/{planet}/issues/{number}/mission added the new `deploy-lost` enum value to the `state` response property for the response status `201`
+GET /api/v1/missions added the new `down` enum value to the `log/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `down` enum value to the `queue/items/state` response property for the response status `200`
+GET /api/v1/missions added the new `down` enum value to the `running/anyOf[#/components/schemas/Mission_1]/state` response property for the response status `200`
+POST /api/v1/planets/{planet}/issues/{number}/mission added the new `down` enum value to the `state` response property for the response status `201`

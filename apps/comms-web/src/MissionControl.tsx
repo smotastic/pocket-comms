@@ -41,6 +41,9 @@ export const STATE_NAMES: Readonly<Record<MissionView['state'], string>> = {
   'not-deployed': 'Merged, not deployed',
   'nothing-to-release': 'Merged, nothing to release',
   'awaiting-deploy': 'Merged, waiting for you to deploy',
+  // Spec 037.
+  'deploy-lost': 'Deploy lost',
+  down: 'Down',
 };
 
 /** The versions it shipped, the issue a failure opened, and what it ships with. */

@@ -1,4 +1,9 @@
-import { seedPlanets, type PlanetRegistry, type Repository } from '@pocket-comms/comms-domain';
+import {
+  seedAllowedApps,
+  seedPlanets,
+  type PlanetRegistry,
+  type Repository,
+} from '@pocket-comms/comms-domain';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import { PlanetNotFoundError } from '../errors.js';
@@ -20,11 +25,11 @@ export const makePlanetRegistry = Effect.gen(function* () {
 
   /** The repositories below the root that are planets, and the ones that are not. */
   const split = Effect.gen(function* () {
-    const { planets } = yield* registry;
-    const names = new Set(planets.map((planet) => planet.name));
+    const all = yield* registry;
+    const names = new Set(all.planets.map((planet) => planet.name));
     const repositories = yield* repositoriesOutbound.list;
     return {
-      registry: { planets },
+      registry: all,
       planets: repositories.filter((repository) => names.has(repository.name)),
       others: repositories.filter((repository) => !names.has(repository.name)),
     };
@@ -39,11 +44,22 @@ export const makePlanetRegistry = Effect.gen(function* () {
     return planet;
   });
 
-  /** Registers the repositories on the app's Gitea once, when there is no registry yet. */
+  /**
+   * Registers the repositories on the app's Gitea once, when there is no registry yet; and seeds
+   * the planets' allowed apps once (spec 037).
+   */
   const seed = Effect.gen(function* () {
-    if (Option.isSome(yield* planetsOutbound.load)) return;
+    const existing = yield* planetsOutbound.load;
+    if (Option.isSome(existing)) {
+      const withApps = seedAllowedApps(existing.value);
+      if (withApps !== undefined) {
+        yield* planetsOutbound.save(withApps);
+        yield* Effect.logInfo('Allowed apps seeded');
+      }
+      return;
+    }
     const repositories = yield* repositoriesOutbound.list;
-    const seeded = seedPlanets(
+    const planets = seedPlanets(
       yield* Effect.forEach(repositories, (repository) =>
         repositoriesOutbound.originUrl(repository).pipe(
           Effect.map((origin) => ({
@@ -53,6 +69,7 @@ export const makePlanetRegistry = Effect.gen(function* () {
         ),
       ),
     );
+    const seeded = seedAllowedApps(planets) ?? planets;
     yield* planetsOutbound.save(seeded);
     yield* Effect.logInfo('Planets seeded').pipe(
       Effect.annotateLogs({ planets: seeded.planets.map((planet) => planet.name).join(', ') }),

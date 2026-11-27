@@ -155,6 +155,10 @@ const decodeRuns = Schema.decodeUnknownEffect(
   }),
 );
 
+const decodeCommitStatus = Schema.decodeUnknownEffect(
+  Schema.Struct({ state: Schema.optional(Schema.String) }),
+);
+
 const decodeTagRuns = Schema.decodeUnknownEffect(
   Schema.Struct({
     workflow_runs: Schema.NullOr(
@@ -350,6 +354,25 @@ export const layerHttp = ({
             ...(run.conclusion === undefined ? {} : { conclusion: run.conclusion }),
           });
     }).pipe(Effect.withSpan('Gitea.tagRun'));
+
+  // The combined state of every status on the commit: Gitea says `success` once all passed, and
+  // `failure` or `error` once one failed; `pending` or nothing while it is going or not started.
+  const commitStatus = (repository: GiteaRepository, sha: string) =>
+    Effect.gen(function* () {
+      const answer = yield* get(
+        `${repositoryPath(repository)}/commits/${encodeURIComponent(sha)}/status`,
+      );
+      type State = 'pending' | 'success' | 'failure';
+      if (answer === undefined) return Option.none<State>();
+      const decoded = yield* decodeCommitStatus(answer).pipe(Effect.mapError(unknownShape));
+      return Option.some<State>(
+        decoded.state === 'success'
+          ? 'success'
+          : decoded.state === 'failure' || decoded.state === 'error'
+            ? 'failure'
+            : 'pending',
+      );
+    }).pipe(Effect.withSpan('Gitea.commitStatus'));
 
   const openIssues = (repository: GiteaRepository) =>
     Effect.gen(function* () {
@@ -613,6 +636,7 @@ export const layerHttp = ({
       entryNames,
       pushRuns,
       tagRun,
+      commitStatus,
       openIssues,
       issue,
       closeIssue,

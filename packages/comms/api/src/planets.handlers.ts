@@ -40,6 +40,14 @@ export const planetsHandlers = HttpApiBuilder.group(
           }),
         ),
       )
+      .handle('allowApps', ({ params, payload }) =>
+        planetsInbound.allowApps(params.planet, payload.apps).pipe(
+          Effect.catchTags({
+            PlanetNotFoundError: problems.planetNotFound,
+            PlanetsStoreError: problems.planetsUnavailable,
+          }),
+        ),
+      )
       .handle('unregister', ({ params }) =>
         planetsInbound.unregister(params.planet).pipe(
           Effect.catchTags({

@@ -63,3 +63,24 @@ pull request is merged, and the agents' deny list refuses pushing tags.
   are built from tags.
 - **A separate deploy switch per planet:** the owner chose to let **missions** mean deploy.
 - **Reverting master after a rollback:** the owner keeps that decision.
+
+## Addendum (spec 037, 2026-11-27)
+
+The first live deploys and an independent review changed two parts of this decision:
+
+- **A planet's settings decide which apps it may deploy, not its `AGENTS.md`.** Missions edit and
+  merge a planet's `AGENTS.md` without the owner, so its Mission Control block could name any
+  app, comms itself included. Each planet's allowed apps live in the planets file, seeded once
+  with today's pairs; a release naming another app does not deploy until the owner allows it on
+  the planet page. Rejected: a naming rule (an app named like its planet), which breaks on the
+  first app named otherwise; asking pocket-cloud, which would need every app's source repository
+  in its settings.
+- **A release waits for master's CI on the commit it releases.** The merge commit's own run on
+  master may still be going when the mission merges; preflight reads only the newest finished
+  run. A red or late run ends the mission merged, not deployed, without a fix issue: the planet's
+  ci-green check already keeps it no-go.
+
+The same spec makes every failed release or deploy pause the planet until its fix issue is closed
+or the owner resumes it, with the states **deploy lost** (no result, the outcome unknown) and
+**down** (the rollback failed too); these refine the consequences above rather than change the
+decision.

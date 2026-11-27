@@ -139,18 +139,46 @@ describe('the seed', () => {
 
       yield* seed;
 
-      expect(state.registry).toEqual({ planets: [{ name: 'app', autonomy: 'manual' }] });
+      expect(state.registry).toEqual({
+        appsSeeded: true,
+        planets: [{ name: 'app', autonomy: 'manual', apps: [] }],
+      });
     }).pipe(Effect.provide(layer())),
   );
 
-  it.effect('leaves a registry alone, even with a new repository below the root', () =>
+  it.effect('leaves the planets of a registry alone, and seeds its allowed apps once', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
-      state.registry = { planets: [] };
+      state.registry = {
+        planets: [
+          { name: 'pocket-home', autonomy: 'missions' },
+          { name: 'pocket-field', autonomy: 'manual' },
+        ],
+      };
 
       yield* seed;
 
-      expect(state.registry).toEqual({ planets: [] });
+      const seeded = {
+        appsSeeded: true,
+        planets: [
+          {
+            name: 'pocket-home',
+            autonomy: 'missions',
+            apps: ['pocket-home-server', 'pocket-home-web'],
+          },
+          { name: 'pocket-field', autonomy: 'manual', apps: [] },
+        ],
+      };
+      expect(state.registry).toEqual(seeded);
+      state.registry = {
+        ...seeded,
+        planets: [{ name: 'pocket-home', autonomy: 'missions', apps: [] }],
+      };
+      yield* seed;
+      expect(state.registry).toEqual({
+        appsSeeded: true,
+        planets: [{ name: 'pocket-home', autonomy: 'missions', apps: [] }],
+      });
     }).pipe(Effect.provide(layer())),
   );
 });
@@ -352,6 +380,10 @@ describe('PlanetsInbound.preflight: deploy (spec 036)', () => {
       ]),
       runs: [{ status: 'completed', conclusion: 'success' }],
     });
+    state.registry = {
+      appsSeeded: true,
+      planets: [{ name: 'app', autonomy: 'missions', apps: ['pocket-app'] }],
+    };
   };
   const block = '{"releases":[{"tag":"app-v","app":"pocket-app"}]}';
 
@@ -393,7 +425,6 @@ describe('PlanetsInbound.preflight: deploy (spec 036)', () => {
     Effect.gen(function* () {
       const state = yield* FakeState;
       ready(state, agentsMd(block));
-      state.registry = { planets: [{ name: 'app', autonomy: 'missions' }] };
       state.issues.set('owner/app', [fakeIssue({ number: 9 })]);
       state.missions = {
         seenAt: 0,
@@ -416,12 +447,66 @@ describe('PlanetsInbound.preflight: deploy (spec 036)', () => {
       expect(paused.result).toBe('no-go');
       expect(paused.autonomy.effective).toBe('manual');
       expect(paused.checks.find((check) => check.check === 'last-deploy')?.reason).toBe(
-        'The last deploy (app-v0.2.0) rolled back; close #9 once it is fixed.',
+        'The last deploy (app-v0.2.0) rolled back; close #9 or resume the planet once it is fixed.',
       );
 
       state.issues.set('owner/app', [fakeIssue({ number: 9, state: 'closed' })]);
       const fixed = yield* PlanetsInbound.use((inbound) => inbound.preflight('app', true));
       expect(fixed.result).toBe('go');
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('pauses on any deploy failure, without a fix issue too, and sees it at once', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state, agentsMd(block));
+      const first = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      expect(first.result).toBe('go');
+      const down = {
+        id: 'm-2',
+        planet: 'app',
+        repository: { owner: 'owner', name: 'app' },
+        issue: { number: 4, title: 'Four', url: 'http://gitea.test/owner/app/issues/4' },
+        lane: 'hop',
+        state: 'down',
+        sentAt: 1,
+        finishedAt: 2,
+        versions: ['app-v0.3.0'],
+      } as const;
+      state.missions = { seenAt: 0, missions: [down] };
+      // Within the 60 seconds of reuse: a new failure is seen at once (spec 037, requirement 9).
+      const paused = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      expect(paused.result).toBe('no-go');
+      expect(paused.checks.find((check) => check.check === 'last-deploy')?.reason).toBe(
+        'The last deploy (app-v0.3.0) is down; resume the planet once it is fixed.',
+      );
+      state.missions = { seenAt: 0, missions: [{ ...down, resumedAt: 3 }] };
+      const resumed = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      expect(resumed.result).toBe('go');
+    }).pipe(Effect.provide(layer())),
+  );
+
+  it.effect('deploys only the apps the owner allows, and lets the owner allow them', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      ready(state, agentsMd(block));
+      state.registry = { appsSeeded: true, planets: [{ name: 'app', autonomy: 'missions' }] };
+      const refused = yield* PlanetsInbound.use((inbound) => inbound.preflight('app', true));
+      expect(refused.deploy.deploys).toBe(false);
+      expect(refused.deploy.checks[2]?.reason).toBe('pocket-app is not allowed for app.');
+      expect(refused.deploy.apps).toEqual([{ app: 'pocket-app', allowed: false }]);
+
+      yield* PlanetsInbound.use((inbound) => inbound.allowApps('app', ['pocket-app']));
+      expect(state.registry).toEqual({
+        appsSeeded: true,
+        planets: [{ name: 'app', autonomy: 'missions', apps: ['pocket-app'] }],
+      });
+      const allowed = yield* PlanetsInbound.use((inbound) => inbound.preflight('app'));
+      expect(allowed.deploy.deploys).toBe(true);
+      const gone = yield* PlanetsInbound.use((inbound) => inbound.allowApps('nope', [])).pipe(
+        Effect.flip,
+      );
+      expect(gone._tag).toBe('PlanetNotFoundError');
     }).pipe(Effect.provide(layer())),
   );
 });

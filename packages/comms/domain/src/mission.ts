@@ -44,7 +44,9 @@ export type FinishedState =
   | 'rolled-back'
   | 'not-deployed'
   | 'nothing-to-release'
-  | 'awaiting-deploy';
+  | 'awaiting-deploy'
+  | 'deploy-lost'
+  | 'down';
 export type MissionState = OpenState | FinishedState;
 
 /** The states in which a mission is running: at most one mission is in one of them. */
@@ -67,6 +69,8 @@ const FINISHED_STATES: ReadonlySet<MissionState> = new Set([
   'not-deployed',
   'nothing-to-release',
   'awaiting-deploy',
+  'deploy-lost',
+  'down',
 ]);
 
 export const isRunning = (mission: Mission): boolean => RUNNING_STATES.has(mission.state);
@@ -92,14 +96,21 @@ export interface MissionDeploy {
   readonly releases: ReadonlyArray<PlannedRelease>;
   /** The release worked on now, an index into `releases`. */
   readonly step: number;
-  /** Pushing the tags, waiting for their release runs, or deploying the release at `step`. */
-  readonly phase: 'tag' | 'build' | 'deploy';
+  /**
+   * Waiting for master's CI on `target` (spec 037), pushing the tags, waiting for their release
+   * runs, or deploying the release at `step`.
+   */
+  readonly phase: 'ci' | 'tag' | 'build' | 'deploy';
   /** When the current phase began, to give up on a run or a result that never comes. */
   readonly since: number;
   /** Whether the owner's Deploy asked for the database backup first. */
   readonly backup: boolean;
   /** The id of the deploy script's run of the release at `step`, once it was started. */
   readonly job?: string | undefined;
+  /** The process id of that run, to tell a run that goes on from one that ended (spec 037). */
+  readonly pid?: number | undefined;
+  /** Whether the owner's Deploy started it, so it waits for the owner again when it cannot go on. */
+  readonly byOwner?: boolean | undefined;
   /** The commit the tags go on: the default branch's head when the release was planned. */
   readonly target: string;
 }
@@ -134,6 +145,8 @@ export interface Mission {
   readonly fixIssue?: number | undefined;
   /** The mission whose owner's Deploy this waiting mission ships with. */
   readonly deployWith?: string | undefined;
+  /** When the owner resumed the planet this failed deploy paused (spec 037). */
+  readonly resumedAt?: number | undefined;
 }
 
 /** The missions file: every mission, and when the owner last opened the mission log. */
@@ -331,16 +344,58 @@ export const planetWaitsForOwner = (file: MissionsFile, planet: string): boolean
   );
 
 /**
- * The planet's latest finished deploy: deployed, rolled back, or a release that failed and opened
- * a fix issue; none before the first.
+ * Whether a finished mission is a failed release or deploy, which pauses its planet (spec 037,
+ * requirement 6): rolled back, down, deploy lost, or failed with the releases it tried. An
+ * agent's failure has no releases.
  */
+export const isDeployFailure = (mission: Mission): boolean =>
+  mission.state === 'rolled-back' ||
+  mission.state === 'down' ||
+  mission.state === 'deploy-lost' ||
+  (mission.state === 'failed' && mission.versions !== undefined);
+
+/** The planet's latest finished deploy: deployed or a deploy failure; none before the first. */
 export const lastDeploy = (file: MissionsFile, planet: string): Mission | undefined =>
   file.missions
     .filter(
       (mission) =>
-        mission.planet === planet &&
-        (mission.state === 'deployed' ||
-          mission.state === 'rolled-back' ||
-          (mission.state === 'failed' && mission.fixIssue !== undefined)),
+        mission.planet === planet && (mission.state === 'deployed' || isDeployFailure(mission)),
     )
     .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];
+
+/**
+ * The deploy failure that pauses the planet now: its latest deploy, when that failed and the owner
+ * did not resume it. Whether its fix issue is closed is a fact of Gitea, read elsewhere.
+ */
+export const pausingDeploy = (file: MissionsFile, planet: string): Mission | undefined => {
+  const latest = lastDeploy(file, planet);
+  return latest !== undefined && isDeployFailure(latest) && latest.resumedAt === undefined
+    ? latest
+    : undefined;
+};
+
+/** What a deploy failure tells: the title of its notification and the words of its fix issue. */
+export const failureWords = (
+  state: 'rolled-back' | 'failed' | 'down' | 'deploy-lost',
+  planet: string,
+): { readonly title: string; readonly next: string } => {
+  switch (state) {
+    case 'rolled-back':
+      return {
+        title: `Deploy rolled back: ${planet}`,
+        next: 'The previous version runs again.',
+      };
+    case 'down':
+      return {
+        title: `${planet} is down: deploy and rollback failed`,
+        next: 'The rollback was not healthy either: the app may be down. Check it by hand now.',
+      };
+    case 'deploy-lost':
+      return {
+        title: `Deploy lost: ${planet}`,
+        next: 'Whether the deploy went through is unknown: check the app and the version pinned in pocket-cloud by hand.',
+      };
+    case 'failed':
+      return { title: `Release failed: ${planet}`, next: 'Nothing was deployed.' };
+  }
+};

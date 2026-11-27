@@ -283,7 +283,11 @@ export class FakeState extends Context.Service<
       readonly started: Array<DeployJob>;
       readonly results: Map<string, DeployResult>;
       startFailure: string | undefined;
+      /** The process ids of started deploys that ended; any other started one still runs. */
+      readonly ended: Set<number>;
     };
+    /** The combined CI state of commits, by `<owner>/<name> <sha>`; a missing one succeeded. */
+    readonly commitStatuses: Map<string, 'pending' | 'success' | 'failure'>;
     /**
      * The git facts of each planet's checkout for releases (spec 036), by planet name: its tags,
      * the commit of each ref, and its commits, oldest first, each with its sha.
@@ -711,6 +715,12 @@ const gitea = (state: FakeState['Service']) => {
           Option.fromNullishOr(state.tagRuns.get(`${owner}/${name} ${workflow} ${tag}`)),
         ),
       ),
+    commitStatus: ({ owner, name }, sha) =>
+      request(`commitStatus ${owner}/${name} ${sha}`, () =>
+        Effect.succeed(
+          Option.some(state.commitStatuses.get(`${owner}/${name} ${sha}`) ?? 'success'),
+        ),
+      ),
     openIssues: ({ owner, name }) =>
       request(`openIssues ${owner}/${name}`, () =>
         Effect.succeed([...(state.issues.get(`${owner}/${name}`) ?? [])]),
@@ -887,6 +897,8 @@ const missionBot = (fake: FakeState['Service']): MissionBotOutbound['Service'] =
         call(`openIssue ${name(repository)} ${issue.title}`),
         () => 900 + fake.bot.calls.length,
       ),
+    closeIssue: (repository, number, body) =>
+      call(`closeIssue ${name(repository)} ${number} ${body}`),
   };
 };
 
@@ -976,7 +988,9 @@ export const fakeLayer = () => {
           started: [],
           results: new Map(),
           startFailure: undefined,
+          ended: new Set(),
         },
+        commitStatuses: new Map(),
         releaseGit: new Map(),
         tagRuns: new Map(),
       };
@@ -1130,9 +1144,10 @@ export const fakeLayer = () => {
           start: (job) =>
             Effect.suspend(() =>
               fake.deploy.startFailure === undefined
-                ? Effect.sync(() => void fake.deploy.started.push(job))
+                ? Effect.sync(() => ({ pid: 5000 + fake.deploy.started.push(job) }))
                 : Effect.fail(new DeployError({ reason: fake.deploy.startFailure })),
             ),
+          running: (pid) => Effect.sync(() => !fake.deploy.ended.has(pid)),
           result: (id) => Effect.sync(() => Option.fromNullishOr(fake.deploy.results.get(id))),
         }),
         Context.add(StatusHistoryOutbound, {

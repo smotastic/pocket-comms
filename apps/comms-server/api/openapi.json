@@ -522,6 +522,25 @@
         "required": ["kind"],
         "type": "object"
       },
+      "AllowAppsRequest": {
+        "additionalProperties": false,
+        "description": "The apps a planet may deploy (spec 037).",
+        "properties": {
+          "apps": {
+            "description": "Every app the planet's releases may deploy; the list replaces the old one.",
+            "examples": [["pocket-lens"]],
+            "items": {
+              "description": "An app of pocket-cloud, such as pocket-lens.",
+              "examples": ["pocket-lens"],
+              "pattern": "^[a-z0-9][a-z0-9-]*$",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["apps"],
+        "type": "object"
+      },
       "AnswerRequest": {
         "additionalProperties": false,
         "description": "The owner's answer to a waiting question.",
@@ -2022,7 +2041,7 @@
             "examples": [1795600000000]
           },
           "state": {
-            "description": "queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy).",
+            "description": "queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy), deploy-lost (its deploy ended without a result; spec 037) or down (its rollback failed too; spec 037).",
             "enum": [
               "queued",
               "working",
@@ -2039,7 +2058,9 @@
               "rolled-back",
               "not-deployed",
               "nothing-to-release",
-              "awaiting-deploy"
+              "awaiting-deploy",
+              "deploy-lost",
+              "down"
             ],
             "examples": ["working"],
             "type": "string"
@@ -2284,7 +2305,7 @@
             "examples": [1795600000000]
           },
           "state": {
-            "description": "queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy).",
+            "description": "queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy), deploy-lost (its deploy ended without a result; spec 037) or down (its rollback failed too; spec 037).",
             "enum": [
               "queued",
               "working",
@@ -2301,7 +2322,9 @@
               "rolled-back",
               "not-deployed",
               "nothing-to-release",
-              "awaiting-deploy"
+              "awaiting-deploy",
+              "deploy-lost",
+              "down"
             ],
             "examples": ["working"],
             "type": "string"
@@ -2575,6 +2598,42 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "apps": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "allowed": {
+                              "description": "Whether the planet's settings allow it to deploy the app.",
+                              "examples": [true],
+                              "type": "boolean"
+                            },
+                            "app": {
+                              "description": "An app a release of the planet names.",
+                              "examples": ["pocket-lens"],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["app", "allowed"],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The apps the planet's releases name, each allowed or not by the owner (spec 037).",
+                    "examples": [
+                      [
+                        {
+                          "allowed": true,
+                          "app": "pocket-lens"
+                        }
+                      ]
+                    ]
+                  },
                   "checks": {
                     "description": "The deploy checks, in their fixed order: release-settings, deploy-script, deploy-apps. They never change go or no-go.",
                     "examples": [
@@ -6598,7 +6657,7 @@
     },
     "/api/v1/missions/{mission}/deploy": {
       "post": {
-        "description": "The planet's missions that wait for the owner join the mission queue together, to back up, release and deploy (spec 036).",
+        "description": "The planet's missions that wait for the owner join the mission queue together, to back up, release and deploy (spec 036). A planet that is no-go, not at missions or does not deploy is 409 with why, and the missions keep waiting (spec 037).",
         "operationId": "missions.deploy",
         "parameters": [
           {
@@ -6638,6 +6697,16 @@
               }
             },
             "description": "The resource does not exist."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
           },
           "422": {
             "content": {
@@ -6925,6 +6994,85 @@
         },
         "security": [],
         "summary": "Unregister a planet",
+        "tags": ["Planets"]
+      }
+    },
+    "/api/v1/planets/{planet}/apps": {
+      "put": {
+        "description": "Replaces the planet's allowed apps. A release naming another app fails the deploy check, so the planet does not deploy it (spec 037).",
+        "operationId": "planets.allowApps",
+        "parameters": [
+          {
+            "description": "The planet's folder name below the repositories root.",
+            "example": "pocket-comms",
+            "in": "path",
+            "name": "planet",
+            "required": true,
+            "schema": {
+              "description": "The planet's folder name below the repositories root.",
+              "examples": ["pocket-comms"],
+              "pattern": "^[^/]{1,200}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllowAppsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundProblemEncoded"
+                }
+              }
+            },
+            "description": "The resource does not exist."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Set the apps a planet may deploy",
         "tags": ["Planets"]
       }
     },
@@ -7566,6 +7714,75 @@
         "security": [],
         "summary": "Read a planet's preflight",
         "tags": ["Planets"]
+      }
+    },
+    "/api/v1/planets/{planet}/resume": {
+      "post": {
+        "description": "Lifts the pause of the planet's latest failed deploy, and closes its fix issue with \"Resumed by the owner.\" A planet that is not paused is 409 (spec 037).",
+        "operationId": "missions.resumePlanet",
+        "parameters": [
+          {
+            "description": "The planet's folder name below the repositories root.",
+            "example": "pocket-comms",
+            "in": "path",
+            "name": "planet",
+            "required": true,
+            "schema": {
+              "description": "The planet's folder name below the repositories root.",
+              "examples": ["pocket-comms"],
+              "pattern": "^[^/]{1,200}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenProblemEncoded"
+                }
+              }
+            },
+            "description": "The caller may not use this service."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictProblemEncoded"
+                }
+              }
+            },
+            "description": "The request conflicts with the current state of the resource."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemEncoded"
+                }
+              }
+            },
+            "description": "The request is invalid. `errors` names every failed field."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableProblemEncoded"
+                }
+              }
+            },
+            "description": "A system the service depends on cannot be reached; try again later."
+          }
+        },
+        "security": [],
+        "summary": "Resume a paused planet",
+        "tags": ["Missions"]
       }
     },
     "/api/v1/push/key": {

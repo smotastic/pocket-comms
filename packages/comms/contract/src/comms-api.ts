@@ -668,6 +668,25 @@ export const Preflight = Schema.Struct({
           [{ check: 'release-settings', passed: true, reason: 'AGENTS.md names one release.' }],
         ],
       }),
+      apps: optional(
+        Schema.Array(
+          Schema.Struct({
+            app: Schema.String.annotate({
+              description: 'An app a release of the planet names.',
+              examples: ['pocket-lens'],
+            }),
+            allowed: Schema.Boolean.annotate({
+              description: "Whether the planet's settings allow it to deploy the app.",
+              examples: [true],
+            }),
+          }),
+        ),
+        {
+          description:
+            "The apps the planet's releases name, each allowed or not by the owner (spec 037).",
+          examples: [[{ app: 'pocket-lens', allowed: true }]],
+        },
+      ),
     }),
     {
       description: 'Whether the planet deploys its missions, and why (spec 036).',
@@ -703,6 +722,21 @@ export const ChooseAutonomyRequest = Schema.Struct({
 }).annotate({
   identifier: 'ChooseAutonomyRequest',
   description: "The planet's chosen autonomy level (spec 035).",
+});
+
+export const AllowAppsRequest = Schema.Struct({
+  apps: Schema.Array(
+    Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9-]*$/u)).annotate({
+      description: 'An app of pocket-cloud, such as pocket-lens.',
+      examples: ['pocket-lens'],
+    }),
+  ).annotate({
+    description: "Every app the planet's releases may deploy; the list replaces the old one.",
+    examples: [['pocket-lens']],
+  }),
+}).annotate({
+  identifier: 'AllowAppsRequest',
+  description: 'The apps a planet may deploy (spec 037).',
 });
 
 export const RegisterPlanetRequest = Schema.Struct({
@@ -848,9 +882,11 @@ export const Mission = Schema.Struct({
     'not-deployed',
     'nothing-to-release',
     'awaiting-deploy',
+    'deploy-lost',
+    'down',
   ]).annotate({
     description:
-      'queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy).',
+      'queued; running as working, waiting (on the owner), pull-request, lost (its agent gone), releasing (its tags and release runs) or deploying; finished as merged (before deploys existed), failed, aborted, held (its planet was not ready when its turn came), deployed, rolled-back, not-deployed (its planet does not deploy; the reason says why), nothing-to-release or awaiting-deploy (a migration or breaking change waits for the owner’s Deploy), deploy-lost (its deploy ended without a result; spec 037) or down (its rollback failed too; spec 037).',
     examples: ['working'],
   }),
   sentAt: Millis.annotate({ description: 'When it was sent, in epoch milliseconds.' }),
@@ -1812,6 +1848,18 @@ const planets = HttpApiGroup.make('planets')
           'Sets the level the owner chose: manual or missions. Preflight still lowers it to manual on no-go; autopilot cannot be chosen yet.',
       }),
     ),
+    HttpApiEndpoint.put('allowApps', '/planets/:planet/apps', {
+      params: { planet: PlanetParam },
+      payload: AllowAppsRequest,
+      success: HttpApiSchema.NoContent,
+      error: [Problems.NotFound, Problems.Validation, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Set the apps a planet may deploy',
+        description:
+          "Replaces the planet's allowed apps. A release naming another app fails the deploy check, so the planet does not deploy it (spec 037).",
+      }),
+    ),
     HttpApiEndpoint.delete('unregister', '/planets/:planet', {
       params: { planet: PlanetParam },
       success: HttpApiSchema.NoContent,
@@ -2654,12 +2702,23 @@ const missions = HttpApiGroup.make('missions')
     HttpApiEndpoint.post('deploy', '/missions/:mission/deploy', {
       params: missionParam,
       success: HttpApiSchema.NoContent,
-      error: [Problems.NotFound, Problems.ServiceUnavailable],
+      error: [Problems.NotFound, Problems.Conflict, Problems.ServiceUnavailable],
     }).annotateMerge(
       OpenApi.annotations({
         summary: 'Deploy a mission that waits for the owner',
         description:
-          "The planet's missions that wait for the owner join the mission queue together, to back up, release and deploy (spec 036).",
+          "The planet's missions that wait for the owner join the mission queue together, to back up, release and deploy (spec 036). A planet that is no-go, not at missions or does not deploy is 409 with why, and the missions keep waiting (spec 037).",
+      }),
+    ),
+    HttpApiEndpoint.post('resumePlanet', '/planets/:planet/resume', {
+      params: { planet: PlanetParam },
+      success: HttpApiSchema.NoContent,
+      error: [Problems.Conflict, Problems.ServiceUnavailable],
+    }).annotateMerge(
+      OpenApi.annotations({
+        summary: 'Resume a paused planet',
+        description:
+          'Lifts the pause of the planet\'s latest failed deploy, and closes its fix issue with "Resumed by the owner." A planet that is not paused is 409 (spec 037).',
       }),
     ),
     HttpApiEndpoint.post('seen', '/missions/seen', {

@@ -85,7 +85,10 @@ Each step is its own ADR or spec.
 4. **Autonomous deploy:** a merged mission's release, cut by the mission bot, and its deploy
    through pocket-cloud's `scripts/deploy.sh` with health check and rollback; the deploy checks
    in preflight; migrations and breaking changes wait for the owner's **Deploy** (spec 036, ADR
-   0020).
+   0020). Hardened after the first live deploys: a release waits for master's CI, a planet deploys
+   only the apps the owner allows, a deploy that ends without a result is **deploy lost** and one
+   whose rollback failed is **down**, and every failure pauses the planet until its fix issue is
+   closed or the owner taps **Resume** (spec 037).
 5. **Autopilot:** Mission Control chooses issues and their lanes by itself.
 
 ## Not now

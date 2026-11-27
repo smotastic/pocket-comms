@@ -54,9 +54,19 @@ export class MissionsInbound extends Context.Service<
     >;
     /**
      * The owner's Deploy of a mission that waits for it (spec 036): the planet's waiting missions
-     * join the mission queue to release and deploy together, after a backup.
+     * join the mission queue to release and deploy together. Refused while the planet is no-go,
+     * not at missions or does not deploy (spec 037).
      */
-    readonly deploy: (id: string) => Effect.Effect<void, MissionNotFoundError | MissionsStoreError>;
+    readonly deploy: (
+      id: string,
+    ) => Effect.Effect<void, MissionNotFoundError | MissionRefusedError | MissionsStoreError>;
+    /**
+     * The owner's Resume of a paused planet (spec 037): its latest failed deploy no longer pauses
+     * it, and the bot closes the fix issue. Refused when the planet is not paused.
+     */
+    readonly resumePlanet: (
+      planet: string,
+    ) => Effect.Effect<void, MissionRefusedError | MissionsStoreError>;
     /** Marks the mission log seen now. */
     readonly seen: () => Effect.Effect<void, MissionsStoreError>;
     /** The outcome the running mission's agent reports, by the agent's name. */

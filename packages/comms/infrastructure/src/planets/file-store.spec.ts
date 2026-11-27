@@ -14,8 +14,9 @@ const folder = () => join(mkdtempSync(join(tmpdir(), 'comms-state-')), 'state');
 const store = (path: string) => PlanetsOutbound.pipe(Effect.provide(layerFile({ folder: path })));
 
 const registry = {
+  appsSeeded: true,
   planets: [
-    { name: 'app', autonomy: 'manual' as const },
+    { name: 'app', autonomy: 'manual' as const, apps: ['app'] },
     { name: 'home', autonomy: 'manual' as const },
   ],
 };

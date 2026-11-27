@@ -13,11 +13,15 @@ export interface PlanetSettings {
   readonly name: string;
   /** The level the owner chose: `manual` or `missions` (spec 035); never `autopilot` yet. */
   readonly autonomy: AutonomyLevel;
+  /** The apps its releases may deploy (spec 037); none until the owner allows one. */
+  readonly apps?: ReadonlyArray<string> | undefined;
 }
 
 /** The planets the owner registered, by name. */
 export interface PlanetRegistry {
   readonly planets: ReadonlyArray<PlanetSettings>;
+  /** Whether the allowed apps of the planets were seeded once (spec 037). */
+  readonly appsSeeded?: boolean | undefined;
 }
 
 /** The repositories the one-time seed never registers. */
@@ -47,7 +51,7 @@ export const registerPlanet = (
 ): PlanetRegistry | undefined =>
   registry.planets.some((planet) => planet.name === name)
     ? undefined
-    : sorted([...registry.planets, { name, autonomy: 'manual' }]);
+    : { ...registry, ...sorted([...registry.planets, { name, autonomy: 'manual' }]) };
 
 /** The registry without `name` and its settings; none when it is not a planet. */
 export const unregisterPlanet = (
@@ -55,7 +59,7 @@ export const unregisterPlanet = (
   name: string,
 ): PlanetRegistry | undefined =>
   registry.planets.some((planet) => planet.name === name)
-    ? { planets: registry.planets.filter((planet) => planet.name !== name) }
+    ? { ...registry, planets: registry.planets.filter((planet) => planet.name !== name) }
     : undefined;
 
 /** The levels the owner may choose; `autopilot` is coming. */
@@ -72,8 +76,49 @@ export const chooseAutonomy = (
 ): PlanetRegistry | undefined =>
   CHOOSABLE_LEVELS.has(level) && registry.planets.some((planet) => planet.name === name)
     ? {
+        ...registry,
         planets: registry.planets.map((planet) =>
           planet.name === name ? { ...planet, autonomy: level } : planet,
+        ),
+      }
+    : undefined;
+
+/**
+ * The apps today's planets may deploy, seeded once (spec 037, requirement 13): each deploys the
+ * app of its own name, pocket-home its server and web app; every other planet none.
+ */
+export const SEEDED_APPS: Readonly<Record<string, ReadonlyArray<string>>> = {
+  'pocket-comms': ['pocket-comms'],
+  'pocket-lens': ['pocket-lens'],
+  'pocket-coach': ['pocket-coach'],
+  'pocket-galaxy': ['pocket-galaxy'],
+  'pocket-learning': ['pocket-learning'],
+  'pocket-home': ['pocket-home-server', 'pocket-home-web'],
+};
+
+/** The registry with the allowed apps seeded, once; none when they were seeded already. */
+export const seedAllowedApps = (registry: PlanetRegistry): PlanetRegistry | undefined =>
+  registry.appsSeeded === true
+    ? undefined
+    : {
+        appsSeeded: true,
+        planets: registry.planets.map((planet) => ({
+          ...planet,
+          apps: planet.apps ?? SEEDED_APPS[planet.name] ?? [],
+        })),
+      };
+
+/** The registry with the planet's allowed apps set to `apps`; none when it is not a planet. */
+export const allowApps = (
+  registry: PlanetRegistry,
+  name: string,
+  apps: ReadonlyArray<string>,
+): PlanetRegistry | undefined =>
+  registry.planets.some((planet) => planet.name === name)
+    ? {
+        ...registry,
+        planets: registry.planets.map((planet) =>
+          planet.name === name ? { ...planet, apps: [...new Set(apps)].sort() } : planet,
         ),
       }
     : undefined;
@@ -130,12 +175,21 @@ export interface DeployFacts {
     readonly ready: boolean;
     readonly reason: string;
   }>;
+  /** The planet's name and the apps the owner allows it to deploy (spec 037). */
+  readonly planet: string;
+  readonly allowed: ReadonlyArray<string>;
 }
 
 /** The planet's latest deploy, as the mission log and its fix issue say. */
 export type LastDeployFacts =
   | { readonly _tag: 'Fine' }
-  | { readonly _tag: 'RolledBack'; readonly what: string; readonly fixIssue: number | undefined };
+  | {
+      readonly _tag: 'RolledBack';
+      readonly what: string;
+      readonly fixIssue: number | undefined;
+      /** How it failed, such as "rolled back" or "is down" (spec 037); "rolled back" when none. */
+      readonly how?: string | undefined;
+    };
 
 /** Whether the mission bot may push to a repository and write its issues, as Gitea says. */
 export type BotFacts =
@@ -178,24 +232,28 @@ export interface Preflight {
   readonly result: PreflightResult;
   readonly checks: ReadonlyArray<PreflightCheck>;
   /** Whether the planet deploys its missions, and why (spec 036). */
-  readonly deploy: { readonly deploys: boolean; readonly checks: ReadonlyArray<PreflightCheck> };
+  readonly deploy: {
+    readonly deploys: boolean;
+    readonly checks: ReadonlyArray<PreflightCheck>;
+    /** The apps its releases name, each allowed or not (spec 037). */
+    readonly apps: ReadonlyArray<{ readonly app: string; readonly allowed: boolean }>;
+  };
 }
 
-const lastDeploy = (facts: LastDeployFacts): Omit<PreflightCheck, 'check'> =>
-  facts._tag === 'Fine'
-    ? { passed: true, reason: 'The last deploy did not roll back.' }
-    : {
-        passed: false,
-        reason:
-          facts.fixIssue === undefined
-            ? `The last deploy (${facts.what}) rolled back.`
-            : `The last deploy (${facts.what}) rolled back; close #${facts.fixIssue} once it is fixed.`,
-      };
+const lastDeploy = (facts: LastDeployFacts): Omit<PreflightCheck, 'check'> => {
+  if (facts._tag === 'Fine') return { passed: true, reason: 'The last deploy did not roll back.' };
+  const how = facts.how ?? 'rolled back';
+  return {
+    passed: false,
+    reason:
+      facts.fixIssue === undefined
+        ? `The last deploy (${facts.what}) ${how}; resume the planet once it is fixed.`
+        : `The last deploy (${facts.what}) ${how}; close #${facts.fixIssue} or resume the planet once it is fixed.`,
+  };
+};
 
 /** The deploy checks of a planet (spec 036, requirement 3). */
-export const deployChecksOf = (
-  facts: DeployFacts,
-): { readonly deploys: boolean; readonly checks: ReadonlyArray<PreflightCheck> } => {
+export const deployChecksOf = (facts: DeployFacts): Preflight['deploy'] => {
   const settings = facts.settings;
   const apps =
     settings._tag === 'Settings'
@@ -204,6 +262,7 @@ export const deployChecksOf = (
         )
       : [];
   const notReady = facts.apps.filter((each) => apps.includes(each.app) && !each.ready);
+  const notAllowed = [...new Set(apps)].filter((app) => !facts.allowed.includes(app));
   const checks: ReadonlyArray<PreflightCheck> = [
     {
       check: 'release-settings',
@@ -229,19 +288,30 @@ export const deployChecksOf = (
         ? { passed: false, reason: 'Not checked: AGENTS.md names no release.' }
         : apps.length === 0
           ? { passed: true, reason: 'Its releases are published only; nothing to deploy.' }
-          : !facts.script
-            ? { passed: false, reason: 'Not checked: the server has no deploy script.' }
-            : notReady.length > 0
-              ? { passed: false, reason: notReady.map((each) => each.reason).join(' ') }
-              : apps.some((app) => !facts.apps.some((each) => each.app === app))
-                ? { passed: false, reason: 'The deploy script was not asked about every app.' }
-                : {
-                    passed: true,
-                    reason: `The deploy script can deploy, check and roll back ${apps.join(', ')}.`,
-                  }),
+          : notAllowed.length > 0
+            ? {
+                passed: false,
+                reason: notAllowed
+                  .map((app) => `${app} is not allowed for ${facts.planet}.`)
+                  .join(' '),
+              }
+            : !facts.script
+              ? { passed: false, reason: 'Not checked: the server has no deploy script.' }
+              : notReady.length > 0
+                ? { passed: false, reason: notReady.map((each) => each.reason).join(' ') }
+                : apps.some((app) => !facts.apps.some((each) => each.app === app))
+                  ? { passed: false, reason: 'The deploy script was not asked about every app.' }
+                  : {
+                      passed: true,
+                      reason: `The deploy script can deploy, check and roll back ${apps.join(', ')}.`,
+                    }),
     },
   ];
-  return { deploys: checks.every((each) => each.passed), checks };
+  return {
+    deploys: checks.every((each) => each.passed),
+    checks,
+    apps: [...new Set(apps)].map((app) => ({ app, allowed: facts.allowed.includes(app) })),
+  };
 };
 
 const IGNORED_CONCLUSIONS: ReadonlySet<string> = new Set(['cancelled', 'skipped']);
@@ -337,6 +407,7 @@ export const preflightOf = (facts: PreflightFacts): Preflight => {
           passed: false,
           reason: 'Not checked: Gitea cannot be read.',
         })),
+        apps: [],
       },
     };
   }

@@ -493,6 +493,10 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
       ...repository,
       files: new Map([...repository.files, ['AGENTS.md', agentsMd]]),
     });
+    state.registry = {
+      appsSeeded: true,
+      planets: [{ name: 'app', autonomy: 'missions', apps: ['pocket-app'] }],
+    };
     state.bases.set('app', 'origin/master');
     state.pushSubscriptions = [
       { endpoint: 'https://push.test/1', keys: { p256dh: 'k', auth: 'a' } },
@@ -751,7 +755,112 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 
-  it.effect('reads a result across a restart, and rolls back one that never comes', () =>
+  /** Merges #7 and runs it to a started deploy of app-v0.3.1. */
+  const deploying = Effect.gen(function* () {
+    const state = yield* FakeState;
+    deploys(state, [{ subject: 'fix: a', files: ['apps/a.ts'] }]);
+    state.tagRuns.set('owner/app release.yml app-v0.3.1', {
+      status: 'completed',
+      conclusion: 'success',
+    });
+    const { service, id } = yield* merged;
+    yield* service.advance;
+    yield* service.advance;
+    yield* service.advance;
+    expect(state.deploy.started).toHaveLength(1);
+    return { state, service, id };
+  });
+
+  it.effect('waits for a deploy whose process still runs, also across a restart (spec 037)', () =>
+    Effect.gen(function* () {
+      const { state, id } = yield* deploying;
+      // A new server (comms deployed itself) finds the mission deploying and reads on.
+      const restarted = yield* missions;
+      yield* TestClock.adjust('40 minutes');
+      yield* restarted.advance;
+      expect((yield* restarted.list).running).toMatchObject({ id, state: 'deploying' });
+      state.deploy.results.set(`${id}-0`, { result: 'deployed', output: 'healthy' });
+      yield* restarted.advance;
+      expect((yield* restarted.list).log[0]).toMatchObject({ id, state: 'deployed' });
+      expect(state.deploy.started).toHaveLength(1);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('is deploy lost when its process ended without a result, and pauses', () =>
+    Effect.gen(function* () {
+      const { state, service, id } = yield* deploying;
+      state.deploy.ended.add(5001);
+      yield* service.advance;
+      const { log } = yield* service.list;
+      expect(log[0]).toMatchObject({
+        id,
+        state: 'deploy-lost',
+        reason: 'The deploy of app-v0.3.1 ended without a result.',
+        versions: ['app-v0.3.1'],
+      });
+      expect(log[0]?.fixIssue).toBeDefined();
+      expect(state.pushes[0]?.notification.title).toBe('Deploy lost: app');
+      yield* service.advance;
+      expect((yield* service.list).log.find((mission) => mission.issue.number === 8)?.state).toBe(
+        'held',
+      );
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('is deploy lost when its process still runs after 2 hours', () =>
+    Effect.gen(function* () {
+      const { service, id } = yield* deploying;
+      yield* TestClock.adjust('121 minutes');
+      yield* service.advance;
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'deploy-lost',
+        reason: 'The deploy of app-v0.3.1 still runs after 2 hours.',
+      });
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('reads a result written right before the process ended', () =>
+    Effect.gen(function* () {
+      const { state, service, id } = yield* deploying;
+      state.deploy.ended.add(5001);
+      state.deploy.results.set(`${id}-0`, { result: 'deployed', output: '' });
+      yield* service.advance;
+      expect((yield* service.list).log[0]).toMatchObject({ id, state: 'deployed' });
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('is down when the rollback failed too, and tells the owner so', () =>
+    Effect.gen(function* () {
+      const { state, service, id } = yield* deploying;
+      state.deploy.results.set(`${id}-0`, { result: 'down', output: 'rollback unhealthy' });
+      yield* service.advance;
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'down',
+        output: 'rollback unhealthy',
+        reason: 'app-v0.3.1 failed its health check, and the rollback was not healthy either.',
+      });
+      expect(state.pushes[0]?.notification.title).toBe('app is down: deploy and rollback failed');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('fails a deploy that failed before deploying, or could not start, at once', () =>
+    Effect.gen(function* () {
+      const { state, service, id } = yield* deploying;
+      state.deploy.results.set(`${id}-0`, { result: 'failed', output: 'backup failed' });
+      yield* service.advance;
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'failed',
+        reason: 'The deploy of app-v0.3.1 failed before it deployed anything.',
+        output: 'backup failed',
+      });
+      expect(state.pushes[0]?.notification.title).toBe('Release failed: app');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('fails at once when the deploy script cannot start, and pauses', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;
       deploys(state, [{ subject: 'fix: a', files: ['apps/a.ts'] }]);
@@ -759,21 +868,174 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
         status: 'completed',
         conclusion: 'success',
       });
+      state.deploy.startFailure = 'The deploy script did not start: spawn EACCES';
       const { service, id } = yield* merged;
       yield* service.advance;
       yield* service.advance;
       yield* service.advance;
-      expect(state.deploy.started).toHaveLength(1);
-      // A new server (comms deployed itself) finds the mission deploying and reads on.
-      const restarted = yield* missions;
-      yield* TestClock.adjust('16 minutes');
-      yield* restarted.advance;
-      expect((yield* restarted.list).log[0]).toMatchObject({
+      expect((yield* service.list).log[0]).toMatchObject({
         id,
-        state: 'rolled-back',
-        reason: 'The deploy of app-v0.3.1 wrote no result within 15 minutes.',
+        state: 'failed',
+        reason: 'The deploy script did not start: spawn EACCES',
       });
-      expect(state.deploy.started).toHaveLength(1);
+      yield* service.advance;
+      expect((yield* service.list).log.find((mission) => mission.issue.number === 8)?.state).toBe(
+        'held',
+      );
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('opens a fix issue Gitea refused on a later step, and Resume lifts the pause', () =>
+    Effect.gen(function* () {
+      const { state, service, id } = yield* deploying;
+      state.deploy.results.set(`${id}-0`, { result: 'rolled-back', output: '503' });
+      state.bot.failure = 'Gitea is down.';
+      yield* service.advance;
+      expect((yield* service.list).log[0]?.fixIssue).toBeUndefined();
+      state.bot.failure = undefined;
+      yield* service.advance;
+      const fixIssue = (yield* service.list).log.find((mission) => mission.id === id)?.fixIssue;
+      expect(fixIssue).toBeDefined();
+      expect(
+        state.bot.calls.filter((call) => call.startsWith('openIssue owner/app Fix the failed')),
+      ).toHaveLength(1);
+
+      yield* service.resumePlanet('app');
+      expect(state.bot.calls).toContain(`closeIssue owner/app ${fixIssue} Resumed by the owner.`);
+      expect(state.missions.missions.find((mission) => mission.id === id)?.resumedAt).toBeDefined();
+      const again = yield* service.resumePlanet('app').pipe(Effect.flip);
+      expect(refusal(again)).toBe('app is not paused.');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect("waits for master's CI on the merge before any tag (spec 037)", () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(state, [{ subject: 'fix: a', files: ['apps/a.ts'] }]);
+      state.commitStatuses.set('owner/app c1', 'pending');
+      const { service, id } = yield* merged;
+      yield* service.advance;
+      expect(state.bot.calls.some((call) => call.startsWith('pushTag'))).toBe(false);
+      expect((yield* service.list).running).toMatchObject({ id, state: 'releasing' });
+      state.commitStatuses.set('owner/app c1', 'success');
+      yield* service.advance;
+      expect(state.bot.calls).toContain('pushTag owner/app app-v0.3.1 c1');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('ends not deployed on a red or late master CI, without a pause', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(state, [{ subject: 'fix: a', files: ['apps/a.ts'] }]);
+      state.commitStatuses.set('owner/app c1', 'failure');
+      const { service, id } = yield* merged;
+      yield* service.advance;
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'not-deployed',
+        reason: 'master CI failed on c1.',
+      });
+      expect(state.bot.calls.some((call) => call.startsWith('openIssue'))).toBe(false);
+      expect(state.bot.calls.some((call) => call.startsWith('pushTag'))).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('gives up on a master CI that does not finish within 60 minutes', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(state, [{ subject: 'fix: a', files: ['apps/a.ts'] }]);
+      state.commitStatuses.set('owner/app c1', 'pending');
+      const { service, id } = yield* merged;
+      yield* TestClock.adjust('61 minutes');
+      yield* service.advance;
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'not-deployed',
+        reason: 'master CI did not finish within 60 minutes.',
+      });
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('does not release an app the planet does not allow', () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(state, [{ subject: 'fix: a', files: ['apps/a.ts'] }]);
+      state.registry = { appsSeeded: true, planets: [{ name: 'app', autonomy: 'missions' }] };
+      const { service, id } = yield* mergedWith(true);
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'not-deployed',
+        reason: 'pocket-app is not allowed for app.',
+      });
+      expect(state.bot.calls.some((call) => call.startsWith('pushTag'))).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  /** #7 merged with a breaking change, waiting for the owner's Deploy. */
+  const waitingForDeploy = Effect.gen(function* () {
+    const state = yield* FakeState;
+    deploys(state, [{ subject: 'feat!: a new api', files: ['apps/api.ts'] }]);
+    const { service, id } = yield* mergedWith(true);
+    expect((yield* service.list).log[0]).toMatchObject({ id, state: 'awaiting-deploy' });
+    return { state, service, id };
+  });
+
+  it.effect('refuses a Deploy while the planet is no-go, and keeps it waiting', () =>
+    Effect.gen(function* () {
+      const { state, service, id } = yield* waitingForDeploy;
+      const repository = state.giteaRepositories.get('owner/app');
+      if (repository === undefined) return yield* Effect.die('no repository');
+      state.giteaRepositories.set('owner/app', {
+        ...repository,
+        runs: [{ status: 'completed', conclusion: 'failure' }],
+      });
+      const refused = yield* service.deploy(id).pipe(Effect.flip);
+      expect(refusal(refused)).toContain('app is no-go: ');
+      expect((yield* service.list).log[0]).toMatchObject({ id, state: 'awaiting-deploy' });
+
+      state.deploy.configured = false;
+      state.giteaRepositories.set('owner/app', repository);
+      const noScript = yield* service.deploy(id).pipe(Effect.flip);
+      expect(refusal(noScript)).toContain('app does not deploy: ');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('puts a Deploy that cannot start back to waiting, and one taken out', () =>
+    Effect.gen(function* () {
+      const { state, service, id } = yield* waitingForDeploy;
+      // A send keeps the queue busy, so the Deploy stays queued while the planet turns no-go.
+      yield* service.deploy(id);
+      expect(state.missions.missions.find((mission) => mission.id === id)?.state).toBe('queued');
+      yield* service.remove(id);
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'awaiting-deploy',
+        reason: 'Your Deploy could not go on: you took it out of the mission queue.',
+      });
+
+      yield* service.deploy(id);
+      state.registry = { appsSeeded: true, planets: [{ name: 'app', autonomy: 'manual' }] };
+      yield* service.advance;
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'awaiting-deploy',
+        reason: 'Your Deploy could not go on: app is at manual now.',
+      });
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('puts an owner Deploy whose master CI failed back to waiting', () =>
+    Effect.gen(function* () {
+      const { state, service, id } = yield* waitingForDeploy;
+      yield* service.deploy(id);
+      state.commitStatuses.set('owner/app c1', 'failure');
+      yield* service.advance;
+      yield* service.advance;
+      expect((yield* service.list).log[0]).toMatchObject({
+        id,
+        state: 'awaiting-deploy',
+        reason: 'Your Deploy could not go on: master CI failed on c1.',
+      });
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 

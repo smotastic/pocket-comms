@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   awaitingDeploy,
+  failureWords,
+  isDeployFailure,
   isFinished,
   isRunning,
   lastDeploy,
+  pausingDeploy,
   planetWaitsForOwner,
   keptWorktree,
   laneLabel,
@@ -263,6 +266,8 @@ describe('deploy (spec 036)', () => {
       'not-deployed',
       'nothing-to-release',
       'awaiting-deploy',
+      'deploy-lost',
+      'down',
     ] as const) {
       expect(isFinished(mission({ state }))).toBe(true);
     }
@@ -291,5 +296,32 @@ describe('deploy (spec 036)', () => {
     const merged = mission({ id: 'c', state: 'merged', finishedAt: 3 });
     expect(lastDeploy(file(deployed, rolledBack, merged), deployed.planet)?.id).toBe('b');
     expect(lastDeploy(file(merged), merged.planet)).toBeUndefined();
+  });
+
+  it('counts every failed release or deploy as a deploy failure, never an agent failure', () => {
+    for (const state of ['rolled-back', 'down', 'deploy-lost'] as const) {
+      expect(isDeployFailure(mission({ state }))).toBe(true);
+    }
+    expect(isDeployFailure(mission({ state: 'failed', versions: ['app-v0.2.0'] }))).toBe(true);
+    expect(isDeployFailure(mission({ state: 'failed' }))).toBe(false);
+    expect(isDeployFailure(mission({ state: 'deployed' }))).toBe(false);
+  });
+
+  it('pauses the planet on its latest deploy failure until the owner resumes it (spec 037)', () => {
+    const lost = mission({ id: 'a', state: 'deploy-lost', finishedAt: 2 });
+    const agentFailed = mission({ id: 'b', state: 'failed', finishedAt: 3 });
+    expect(pausingDeploy(file(lost, agentFailed), lost.planet)?.id).toBe('a');
+    expect(pausingDeploy(file({ ...lost, resumedAt: 4 }), lost.planet)).toBeUndefined();
+    const later = mission({ id: 'c', state: 'deployed', finishedAt: 5 });
+    expect(pausingDeploy(file(lost, later), lost.planet)).toBeUndefined();
+    const releaseFailed = mission({ id: 'd', state: 'failed', versions: [], finishedAt: 6 });
+    expect(pausingDeploy(file(later, releaseFailed), lost.planet)?.id).toBe('d');
+  });
+
+  it('words a down planet as urgent', () => {
+    expect(failureWords('down', 'pocket-lens').title).toBe(
+      'pocket-lens is down: deploy and rollback failed',
+    );
+    expect(failureWords('deploy-lost', 'pocket-lens').next).toContain('by hand');
   });
 });

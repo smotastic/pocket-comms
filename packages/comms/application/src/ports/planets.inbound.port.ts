@@ -38,6 +38,11 @@ export class PlanetsInbound extends Context.Service<
       name: string,
       level: AutonomyLevel,
     ) => Effect.Effect<void, PlanetNotFoundError | InvalidInputError | PlanetsStoreError>;
+    /** Sets the apps the planet's releases may deploy (spec 037). */
+    readonly allowApps: (
+      name: string,
+      apps: ReadonlyArray<string>,
+    ) => Effect.Effect<void, PlanetNotFoundError | PlanetsStoreError>;
   }
 >()('comms/application/PlanetsInbound') {
   static readonly layer = Layer.effect(PlanetsInbound, makePlanets);

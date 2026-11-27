@@ -34,7 +34,17 @@ export const missionsHandlers = HttpApiBuilder.group(
         ),
       )
       .handle('deploy', ({ params }) =>
-        missionsInbound.deploy(params.mission).pipe(Effect.catchTags(kept)),
+        missionsInbound
+          .deploy(params.mission)
+          .pipe(Effect.catchTags({ ...kept, MissionRefusedError: problems.planetRefused })),
+      )
+      .handle('resumePlanet', ({ params }) =>
+        missionsInbound.resumePlanet(params.planet).pipe(
+          Effect.catchTags({
+            MissionRefusedError: problems.planetRefused,
+            MissionsStoreError: problems.missionsUnavailable,
+          }),
+        ),
       )
       .handle('seen', () =>
         missionsInbound

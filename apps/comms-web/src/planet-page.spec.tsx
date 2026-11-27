@@ -246,4 +246,50 @@ describe("the planet page's preflight", () => {
       within(card).getByText('Failed: AGENTS.md has no `json mission-control` block.'),
     ).toBeDefined();
   });
+
+  it('resumes a paused planet, and allows or disallows its apps (spec 037)', async () => {
+    const fake = fakeClient({
+      overview,
+      preflights: new Map([
+        [
+          'pocket-home',
+          {
+            ...noGo,
+            checks: [
+              ...noGo.checks,
+              {
+                check: 'last-deploy',
+                passed: false,
+                reason:
+                  'The last deploy (home-v0.2.0) is down; resume the planet once it is fixed.',
+              },
+            ],
+            deploy: {
+              deploys: false,
+              checks: [],
+              apps: [
+                { app: 'pocket-home-server', allowed: true },
+                { app: 'pocket-home-web', allowed: false },
+              ],
+            },
+          },
+        ],
+      ]),
+    });
+    renderApp({ client: fake.client, path: '/planets/pocket-home' });
+    const card = await preflightCard();
+
+    expect(await within(card).findByText('pocket-home-web: not allowed')).toBeDefined();
+    await userEvent.click(within(card).getByRole('button', { name: 'Allow pocket-home-web' }));
+    await userEvent.click(
+      within(card).getByRole('button', { name: 'Disallow pocket-home-server' }),
+    );
+    await userEvent.click(within(card).getByRole('button', { name: 'Resume' }));
+
+    expect(fake.calls.missionRequests).toEqual([
+      'allow pocket-home pocket-home-server,pocket-home-web',
+      'allow pocket-home ',
+      'resume planet pocket-home',
+    ]);
+  });
 });

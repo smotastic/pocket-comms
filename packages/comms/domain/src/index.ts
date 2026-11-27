@@ -203,6 +203,9 @@ export {
   type DeployFacts,
   type LastDeployFacts,
   registerPlanet,
+  allowApps,
+  SEEDED_APPS,
+  seedAllowedApps,
   seedPlanets,
   unregisterPlanet,
   type AutonomyLevel,
@@ -217,7 +220,10 @@ export {
 } from './planet.js';
 export {
   awaitingDeploy,
+  failureWords,
+  isDeployFailure,
   lastDeploy,
+  pausingDeploy,
   planetWaitsForOwner,
   type MissionDeploy,
   EMPTY_MISSIONS,

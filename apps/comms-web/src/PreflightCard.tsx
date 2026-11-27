@@ -112,6 +112,85 @@ const Unregister = ({
   );
 };
 
+/** A button that runs `action`, refreshes the preflight, and shows why it failed. */
+const Act = ({
+  label,
+  planet,
+  action,
+}: {
+  readonly label: string;
+  readonly planet: string;
+  readonly action: () => Promise<void>;
+}) => {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | undefined>(undefined);
+  return (
+    <Stack gap="xs">
+      <Inline gap="md">
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setFailure(undefined);
+            action()
+              .then(() => queryClient.invalidateQueries({ queryKey: preflightKey(planet) }))
+              .catch((error: unknown) =>
+                setFailure(error instanceof Error ? error.message : `${label} failed.`),
+              )
+              .finally(() => setBusy(false));
+          }}
+        >
+          {label}
+        </Button>
+      </Inline>
+      {failure === undefined ? null : <Alert>{failure}</Alert>}
+    </Stack>
+  );
+};
+
+/**
+ * The apps the planet's releases name, each allowed or not, with Allow or Disallow (spec 037).
+ * The list it sets is the named apps that stay allowed.
+ */
+const AllowedApps = ({
+  client,
+  planet,
+  apps,
+}: {
+  readonly client: CommsClient;
+  readonly planet: string;
+  readonly apps: ReadonlyArray<{ readonly app: string; readonly allowed: boolean }>;
+}) => {
+  const allowed = apps.filter((each) => each.allowed).map((each) => each.app);
+  return (
+    <Stack gap="xs">
+      <Text size="sm" tone="muted">
+        Apps its releases may deploy
+      </Text>
+      {apps.map(({ app, allowed: isAllowed }) => (
+        <Stack gap="xs" key={app}>
+          <Text>
+            {app}: {isAllowed ? 'allowed' : 'not allowed'}
+          </Text>
+          <Act
+            label={isAllowed ? `Disallow ${app}` : `Allow ${app}`}
+            planet={planet}
+            action={() =>
+              client.allowApps(
+                planet,
+                isAllowed ? allowed.filter((each) => each !== app) : [...allowed, app],
+              )
+            }
+          />
+        </Stack>
+      ))}
+    </Stack>
+  );
+};
+
 export interface PreflightCardProps {
   readonly client: CommsClient;
   readonly planet: string;
@@ -121,7 +200,8 @@ export interface PreflightCardProps {
 
 /**
  * A planet's preflight (spec 034): go or no-go, each check with its reason, the chosen and the
- * effective autonomy level, and Unregister.
+ * effective autonomy level, and Unregister; Resume of a paused planet and its allowed apps
+ * (spec 037).
  */
 export const PreflightCard = ({ client, planet, onUnregistered }: PreflightCardProps) => {
   const preflight = useQuery(preflightQuery(client, planet));
@@ -160,8 +240,14 @@ export const PreflightCard = ({ client, planet, onUnregistered }: PreflightCardP
                       details: `${passed ? 'Passed' : 'Failed'}: ${reason}`,
                     }))}
                   />
+                  {data.deploy.apps === undefined || data.deploy.apps.length === 0 ? null : (
+                    <AllowedApps client={client} planet={planet} apps={data.deploy.apps} />
+                  )}
                 </>
               )}
+              {data.checks.some((each) => each.check === 'last-deploy' && !each.passed) ? (
+                <Act label="Resume" planet={planet} action={() => client.resumePlanet(planet)} />
+              ) : null}
               <SegmentedControl
                 label="Autonomy level"
                 options={LEVELS}

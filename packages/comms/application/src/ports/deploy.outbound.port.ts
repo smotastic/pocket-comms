@@ -24,8 +24,12 @@ export interface DeployJob {
 
 /** How a run of the deploy script ended, with its output. */
 export interface DeployResult {
-  /** `deployed` when healthy; `rolled-back` when it failed and the previous version runs again. */
-  readonly result: 'deployed' | 'rolled-back' | 'failed';
+  /**
+   * `deployed` when healthy; `rolled-back` when it failed and the previous version runs again;
+   * `down` when the rollback was not healthy either; `failed` when it failed before deploying
+   * (spec 037).
+   */
+  readonly result: 'deployed' | 'rolled-back' | 'down' | 'failed';
   readonly output: string;
 }
 
@@ -41,8 +45,13 @@ export class DeployOutbound extends Context.Service<
     readonly configured: boolean;
     /** `deploy.sh check <app>`; an unknown script or a broken answer is not ready. */
     readonly check: (app: string) => Effect.Effect<DeployAppCheck>;
-    /** Starts `deploy.sh <app> <version>` detached; it fails only when it cannot start. */
-    readonly start: (job: DeployJob) => Effect.Effect<void, DeployError>;
+    /**
+     * Starts `deploy.sh <app> <version>` detached, with the started process's id; it fails at
+     * once when the script cannot start (spec 037).
+     */
+    readonly start: (job: DeployJob) => Effect.Effect<{ readonly pid: number }, DeployError>;
+    /** Whether the process of a started deploy still runs (spec 037). */
+    readonly running: (pid: number) => Effect.Effect<boolean>;
     /** The run's result once it wrote one. */
     readonly result: (id: string) => Effect.Effect<Option.Option<DeployResult>>;
   }

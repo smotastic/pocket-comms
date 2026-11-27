@@ -319,6 +319,12 @@ export const fakeClient = (initial: Partial<FakeState> = {}) => {
     chooseAutonomy: async (planet, level) => {
       calls.chosenLevels.push(`${planet} ${level}`);
     },
+    resumePlanet: async (planet) => {
+      calls.missionRequests.push(`resume planet ${planet}`);
+    },
+    allowApps: async (planet, apps) => {
+      calls.missionRequests.push(`allow ${planet} ${apps.join(',')}`);
+    },
     sendOnMission: async (planet, number, lane) => {
       calls.sentMissions.push(`${planet} #${number} ${lane}`);
       if (state.missionFailure !== undefined) throw state.missionFailure;

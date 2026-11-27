@@ -867,6 +867,14 @@ describe('Gitea.layerHttp, the reads of preflight (spec 034)', () => {
         };
       case '/api/v1/repos/owner/app/contents/AGENTS.md':
         return { status: 200, body: { name: 'AGENTS.md', type: 'file' } };
+      case '/api/v1/repos/owner/app/commits/c-green/status':
+        return { status: 200, body: { state: 'success', total_count: 2 } };
+      case '/api/v1/repos/owner/app/commits/c-red/status':
+        return { status: 200, body: { state: 'error', total_count: 2 } };
+      case '/api/v1/repos/owner/app/commits/c-new/status':
+        return { status: 200, body: { state: '', total_count: 0 } };
+      case '/api/v1/repos/owner/app/commits/c-going/status':
+        return { status: 200, body: { state: 'pending', total_count: 1 } };
       case '/api/v1/repos/owner/app/actions/runs':
         return {
           status: 200,
@@ -968,6 +976,22 @@ describe('Gitea.layerHttp, the reads of preflight (spec 034)', () => {
             Option.some({ status: 'completed', conclusion: 'failure' }),
           );
           expect(yield* gitea.tagRun(repository, 'release.yml', 'app-v2.0.0')).toEqual(
+            Option.none(),
+          );
+        }),
+      );
+    }).pipe(Effect.scoped),
+  );
+  it.effect("reads a commit's combined CI state (spec 037)", () =>
+    Effect.gen(function* () {
+      const { url } = yield* fakeGitea(route);
+      yield* withGitea(url, (gitea) =>
+        Effect.gen(function* () {
+          expect(yield* gitea.commitStatus(repository, 'c-green')).toEqual(Option.some('success'));
+          expect(yield* gitea.commitStatus(repository, 'c-red')).toEqual(Option.some('failure'));
+          expect(yield* gitea.commitStatus(repository, 'c-new')).toEqual(Option.some('pending'));
+          expect(yield* gitea.commitStatus(repository, 'c-going')).toEqual(Option.some('pending'));
+          expect(yield* gitea.commitStatus({ owner: 'owner', name: 'gone' }, 'c')).toEqual(
             Option.none(),
           );
         }),

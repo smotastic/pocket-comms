@@ -84,7 +84,8 @@ describe('the composed server', () => {
 
     expect(JSON.parse(readFileSync(join(stateDir, 'planets.json'), 'utf-8'))).toEqual({
       version: 1,
-      planets: [{ name: 'app', autonomy: 'manual' }],
+      appsSeeded: true,
+      planets: [{ name: 'app', autonomy: 'manual', apps: [] }],
     });
   });
 

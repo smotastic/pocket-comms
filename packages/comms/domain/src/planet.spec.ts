@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allowApps,
   chooseAutonomy,
+  seedAllowedApps,
   effectiveAutonomy,
   planetWorkspaces,
   preflightOf,
@@ -31,6 +33,8 @@ const read = (
     },
     script: true,
     apps: [{ app: 'pocket-app', ready: true, reason: 'pocket-app is ready.' }],
+    planet: 'pocket-app',
+    allowed: ['pocket-app'],
   },
   lastDeploy: { _tag: 'Fine' },
   ...overrides,
@@ -268,13 +272,15 @@ describe('choosing a level', () => {
 });
 
 describe('the deploy checks and the last deploy (spec 036)', () => {
-  const deploy = (facts: Partial<DeployFacts>): DeployFacts => ({
+  const deploy = (facts: Partial<DeployFacts> = {}): DeployFacts => ({
     settings: {
       _tag: 'Settings',
       settings: { releases: [{ tag: 'app-v', paths: [], app: 'pocket-app' }], migrations: [] },
     },
     script: true,
     apps: [{ app: 'pocket-app', ready: true, reason: 'ready' }],
+    planet: 'pocket-app',
+    allowed: ['pocket-app'],
     ...facts,
   });
 
@@ -338,7 +344,71 @@ describe('the deploy checks and the last deploy (spec 036)', () => {
     ).toEqual({
       check: 'last-deploy',
       passed: false,
-      reason: 'The last deploy (app-v0.2.0) rolled back; close #7 once it is fixed.',
+      reason:
+        'The last deploy (app-v0.2.0) rolled back; close #7 or resume the planet once it is fixed.',
     });
+    expect(
+      check(
+        read({
+          lastDeploy: {
+            _tag: 'RolledBack',
+            what: 'app-v0.2.0',
+            fixIssue: undefined,
+            how: 'is down',
+          },
+        }),
+        'last-deploy',
+      )?.reason,
+    ).toBe('The last deploy (app-v0.2.0) is down; resume the planet once it is fixed.');
+  });
+
+  it('does not deploy an app the planet does not allow (spec 037)', () => {
+    const facts = deploy({ planet: 'pocket-learning', allowed: [] });
+    const checked = deployChecksOf(facts);
+    expect(checked.deploys).toBe(false);
+    expect(checked.checks[2]).toEqual({
+      check: 'deploy-apps',
+      passed: false,
+      reason: 'pocket-app is not allowed for pocket-learning.',
+    });
+    expect(checked.apps).toEqual([{ app: 'pocket-app', allowed: false }]);
+    expect(deployChecksOf(deploy()).apps).toEqual([{ app: 'pocket-app', allowed: true }]);
+  });
+});
+
+describe('allowed apps (spec 037)', () => {
+  it("seeds today's pairs once and keeps what the owner set", () => {
+    const registry = {
+      planets: [
+        { name: 'pocket-home', autonomy: 'manual' },
+        { name: 'pocket-factory', autonomy: 'manual' },
+        { name: 'pocket-lens', autonomy: 'missions', apps: [] },
+      ],
+    } as const;
+    const seeded = seedAllowedApps(registry);
+    expect(seeded).toEqual({
+      appsSeeded: true,
+      planets: [
+        {
+          name: 'pocket-home',
+          autonomy: 'manual',
+          apps: ['pocket-home-server', 'pocket-home-web'],
+        },
+        { name: 'pocket-factory', autonomy: 'manual', apps: [] },
+        { name: 'pocket-lens', autonomy: 'missions', apps: [] },
+      ],
+    });
+    expect(seeded === undefined ? 'none' : seedAllowedApps(seeded)).toBeUndefined();
+  });
+
+  it('sets the allowed apps of a planet, and keeps the seed marker', () => {
+    const registry = { appsSeeded: true, planets: [{ name: 'a', autonomy: 'manual' }] } as const;
+    expect(allowApps(registry, 'a', ['y', 'x', 'y'])).toEqual({
+      appsSeeded: true,
+      planets: [{ name: 'a', autonomy: 'manual', apps: ['x', 'y'] }],
+    });
+    expect(allowApps(registry, 'b', ['x'])).toBeUndefined();
+    expect(chooseAutonomy(registry, 'a', 'missions')?.appsSeeded).toBe(true);
+    expect(registerPlanet(registry, 'b')?.appsSeeded).toBe(true);
   });
 });

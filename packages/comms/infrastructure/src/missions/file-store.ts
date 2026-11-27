@@ -44,6 +44,8 @@ const StoredMission = Schema.Struct({
     'not-deployed',
     'nothing-to-release',
     'awaiting-deploy',
+    'deploy-lost',
+    'down',
   ]),
   sentAt: Schema.Number,
   startedAt: optional(Schema.Number),
@@ -67,10 +69,12 @@ const StoredMission = Schema.Struct({
         }),
       ),
       step: Schema.Number,
-      phase: Schema.Literals(['tag', 'build', 'deploy']),
+      phase: Schema.Literals(['ci', 'tag', 'build', 'deploy']),
       since: Schema.Number,
       backup: Schema.Boolean,
       job: optional(Schema.String),
+      pid: optional(Schema.Number),
+      byOwner: optional(Schema.Boolean),
       target: Schema.String,
     }),
   ),
@@ -78,6 +82,7 @@ const StoredMission = Schema.Struct({
   output: optional(Schema.String),
   fixIssue: optional(Schema.Number),
   deployWith: optional(Schema.String),
+  resumedAt: optional(Schema.Number),
 });
 
 // The stored shape must keep up with the domain's: every state a mission can reach must load

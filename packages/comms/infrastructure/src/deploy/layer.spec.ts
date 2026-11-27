@@ -134,4 +134,67 @@ describe('the deploy script adapter', () => {
     );
     expect(error.reason).toContain('Bad deploy id');
   });
+
+  it('fails at once when the script cannot start (spec 037)', async () => {
+    const path = join(folder, 'not-executable.sh');
+    await writeFile(path, '#!/bin/sh\nexit 0\n');
+    for (const script of [path, join(folder, 'missing.sh')]) {
+      const error = await run(
+        Option.some(script),
+        Effect.gen(function* () {
+          const deploy = yield* DeployOutbound;
+          return yield* deploy
+            .start({ id: 'm-2', app: 'ready', version: '1.0.0', backup: false })
+            .pipe(Effect.flip);
+        }),
+      );
+      expect(error.reason).toContain('The deploy script did not start');
+    }
+  });
+
+  it('returns the process id, and tells a running deploy from one that ended', async () => {
+    const path = join(folder, 'slow.sh');
+    await writeFile(path, '#!/bin/sh\nsleep 2\n');
+    await chmod(path, 0o755);
+    const { pid, running, ended } = await run(
+      Option.some(path),
+      Effect.gen(function* () {
+        const deploy = yield* DeployOutbound;
+        const started = yield* deploy.start({
+          id: 'm-3',
+          app: 'ready',
+          version: '1.0.0',
+          backup: false,
+        });
+        return {
+          pid: started.pid,
+          running: yield* deploy.running(started.pid),
+          ended: yield* deploy.running(2 ** 22 + 12_345),
+        };
+      }),
+    );
+    expect(pid).toBeGreaterThan(0);
+    expect(running).toBe(true);
+    expect(ended).toBe(false);
+    process.kill(-pid, 'SIGTERM');
+  });
+
+  it('reads a result of down', async () => {
+    const result = await run(
+      Option.some(await fakeScript()),
+      Effect.gen(function* () {
+        const deploy = yield* DeployOutbound;
+        const { mkdir } = yield* Effect.promise(() => import('node:fs/promises'));
+        yield* Effect.promise(() => mkdir(join(folder, 'state', 'deploys'), { recursive: true }));
+        yield* Effect.promise(() =>
+          writeFile(
+            join(folder, 'state', 'deploys', 'm-4.json'),
+            '{"result":"down","output":"rollback unhealthy"}',
+          ),
+        );
+        return yield* deploy.result('m-4');
+      }),
+    );
+    expect(Option.getOrUndefined(result)).toEqual({ result: 'down', output: 'rollback unhealthy' });
+  });
 });

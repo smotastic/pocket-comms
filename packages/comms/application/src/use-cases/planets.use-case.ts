@@ -2,7 +2,9 @@ import {
   chooseAutonomy,
   effectiveAutonomy,
   InvalidInputError,
+  allowApps,
   lastDeploy,
+  pausingDeploy,
   releaseSettingsOf,
   type DeployFacts,
   type LastDeployFacts,
@@ -50,13 +52,29 @@ export const makePlanets = Effect.gen(function* () {
   const missionsOutbound = yield* MissionsOutbound;
   const { split, registry, find } = yield* makePlanetRegistry;
   const reused = yield* Ref.make(
-    new Map<string, { readonly at: number; readonly preflight: Preflight }>(),
+    new Map<
+      string,
+      { readonly at: number; readonly preflight: Preflight; readonly deployKey: string }
+    >(),
   );
+
+  /**
+   * What the planet's latest deploy is now, so a new failure or a Resume is seen at once rather
+   * than after the reuse time (spec 037, requirement 9), and so are its allowed apps.
+   */
+  const deployKeyOf = (name: string) =>
+    Effect.gen(function* () {
+      const latest = lastDeploy(yield* missionsOutbound.load, name);
+      const apps = (yield* registry).planets.find((settings) => settings.name === name)?.apps;
+      return JSON.stringify([latest?.id, latest?.state, latest?.fixIssue, latest?.resumedAt, apps]);
+    });
 
   /** The facts of a planet's repository on Gitea; a Gitea that cannot be read is a fact too. */
   /** The deploy checks' facts: the AGENTS.md block, and the script on each app it names. */
-  const deployFacts = (agentsMd: string | undefined) =>
+  const deployFacts = (planet: string, agentsMd: string | undefined) =>
     Effect.gen(function* () {
+      const allowed =
+        (yield* registry).planets.find((settings) => settings.name === planet)?.apps ?? [];
       const settings = releaseSettingsOf(agentsMd);
       const apps =
         settings._tag === 'Settings'
@@ -69,6 +87,8 @@ export const makePlanets = Effect.gen(function* () {
             ]
           : [];
       return {
+        planet,
+        allowed,
         settings,
         script: deployOutbound.configured,
         apps: deployOutbound.configured
@@ -77,14 +97,23 @@ export const makePlanets = Effect.gen(function* () {
       } satisfies DeployFacts;
     });
 
-  /** The planet's latest deploy; a rolled-back one counts until its fix issue is closed. */
+  /**
+   * The planet's latest deploy: a failed one pauses it until its fix issue is closed or the owner
+   * resumes it (spec 037).
+   */
   const lastDeployFacts = (planet: string, repository: LinkedRepository) =>
     Effect.gen(function* () {
-      const latest = lastDeploy(yield* missionsOutbound.load, planet);
-      if (latest === undefined || latest.state === 'deployed') {
-        return { _tag: 'Fine' } satisfies LastDeployFacts;
-      }
+      const latest = pausingDeploy(yield* missionsOutbound.load, planet);
+      if (latest === undefined) return { _tag: 'Fine' } satisfies LastDeployFacts;
       const what = (latest.versions ?? []).join(', ') || `#${latest.issue.number}`;
+      const how =
+        latest.state === 'down'
+          ? 'is down'
+          : latest.state === 'deploy-lost'
+            ? 'was lost'
+            : latest.state === 'failed'
+              ? 'failed'
+              : 'rolled back';
       const fixIssue = latest.fixIssue;
       if (fixIssue !== undefined) {
         const issue = yield* giteaOutbound.issue(repository, fixIssue).pipe(Effect.option);
@@ -92,7 +121,7 @@ export const makePlanets = Effect.gen(function* () {
           return { _tag: 'Fine' } satisfies LastDeployFacts;
         }
       }
-      return { _tag: 'RolledBack', what, fixIssue } satisfies LastDeployFacts;
+      return { _tag: 'RolledBack', what, fixIssue, how } satisfies LastDeployFacts;
     });
 
   const factsOf = (planet: string, repository: LinkedRepository) =>
@@ -125,7 +154,7 @@ export const makePlanets = Effect.gen(function* () {
         runs: Option.getOrUndefined(runs),
         packageJson: Option.getOrUndefined(packageJson),
         bot: yield* missionBot.facts(repository),
-        deploy: yield* deployFacts(Option.getOrUndefined(agentsMdText)),
+        deploy: yield* deployFacts(planet, Option.getOrUndefined(agentsMdText)),
         lastDeploy: yield* lastDeployFacts(planet, repository),
       } satisfies PreflightFacts;
     }).pipe(
@@ -185,11 +214,12 @@ export const makePlanets = Effect.gen(function* () {
   const preflight = Effect.fn('Planets.preflight')(function* (name: string, fresh = false) {
     const planet = yield* find(name);
     const now = yield* Clock.currentTimeMillis;
+    const deployKey = yield* deployKeyOf(name);
     const kept = fresh ? undefined : (yield* Ref.get(reused)).get(name);
     const computed =
-      kept !== undefined && now - kept.at < PREFLIGHT_REUSE_MS
+      kept !== undefined && now - kept.at < PREFLIGHT_REUSE_MS && kept.deployKey === deployKey
         ? kept
-        : { at: now, preflight: yield* compute(planet) };
+        : { at: now, preflight: yield* compute(planet), deployKey };
     if (computed !== kept) {
       yield* Ref.update(reused, (map) => new Map(map).set(name, computed));
     }
@@ -219,5 +249,16 @@ export const makePlanets = Effect.gen(function* () {
     yield* planetsOutbound.save(next);
   });
 
-  return { list: list(), register, unregister, preflight, choose };
+  /** Sets the apps the planet's releases may deploy (spec 037, requirement 15). */
+  const allow = Effect.fn('Planets.allowApps')(function* (
+    name: string,
+    apps: ReadonlyArray<string>,
+  ) {
+    const { registry } = yield* split;
+    const next = allowApps(registry, name, apps);
+    if (next === undefined) return yield* new PlanetNotFoundError({ planet: name });
+    yield* planetsOutbound.save(next);
+  });
+
+  return { list: list(), register, unregister, preflight, choose, allowApps: allow };
 });

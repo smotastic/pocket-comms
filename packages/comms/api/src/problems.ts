@@ -138,6 +138,14 @@ export const problems = {
         detail: `${error.planet} is a planet already.`,
       }),
     ),
+  planetRefused: (error: { readonly reason: string }) =>
+    Effect.fail(
+      conflictProblem({
+        slug: 'planet-refused',
+        title: 'The planet cannot do that now',
+        detail: error.reason,
+      }),
+    ),
   missionRefused: (error: { readonly reason: string }) =>
     Effect.fail(
       conflictProblem({

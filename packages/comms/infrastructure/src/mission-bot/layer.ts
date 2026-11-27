@@ -95,7 +95,7 @@ export const layer = ({
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
 
   /** One request as the bot, whatever Gitea answers. */
-  const request = (method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown) =>
+  const request = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown) =>
     Effect.gen(function* () {
       if (Option.isNone(token)) return yield* fail(NO_TOKEN);
       return yield* Effect.tryPromise({
@@ -124,7 +124,7 @@ export const layer = ({
   const refused = (status: number) => fail(`Gitea refused the mission bot's token (${status}).`);
 
   /** One request as the bot; a `404` is `undefined`, so the caller names what was missing. */
-  const send = (method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown) =>
+  const send = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown) =>
     Effect.gen(function* () {
       const response = yield* request(method, path, body);
       if (response.status === 404) return undefined;
@@ -330,6 +330,16 @@ export const layer = ({
       return created.number;
     }).pipe(Effect.withSpan('MissionBot.openIssue'));
 
+  const closeIssue = (repository: GiteaRepository, number: number, body: string) =>
+    Effect.gen(function* () {
+      yield* comment(repository, number, body);
+      const answer = yield* send('PATCH', `${repositoryPath(repository)}/issues/${number}`, {
+        state: 'closed',
+      });
+      if (answer === undefined) return yield* fail(`Gitea has no issue #${number}.`);
+      yield* drop(answer);
+    }).pipe(Effect.withSpan('MissionBot.closeIssue'));
+
   const prepareWorktree = (path: string, repository: GiteaRepository) =>
     Effect.gen(function* () {
       if (Option.isNone(token)) return yield* fail(NO_TOKEN);
@@ -381,6 +391,7 @@ export const layer = ({
       prepareWorktree,
       pushTag,
       openIssue,
+      closeIssue,
     }),
   );
 };

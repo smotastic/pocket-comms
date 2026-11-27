@@ -87,33 +87,76 @@ export const layer = ({ script, stateDir, checkTimeout = 20_000 }: DeployOptions
       }
       if (!ID.test(job.id)) return yield* new DeployError({ reason: `Bad deploy id ${job.id}.` });
       const path = script.value;
-      yield* Effect.try({
+      const log = yield* Effect.try({
         try: () => {
           mkdirSync(folder, { recursive: true, mode: 0o700 });
-          const log = openSync(join(folder, `${job.id}.log`), 'a', 0o600);
-          try {
-            const child = spawn(
-              path,
-              [
-                job.app,
-                job.version,
-                ...(job.backup ? ['--backup'] : []),
-                '--result',
-                join(folder, `${job.id}.json`),
-              ],
-              { detached: true, stdio: ['ignore', log, log], env: environment() },
-            );
-            child.on('error', () => undefined);
-            child.unref();
-          } finally {
-            closeSync(log);
-          }
+          return openSync(join(folder, `${job.id}.log`), 'a', 0o600);
         },
         catch: (error) =>
           new DeployError({
             reason: `The deploy script did not start: ${error instanceof Error ? error.message : String(error)}`,
           }),
       });
+      // The script started once node reports `spawn`; a missing or not executable file reports
+      // `error` instead, so a start never waits for a result that cannot come (spec 037).
+      return yield* Effect.callback<{ readonly pid: number }, DeployError>((resume) => {
+        let child: ReturnType<typeof spawn>;
+        try {
+          child = spawn(
+            path,
+            [
+              job.app,
+              job.version,
+              ...(job.backup ? ['--backup'] : []),
+              '--result',
+              join(folder, `${job.id}.json`),
+            ],
+            { detached: true, stdio: ['ignore', log, log], env: environment() },
+          );
+        } catch (error) {
+          closeSync(log);
+          resume(
+            Effect.fail(
+              new DeployError({
+                reason: `The deploy script did not start: ${error instanceof Error ? error.message : String(error)}`,
+              }),
+            ),
+          );
+          return;
+        }
+        child.once('spawn', () => {
+          closeSync(log);
+          child.removeAllListeners('error');
+          child.on('error', () => undefined);
+          child.unref();
+          resume(
+            child.pid === undefined
+              ? Effect.fail(
+                  new DeployError({ reason: 'The deploy script started without a process id.' }),
+                )
+              : Effect.succeed({ pid: child.pid }),
+          );
+        });
+        child.once('error', (error) => {
+          closeSync(log);
+          resume(
+            Effect.fail(
+              new DeployError({ reason: `The deploy script did not start: ${error.message}` }),
+            ),
+          );
+        });
+      });
+    });
+
+  /** Whether a process lives: signal 0 checks without sending; EPERM means it lives as another user. */
+  const running = (pid: number) =>
+    Effect.sync(() => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch (error) {
+        return error instanceof Error && 'code' in error && error.code === 'EPERM';
+      }
     });
 
   const result = (id: string) =>
@@ -133,7 +176,10 @@ export const layer = ({ script, stateDir, checkTimeout = 20_000 }: DeployOptions
         if (!isRecord(parsed)) return Option.none();
         const state = parsed['result'];
         const output = typeof parsed['output'] === 'string' ? parsed['output'] : '';
-        return state === 'deployed' || state === 'rolled-back' || state === 'failed'
+        return state === 'deployed' ||
+          state === 'rolled-back' ||
+          state === 'down' ||
+          state === 'failed'
           ? Option.some({ result: state, output })
           : Option.none();
       }),
@@ -141,6 +187,6 @@ export const layer = ({ script, stateDir, checkTimeout = 20_000 }: DeployOptions
 
   return Layer.succeed(
     DeployOutbound,
-    DeployOutbound.of({ configured: Option.isSome(script), check, start, result }),
+    DeployOutbound.of({ configured: Option.isSome(script), check, start, running, result }),
   );
 };

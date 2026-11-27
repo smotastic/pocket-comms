@@ -5,6 +5,9 @@
 - **Changes:** [spec 035](../035-comms-missions-to-merge/spec.md) (a merged mission goes on to
   release and deploy), [spec 034](../034-comms-planets-and-preflight/spec.md) (preflight gains the
   deploy checks and the last-deploy check)
+- **Changed by:** [spec 037](../037-comms-harden-autonomous-deploy/spec.md) (requirements 3, 9,
+  12, 14, 15 and 17: allowed apps, master CI before tagging, deploy lost and down, the pause and
+  Resume, the owner's Deploy)
 - **Decision:** [ADR 0020](../../docs/architecture/adr/0020-missions-deploy-through-pocket-clouds-deploy-script-with-bot-cut-releases.md)
 
 ## 1. Problem / intent (WHY)

@@ -319,4 +319,24 @@ describe('the mission bot', () => {
       expect(gitea.seen[0]?.body).toEqual({ title: 'Fix it', body: 'Output.' });
     }).pipe(Effect.scoped),
   );
+
+  it.effect('closes an issue after a comment (spec 037)', () =>
+    Effect.gen(function* () {
+      const gitea = yield* fakeGitea((path, method) =>
+        method === 'POST' && path === '/repos/owner/app/issues/42/comments'
+          ? { status: 201, body: {} }
+          : method === 'PATCH' && path === '/repos/owner/app/issues/42'
+            ? { status: 201, body: {} }
+            : { status: 404, body: {} },
+      );
+      const missions = yield* bot(gitea.url);
+      yield* missions.closeIssue(repository, 42, 'Resumed by the owner.');
+      expect(gitea.seen.map((each) => [each.method, each.path, each.body])).toEqual([
+        ['POST', '/repos/owner/app/issues/42/comments', { body: 'Resumed by the owner.' }],
+        ['PATCH', '/repos/owner/app/issues/42', { state: 'closed' }],
+      ]);
+      const gone = yield* missions.closeIssue(repository, 7, 'x').pipe(Effect.flip);
+      expect(gone.reason).toContain('#7');
+    }).pipe(Effect.scoped),
+  );
 });

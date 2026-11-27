@@ -590,7 +590,7 @@ describe('the tasks API', () => {
         },
       ],
       autonomy: { chosen: 'manual' as const, effective: 'manual' as const },
-      deploy: { deploys: false, checks: [] },
+      deploy: { deploys: false, checks: [], apps: [{ app: 'pocket-app', allowed: false }] },
       checkedAt: 5,
     };
     const call = servePlanets({
@@ -674,6 +674,42 @@ describe('the tasks API', () => {
       ).status,
     ).toBe(204);
     expect(asked).toEqual(['seen', `abort ${id}`, `deploy ${id}`, 'fix-7 done']);
+  });
+
+  it("sets a planet's allowed apps, and refuses a name that is no app (spec 037)", async () => {
+    const allowed: Array<string> = [];
+    const call = servePlanets({
+      allowApps: (name, apps) =>
+        name === 'app'
+          ? Effect.sync(() => void allowed.push(`${name} ${apps.join(',')}`))
+          : Effect.fail(new PlanetNotFoundError({ planet: name })),
+    });
+    const put = (planet: string, body: unknown) =>
+      call(`/api/v1/planets/${planet}/apps`, { ...json(body), method: 'PUT' });
+
+    expect((await put('app', { apps: ['pocket-app'] })).status).toBe(204);
+    expect((await put('nope', { apps: [] })).status).toBe(404);
+    expect((await put('app', { apps: ['../x'] })).status).toBe(422);
+    expect(allowed).toEqual(['app pocket-app']);
+  });
+
+  it('refuses a Deploy on a planet that is not ready, and resumes a paused planet', async () => {
+    const call = serveMissions({
+      deploy: () => Effect.fail(new MissionRefusedError({ reason: 'app is no-go: CI is red.' })),
+      resumePlanet: (planet) =>
+        planet === 'app'
+          ? Effect.void
+          : Effect.fail(new MissionRefusedError({ reason: `${planet} is not paused.` })),
+    });
+    const id = '3f2a1c9e-8b7d-4e6f-9a0b-1c2d3e4f5a6b';
+
+    const refused = await call(`/api/v1/missions/${id}/deploy`, { method: 'POST' });
+    expect(refused.status).toBe(409);
+    expect((await refused.json()).detail).toBe('app is no-go: CI is red.');
+    expect((await call('/api/v1/planets/app/resume', { method: 'POST' })).status).toBe(204);
+    const notPaused = await call('/api/v1/planets/lens/resume', { method: 'POST' });
+    expect(notPaused.status).toBe(409);
+    expect((await notPaused.json()).detail).toBe('lens is not paused.');
   });
 
   it('unregisters a planet, and answers 404 for one that is not a planet', async () => {

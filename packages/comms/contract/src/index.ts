@@ -43,6 +43,7 @@ export {
   EditState,
   Planets,
   Preflight,
+  AllowAppsRequest,
   ChooseAutonomyRequest,
   Mission,
   MissionOutcomeRequest,

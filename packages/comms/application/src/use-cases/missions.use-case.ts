@@ -1,7 +1,10 @@
 import {
   agentNameFor,
   awaitingDeploy,
+  failureWords,
+  isDeployFailure,
   latestTag,
+  pausingDeploy,
   planetWaitsForOwner,
   releasePlan,
   releaseSettingsOf,
@@ -44,6 +47,7 @@ import { GiteaOutbound } from '../ports/gitea.outbound.port.js';
 import { PushSenderOutbound, PushSubscriptionsOutbound } from '../ports/push.outbound.port.js';
 import { MissionBotOutbound } from '../ports/mission-bot.outbound.port.js';
 import { MissionsOutbound } from '../ports/missions.outbound.port.js';
+import { PlanetsOutbound } from '../ports/planets.outbound.port.js';
 import { MultiplexerOutbound, type StartedAgent } from '../ports/multiplexer.outbound.port.js';
 import { PullRequestsOutbound, type AttachedLists } from '../ports/pull-requests.outbound.port.js';
 import { RepositoriesOutbound } from '../ports/repositories.outbound.port.js';
@@ -87,8 +91,15 @@ const viewOf = (file: MissionsFile, mission: Mission): MissionDto => ({
 /** How long a release run may take to appear, and to finish (spec 036, requirement 9). */
 const RELEASE_RUN_APPEARS_MS = 10 * 60_000;
 const RELEASE_RUN_ENDS_MS = 60 * 60_000;
-/** How long a deploy may take to write its result (spec 036, requirement 14). */
+/**
+ * How long a deploy without a known process may take to write its result: a mission saved before
+ * spec 037 (spec 036, requirement 14).
+ */
 const DEPLOY_RESULT_MS = 15 * 60_000;
+/** How long a deploy whose process still runs is waited for (spec 037, requirement 1). */
+const DEPLOY_RUNNING_MS = 2 * 60 * 60_000;
+/** How long a release waits for master's CI on the commit it releases (spec 037, requirement 16). */
+const MASTER_CI_MS = 60 * 60_000;
 
 const tagsOf = (releases: ReadonlyArray<PlannedRelease>): string =>
   releases.map((release) => release.tag).join(', ');
@@ -112,6 +123,7 @@ export const makeMissions = Effect.gen(function* () {
   const multiplexer = yield* MultiplexerOutbound;
   const attached = yield* PullRequestsOutbound;
   const deployer = yield* DeployOutbound;
+  const planetsStore = yield* PlanetsOutbound;
   const subscriptions = yield* PushSubscriptionsOutbound;
   const pushSender = yield* PushSenderOutbound;
   const issuePlanet = yield* makeIssuePlanet;
@@ -245,6 +257,20 @@ export const makeMissions = Effect.gen(function* () {
       if (settings._tag === 'Invalid') {
         return { _tag: 'Unsettled', reason: settings.reason } as const;
       }
+      // The planet's settings, never its AGENTS.md, decide which apps it may deploy (spec 037).
+      const registry = yield* planetsStore.load;
+      const allowed = Option.isSome(registry)
+        ? (registry.value.planets.find((each) => each.name === mission.planet)?.apps ?? [])
+        : [];
+      const refused = settings.settings.releases.flatMap((release) =>
+        release.app === undefined || allowed.includes(release.app) ? [] : [release.app],
+      );
+      if (refused.length > 0) {
+        return {
+          _tag: 'Unsettled',
+          reason: refused.map((app) => `${app} is not allowed for ${mission.planet}.`).join(' '),
+        } as const;
+      }
       const base = yield* repositories.defaultBase(planet);
       yield* repositories.fetchTags(planet);
       const target = yield* repositories.commitOf(planet, base);
@@ -266,19 +292,44 @@ export const makeMissions = Effect.gen(function* () {
       } as const;
     });
 
-  /** Starts releasing: the tags go on `target`, then the release runs, then the deploys. */
+  /**
+   * Starts releasing: master's CI on `target` first (spec 037), then the tags go on `target`, then
+   * the release runs, then the deploys.
+   */
   const releasing = (
     mission: Mission,
     releases: ReadonlyArray<PlannedRelease>,
     target: string,
     backup: boolean,
+    byOwner: boolean,
     now: number,
   ): Mission => ({
     ...mission,
     state: 'releasing',
     finishedAt: undefined,
     reason: undefined,
-    deploy: { releases, step: 0, phase: 'tag', since: now, backup, target },
+    deploy: {
+      releases,
+      step: 0,
+      phase: 'ci',
+      since: now,
+      backup,
+      target,
+      ...(byOwner ? { byOwner } : {}),
+    },
+  });
+
+  /**
+   * An owner's Deploy that cannot go on waits for the owner again, with why (spec 037,
+   * requirement 11); its companions wait on their own.
+   */
+  const waitAgain = (mission: Mission, reason: string, now: number): Mission => ({
+    ...mission,
+    state: 'awaiting-deploy',
+    reason: `Your Deploy could not go on: ${reason}`,
+    finishedAt: now,
+    deploy: undefined,
+    deployWith: undefined,
   });
 
   const finished = (
@@ -345,7 +396,7 @@ export const makeMissions = Effect.gen(function* () {
         case 'Stop':
           return finished(mission, 'awaiting-deploy', planned.plan.reason, now);
         case 'Ship':
-          return releasing(mission, planned.plan.releases, planned.target, false, now);
+          return releasing(mission, planned.plan.releases, planned.target, false, false, now);
       }
     });
 
@@ -355,17 +406,22 @@ export const makeMissions = Effect.gen(function* () {
     missions: file.missions.map((mission) =>
       mission.id === lead.id
         ? lead
-        : isFinished(lead) && mission.deployWith === lead.id && mission.state === 'awaiting-deploy'
-          ? {
-              ...mission,
-              state: lead.state,
-              finishedAt: lead.finishedAt,
-              versions: lead.versions,
-              output: lead.output,
-              fixIssue: lead.fixIssue,
-              reason: `It shipped with #${lead.issue.number}: ${lead.reason ?? lead.state}`,
-            }
-          : mission,
+        : lead.state === 'awaiting-deploy' && mission.deployWith === lead.id
+          ? // The lead waits for the owner again: its companions wait on their own (spec 037).
+            { ...mission, deployWith: undefined }
+          : isFinished(lead) &&
+              mission.deployWith === lead.id &&
+              mission.state === 'awaiting-deploy'
+            ? {
+                ...mission,
+                state: lead.state,
+                finishedAt: lead.finishedAt,
+                versions: lead.versions,
+                output: lead.output,
+                fixIssue: lead.fixIssue,
+                reason: `It shipped with #${lead.issue.number}: ${lead.reason ?? lead.state}`,
+              }
+            : mission,
     ),
   });
 
@@ -386,68 +442,122 @@ export const makeMissions = Effect.gen(function* () {
       } satisfies Mission;
     });
 
+  /** The words of a deploy failure's fix issue. */
+  const fixIssueOf = (mission: Mission, releases: ReadonlyArray<string>) => {
+    const state =
+      mission.state === 'down' || mission.state === 'deploy-lost' || mission.state === 'rolled-back'
+        ? mission.state
+        : 'failed';
+    const words = failureWords(state, mission.planet);
+    const output = mission.output;
+    return {
+      title: `Fix the failed deploy of ${releases.join(', ') || `#${mission.issue.number}`}`,
+      body: [
+        `Mission Control could not deploy ${releases.join(', ') || 'the release'} after #${mission.issue.number}.`,
+        '',
+        mission.reason ?? state,
+        '',
+        words.next,
+        ...(output === undefined || output === '' ? [] : ['', '```text', output.trim(), '```']),
+        '',
+        `The planet is paused until this issue is closed or the owner resumes it. Master is not reverted.`,
+      ].join('\n'),
+    };
+  };
+
+  /** Opens a deploy failure's fix issue; none when Gitea refuses now, and the loop tries again. */
+  const openFixIssue = (mission: Mission) =>
+    bot.openIssue(mission.repository, fixIssueOf(mission, mission.versions ?? [])).pipe(
+      Effect.map((number): number | undefined => number),
+      Effect.catch((error) =>
+        Effect.as(
+          Effect.logWarning('The mission bot could not open the fix issue').pipe(
+            Effect.annotateLogs({ reason: error.reason }),
+          ),
+          undefined,
+        ),
+      ),
+    );
+
   /**
-   * A release or deploy that failed (spec 036, requirements 9 and 12): the mission ends with why,
-   * an issue on the planet asks for the fix and pauses it, and the owner is told.
+   * A release or deploy that failed (spec 036, requirements 9 and 12; spec 037): the mission ends
+   * with why, the planet is paused, an issue on the planet asks for the fix, and the owner is told.
    */
   const broken = (
     mission: Mission,
-    state: 'rolled-back' | 'failed',
+    state: 'rolled-back' | 'failed' | 'down' | 'deploy-lost',
     reason: string,
     output: string | undefined,
     now: number,
   ) =>
     Effect.gen(function* () {
       const releases = mission.deploy?.releases ?? [];
-      const body = [
-        `Mission Control could not deploy ${tagsOf(releases)} after #${mission.issue.number}.`,
-        '',
-        reason,
-        ...(output === undefined || output === '' ? [] : ['', '```text', output.trim(), '```']),
-        '',
-        `The planet is paused until this issue is closed. Master is not reverted.`,
-      ].join('\n');
-      const fixIssue = yield* bot
-        .openIssue(mission.repository, {
-          title: `Fix the failed deploy of ${tagsOf(releases)}`,
-          body,
-        })
-        .pipe(
-          Effect.map((number): number | undefined => number),
-          Effect.catch((error) =>
-            Effect.as(
-              Effect.logWarning('The mission bot could not open the fix issue').pipe(
-                Effect.annotateLogs({ reason: error.reason }),
-              ),
-              undefined,
-            ),
-          ),
-        );
-      yield* notify(
-        mission,
-        state === 'rolled-back'
-          ? `Deploy rolled back: ${mission.planet}`
-          : `Release failed: ${mission.planet}`,
-        reason,
-      );
-      return {
+      const ended: Mission = {
         ...mission,
         state,
         reason,
         output,
-        fixIssue,
         finishedAt: now,
         versions: releases.map((release) => release.tag),
         deploy: undefined,
-      } satisfies Mission;
+      };
+      const fixIssue = yield* openFixIssue(ended);
+      yield* notify(mission, failureWords(state, mission.planet).title, reason);
+      return { ...ended, fixIssue } satisfies Mission;
+    });
+
+  /**
+   * The paused planets' fix issues that could not be opened, opened now (spec 037, requirement
+   * 7). A planet's deploy failure and the missions that shipped with it share one issue.
+   */
+  const openMissingFixIssues = (file: MissionsFile) =>
+    Effect.gen(function* () {
+      let next = file;
+      for (const planet of new Set(file.missions.map((mission) => mission.planet))) {
+        const pausing = pausingDeploy(next, planet);
+        if (pausing === undefined || pausing.fixIssue !== undefined) continue;
+        const lead = next.missions.find((mission) => mission.id === pausing.deployWith) ?? pausing;
+        const number = yield* openFixIssue(lead);
+        if (number === undefined) continue;
+        next = {
+          ...next,
+          missions: next.missions.map((mission) =>
+            mission.id === lead.id || mission.deployWith === lead.id
+              ? { ...mission, fixIssue: number }
+              : mission,
+          ),
+        };
+      }
+      return next;
     });
 
   /** One step of a releasing mission: push its tags, then wait for their release runs. */
   const releaseStep = (mission: Mission, now: number) =>
     Effect.gen(function* () {
-      const deploy = mission.deploy;
+      let deploy = mission.deploy;
       if (deploy === undefined)
         return yield* broken(mission, 'failed', 'It lost its release.', undefined, now);
+      if (deploy.phase === 'ci') {
+        // Master's CI on the commit it releases, before any tag (spec 037, requirements 16, 17).
+        const status = yield* gitea
+          .commitStatus(mission.repository, deploy.target)
+          .pipe(Effect.orElseSucceed(() => Option.none()));
+        const ci = Option.getOrElse(status, () => 'pending' as const);
+        const short = deploy.target.slice(0, 7);
+        const stopped =
+          ci === 'failure'
+            ? `master CI failed on ${short}.`
+            : ci === 'pending' && now - deploy.since > MASTER_CI_MS
+              ? 'master CI did not finish within 60 minutes.'
+              : undefined;
+        if (stopped !== undefined) {
+          return deploy.byOwner === true
+            ? waitAgain(mission, stopped, now)
+            : finished(mission, 'not-deployed', stopped, now);
+        }
+        if (ci === 'pending') return mission;
+        deploy = { ...deploy, phase: 'tag', since: now };
+      }
       if (deploy.phase === 'tag') {
         for (const release of deploy.releases) {
           const pushed = yield* bot
@@ -463,7 +573,10 @@ export const makeMissions = Effect.gen(function* () {
             );
           }
         }
-        return { ...mission, deploy: { ...deploy, phase: 'build', since: now } } satisfies Mission;
+        return {
+          ...mission,
+          deploy: { ...deploy, phase: 'build', since: now },
+        } satisfies Mission;
       }
       let pending = false;
       for (const release of deploy.releases) {
@@ -534,30 +647,77 @@ export const makeMissions = Effect.gen(function* () {
         if (started._tag === 'Failure') {
           return yield* broken(mission, 'failed', started.failure.reason, undefined, now);
         }
-        return { ...mission, deploy: { ...deploy, job, since: now } } satisfies Mission;
+        return {
+          ...mission,
+          deploy: { ...deploy, job, pid: started.success.pid, since: now },
+        } satisfies Mission;
       }
-      const result = yield* deployer.result(deploy.job);
+      const job = deploy.job;
+      let result = yield* deployer.result(job);
       if (Option.isNone(result)) {
-        return now - deploy.since <= DEPLOY_RESULT_MS
-          ? mission
-          : yield* broken(
-              mission,
-              'rolled-back',
-              `The deploy of ${release.tag} wrote no result within 15 minutes.`,
-              undefined,
-              now,
-            );
+        const waited = now - deploy.since;
+        if (deploy.pid === undefined) {
+          // A deploy started before spec 037 has no process to ask.
+          return waited <= DEPLOY_RESULT_MS
+            ? mission
+            : yield* broken(
+                mission,
+                'deploy-lost',
+                `The deploy of ${release.tag} wrote no result within 15 minutes.`,
+                undefined,
+                now,
+              );
+        }
+        if (yield* deployer.running(deploy.pid)) {
+          return waited <= DEPLOY_RUNNING_MS
+            ? mission
+            : yield* broken(
+                mission,
+                'deploy-lost',
+                `The deploy of ${release.tag} still runs after 2 hours.`,
+                undefined,
+                now,
+              );
+        }
+        // It ended: a result written right before its end is read once more.
+        result = yield* deployer.result(job);
+        if (Option.isNone(result)) {
+          return yield* broken(
+            mission,
+            'deploy-lost',
+            `The deploy of ${release.tag} ended without a result.`,
+            undefined,
+            now,
+          );
+        }
       }
-      if (result.value.result !== 'deployed') {
-        return yield* broken(
-          mission,
-          'rolled-back',
-          result.value.result === 'rolled-back'
-            ? `${release.tag} failed its health check and was rolled back.`
-            : `The deploy of ${release.tag} failed.`,
-          result.value.output,
-          now,
-        );
+      switch (result.value.result) {
+        case 'rolled-back':
+          return yield* broken(
+            mission,
+            'rolled-back',
+            `${release.tag} failed its health check and was rolled back.`,
+            result.value.output,
+            now,
+          );
+        case 'down':
+          return yield* broken(
+            mission,
+            'down',
+            `${release.tag} failed its health check, and the rollback was not healthy either.`,
+            result.value.output,
+            now,
+          );
+        case 'failed':
+          return yield* broken(
+            mission,
+            'failed',
+            `The deploy of ${release.tag} failed before it deployed anything.`,
+            result.value.output,
+            now,
+          );
+        case 'deployed':
+          break;
       }
       const next = deploy.releases.findIndex(
         (each, index) => index > deploy.step && each.app !== undefined,
@@ -574,6 +734,34 @@ export const makeMissions = Effect.gen(function* () {
    * joins the queue; the others ship with it. Whether it backs up is planned when it starts.
    */
   const deploy = Effect.fn('Missions.deploy')(function* (id: string) {
+    // The planet must be ready to deploy now, or the Deploy is refused and keeps waiting
+    // (spec 037, requirement 10).
+    const waiting = (yield* store.load).missions.find(
+      (each) => each.id === id && each.state === 'awaiting-deploy',
+    );
+    if (waiting === undefined) return yield* new MissionNotFoundError({ id });
+    const preflight = yield* planets
+      .preflight(waiting.planet, true)
+      .pipe(
+        Effect.mapError(
+          () => new MissionRefusedError({ reason: `${waiting.planet} is not a planet now.` }),
+        ),
+      );
+    if (preflight.autonomy.effective !== 'missions') {
+      const failed = preflight.checks.filter((check) => !check.passed).map((check) => check.reason);
+      return yield* new MissionRefusedError({
+        reason:
+          failed.length === 0
+            ? `${waiting.planet} is not at missions.`
+            : `${waiting.planet} is no-go: ${failed.join(' ')}`,
+      });
+    }
+    if (!preflight.deploy.deploys) {
+      const failed = preflight.deploy.checks.filter((check) => !check.passed);
+      return yield* new MissionRefusedError({
+        reason: `${waiting.planet} does not deploy: ${failed.map((check) => check.reason).join(' ')}`,
+      });
+    }
     yield* change((file, now) =>
       Effect.gen(function* () {
         const mission = yield* missionWith(file, id, (each) => each.state === 'awaiting-deploy');
@@ -585,7 +773,15 @@ export const makeMissions = Effect.gen(function* () {
           sentAt: now,
           finishedAt: undefined,
           reason: undefined,
-          deploy: { releases: [], step: 0, phase: 'tag', since: now, backup: false, target: '' },
+          deploy: {
+            releases: [],
+            step: 0,
+            phase: 'ci',
+            since: now,
+            backup: false,
+            target: '',
+            byOwner: true,
+          },
         };
         const companions = new Set(others.map((each) => each.id));
         return [
@@ -613,10 +809,12 @@ export const makeMissions = Effect.gen(function* () {
    */
   const startOwnerDeploy = (mission: Mission, now: number) =>
     Effect.gen(function* () {
-      const planned = yield* planReleases(mission);
-      if (planned._tag === 'Unsettled') {
-        return finished(mission, 'not-deployed', planned.reason, now);
-      }
+      const planned = yield* planReleases(mission).pipe(
+        Effect.catch((error) =>
+          Effect.succeed({ _tag: 'Unsettled', reason: reasonOf(error) } as const),
+        ),
+      );
+      if (planned._tag === 'Unsettled') return waitAgain(mission, planned.reason, now);
       if (planned.plan._tag === 'Nothing') {
         return finished(
           mission,
@@ -631,6 +829,7 @@ export const makeMissions = Effect.gen(function* () {
           planned.plan.releases,
           planned.target,
           planned.plan._tag === 'Stop' && planned.plan.migration,
+          true,
           now,
         ),
         startedAt: now,
@@ -710,17 +909,59 @@ export const makeMissions = Effect.gen(function* () {
   };
 
   const remove = Effect.fn('Missions.remove')(function* (id: string) {
-    yield* change((file) =>
+    yield* change((file, now) =>
       missionWith(file, id, (mission) => mission.state === 'queued').pipe(
-        Effect.map(
-          () =>
-            [
-              { ...file, missions: file.missions.filter((mission) => mission.id !== id) },
-              undefined,
-            ] as const,
+        Effect.map((mission) =>
+          // A queued Deploy of the owner goes back to waiting for it (spec 037, requirement 12).
+          mission.deploy?.byOwner === true
+            ? ([
+                withCompanions(
+                  file,
+                  waitAgain(mission, 'you took it out of the mission queue.', now),
+                ),
+                undefined,
+              ] as const)
+            : ([
+                { ...file, missions: file.missions.filter((each) => each.id !== id) },
+                undefined,
+              ] as const),
         ),
       ),
     );
+  });
+
+  /**
+   * The owner's Resume of a paused planet (spec 037, requirement 8): its latest deploy failure no
+   * longer pauses it, and the bot closes its fix issue.
+   */
+  const resumePlanet = Effect.fn('Missions.resumePlanet')(function* (planet: string) {
+    yield* change((file, now) =>
+      Effect.gen(function* () {
+        const pausing = pausingDeploy(file, planet);
+        if (pausing === undefined) {
+          return yield* new MissionRefusedError({ reason: `${planet} is not paused.` });
+        }
+        const lead = file.missions.find((mission) => mission.id === pausing.deployWith) ?? pausing;
+        if (lead.fixIssue !== undefined) {
+          yield* record(
+            'close the fix issue',
+            bot.closeIssue(lead.repository, lead.fixIssue, 'Resumed by the owner.'),
+          );
+        }
+        return [
+          {
+            ...file,
+            missions: file.missions.map((mission) =>
+              mission.id === lead.id || mission.deployWith === lead.id
+                ? { ...mission, resumedAt: now }
+                : mission,
+            ),
+          },
+          undefined,
+        ] as const;
+      }),
+    );
+    yield* wake;
   });
 
   const abort = Effect.fn('Missions.abort')(function* (id: string) {
@@ -922,6 +1163,15 @@ export const makeMissions = Effect.gen(function* () {
         const failed = preflight.checks
           .filter((check) => !check.passed)
           .map((check) => check.reason);
+        if (mission.deploy?.byOwner === true) {
+          return waitAgain(
+            mission,
+            preflight.autonomy.chosen === 'manual'
+              ? `${mission.planet} is at manual now.`
+              : `${mission.planet} is no-go: ${failed.join(' ')}`,
+            now,
+          );
+        }
         return {
           ...mission,
           state: 'held',
@@ -987,6 +1237,9 @@ export const makeMissions = Effect.gen(function* () {
       return { ...started, agent } satisfies Mission;
     }).pipe(
       Effect.catch((error) => {
+        if (mission.deploy?.byOwner === true) {
+          return Effect.succeed(waitAgain(mission, reasonOf(error), now));
+        }
         const failed = {
           ...mission,
           state: 'failed',
@@ -1013,7 +1266,7 @@ export const makeMissions = Effect.gen(function* () {
   /** One step of the loop: follows the running mission, or starts the next one. */
   const advance = change((file, now) =>
     Effect.gen(function* () {
-      let next = file;
+      let next = yield* openMissingFixIssues(file);
       const running = runningMission(next);
       if (running?.state === 'releasing' || running?.state === 'deploying') {
         const moved =
@@ -1023,7 +1276,7 @@ export const makeMissions = Effect.gen(function* () {
         if (moved !== running) next = withCompanions(next, moved);
         // A failed release or deploy pauses the planet; the next mission waits for the saved file,
         // so its preflight sees the pause.
-        if (moved.fixIssue !== undefined || moved.state === 'rolled-back') {
+        if (isDeployFailure(moved)) {
           return [next, undefined] as const;
         }
       } else if (running !== undefined && running.state !== 'lost') {
@@ -1089,5 +1342,5 @@ export const makeMissions = Effect.gen(function* () {
     Effect.forkScoped,
   );
 
-  return { send, list, remove, abort, resume, seen, outcome, deploy, advance };
+  return { send, list, remove, abort, resume, seen, outcome, deploy, resumePlanet, advance };
 });

@@ -178,6 +178,27 @@ describe('the tasks requests', () => {
     expect(JSON.parse(String(sent[0]?.body))).toEqual({ name: 'setup' });
   });
 
+  it('resumes a paused planet and sets its allowed apps (spec 037)', async () => {
+    fetch.mockImplementation(async () => new Response(null, { status: 204 }));
+    const client = makeCommsClient('http://app');
+
+    await client.resumePlanet('pocket-lens');
+    await client.allowApps('pocket-lens', ['pocket-lens']);
+
+    const sent = await Promise.all(
+      fetch.mock.calls.map(async ([input, init]) => ({
+        url: String(input instanceof Request ? input.url : input),
+        method: input instanceof Request ? input.method : init?.method,
+        body: input instanceof Request ? await input.text() : init?.body,
+      })),
+    );
+    expect(sent.map(({ url, method }) => [method, url])).toEqual([
+      ['POST', 'http://app/api/v1/planets/pocket-lens/resume'],
+      ['PUT', 'http://app/api/v1/planets/pocket-lens/apps'],
+    ]);
+    expect(JSON.parse(String(sent[1]?.body))).toEqual({ apps: ['pocket-lens'] });
+  });
+
   it('posts a new task and returns the created worktree', async () => {
     fetch.mockImplementation(async () =>
       answer(201, { workspace: 'wK', branch: 'feat/x', path: '/w/feat-x' }),

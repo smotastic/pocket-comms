@@ -63,5 +63,11 @@ export class MissionBotOutbound extends Context.Service<
       repository: GiteaRepository,
       issue: { readonly title: string; readonly body: string },
     ) => Effect.Effect<number, MissionBotError>;
+    /** Closes an issue with a comment first (spec 037). */
+    readonly closeIssue: (
+      repository: GiteaRepository,
+      number: number,
+      comment: string,
+    ) => Effect.Effect<void, MissionBotError>;
   }
 >()('comms/application/MissionBotOutbound') {}

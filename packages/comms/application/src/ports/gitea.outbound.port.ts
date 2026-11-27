@@ -97,6 +97,14 @@ export class GiteaOutbound extends Context.Service<
       workflow: string,
       tag: string,
     ) => Effect.Effect<Option.Option<CiRun>, Failure>;
+    /**
+     * The combined CI state of a commit (spec 037): `pending` while a status is still going or none
+     * is there yet; none when Gitea cannot say.
+     */
+    readonly commitStatus: (
+      repository: GiteaRepository,
+      sha: string,
+    ) => Effect.Effect<Option.Option<'pending' | 'success' | 'failure'>, Failure>;
     /** The open issues and pull requests, in Gitea's order, up to 500. */
     readonly openIssues: (
       repository: GiteaRepository,

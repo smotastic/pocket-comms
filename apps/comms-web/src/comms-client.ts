@@ -150,6 +150,10 @@ export interface CommsClient {
   readonly preflight: (planet: string) => Promise<PreflightView>;
   /** Sets a planet's chosen autonomy level: manual or missions (spec 035). */
   readonly chooseAutonomy: (planet: string, level: AutonomyLevel) => Promise<void>;
+  /** Lifts the pause of a planet's failed deploy and closes its fix issue (spec 037). */
+  readonly resumePlanet: (planet: string) => Promise<void>;
+  /** Sets the apps a planet's releases may deploy (spec 037). */
+  readonly allowApps: (planet: string, apps: ReadonlyArray<string>) => Promise<void>;
   /** Sends an open issue on a mission in `lane` (spec 035). */
   readonly sendOnMission: (planet: string, number: number, lane: Lane) => Promise<MissionView>;
   /** Mission Control: the running mission, the mission queue and the mission log. */
@@ -413,6 +417,12 @@ export const makeCommsClient = (baseUrl: string): CommsClient => {
     preflight: (planet) => run((api) => api.planets.preflight({ params: { planet } })),
     chooseAutonomy: (planet, level) =>
       run((api) => api.planets.chooseAutonomy({ params: { planet }, payload: { level } })).then(
+        () => undefined,
+      ),
+    resumePlanet: (planet) =>
+      run((api) => api.missions.resumePlanet({ params: { planet } })).then(() => undefined),
+    allowApps: (planet, apps) =>
+      run((api) => api.planets.allowApps({ params: { planet }, payload: { apps } })).then(
         () => undefined,
       ),
     sendOnMission: (planet, number, lane) =>

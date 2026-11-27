@@ -18,13 +18,21 @@ const FILE = 'planets.json';
 
 const StoredFile = Schema.Struct({
   version: Schema.Literal(1),
+  // Whether the allowed apps were seeded once (spec 037).
+  appsSeeded: Schema.optional(Schema.Boolean),
   planets: Schema.Array(
     Schema.Struct({
       name: Schema.String,
       autonomy: Schema.Literals(['manual', 'missions', 'autopilot']),
+      apps: Schema.optional(Schema.Array(Schema.String)),
     }),
   ),
 });
+
+// The stored registry must keep every field of the domain's, or a save drops it.
+const _keepsEveryField = (registry: PlanetRegistry): Omit<typeof StoredFile.Type, 'version'> =>
+  registry;
+void _keepsEveryField;
 
 const decode = Schema.decodeUnknownOption(Schema.fromJsonString(StoredFile));
 
@@ -63,13 +71,14 @@ export const layerFile = ({ folder }: FileStoreOptions) =>
           yield* Effect.promise(() => rename(path, `${path}.bad`).catch(() => undefined));
           return Option.none<PlanetRegistry>();
         }
-        return Option.some<PlanetRegistry>({ planets: stored.value.planets });
+        const { version: _version, ...registry } = stored.value;
+        return Option.some<PlanetRegistry>(registry);
       }).pipe(Effect.withSpan('Planets.load'));
 
       const save = (registry: PlanetRegistry) =>
         Effect.tryPromise(async () => {
           await mkdir(folder, { recursive: true, mode: 0o700 });
-          const file: typeof StoredFile.Encoded = { version: 1, planets: registry.planets };
+          const file: typeof StoredFile.Encoded = { version: 1, ...registry };
           // A name of its own per save, so a slower earlier save never renames over a later one.
           const temporary = `${path}.${randomUUID()}.tmp`;
           await writeFile(temporary, JSON.stringify(file), { encoding: 'utf-8', mode: 0o600 });
