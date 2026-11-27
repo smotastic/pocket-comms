@@ -886,7 +886,7 @@ export const Missions = Schema.Struct({
 
 export const MissionOutcomeRequest = Schema.Struct({
   result: Schema.Literals(['done', 'failed']).annotate({
-    description: 'done after the merge; failed when the agent cannot go on.',
+    description: 'done right before the merge call; failed when the agent cannot go on.',
     examples: ['done'],
   }),
   outcome: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(4_000)).annotate({

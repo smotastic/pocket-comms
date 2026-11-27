@@ -232,6 +232,8 @@ describe('the first prompt', () => {
     expect(prompt).toContain('comms-mission');
     expect(prompt).toContain('comms-attach-pull-request');
     expect(prompt).toContain('Never deploy.');
+    // Comms closes the agent once it sees the merge, so done is reported before it.
+    expect(prompt).toContain('done right before the merge call');
     expect(prompt).toContain('Issue #7: Fix the header');
     expect(prompt).toContain('It overlaps.');
     expect(prompt).not.toContain('Continue from your branch');

@@ -271,6 +271,56 @@ describe('a running mission', () => {
     }).pipe(Effect.scoped, Effect.provide(layer())),
   );
 
+  it.effect(
+    'keeps a done outcome reported before the merge in the log once the merge is seen',
+    () =>
+      Effect.gen(function* () {
+        const { state, service, agent } = yield* started;
+        const pullRequest = (prState: 'open' | 'merged') => ({
+          title: 'fix: the header',
+          state: prState,
+          url: 'http://pr/12',
+          diff: '',
+          files: [],
+        });
+        state.attachedLists = {
+          s1: [{ owner: 'owner', name: 'app', number: 12, url: 'http://pr/12', attachedAt: 1 }],
+        };
+        state.pullRequests.set('owner/app#12', pullRequest('open'));
+        yield* service.advance;
+
+        // The skill reports done right before its merge call.
+        yield* service.outcome(agent, { result: 'done', outcome: 'Fixed the header.' });
+
+        // A merge that has not happened yet leaves the mission in its pull request.
+        yield* service.advance;
+        expect((yield* service.list).running).toMatchObject({
+          state: 'pull-request',
+          outcome: 'Fixed the header.',
+        });
+
+        state.pullRequests.set('owner/app#12', pullRequest('merged'));
+        yield* service.advance;
+        expect((yield* service.list).log[0]).toMatchObject({
+          state: 'merged',
+          outcome: 'Fixed the header.',
+        });
+      }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect('lets a failed outcome replace a done one when the merge does not happen', () =>
+    Effect.gen(function* () {
+      const { service, agent } = yield* started;
+      yield* service.outcome(agent, { result: 'done', outcome: 'Fixed the header.' });
+      yield* service.outcome(agent, { result: 'failed', outcome: 'The merge was refused.' });
+      expect((yield* service.list).log[0]).toMatchObject({
+        state: 'failed',
+        reason: 'The merge was refused.',
+        outcome: 'The merge was refused.',
+      });
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
   it.effect('keeps a worktree with changes after the merge', () =>
     Effect.gen(function* () {
       const { state, service } = yield* started;
