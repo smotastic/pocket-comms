@@ -57,7 +57,7 @@ export class MissionsInbound extends Context.Service<
     /**
      * The owner's Deploy of a mission that waits for it (spec 036): the planet's waiting missions
      * join the mission queue to release and deploy together. Refused while the planet is no-go,
-     * not at missions or does not deploy (spec 037).
+     * at manual or does not deploy (spec 037).
      */
     readonly deploy: (
       id: string,

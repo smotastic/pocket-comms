@@ -607,6 +607,38 @@ describe('releasing and deploying a merged mission (spec 036)', () => {
     });
   const merged = mergedWith(false);
 
+  it.effect("releases a merge and takes the owner's Deploy on a planet at autopilot too", () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(state, [{ subject: 'fix(web): the header', files: ['apps/web/header.ts'] }]);
+      state.registry = {
+        appsSeeded: true,
+        planets: [{ name: 'app', autonomy: 'autopilot', apps: ['pocket-app'] }],
+      };
+      const { service, id } = yield* merged;
+      expect((yield* service.list).running).toMatchObject({ id, state: 'releasing' });
+      yield* service.advance;
+      expect(state.bot.calls).toContain('pushTag owner/app app-v0.3.1 c1');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
+  it.effect("takes the owner's Deploy of a breaking change on a planet at autopilot", () =>
+    Effect.gen(function* () {
+      const state = yield* FakeState;
+      deploys(state, [{ subject: 'feat!: a new api', files: ['apps/api.ts'] }]);
+      state.registry = {
+        appsSeeded: true,
+        planets: [{ name: 'app', autonomy: 'autopilot', apps: ['pocket-app'] }],
+      };
+      const { service, id } = yield* mergedWith(true);
+      expect((yield* service.list).log[0]).toMatchObject({ id, state: 'awaiting-deploy' });
+      yield* service.deploy(id);
+      yield* service.advance;
+      yield* service.advance;
+      expect(state.bot.calls).toContain('pushTag owner/app app-v0.4.0 c1');
+    }).pipe(Effect.scoped, Effect.provide(layer())),
+  );
+
   it.effect('tags, waits for the release run, deploys, and only then starts the next', () =>
     Effect.gen(function* () {
       const state = yield* FakeState;

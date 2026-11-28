@@ -369,8 +369,8 @@ export const makeMissions = Effect.gen(function* () {
   ): Mission => ({ ...mission, state, reason, finishedAt: now, deploy: undefined });
 
   /**
-   * After the merge (spec 036, requirements 5 to 9): a planet at missions whose deploy checks
-   * pass releases; otherwise the mission ends with why.
+   * After the merge (spec 036, requirements 5 to 9): a planet at missions or autopilot whose
+   * deploy checks pass releases; otherwise the mission ends with why.
    */
   const afterMerge = (file: MissionsFile, mission: Mission, now: number) =>
     Effect.gen(function* () {
@@ -378,13 +378,14 @@ export const makeMissions = Effect.gen(function* () {
       if (Option.isNone(preflight)) {
         return finished(mission, 'not-deployed', `${mission.planet} is not a planet now.`, now);
       }
-      if (preflight.value.autonomy.effective !== 'missions') {
+      // Autopilot deploys like missions; only manual stops a release (spec 038).
+      if (preflight.value.autonomy.effective === 'manual') {
         const failed = preflight.value.checks.filter((check) => !check.passed);
         return finished(
           mission,
           'not-deployed',
           failed.length === 0
-            ? `${mission.planet} is not at missions now.`
+            ? `${mission.planet} is at manual now.`
             : `${mission.planet} is no-go: ${failed.map((check) => check.reason).join(' ')}`,
           now,
         );
@@ -862,12 +863,12 @@ export const makeMissions = Effect.gen(function* () {
           () => new MissionRefusedError({ reason: `${waiting.planet} is not a planet now.` }),
         ),
       );
-    if (preflight.autonomy.effective !== 'missions') {
+    if (preflight.autonomy.effective === 'manual') {
       const failed = preflight.checks.filter((check) => !check.passed).map((check) => check.reason);
       return yield* new MissionRefusedError({
         reason:
           failed.length === 0
-            ? `${waiting.planet} is not at missions.`
+            ? `${waiting.planet} is at manual.`
             : `${waiting.planet} is no-go: ${failed.join(' ')}`,
       });
     }
