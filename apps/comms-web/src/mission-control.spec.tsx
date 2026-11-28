@@ -240,7 +240,10 @@ describe('Autopilot in Mission Control (spec 038)', () => {
       ]),
     );
 
+    // Time fields, so a phone offers a time picker rather than a number pad without a colon.
     const opens = within(section).getByLabelText('Window opens');
+    expect(opens.getAttribute('type')).toBe('time');
+    expect(within(section).getByLabelText('Window closes').getAttribute('type')).toBe('time');
     await userEvent.clear(opens);
     await userEvent.type(opens, '22:30');
     await userEvent.click(within(section).getByRole('button', { name: 'Save window and budget' }));

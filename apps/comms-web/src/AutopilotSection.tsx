@@ -76,16 +76,14 @@ const Settings = ({
       <Inline gap="sm">
         <Input
           label="Window opens"
+          type="time"
           value={start}
-          inputMode="numeric"
-          placeholder="23:00"
           onChange={(event) => setStart(event.target.value)}
         />
         <Input
           label="Window closes"
+          type="time"
           value={end}
-          inputMode="numeric"
-          placeholder="07:00"
           onChange={(event) => setEnd(event.target.value)}
         />
       </Inline>
